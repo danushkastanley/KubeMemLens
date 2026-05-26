@@ -1,0 +1,5 @@
+/kubectl-memlens
+/memlens-agent
+/memlens-collector
+*.test
+coverage.out

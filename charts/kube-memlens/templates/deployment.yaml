@@ -1,0 +1,41 @@
+{{- if .Values.collector.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-memlens-collector
+  namespace: {{ .Values.namespace.name | quote }}
+spec:
+  replicas: {{ .Values.collector.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kube-memlens-collector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kube-memlens-collector
+    spec:
+      serviceAccountName: kube-memlens
+      containers:
+        - name: collector
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/memlens-collector"]
+          args:
+            - "--listen=:{{ .Values.collector.service.port }}"
+            - "--snapshot-ttl={{ .Values.collector.snapshotTTL }}"
+          ports:
+            - name: http
+              containerPort: {{ .Values.collector.service.port }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          securityContext:
+            privileged: false
+            readOnlyRootFilesystem: {{ .Values.security.readOnlyRootFilesystem }}
+            allowPrivilegeEscalation: false
+{{- end }}

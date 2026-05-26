@@ -1,0 +1,15 @@
+{{- if .Values.collector.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-memlens-collector
+  namespace: {{ .Values.namespace.name | quote }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: kube-memlens-collector
+  ports:
+    - name: http
+      port: {{ .Values.collector.service.port }}
+      targetPort: http
+{{- end }}

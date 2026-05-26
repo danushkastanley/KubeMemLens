@@ -1,0 +1,9 @@
+.git
+charts
+docs
+examples
+*.test
+coverage.out
+kubectl-memlens
+memlens-agent
+memlens-collector

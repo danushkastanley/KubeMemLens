@@ -1,0 +1,30 @@
+image:
+  repository: ghcr.io/example/kube-memlens
+  tag: dev
+  pullPolicy: IfNotPresent
+
+namespace:
+  create: false
+  name: kube-memlens
+
+agent:
+  enabled: true
+  cgroupRootHostPath: /sys/fs/cgroup
+  procRootHostPath: /proc
+  interval: 5s
+  collectorURL: http://kube-memlens-collector:8080
+
+collector:
+  enabled: true
+  replicas: 1
+  snapshotTTL: 30s
+  service:
+    port: 8080
+
+security:
+  privileged: false
+  readOnlyRootFilesystem: true
+
+# v0.2 is cgroup-read focused and should run with read-only hostPath mounts.
+# Future eBPF mode may require elevated permissions and must receive a separate
+# security review before those permissions are enabled.
