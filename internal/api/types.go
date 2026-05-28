@@ -46,9 +46,11 @@ type SnapshotPostResponse struct {
 	Containers int  `json:"containers"`
 }
 
-type StoreDebug struct {
+type DebugStore struct {
 	TotalContainers int `json:"totalContainers"`
 	StaleContainers int `json:"staleContainers"`
 	Pods            int `json:"pods"`
 	Namespaces      int `json:"namespaces"`
 }
+
+type StoreDebug = DebugStore

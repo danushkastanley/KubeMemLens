@@ -12,7 +12,7 @@ The goal is to make incidents like "kubectl top says memory is high, but the app
 
 ## Status
 
-KubeMemLens is at the v0.2 local-cluster stage. The sample CLI still works without Kubernetes, and the Helm chart can deploy a node-local agent plus in-memory collector for real cgroup snapshots in a local cluster.
+KubeMemLens is at the v0.4 local-cluster stage. The sample CLI still works without Kubernetes, and the Helm chart can deploy a node-local agent plus in-memory collector for real cgroup snapshots in a local cluster. The CLI can query the collector through the Kubernetes API service proxy by default, with HTTP/port-forward mode available as a fallback.
 
 ## Example
 
@@ -102,7 +102,7 @@ Run a one-shot agent scan:
 kubectl exec -n kube-memlens ds/kube-memlens-agent -- /memlens-agent --cgroup-root=/host/sys/fs/cgroup --once
 ```
 
-Query the collector:
+Query the collector directly, if you want to inspect the HTTP API:
 
 ```sh
 kubectl -n kube-memlens port-forward svc/kube-memlens-collector 18080:8080
@@ -111,13 +111,92 @@ curl http://127.0.0.1:18080/api/v1/debug/store
 curl http://127.0.0.1:18080/api/v1/pods
 ```
 
-Use the CLI against collector snapshots:
+Use the CLI against collector snapshots without a manual port-forward:
 
 ```sh
+go run ./cmd/kubectl-memlens status
+go run ./cmd/kubectl-memlens top pods -A
+go run ./cmd/kubectl-memlens top containers -A
+go run ./cmd/kubectl-memlens top ns
+go run ./cmd/kubectl-memlens explain pod <pod-name> -n <namespace>
+```
+
+## Using Without Port-Forward
+
+By default, KubeMemLens uses the Kubernetes API service proxy to reach the in-cluster collector. The default collector target is:
+
+- namespace: `kube-memlens`
+- service: `kube-memlens-collector`
+- port: `8080`
+
+```sh
+go run ./cmd/kubectl-memlens status
+go run ./cmd/kubectl-memlens top pods -A
+go run ./cmd/kubectl-memlens tui
+```
+
+Override the collector target when needed:
+
+```sh
+go run ./cmd/kubectl-memlens status \
+  --collector-namespace=kube-memlens \
+  --collector-service=kube-memlens-collector \
+  --collector-port=8080
+```
+
+Use a specific kubeconfig or context:
+
+```sh
+go run ./cmd/kubectl-memlens top pods -A --kubeconfig=/path/to/config --context=minikube
+```
+
+## Fallback To Port-Forward
+
+HTTP mode is still supported for local debugging or restricted RBAC environments:
+
+```sh
+kubectl -n kube-memlens port-forward svc/kube-memlens-collector 18080:8080
 go run ./cmd/kubectl-memlens top pods -A --collector-url=http://127.0.0.1:18080
+go run ./cmd/kubectl-memlens top containers -A --collector-url=http://127.0.0.1:18080
 go run ./cmd/kubectl-memlens top ns --collector-url=http://127.0.0.1:18080
 go run ./cmd/kubectl-memlens explain pod <pod-name> -n <namespace> --collector-url=http://127.0.0.1:18080
 ```
+
+## Terminal Dashboard
+
+Run the dashboard:
+
+```sh
+go run ./cmd/kubectl-memlens tui
+```
+
+Future installed usage:
+
+```sh
+kubectl memlens tui
+```
+
+Example layout:
+
+```text
+KubeMemLens | view: pods | connection: kube-proxy kube-memlens/kube-memlens-collector:8080 | refreshed: 2s ago
+
+NAMESPACE     POD                         NODE       TOTAL   RSS    CACHE  SHMEM  SLAB   DIAGNOSIS
+kube-system   coredns-...                 minikube   72Mi    31Mi   20Mi   0Mi    8Mi    normal
+kube-memlens  kube-memlens-agent-...      minikube   40Mi    18Mi   12Mi   0Mi    5Mi    normal
+
+q quit · r refresh · / search · tab switch · enter drill · e explain · ? help
+```
+
+## RBAC For Kube-Proxy Mode
+
+The kubeconfig identity running the CLI needs permission to access the collector service proxy:
+
+```sh
+kubectl auth can-i get services/proxy -n kube-memlens
+```
+
+See `examples/rbac/kube-memlens-viewer.yaml` for a minimal Role that an admin can bind to users or groups.
 
 ## Current Scope
 
@@ -130,7 +209,10 @@ go run ./cmd/kubectl-memlens explain pod <pod-name> -n <namespace> --collector-u
 - node-local agent that maps cgroups to pod/container metadata
 - agent to collector snapshot POST
 - in-memory collector with pod and namespace aggregation
-- collector-backed `top pods`, `top ns`, and `explain pod`
+- collector-backed `top pods`, `top containers`, `top ns`, and `explain pod`
+- Bubble Tea terminal dashboard with namespace, pod, container, and pod detail views
+- Kubernetes API service proxy mode for CLI/TUI collector access
+- `status` command for collector connectivity and latest snapshot counts
 
 ## Non-Goals
 
@@ -144,16 +226,17 @@ go run ./cmd/kubectl-memlens explain pod <pod-name> -n <namespace> --collector-u
 
 ## Security Posture
 
-v0.2 reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads pod/node metadata through the Kubernetes API. It does not send telemetry, phone home, or persist workload data outside the in-memory collector. Future eBPF mode will need a separate security review.
+v0.4 reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads pod/node metadata through the Kubernetes API. CLI kube-proxy mode uses the user's Kubernetes credentials and is governed by RBAC. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. Future eBPF mode will need a separate security review.
 
 ## Roadmap
 
 - v0.1: local parser and sample CLI
 - v0.2: Kubernetes cgroup mapping, DaemonSet scan, collector snapshots, and collector-backed CLI
-- v0.3: terminal dashboard
-- v0.4: Prometheus/OpenMetrics export
-- v0.5: optional eBPF file attribution
-- v0.6: on-demand pod tracing
+- v0.3: terminal dashboard, search/sort, pod explain view
+- v0.4: kubectl-native collector connectivity through Kubernetes API service proxy
+- v0.5: Prometheus/OpenMetrics export
+- v0.6: agent informer cache and cgroup mapping hardening
+- v0.7: optional eBPF file attribution
 
 ## Contributing
 

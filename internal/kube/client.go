@@ -3,23 +3,16 @@ package kube
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 )
 
 func NewClient() (kubernetes.Interface, error) {
-	config, err := rest.InClusterConfig()
+	config, err := BuildConfig("", "")
 	if err != nil {
-		config, err = outOfClusterConfig()
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	client, err := kubernetes.NewForConfig(config)
@@ -40,23 +33,4 @@ func ListPodsForNode(ctx context.Context, client kubernetes.Interface, nodeName 
 		return nil, fmt.Errorf("list pods: %w", err)
 	}
 	return pods.Items, nil
-}
-
-func outOfClusterConfig() (*rest.Config, error) {
-	kubeconfig := os.Getenv("KUBECONFIG")
-	if kubeconfig == "" {
-		home, err := os.UserHomeDir()
-		if err == nil {
-			kubeconfig = filepath.Join(home, ".kube", "config")
-		}
-	}
-	if kubeconfig == "" {
-		return nil, fmt.Errorf("kubernetes config not found")
-	}
-
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return nil, fmt.Errorf("build kubeconfig: %w", err)
-	}
-	return config, nil
 }

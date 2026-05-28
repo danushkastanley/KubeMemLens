@@ -7,11 +7,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/client"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 )
 
-func newExplainCommand(collectorURL *string) *cobra.Command {
+func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "explain",
 		Short: "Explain Kubernetes memory usage",
@@ -23,9 +24,14 @@ func newExplainCommand(collectorURL *string) *cobra.Command {
 		Short: "Explain one pod",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pods, err := fetchJSON[[]api.PodSnapshot](*collectorURL, "/api/v1/pods")
+			opts := collectorOptions()
+			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
-				return err
+				return collectorUnavailableError(opts, description, err)
+			}
+			pods, err := reader.Pods(cmd.Context())
+			if err != nil {
+				return collectorUnavailableError(opts, description, err)
 			}
 			for _, pod := range pods {
 				if pod.Namespace == namespace && pod.PodName == args[0] {

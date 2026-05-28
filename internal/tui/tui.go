@@ -1,8 +1,29 @@
 package tui
 
-import "io"
+import (
+	"context"
+	"time"
 
-func Run(w io.Writer) error {
-	_, err := w.Write([]byte("TUI is planned for v0.2. Use sample top/explain for v0.1.\n"))
+	tea "github.com/charmbracelet/bubbletea"
+
+	"github.com/danushkastanley/kube-memlens/internal/client"
+)
+
+func Run(ctx context.Context, opts Options) error {
+	reader := opts.SnapshotReader
+	description := opts.ConnectionDescription
+	if reader == nil {
+		var err error
+		reader, description, err = client.NewSnapshotReader(ctx, opts.ConnectionOptions)
+		if err != nil {
+			return client.ConnectionError(opts.ConnectionOptions, description, err)
+		}
+	}
+	if opts.RefreshInterval <= 0 {
+		opts.RefreshInterval = 5 * time.Second
+	}
+	model := newModel(ctx, opts, reader, description)
+	program := tea.NewProgram(model, tea.WithAltScreen(), tea.WithContext(ctx))
+	_, err := program.Run()
 	return err
 }

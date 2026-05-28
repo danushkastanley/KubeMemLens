@@ -8,11 +8,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/client"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 )
 
-func newTopCommand(collectorURL *string) *cobra.Command {
+type collectorOptionsProvider func() client.Options
+
+func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "top",
 		Short: "Show Kubernetes memory summaries",
@@ -25,9 +28,14 @@ func newTopCommand(collectorURL *string) *cobra.Command {
 		Short: "Show pod memory summaries",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			pods, err := fetchJSON[[]api.PodSnapshot](*collectorURL, "/api/v1/pods")
+			opts := collectorOptions()
+			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
-				return err
+				return collectorUnavailableError(opts, description, err)
+			}
+			pods, err := reader.Pods(cmd.Context())
+			if err != nil {
+				return collectorUnavailableError(opts, description, err)
 			}
 			if !allNamespaces {
 				pods = filterPodsByNamespace(pods, namespace)
@@ -40,15 +48,47 @@ func newTopCommand(collectorURL *string) *cobra.Command {
 	podsCmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "namespace to show when --all-namespaces is not set")
 	cmd.AddCommand(podsCmd)
 
+	var containerNamespace string
+	var containerAllNamespaces bool
+	containersCmd := &cobra.Command{
+		Use:   "containers",
+		Short: "Show container memory summaries",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			opts := collectorOptions()
+			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			if err != nil {
+				return collectorUnavailableError(opts, description, err)
+			}
+			containers, err := reader.Containers(cmd.Context())
+			if err != nil {
+				return collectorUnavailableError(opts, description, err)
+			}
+			if !containerAllNamespaces {
+				containers = filterContainersByNamespace(containers, containerNamespace)
+			}
+			printContainersTable(cmd.OutOrStdout(), containers)
+			return nil
+		},
+	}
+	containersCmd.Flags().BoolVarP(&containerAllNamespaces, "all-namespaces", "A", false, "show containers across all namespaces")
+	containersCmd.Flags().StringVarP(&containerNamespace, "namespace", "n", "default", "namespace to show when --all-namespaces is not set")
+	cmd.AddCommand(containersCmd)
+
 	cmd.AddCommand(&cobra.Command{
 		Use:     "ns",
 		Aliases: []string{"namespaces"},
 		Short:   "Show namespace memory summaries",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			namespaces, err := fetchJSON[[]api.NamespaceSnapshot](*collectorURL, "/api/v1/namespaces")
+			opts := collectorOptions()
+			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
-				return err
+				return collectorUnavailableError(opts, description, err)
+			}
+			namespaces, err := reader.Namespaces(cmd.Context())
+			if err != nil {
+				return collectorUnavailableError(opts, description, err)
 			}
 			printNamespacesTable(cmd.OutOrStdout(), namespaces)
 			return nil
@@ -68,12 +108,22 @@ func filterPodsByNamespace(pods []api.PodSnapshot, namespace string) []api.PodSn
 	return filtered
 }
 
+func filterContainersByNamespace(containers []api.ContainerSnapshot, namespace string) []api.ContainerSnapshot {
+	filtered := make([]api.ContainerSnapshot, 0, len(containers))
+	for _, container := range containers {
+		if container.Namespace == "" || container.PodName == "" || container.ContainerName == "" {
+			continue
+		}
+		if container.Namespace == namespace {
+			filtered = append(filtered, container)
+		}
+	}
+	return filtered
+}
+
 func printPodsTable(w interface{ Write([]byte) (int, error) }, pods []api.PodSnapshot) {
 	sort.Slice(pods, func(i, j int) bool {
-		if pods[i].Namespace == pods[j].Namespace {
-			return pods[i].PodName < pods[j].PodName
-		}
-		return pods[i].Namespace < pods[j].Namespace
+		return pods[i].Memory.TotalBytes > pods[j].Memory.TotalBytes
 	})
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
@@ -87,6 +137,45 @@ func printPodsTable(w interface{ Write([]byte) (int, error) }, pods []api.PodSna
 		}, pod.Memory)
 	}
 	_ = tw.Flush()
+}
+
+func printContainersTable(w interface{ Write([]byte) (int, error) }, containers []api.ContainerSnapshot) {
+	containers = mappedContainers(containers)
+	sort.Slice(containers, func(i, j int) bool {
+		return containers[i].Memory.TotalBytes > containers[j].Memory.TotalBytes
+	})
+
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tRSS\tCACHE\tSHMEM\tSLAB\tDIAGNOSIS\tAGE")
+	for _, container := range containers {
+		fmt.Fprintf(
+			tw,
+			"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			container.Namespace,
+			container.PodName,
+			container.ContainerName,
+			container.NodeName,
+			model.FormatCompactBytes(container.Memory.TotalBytes),
+			model.FormatCompactBytes(container.Memory.RSSBytes()),
+			model.FormatCompactBytes(container.Memory.CacheBytes()),
+			model.FormatCompactBytes(container.Memory.ShmemBytes),
+			model.FormatCompactBytes(container.Memory.SlabBytes),
+			explain.Analyze(container.Memory).Diagnosis,
+			formatAge(container.CapturedAt),
+		)
+	}
+	_ = tw.Flush()
+}
+
+func mappedContainers(containers []api.ContainerSnapshot) []api.ContainerSnapshot {
+	filtered := make([]api.ContainerSnapshot, 0, len(containers))
+	for _, container := range containers {
+		if container.Namespace == "" || container.PodName == "" || container.ContainerName == "" {
+			continue
+		}
+		filtered = append(filtered, container)
+	}
+	return filtered
 }
 
 func printNamespacesTable(w interface{ Write([]byte) (int, error) }, namespaces []api.NamespaceSnapshot) {

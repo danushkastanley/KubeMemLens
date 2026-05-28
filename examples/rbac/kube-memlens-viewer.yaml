@@ -1,0 +1,18 @@
+# Minimal read permissions for humans or automation running kubectl-memlens in
+# kube-proxy mode. Bind this Role to the users or groups that should be allowed
+# to query the in-cluster KubeMemLens collector.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kube-memlens-viewer
+  namespace: kube-memlens
+rules:
+  - apiGroups: [""]
+    resources: ["services", "services/proxy"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]

@@ -3,13 +3,30 @@ package cli
 import (
 	"fmt"
 	"io"
-	"os"
 
+	"github.com/danushkastanley/kube-memlens/internal/client"
 	"github.com/spf13/cobra"
 )
 
+type collectorFlags struct {
+	connectMode        string
+	collectorURL       string
+	collectorNamespace string
+	collectorService   string
+	collectorPort      int
+	kubeconfig         string
+	context            string
+}
+
 func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
-	collectorURL := defaultCollectorURL()
+	defaults := client.DefaultOptions()
+	flags := &collectorFlags{
+		connectMode:        string(defaults.Mode),
+		collectorURL:       defaults.CollectorURL,
+		collectorNamespace: defaults.CollectorNamespace,
+		collectorService:   defaults.CollectorService,
+		collectorPort:      defaults.CollectorPort,
+	}
 	cmd := &cobra.Command{
 		Use:   "kubectl-memlens",
 		Short: "Terminal-first Kubernetes memory inspector",
@@ -21,12 +38,19 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
-	cmd.PersistentFlags().StringVar(&collectorURL, "collector-url", collectorURL, "collector base URL")
+	cmd.PersistentFlags().StringVar(&flags.connectMode, "connect-mode", flags.connectMode, "collector connection mode: auto, http, or kube-proxy")
+	cmd.PersistentFlags().StringVar(&flags.collectorURL, "collector-url", flags.collectorURL, "collector base URL for HTTP mode")
+	cmd.PersistentFlags().StringVar(&flags.collectorNamespace, "collector-namespace", flags.collectorNamespace, "collector service namespace for kube-proxy mode")
+	cmd.PersistentFlags().StringVar(&flags.collectorService, "collector-service", flags.collectorService, "collector service name for kube-proxy mode")
+	cmd.PersistentFlags().IntVar(&flags.collectorPort, "collector-port", flags.collectorPort, "collector service port for kube-proxy mode")
+	cmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "", "path to kubeconfig for kube-proxy mode")
+	cmd.PersistentFlags().StringVar(&flags.context, "context", "", "kubeconfig context for kube-proxy mode")
 
 	cmd.AddCommand(newSampleCommand())
-	cmd.AddCommand(newTopCommand(&collectorURL))
-	cmd.AddCommand(newExplainCommand(&collectorURL))
-	cmd.AddCommand(newTUICommand())
+	cmd.AddCommand(newTopCommand(flags.options))
+	cmd.AddCommand(newExplainCommand(flags.options))
+	cmd.AddCommand(newTUICommand(flags.options))
+	cmd.AddCommand(newStatusCommand(flags.options))
 
 	return cmd
 }
@@ -40,9 +64,14 @@ func Execute(stdout, stderr io.Writer) error {
 	return nil
 }
 
-func defaultCollectorURL() string {
-	if value := os.Getenv("MEMLENS_COLLECTOR_URL"); value != "" {
-		return value
+func (f *collectorFlags) options() client.Options {
+	return client.Options{
+		Mode:               client.ConnectionMode(f.connectMode),
+		CollectorURL:       f.collectorURL,
+		CollectorNamespace: f.collectorNamespace,
+		CollectorService:   f.collectorService,
+		CollectorPort:      f.collectorPort,
+		Kubeconfig:         f.kubeconfig,
+		Context:            f.context,
 	}
-	return "http://127.0.0.1:18080"
 }
