@@ -3,3 +3,5 @@
 /memlens-collector
 *.test
 coverage.out
+/dist/
+/qualification-evidence/

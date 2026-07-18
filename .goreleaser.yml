@@ -1,0 +1,65 @@
+version: 2
+
+project_name: kube-memlens
+
+builds:
+  - id: kubectl-memlens
+    main: ./cmd/kubectl-memlens
+    binary: kubectl-memlens
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X github.com/danushkastanley/kube-memlens/internal/buildinfo.Version={{ .Version }}
+      - -X github.com/danushkastanley/kube-memlens/internal/buildinfo.Commit={{ .Commit }}
+      - -X github.com/danushkastanley/kube-memlens/internal/buildinfo.BuildDate={{ .Date }}
+
+archives:
+  - ids: [kubectl-memlens]
+    name_template: >-
+      kube-memlens_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      {{- with .Arm }}v{{ . }}{{ end }}
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: checksums.txt
+
+sboms:
+  - artifacts: archive
+
+signs:
+  - cmd: cosign
+    artifacts: checksum
+    certificate: ${artifact}.pem
+    signature: ${artifact}.sig
+    args:
+      - sign-blob
+      - --yes
+      - --output-certificate=${certificate}
+      - --output-signature=${signature}
+      - ${artifact}
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+release:
+  draft: true
+  prerelease: auto
+  footer: >-
+    Verify checksums and signatures before installation. See SECURITY.md and
+    the release documentation for supported environments and known limits.

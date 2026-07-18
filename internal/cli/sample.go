@@ -164,25 +164,69 @@ func printMemoryExplanation(w interface{ Write([]byte) (int, error) }, title str
 	fmt.Fprintf(w, "Total charged memory: %s\n", model.FormatBytes(breakdown.TotalBytes))
 	fmt.Fprintf(w, "RSS / anon:           %s\n", model.FormatBytes(breakdown.RSSBytes()))
 	fmt.Fprintf(w, "File cache:           %s\n", model.FormatBytes(breakdown.CacheBytes()))
+	fmt.Fprintf(w, "Shmem / tmpfs:        %s\n", model.FormatBytes(breakdown.ShmemBytes))
+	fmt.Fprintf(w, "Residual / other:     %s\n", model.FormatBytes(breakdown.ResidualBytes()))
+	fmt.Fprintln(w, "\nSecondary detail (overlaps primary composition):")
 	fmt.Fprintf(w, "Active file:          %s\n", model.FormatBytes(breakdown.ActiveFileBytes))
 	fmt.Fprintf(w, "Inactive file:        %s\n", model.FormatBytes(breakdown.InactiveFileBytes))
-	fmt.Fprintf(w, "Shmem / tmpfs:        %s\n", model.FormatBytes(breakdown.ShmemBytes))
-	fmt.Fprintf(w, "Slab / kernel:        %s\n", model.FormatBytes(breakdown.SlabBytes))
+	fmt.Fprintf(w, "Kernel total:         %s\n", model.FormatBytes(breakdown.KernelBytes))
+	fmt.Fprintf(w, "Slab:                 %s\n", model.FormatBytes(breakdown.SlabBytes))
+	fmt.Fprintf(w, "  reclaimable:        %s\n", model.FormatBytes(breakdown.SlabReclaimableBytes))
+	fmt.Fprintf(w, "  unreclaimable:      %s\n", model.FormatBytes(breakdown.SlabUnreclaimableBytes))
+	fmt.Fprintf(w, "Socket memory:        %s\n", model.FormatBytes(breakdown.SocketBytes))
+	fmt.Fprintf(w, "Page tables:          %s\n", model.FormatBytes(breakdown.PageTableBytes))
+	fmt.Fprintf(w, "Mapped file:          %s\n", model.FormatBytes(breakdown.FileMappedBytes))
+	fmt.Fprintf(w, "THP anon/file/shmem:  %s / %s / %s\n", model.FormatBytes(breakdown.AnonTHPBytes), model.FormatBytes(breakdown.FileTHPBytes), model.FormatBytes(breakdown.ShmemTHPBytes))
+	fmt.Fprintf(w, "Other kernel:         %s\n", model.FormatBytes(breakdown.KernelOtherBytes()))
 	fmt.Fprintf(w, "Dirty/writeback:      %s\n", model.FormatDirtyWriteback(breakdown))
+	if breakdown.PeakKnown {
+		fmt.Fprintf(w, "Peak:                 %s\n", model.FormatBytes(breakdown.PeakBytes))
+	}
+	if breakdown.MaxKnown {
+		if breakdown.MaxUnlimited {
+			fmt.Fprintln(w, "Hard limit:           unlimited")
+		} else {
+			fmt.Fprintf(w, "Hard limit:           %s (%.0f%% used)\n", model.FormatBytes(breakdown.MaxBytes), breakdown.LimitUsageRatio()*100)
+		}
+	}
+	if breakdown.SwapCurrentKnown {
+		fmt.Fprintf(w, "Swap:                 %s\n", model.FormatBytes(breakdown.SwapCurrentBytes))
+	}
+	if breakdown.PressureKnown {
+		fmt.Fprintf(w, "Memory PSI avg10:     some %.2f%% / full %.2f%%\n", breakdown.PSISomeAvg10, breakdown.PSIFullAvg10)
+	}
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Diagnosis:")
-	fmt.Fprintf(w, "%s\n\n", result.Diagnosis)
+	fmt.Fprintf(w, "%s\n", result.Diagnosis)
+	fmt.Fprintf(w, "Severity: %s\n", result.Severity)
+	fmt.Fprintf(w, "Confidence: %s — %s\n", result.Confidence, result.ConfidenceReason)
+	fmt.Fprintf(w, "Observation window: %s\n", result.EvidenceWindow.ObservationDescription())
+	fmt.Fprintf(w, "Counter window: %s\n\n", result.EvidenceWindow.DeltaDescription())
+	if len(result.Signals) > 0 {
+		fmt.Fprintln(w, "Evidence:")
+		for _, signal := range result.Signals {
+			fmt.Fprintf(w, "- %s\n", signal)
+		}
+		fmt.Fprintln(w)
+	}
 	fmt.Fprintln(w, "Likely explanation:")
 	fmt.Fprintf(w, "%s\n\n", result.LikelyExplanation)
 	fmt.Fprintln(w, "Suggested checks:")
 	for _, check := range result.SuggestedChecks {
 		fmt.Fprintf(w, "- %s\n", check)
 	}
+	if len(result.Caveats) > 0 {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, "Caveats:")
+		for _, caveat := range result.Caveats {
+			fmt.Fprintf(w, "- %s\n", caveat)
+		}
+	}
 }
 
 func printSampleTop(w interface{ Write([]byte) (int, error) }, rows []model.MemoryBreakdown) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAME\tTOTAL\tRSS\tCACHE\tSHMEM\tSLAB\tDIAGNOSIS")
+	fmt.Fprintln(tw, "NAME\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
 	for _, row := range rows {
 		fmt.Fprintf(
 			tw,
@@ -192,7 +236,7 @@ func printSampleTop(w interface{ Write([]byte) (int, error) }, rows []model.Memo
 			model.FormatCompactBytes(row.RSSBytes()),
 			model.FormatCompactBytes(row.CacheBytes()),
 			model.FormatCompactBytes(row.ShmemBytes),
-			model.FormatCompactBytes(row.SlabBytes),
+			model.FormatCompactBytes(row.ResidualBytes()),
 			explain.Analyze(row).Diagnosis,
 		)
 	}

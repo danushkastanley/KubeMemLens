@@ -60,23 +60,41 @@ func ParseDirectory(name, dir string) (model.MemoryBreakdown, error) {
 		slab = stat.value("slab_reclaimable") + stat.value("slab_unreclaimable")
 	}
 
-	return model.MemoryBreakdown{
-		Name:              name,
-		TotalBytes:        total,
-		AnonBytes:         stat.value("anon"),
-		FileBytes:         stat.value("file"),
-		ActiveFileBytes:   stat.value("active_file"),
-		InactiveFileBytes: stat.value("inactive_file"),
-		ShmemBytes:        stat.value("shmem"),
-		SlabBytes:         slab,
-		KernelBytes:       stat.value("kernel"),
-		DirtyBytes:        stat.value("file_dirty"),
-		WritebackBytes:    stat.value("file_writeback"),
-		OOMEvents:         events.value("oom"),
-		OOMKillEvents:     events.value("oom_kill"),
-		HighEvents:        events.value("high"),
-		MaxEvents:         events.value("max"),
-	}, nil
+	breakdown := model.MemoryBreakdown{
+		Name:                   name,
+		TotalBytes:             total,
+		AnonBytes:              stat.value("anon"),
+		FileBytes:              stat.value("file"),
+		ActiveFileBytes:        stat.value("active_file"),
+		InactiveFileBytes:      stat.value("inactive_file"),
+		ShmemBytes:             stat.value("shmem"),
+		SlabBytes:              slab,
+		SlabReclaimableBytes:   stat.value("slab_reclaimable"),
+		SlabUnreclaimableBytes: stat.value("slab_unreclaimable"),
+		KernelBytes:            stat.value("kernel"),
+		SocketBytes:            stat.value("sock"),
+		PageTableBytes:         stat.value("pagetables") + stat.value("sec_pagetables"),
+		FileMappedBytes:        stat.value("file_mapped"),
+		AnonTHPBytes:           stat.value("anon_thp"),
+		FileTHPBytes:           stat.value("file_thp"),
+		ShmemTHPBytes:          stat.value("shmem_thp"),
+		DirtyBytes:             stat.value("file_dirty"),
+		WritebackBytes:         stat.value("file_writeback"),
+		OOMEvents:              events.value("oom"),
+		OOMKillEvents:          events.value("oom_kill"),
+		HighEvents:             events.value("high"),
+		MaxEvents:              events.value("max"),
+		WorkingsetRefaultAnon:  stat.value("workingset_refault_anon"),
+		WorkingsetRefaultFile:  stat.value("workingset_refault_file"),
+		PageScan:               stat.value("pgscan"),
+		PageSteal:              stat.value("pgsteal"),
+		MajorPageFaults:        stat.value("pgmajfault"),
+		ReclaimCountersKnown:   stat.has("pgscan") && stat.has("pgsteal") && (stat.has("workingset_refault_anon") || stat.has("workingset_refault_file")),
+	}
+	if err := readMemorySignals(dir, &breakdown); err != nil {
+		return model.MemoryBreakdown{}, err
+	}
+	return breakdown, nil
 }
 
 func ParseMemoryCurrent(data []byte) (uint64, error) {
@@ -150,6 +168,11 @@ func parseKeyValues(data []byte, known map[string]struct{}) (map[string]uint64, 
 
 func (s MemoryStat) value(key string) uint64 {
 	return s.Values[key]
+}
+
+func (s MemoryStat) has(key string) bool {
+	_, exists := s.Values[key]
+	return exists
 }
 
 func (e MemoryEvents) value(key string) uint64 {

@@ -4,6 +4,12 @@ kind: Service
 metadata:
   name: kube-memlens-collector
   namespace: {{ .Values.namespace.name | quote }}
+  labels:
+    app.kubernetes.io/name: kube-memlens-collector
+{{- with .Values.metrics.serviceAnnotations }}
+  annotations:
+{{ toYaml . | nindent 4 }}
+{{- end }}
 spec:
   type: ClusterIP
   selector:
@@ -12,4 +18,7 @@ spec:
     - name: http
       port: {{ .Values.collector.service.port }}
       targetPort: http
+    - name: ingest
+      port: {{ .Values.collector.ingestion.port }}
+      targetPort: ingest
 {{- end }}

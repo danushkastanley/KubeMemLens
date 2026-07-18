@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -25,13 +26,14 @@ type Scanner struct {
 }
 
 type ScanResult struct {
-	Snapshot        api.AgentSnapshot
-	ContainersFound int
-	Mapped          int
-	Unmapped        int
-	TotalMemory     model.MemoryBreakdown
-	RootFallback    bool
-	WalkError       error
+	Snapshot              api.AgentSnapshot
+	ContainersFound       int
+	Mapped                int
+	Unmapped              int
+	InfrastructureCgroups int
+	TotalMemory           model.MemoryBreakdown
+	RootFallback          bool
+	WalkError             error
 }
 
 func (s Scanner) ScanOnce(name string) (model.MemoryBreakdown, error) {
@@ -64,8 +66,20 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 
 		return ScanResult{
 			Snapshot: api.AgentSnapshot{
-				NodeName:   s.NodeName,
-				CapturedAt: capturedAt,
+				SchemaVersion: api.CurrentSnapshotSchemaVersion,
+				NodeName:      s.NodeName,
+				CapturedAt:    capturedAt,
+				Environment: api.NodeEnvironment{
+					CgroupVersion:          "v2",
+					CgroupDriver:           detectCgroupDriver(nil),
+					ContainerRuntimes:      []string{"unknown"},
+					CgroupReadErrors:       boolCount(walkErr != nil),
+					NodeContextAvailable:   idx.NodeContext.Available,
+					MemoryPressureStatus:   idx.NodeContext.MemoryPressureStatus,
+					MemoryPressureSince:    idx.NodeContext.MemoryPressureSince,
+					MemoryAllocatableBytes: idx.NodeContext.MemoryAllocatableBytes,
+					MemoryAllocatableKnown: idx.NodeContext.MemoryAllocatableKnown,
+				},
 			},
 			TotalMemory:  breakdown,
 			RootFallback: true,
@@ -73,11 +87,27 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 		}, nil
 	}
 
+	type mapping struct {
+		ref kube.PodRef
+		ok  bool
+	}
+	mappings := make([]mapping, len(entries))
+	mappedParents := map[string]struct{}{}
+	for i, entry := range entries {
+		ref, ok := idx.Lookup(entry.ContainerID, entry.PodUID)
+		mappings[i] = mapping{ref: ref, ok: ok}
+		if ok {
+			mappedParents[filepath.Dir(entry.RelativePath)] = struct{}{}
+		}
+	}
+
 	snapshots := make([]api.ContainerSnapshot, 0, len(entries))
 	memories := make([]model.MemoryBreakdown, 0, len(entries))
 	mapped := 0
 	unmapped := 0
-	for _, entry := range entries {
+	infrastructure := 0
+	runtimes := map[string]struct{}{}
+	for i, entry := range entries {
 		select {
 		case <-ctx.Done():
 			return ScanResult{}, ctx.Err()
@@ -85,9 +115,13 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 		}
 
 		memory := entry.Memory
-		ref, ok := idx.Lookup(entry.ContainerID, entry.PodUID)
+		ref, ok := mappings[i].ref, mappings[i].ok
 		if ok {
 			mapped++
+			ref.Context.NodeMemoryPressure = idx.NodeContext.MemoryPressureStatus
+			ref.Context.NodeMemoryAllocatable = idx.NodeContext.MemoryAllocatableBytes
+			ref.Context.NodeMemoryAllocatableKnown = idx.NodeContext.MemoryAllocatableKnown
+			runtimes[chooseString(ref.Runtime, "unknown")] = struct{}{}
 			memory.Name = ref.Namespace + "/" + ref.PodName + "/" + ref.ContainerName
 			snapshots = append(snapshots, api.ContainerSnapshot{
 				Namespace:     ref.Namespace,
@@ -98,8 +132,15 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 				NodeName:      chooseString(ref.NodeName, s.NodeName),
 				CgroupPath:    entry.RelativePath,
 				CapturedAt:    capturedAt,
+				Context:       ref.Context,
 				Memory:        memory,
 			})
+		} else if _, siblingMapped := mappedParents[filepath.Dir(entry.RelativePath)]; siblingMapped {
+			// CRI Pod sandboxes are charged in a sibling cgroup but are not
+			// exposed as Kubernetes containers. Avoid presenting that runtime
+			// infrastructure as an unknown workload container.
+			infrastructure++
+			continue
 		} else {
 			unmapped++
 			memory.Name = entry.ContainerID
@@ -116,16 +157,59 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 
 	return ScanResult{
 		Snapshot: api.AgentSnapshot{
-			NodeName:   s.NodeName,
-			CapturedAt: capturedAt,
+			SchemaVersion: api.CurrentSnapshotSchemaVersion,
+			NodeName:      s.NodeName,
+			CapturedAt:    capturedAt,
+			Environment: api.NodeEnvironment{
+				CgroupVersion:            "v2",
+				CgroupDriver:             detectCgroupDriver(entries),
+				ContainerRuntimes:        sortedStrings(runtimes),
+				CgroupReadErrors:         boolCount(walkErr != nil),
+				NodeContextAvailable:     idx.NodeContext.Available,
+				MemoryPressureStatus:     idx.NodeContext.MemoryPressureStatus,
+				MemoryPressureSince:      idx.NodeContext.MemoryPressureSince,
+				MemoryAllocatableBytes:   idx.NodeContext.MemoryAllocatableBytes,
+				MemoryAllocatableKnown:   idx.NodeContext.MemoryAllocatableKnown,
+				WorkloadContextAvailable: idx.WorkloadContextAvailable,
+				WorkloadContextErrors:    idx.WorkloadContextErrors,
+			},
 			Containers: snapshots,
 		},
-		ContainersFound: len(entries),
-		Mapped:          mapped,
-		Unmapped:        unmapped,
-		TotalMemory:     model.SumMemory("containers", memories),
-		WalkError:       walkErr,
+		ContainersFound:       len(entries),
+		Mapped:                mapped,
+		Unmapped:              unmapped,
+		InfrastructureCgroups: infrastructure,
+		TotalMemory:           model.SumMemory("containers", memories),
+		WalkError:             walkErr,
 	}, nil
+}
+
+func detectCgroupDriver(entries []cgroup.Entry) string {
+	for _, entry := range entries {
+		if strings.Contains(entry.RelativePath, ".slice") || strings.Contains(entry.RelativePath, ".scope") {
+			return "systemd"
+		}
+	}
+	return "cgroupfs"
+}
+
+func sortedStrings(values map[string]struct{}) []string {
+	if len(values) == 0 {
+		return []string{"unknown"}
+	}
+	items := make([]string, 0, len(values))
+	for value := range values {
+		items = append(items, value)
+	}
+	sort.Strings(items)
+	return items
+}
+
+func boolCount(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
 }
 
 func PostSnapshot(ctx context.Context, collectorURL string, snapshot api.AgentSnapshot) error {

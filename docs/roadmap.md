@@ -32,24 +32,33 @@
 
 ## v0.5: Prometheus/OpenMetrics Export
 
-- Expose recent memory bucket metrics.
+- Expose recent memory bucket metrics at `/metrics`.
 - Keep labels controlled to avoid cardinality surprises.
-- Document scrape and retention expectations.
+- Add cardinality guardrails for pod and container metrics.
+- Add optional ServiceMonitor support without requiring the CRD by default.
+- Document metric names, labels, Helm values, and PromQL examples.
 
 ## v0.6: Cgroup Mapping Hardening And Informer Cache
 
-- Replace per-scan pod listing with a Kubernetes informer/cache.
+- Measure and optimise informer-backed Pod mapping and cgroup scan cost.
 - Harden cgroup layout support across container runtimes and distros.
 - Improve unmapped cgroup diagnostics without noisy logs.
 
-## v0.7: Optional eBPF File Attribution
+## v0.7: Memory Pressure And Trend History In The TUI
 
-- Attribute file-cache behaviour more precisely where safe.
-- Keep eBPF optional and separately reviewed.
-- If/when eBPF programs are added, the repository may need a separate license strategy for BPF code depending on helper usage.
+- Add short rolling history from collector snapshots.
+- Show pressure changes without adding long-term persistence.
+- Keep trend views bounded and terminal-friendly.
 
-## v0.8: On-Demand Pod Tracing
+## v0.8: Optional eBPF File Attribution
 
-- Add short-lived, on-demand tracing for selected pods.
-- Avoid always-on deep tracing unless explicitly enabled.
-- Keep storage local and bounded by default.
+- Qualify bounded file/page-cache tracing on compatible self-managed, GKE, EKS and AKS Linux nodes.
+- Keep eBPF separately installed, on demand, and outside the standard agent/chart.
+- Pass the documented multi-tenant threat model, provider matrix, benchmark thresholds, licence review, and independent security review before implementation.
+- Fail preflight on restricted/serverless nodes rather than enabling a privileged fallback.
+
+## v0.9: On-Demand Pod Tracing
+
+- If the v0.8 gates pass, expose short-lived tracing for one authorised Pod/container.
+- Keep raw paths behind explicit confirmation and out of metrics, logs, captures, and persistence.
+- Enforce duration, event, output, CPU, memory, and concurrency limits.

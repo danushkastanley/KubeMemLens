@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -40,24 +41,53 @@ func (c *CollectorClient) Health(ctx context.Context) error {
 }
 
 func (c *CollectorClient) Containers(ctx context.Context) ([]api.ContainerSnapshot, error) {
-	var out []api.ContainerSnapshot
-	if err := c.get(ctx, "/api/v1/containers", &out); err != nil {
+	snapshot, err := c.CurrentSnapshot(ctx)
+	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	return snapshot.Containers, nil
 }
 
 func (c *CollectorClient) Pods(ctx context.Context) ([]api.PodSnapshot, error) {
-	var out []api.PodSnapshot
-	if err := c.get(ctx, "/api/v1/pods", &out); err != nil {
+	snapshot, err := c.CurrentSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.Pods, nil
+}
+
+func (c *CollectorClient) Namespaces(ctx context.Context) ([]api.NamespaceSnapshot, error) {
+	snapshot, err := c.CurrentSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.Namespaces, nil
+}
+
+func (c *CollectorClient) Nodes(ctx context.Context) ([]api.NodeSnapshotStatus, error) {
+	var out []api.NodeSnapshotStatus
+	if err := c.get(ctx, "/api/v1/nodes", &out); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *CollectorClient) Namespaces(ctx context.Context) ([]api.NamespaceSnapshot, error) {
-	var out []api.NamespaceSnapshot
-	if err := c.get(ctx, "/api/v1/namespaces", &out); err != nil {
+func (c *CollectorClient) Workloads(ctx context.Context) ([]api.WorkloadSnapshot, error) {
+	snapshot, err := c.CurrentSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.Workloads, nil
+}
+
+func (c *CollectorClient) CurrentSnapshot(ctx context.Context) (CurrentSnapshot, error) {
+	return loadCurrentSnapshot(ctx, c.get)
+}
+
+func (c *CollectorClient) PodHistory(ctx context.Context, namespace, podName string) ([]api.PodHistory, error) {
+	var out []api.PodHistory
+	path := "/api/v1/history/pods/" + url.PathEscape(namespace) + "/" + url.PathEscape(podName)
+	if err := c.get(ctx, path, &out); err != nil {
 		return nil, err
 	}
 	return out, nil

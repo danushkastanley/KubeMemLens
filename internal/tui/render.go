@@ -38,6 +38,8 @@ func (m appModel) View() string {
 		switch m.view {
 		case viewNamespaces:
 			b.WriteString(m.renderNamespaces(width))
+		case viewWorkloads:
+			b.WriteString(m.renderWorkloads(width))
 		case viewPods:
 			b.WriteString(m.renderPods(width))
 		case viewContainers:
@@ -61,6 +63,9 @@ func (m appModel) renderHeader(width int) string {
 	if ns, all := m.activeNamespace(); !all && ns != "" {
 		parts = append(parts, "namespace: "+ns)
 	}
+	if m.currentWorkloadName != "" {
+		parts = append(parts, "workload: "+m.currentWorkloadKind+"/"+m.currentWorkloadName)
+	}
 	if m.query != "" || m.searching {
 		parts = append(parts, "filter: "+m.query)
 	}
@@ -72,6 +77,9 @@ func (m appModel) renderHeader(width int) string {
 	if m.loading {
 		parts = append(parts, "refreshing")
 	}
+	if m.paused {
+		parts = append(parts, "paused")
+	}
 	if m.statusErr != nil {
 		parts = append(parts, errorStyle.Render("status: connection error"))
 	}
@@ -79,7 +87,7 @@ func (m appModel) renderHeader(width int) string {
 }
 
 func (m appModel) renderFooter(width int) string {
-	footer := "q quit · r refresh · / search · tab switch · enter drill · e explain · ? help"
+	footer := "q quit · space pause · r refresh · / filter · tab switch · enter drill · e explain · ? help"
 	if m.searching {
 		footer = "search: " + m.query + " · enter keep · esc clear · backspace delete"
 	}
@@ -92,18 +100,43 @@ func (m appModel) renderHelp(width int) string {
 		"",
 		"q / Ctrl+C   quit",
 		"r            refresh now",
+		"Space        pause/resume automatic refresh",
 		"/            search current table",
 		"Esc          clear search or leave detail view",
-		"Tab          cycle namespace, pod, and container views",
-		"n / p / c    jump to namespace, pod, or container view",
+		"Tab          cycle namespace, workload, pod, and container views",
+		"n / w / p / c jump to namespace, workload, pod, or container view",
 		"Enter        drill into namespace, pod, or container's pod",
 		"e            explain selected pod",
 		"h / Backspace go back",
 		"k/j or arrows move selection",
 		"PgUp/PgDown  move faster",
+		"g / G        jump to first or last row",
 		"s            cycle sort: total, rss, cache, shmem, name",
 	}
 	return truncateLines(lines, width)
+}
+
+func (m appModel) renderWorkloads(width int) string {
+	items := m.visibleWorkloads()
+	if len(items) == 0 {
+		return "No workloads match the current filter."
+	}
+	widths := workloadWidths(width)
+	lines := []string{tableRow([]string{"NAMESPACE", "KIND", "WORKLOAD", "PODS", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "LARGEST", "MAX POD", "DIAGNOSIS"}, widths, nil)}
+	for i, item := range items {
+		prefix := " "
+		if i == m.selected {
+			prefix = "›"
+		}
+		lines = append(lines, prefix+tableRow([]string{
+			item.Namespace, item.Kind, item.Name, fmt.Sprintf("%d", item.PodCount),
+			memmodel.FormatCompactBytes(item.Memory.TotalBytes), memmodel.FormatCompactBytes(item.Memory.RSSBytes()),
+			memmodel.FormatCompactBytes(item.Memory.CacheBytes()), memmodel.FormatCompactBytes(item.Memory.ShmemBytes),
+			memmodel.FormatCompactBytes(item.Memory.ResidualBytes()), item.LargestPodName,
+			memmodel.FormatCompactBytes(item.LargestPodBytes), string(explain.Analyze(item.Memory).Diagnosis),
+		}, widths, numericIndexes(3, 4, 5, 6, 7, 8, 10)))
+	}
+	return truncateLines(limitLines(lines, m.bodyRows()), width)
 }
 
 func (m appModel) renderEmpty(width int) string {
@@ -128,7 +161,7 @@ func (m appModel) renderNamespaces(width int) string {
 		return "No namespaces match the current filter."
 	}
 	widths := namespaceWidths(width)
-	lines := []string{tableRow([]string{"NAMESPACE", "PODS", "TOTAL", "RSS", "CACHE", "SHMEM", "SLAB", "DIAGNOSIS", "AGE"}, widths, nil)}
+	lines := []string{tableRow([]string{"NAMESPACE", "PODS", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS", "AGE"}, widths, nil)}
 	for i, item := range items {
 		prefix := " "
 		if i == m.selected {
@@ -141,7 +174,7 @@ func (m appModel) renderNamespaces(width int) string {
 			memmodel.FormatCompactBytes(item.Memory.RSSBytes()),
 			memmodel.FormatCompactBytes(item.Memory.CacheBytes()),
 			memmodel.FormatCompactBytes(item.Memory.ShmemBytes),
-			memmodel.FormatCompactBytes(item.Memory.SlabBytes),
+			memmodel.FormatCompactBytes(item.Memory.ResidualBytes()),
 			string(explain.Analyze(item.Memory).Diagnosis),
 			FormatAge(item.CapturedAt),
 		}, widths, numericIndexes(1, 2, 3, 4, 5, 6)))
@@ -155,7 +188,7 @@ func (m appModel) renderPods(width int) string {
 		return "No pods match the current filter."
 	}
 	widths := podWidths(width)
-	lines := []string{tableRow([]string{"NAMESPACE", "POD", "NODE", "TOTAL", "RSS", "CACHE", "SHMEM", "SLAB", "DIAGNOSIS", "AGE"}, widths, nil)}
+	lines := []string{tableRow([]string{"NAMESPACE", "POD", "NODE", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS", "AGE"}, widths, nil)}
 	for i, item := range items {
 		prefix := " "
 		if i == m.selected {
@@ -169,7 +202,7 @@ func (m appModel) renderPods(width int) string {
 			memmodel.FormatCompactBytes(item.Memory.RSSBytes()),
 			memmodel.FormatCompactBytes(item.Memory.CacheBytes()),
 			memmodel.FormatCompactBytes(item.Memory.ShmemBytes),
-			memmodel.FormatCompactBytes(item.Memory.SlabBytes),
+			memmodel.FormatCompactBytes(item.Memory.ResidualBytes()),
 			string(explain.Analyze(item.Memory).Diagnosis),
 			FormatAge(item.CapturedAt),
 		}, widths, numericIndexes(3, 4, 5, 6, 7)))
@@ -183,7 +216,7 @@ func (m appModel) renderContainers(width int) string {
 		return "No containers match the current filter."
 	}
 	widths := containerWidths(width)
-	lines := []string{tableRow([]string{"NAMESPACE", "POD", "CONTAINER", "NODE", "TOTAL", "RSS", "CACHE", "SHMEM", "SLAB", "DIAGNOSIS", "AGE"}, widths, nil)}
+	lines := []string{tableRow([]string{"NAMESPACE", "POD", "CONTAINER", "NODE", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS", "AGE"}, widths, nil)}
 	for i, item := range items {
 		prefix := " "
 		if i == m.selected {
@@ -198,7 +231,7 @@ func (m appModel) renderContainers(width int) string {
 			memmodel.FormatCompactBytes(item.Memory.RSSBytes()),
 			memmodel.FormatCompactBytes(item.Memory.CacheBytes()),
 			memmodel.FormatCompactBytes(item.Memory.ShmemBytes),
-			memmodel.FormatCompactBytes(item.Memory.SlabBytes),
+			memmodel.FormatCompactBytes(item.Memory.ResidualBytes()),
 			string(explain.Analyze(item.Memory).Diagnosis),
 			FormatAge(item.CapturedAt),
 		}, widths, numericIndexes(4, 5, 6, 7, 8)))
@@ -211,22 +244,49 @@ func (m appModel) renderDetail(width int) string {
 	if !ok {
 		return "Selected pod is no longer present in collector snapshots."
 	}
-	result := explain.Analyze(pod.Memory)
+	result := explain.AnalyzePod(pod)
 	lines := []string{
 		"Pod: " + pod.PodName,
 		"Namespace: " + pod.Namespace,
 		"Node: " + pod.NodeName,
 		"Captured: " + pod.CapturedAt.Format("2006-01-02 15:04:05 MST") + " (" + FormatAge(pod.CapturedAt) + " ago)",
 		"",
+	}
+	lines = append(lines, podContextLines(pod)...)
+	lines = append(lines, "", "Recent history:")
+	switch {
+	case m.historyLoading:
+		lines = append(lines, "Loading bounded history...")
+	case m.historyErr != nil:
+		lines = append(lines, "History unavailable: "+m.historyErr.Error())
+	default:
+		lines = append(lines, renderHistoryTrend(pod, m.history, width)...)
+	}
+	lines = append(lines,
+		"",
 		"Memory breakdown:",
-		"Total charged memory: " + memmodel.FormatBytes(pod.Memory.TotalBytes),
-		"RSS / anon:           " + memmodel.FormatBytes(pod.Memory.RSSBytes()),
-		"File cache:           " + memmodel.FormatBytes(pod.Memory.CacheBytes()),
-		"Active file:          " + memmodel.FormatBytes(pod.Memory.ActiveFileBytes),
-		"Inactive file:        " + memmodel.FormatBytes(pod.Memory.InactiveFileBytes),
-		"Shmem / tmpfs:        " + memmodel.FormatBytes(pod.Memory.ShmemBytes),
-		"Slab / kernel:        " + memmodel.FormatBytes(pod.Memory.SlabBytes),
-		"Dirty/writeback:      " + memmodel.FormatDirtyWriteback(pod.Memory),
+		"Total charged memory: "+memmodel.FormatBytes(pod.Memory.TotalBytes),
+		"RSS / anon:           "+memmodel.FormatBytes(pod.Memory.RSSBytes()),
+		"File cache:           "+memmodel.FormatBytes(pod.Memory.CacheBytes()),
+		"Shmem / tmpfs:        "+memmodel.FormatBytes(pod.Memory.ShmemBytes),
+		"Residual / other:     "+memmodel.FormatBytes(pod.Memory.ResidualBytes()),
+		"",
+		"Secondary detail (overlaps primary composition):",
+		"Active file:          "+memmodel.FormatBytes(pod.Memory.ActiveFileBytes),
+		"Inactive file:        "+memmodel.FormatBytes(pod.Memory.InactiveFileBytes),
+		"Kernel total:         "+memmodel.FormatBytes(pod.Memory.KernelBytes),
+		"Slab:                 "+memmodel.FormatBytes(pod.Memory.SlabBytes),
+		"  reclaimable:        "+memmodel.FormatBytes(pod.Memory.SlabReclaimableBytes),
+		"  unreclaimable:      "+memmodel.FormatBytes(pod.Memory.SlabUnreclaimableBytes),
+		"Socket memory:        "+memmodel.FormatBytes(pod.Memory.SocketBytes),
+		"Page tables:          "+memmodel.FormatBytes(pod.Memory.PageTableBytes),
+		"Mapped file:          "+memmodel.FormatBytes(pod.Memory.FileMappedBytes),
+		"THP anon/file/shmem:  "+memmodel.FormatBytes(pod.Memory.AnonTHPBytes)+" / "+memmodel.FormatBytes(pod.Memory.FileTHPBytes)+" / "+memmodel.FormatBytes(pod.Memory.ShmemTHPBytes),
+		"Other kernel:         "+memmodel.FormatBytes(pod.Memory.KernelOtherBytes()),
+		"Dirty/writeback:      "+memmodel.FormatDirtyWriteback(pod.Memory),
+	)
+	lines = append(lines, memorySignalLines(pod.Memory)...)
+	lines = append(lines,
 		fmt.Sprintf("OOM events:           %d", pod.Memory.OOMEvents),
 		fmt.Sprintf("OOM kill events:      %d", pod.Memory.OOMKillEvents),
 		fmt.Sprintf("High events:          %d", pod.Memory.HighEvents),
@@ -234,12 +294,16 @@ func (m appModel) renderDetail(width int) string {
 		"",
 		"Diagnosis:",
 		string(result.Diagnosis),
+		"Severity: "+string(result.Severity),
+		"Confidence: "+string(result.Confidence)+" — "+result.ConfidenceReason,
+		"Observation window: "+result.EvidenceWindow.ObservationDescription(),
+		"Counter window: "+result.EvidenceWindow.DeltaDescription(),
 		"",
 		"Likely explanation:",
 		result.LikelyExplanation,
 		"",
 		"Signals:",
-	}
+	)
 	for _, signal := range result.Signals {
 		lines = append(lines, "- "+signal)
 	}
@@ -247,14 +311,22 @@ func (m appModel) renderDetail(width int) string {
 	for _, check := range result.SuggestedChecks {
 		lines = append(lines, "- "+check)
 	}
+	lines = append(lines, "", "Caveats:")
+	for _, caveat := range result.Caveats {
+		lines = append(lines, "- "+caveat)
+	}
 	lines = append(lines, "", "Containers:")
 	lines = append(lines, renderContainerSummary(pod.Containers)...)
+	lines = append(lines, "", "Next commands:",
+		"kubectl memlens history pod "+pod.PodName+" -n "+pod.Namespace,
+		"kubectl describe pod/"+pod.PodName+" -n "+pod.Namespace,
+	)
 	return truncateLines(limitLines(lines, m.bodyRows()), width)
 }
 
 func renderContainerSummary(containers []api.ContainerSnapshot) []string {
 	widths := []int{18, 8, 8, 8, 7, 8, 18}
-	lines := []string{tableRow([]string{"CONTAINER", "TOTAL", "RSS", "CACHE", "SHMEM", "SLAB", "DIAGNOSIS"}, widths, nil)}
+	lines := []string{tableRow([]string{"CONTAINER", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS"}, widths, nil)}
 	for _, container := range containers {
 		lines = append(lines, tableRow([]string{
 			container.ContainerName,
@@ -262,8 +334,8 @@ func renderContainerSummary(containers []api.ContainerSnapshot) []string {
 			memmodel.FormatCompactBytes(container.Memory.RSSBytes()),
 			memmodel.FormatCompactBytes(container.Memory.CacheBytes()),
 			memmodel.FormatCompactBytes(container.Memory.ShmemBytes),
-			memmodel.FormatCompactBytes(container.Memory.SlabBytes),
-			string(explain.Analyze(container.Memory).Diagnosis),
+			memmodel.FormatCompactBytes(container.Memory.ResidualBytes()),
+			string(explain.AnalyzeContainer(container).Diagnosis),
 		}, widths, numericIndexes(1, 2, 3, 4, 5)))
 	}
 	return lines

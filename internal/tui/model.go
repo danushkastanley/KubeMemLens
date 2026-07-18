@@ -20,18 +20,24 @@ type appModel struct {
 	query                 string
 	searching             bool
 	help                  bool
+	paused                bool
 	selected              int
 	width                 int
 	height                int
 
-	currentNamespace string
-	selectedPodNS    string
-	selectedPodName  string
+	currentNamespace    string
+	currentWorkloadKind string
+	currentWorkloadName string
+	selectedPodNS       string
+	selectedPodName     string
 
-	data        snapshotData
-	lastRefresh time.Time
-	statusErr   error
-	loading     bool
+	data           snapshotData
+	lastRefresh    time.Time
+	statusErr      error
+	loading        bool
+	history        []api.PodHistory
+	historyLoading bool
+	historyErr     error
 }
 
 type fetchMsg struct {
@@ -40,6 +46,13 @@ type fetchMsg struct {
 }
 
 type tickMsg time.Time
+
+type historyMsg struct {
+	namespace string
+	podName   string
+	series    []api.PodHistory
+	err       error
+}
 
 func newModel(ctx context.Context, opts Options, reader client.SnapshotReader, description string) appModel {
 	return appModel{
@@ -64,6 +77,9 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 		return m, nil
 	case tickMsg:
+		if m.paused {
+			return m, m.tickCmd()
+		}
 		m.loading = true
 		return m, tea.Batch(m.fetchCmd(), m.tickCmd())
 	case fetchMsg:
@@ -76,6 +92,11 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.lastRefresh = time.Now()
 		m.statusErr = nil
 		m.clampSelection()
+		return m, nil
+	case historyMsg:
+		if msg.namespace == m.selectedPodNS && msg.podName == m.selectedPodName {
+			m.history, m.historyErr, m.historyLoading = msg.series, msg.err, false
+		}
 		return m, nil
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -119,6 +140,8 @@ func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.fetchCmd()
 	case "/":
 		m.searching = true
+	case " ":
+		m.paused = !m.paused
 	case "esc":
 		if m.query != "" {
 			m.query = ""
@@ -131,17 +154,26 @@ func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "n":
 		m.view = viewNamespaces
 		m.currentNamespace = ""
+		m.currentWorkloadKind = ""
+		m.currentWorkloadName = ""
+		m.selected = 0
+	case "w":
+		m.view = viewWorkloads
+		m.currentWorkloadKind = ""
+		m.currentWorkloadName = ""
 		m.selected = 0
 	case "p":
 		m.view = viewPods
+		m.currentWorkloadKind = ""
+		m.currentWorkloadName = ""
 		m.selected = 0
 	case "c":
 		m.view = viewContainers
 		m.selected = 0
 	case "e":
-		m.openSelectedPodDetail()
+		return m, m.openSelectedPodDetail()
 	case "enter":
-		m.enter()
+		return m, m.enter()
 	case "backspace", "h":
 		m.back()
 	case "up", "k":
@@ -152,6 +184,11 @@ func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.move(-10)
 	case "pgdown":
 		m.move(10)
+	case "g":
+		m.selected = 0
+	case "G":
+		m.selected = m.visibleCount() - 1
+		m.clampSelection()
 	case "s":
 		m.sort = nextSort(m.sort)
 		m.selected = 0
@@ -159,46 +196,11 @@ func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m appModel) fetchCmd() tea.Cmd {
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(m.ctx, 5*time.Second)
-		defer cancel()
-
-		namespaces, err := m.client.Namespaces(ctx)
-		if err != nil {
-			return fetchMsg{err: err}
-		}
-		pods, err := m.client.Pods(ctx)
-		if err != nil {
-			return fetchMsg{err: err}
-		}
-		containers, err := m.client.Containers(ctx)
-		if err != nil {
-			return fetchMsg{err: err}
-		}
-
-		return fetchMsg{data: snapshotData{
-			Namespaces: namespaces,
-			Pods:       pods,
-			Containers: containers,
-			FetchedAt:  time.Now().UTC(),
-		}}
-	}
-}
-
-func (m appModel) tickCmd() tea.Cmd {
-	interval := m.opts.RefreshInterval
-	if interval <= 0 {
-		interval = 5 * time.Second
-	}
-	return tea.Tick(interval, func(t time.Time) tea.Msg {
-		return tickMsg(t)
-	})
-}
-
 func (m *appModel) cycleView() {
 	switch m.view {
 	case viewNamespaces:
+		m.view = viewWorkloads
+	case viewWorkloads:
 		m.view = viewPods
 	case viewPods:
 		m.view = viewContainers
@@ -211,21 +213,32 @@ func (m *appModel) cycleView() {
 	m.clampSelection()
 }
 
-func (m *appModel) enter() {
+func (m *appModel) enter() tea.Cmd {
 	switch m.view {
 	case viewNamespaces:
 		items := m.visibleNamespaces()
 		if len(items) == 0 {
-			return
+			return nil
 		}
 		m.currentNamespace = items[m.selected].Namespace
 		m.view = viewPods
 		m.selected = 0
+	case viewWorkloads:
+		items := m.visibleWorkloads()
+		if len(items) == 0 {
+			return nil
+		}
+		m.currentNamespace = items[m.selected].Namespace
+		m.currentWorkloadKind = items[m.selected].Kind
+		m.currentWorkloadName = items[m.selected].Name
+		m.view = viewPods
+		m.selected = 0
 	case viewPods:
-		m.openSelectedPodDetail()
+		return m.openSelectedPodDetail()
 	case viewContainers:
-		m.openSelectedPodDetail()
+		return m.openSelectedPodDetail()
 	}
+	return nil
 }
 
 func (m *appModel) back() {
@@ -233,11 +246,20 @@ func (m *appModel) back() {
 	case viewDetail:
 		m.view = viewPods
 	case viewPods, viewContainers:
-		if m.currentNamespace != "" {
+		if m.currentWorkloadName != "" {
+			m.currentWorkloadKind = ""
+			m.currentWorkloadName = ""
+			m.view = viewWorkloads
+			m.selected = 0
+		} else if m.currentNamespace != "" {
 			m.currentNamespace = ""
 			m.view = viewNamespaces
 			m.selected = 0
 		}
+	case viewWorkloads:
+		m.currentNamespace = ""
+		m.view = viewNamespaces
+		m.selected = 0
 	default:
 		m.view = viewNamespaces
 	}
@@ -269,6 +291,8 @@ func (m appModel) visibleCount() int {
 		return len(m.visibleNamespaces())
 	case viewPods:
 		return len(m.visiblePods())
+	case viewWorkloads:
+		return len(m.visibleWorkloads())
 	case viewContainers:
 		return len(m.visibleContainers())
 	default:
@@ -276,69 +300,29 @@ func (m appModel) visibleCount() int {
 	}
 }
 
-func (m *appModel) openSelectedPodDetail() {
+func (m *appModel) openSelectedPodDetail() tea.Cmd {
 	var ns, name string
 	switch m.view {
 	case viewPods:
 		items := m.visiblePods()
 		if len(items) == 0 {
-			return
+			return nil
 		}
 		ns, name = items[m.selected].Namespace, items[m.selected].PodName
 	case viewContainers:
 		items := m.visibleContainers()
 		if len(items) == 0 {
-			return
+			return nil
 		}
 		ns, name = items[m.selected].Namespace, items[m.selected].PodName
 	default:
-		return
+		return nil
 	}
 	m.selectedPodNS = ns
 	m.selectedPodName = name
 	m.view = viewDetail
-}
-
-func (m appModel) activeNamespace() (string, bool) {
-	if m.currentNamespace != "" {
-		return m.currentNamespace, false
-	}
-	if !m.opts.AllNamespaces && m.opts.Namespace != "" {
-		return m.opts.Namespace, false
-	}
-	return "", true
-}
-
-func (m appModel) visibleNamespaces() []api.NamespaceSnapshot {
-	namespace, all := m.activeNamespace()
-	items := FilterNamespaces(m.data.Namespaces, namespace, all, m.query)
-	SortNamespaces(items, m.sort)
-	return items
-}
-
-func (m appModel) visiblePods() []api.PodSnapshot {
-	namespace, all := m.activeNamespace()
-	items := FilterPods(m.data.Pods, namespace, all, m.query)
-	SortPods(items, m.sort)
-	return items
-}
-
-func (m appModel) visibleContainers() []api.ContainerSnapshot {
-	namespace, all := m.activeNamespace()
-	items := FilterContainers(m.data.Containers, namespace, all, m.query)
-	SortContainers(items, m.sort)
-	return items
-}
-
-func (m appModel) selectedPod() (api.PodSnapshot, bool) {
-	for _, pod := range m.data.Pods {
-		if pod.Namespace == m.selectedPodNS && pod.PodName == m.selectedPodName {
-			return pod, true
-		}
-	}
-	return api.PodSnapshot{}, false
-}
-
-func statusError(opts client.Options, description string, err error) string {
-	return client.ConnectionError(opts, description, err).Error()
+	m.history = nil
+	m.historyErr = nil
+	m.historyLoading = true
+	return m.fetchHistoryCmd(ns, name)
 }

@@ -47,6 +47,30 @@ func SortPods(items []api.PodSnapshot, mode sortMode) {
 	})
 }
 
+func SortWorkloads(items []api.WorkloadSnapshot, mode sortMode) {
+	sort.SliceStable(items, func(i, j int) bool {
+		left, right := items[i], items[j]
+		switch mode {
+		case sortRSS:
+			return left.Memory.RSSBytes() > right.Memory.RSSBytes()
+		case sortCache:
+			return left.Memory.CacheBytes() > right.Memory.CacheBytes()
+		case sortShmem:
+			return left.Memory.ShmemBytes > right.Memory.ShmemBytes
+		case sortName:
+			if left.Namespace != right.Namespace {
+				return left.Namespace < right.Namespace
+			}
+			if left.Kind != right.Kind {
+				return left.Kind < right.Kind
+			}
+			return left.Name < right.Name
+		default:
+			return left.Memory.TotalBytes > right.Memory.TotalBytes
+		}
+	})
+}
+
 func SortContainers(items []api.ContainerSnapshot, mode sortMode) {
 	sort.SliceStable(items, func(i, j int) bool {
 		left := items[i]

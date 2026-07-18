@@ -37,6 +37,21 @@ func FilterPods(items []api.PodSnapshot, namespace string, allNamespaces bool, q
 	return filtered
 }
 
+func FilterWorkloads(items []api.WorkloadSnapshot, namespace string, allNamespaces bool, query string) []api.WorkloadSnapshot {
+	query = strings.ToLower(strings.TrimSpace(query))
+	filtered := make([]api.WorkloadSnapshot, 0, len(items))
+	for _, item := range items {
+		if !allNamespaces && namespace != "" && item.Namespace != namespace {
+			continue
+		}
+		if query != "" && !containsAny([]string{item.Namespace, item.Kind, item.Name, item.LargestPodName, string(explain.Analyze(item.Memory).Diagnosis)}, query) {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
+}
+
 func FilterContainers(items []api.ContainerSnapshot, namespace string, allNamespaces bool, query string) []api.ContainerSnapshot {
 	query = strings.ToLower(strings.TrimSpace(query))
 	filtered := make([]api.ContainerSnapshot, 0, len(items))

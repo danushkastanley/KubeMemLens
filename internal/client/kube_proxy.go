@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -66,24 +67,53 @@ func (c *KubeProxyCollectorClient) Health(ctx context.Context) error {
 }
 
 func (c *KubeProxyCollectorClient) Containers(ctx context.Context) ([]api.ContainerSnapshot, error) {
-	var out []api.ContainerSnapshot
-	if err := c.getJSON(ctx, "/api/v1/containers", &out); err != nil {
+	snapshot, err := c.CurrentSnapshot(ctx)
+	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	return snapshot.Containers, nil
 }
 
 func (c *KubeProxyCollectorClient) Pods(ctx context.Context) ([]api.PodSnapshot, error) {
-	var out []api.PodSnapshot
-	if err := c.getJSON(ctx, "/api/v1/pods", &out); err != nil {
+	snapshot, err := c.CurrentSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.Pods, nil
+}
+
+func (c *KubeProxyCollectorClient) Namespaces(ctx context.Context) ([]api.NamespaceSnapshot, error) {
+	snapshot, err := c.CurrentSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.Namespaces, nil
+}
+
+func (c *KubeProxyCollectorClient) Nodes(ctx context.Context) ([]api.NodeSnapshotStatus, error) {
+	var out []api.NodeSnapshotStatus
+	if err := c.getJSON(ctx, "/api/v1/nodes", &out); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *KubeProxyCollectorClient) Namespaces(ctx context.Context) ([]api.NamespaceSnapshot, error) {
-	var out []api.NamespaceSnapshot
-	if err := c.getJSON(ctx, "/api/v1/namespaces", &out); err != nil {
+func (c *KubeProxyCollectorClient) Workloads(ctx context.Context) ([]api.WorkloadSnapshot, error) {
+	snapshot, err := c.CurrentSnapshot(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.Workloads, nil
+}
+
+func (c *KubeProxyCollectorClient) CurrentSnapshot(ctx context.Context) (CurrentSnapshot, error) {
+	return loadCurrentSnapshot(ctx, c.getJSON)
+}
+
+func (c *KubeProxyCollectorClient) PodHistory(ctx context.Context, namespace, podName string) ([]api.PodHistory, error) {
+	var out []api.PodHistory
+	path := "/api/v1/history/pods/" + url.PathEscape(namespace) + "/" + url.PathEscape(podName)
+	if err := c.getJSON(ctx, path, &out); err != nil {
 		return nil, err
 	}
 	return out, nil
@@ -141,12 +171,21 @@ func (c *KubeProxyCollectorClient) getRaw(ctx context.Context, path string) ([]b
 }
 
 func (c *KubeProxyCollectorClient) doRaw(ctx context.Context, serviceName string, path string) ([]byte, error) {
+	parsed, err := url.Parse(path)
+	if err != nil {
+		return nil, fmt.Errorf("parse collector path %q: %w", path, err)
+	}
 	req := c.restClient.Get().
 		Namespace(c.Namespace).
 		Resource("services").
 		Name(serviceName).
 		SubResource("proxy").
-		Suffix(collectorPathParts(path)...)
+		Suffix(collectorPathParts(parsed.Path)...)
+	for key, values := range parsed.Query() {
+		for _, value := range values {
+			req.Param(key, value)
+		}
+	}
 	if c.timeout > 0 {
 		req.Timeout(c.timeout)
 	}

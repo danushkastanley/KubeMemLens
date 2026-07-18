@@ -1,0 +1,31 @@
+name: Runtime compatibility report
+description: Report a cgroup, Kubernetes, kernel, or container-runtime mapping gap.
+title: "[Compatibility]: "
+labels: [compatibility]
+body:
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: KubeMemLens, Kubernetes, kernel, and container runtime versions.
+    validations:
+      required: true
+  - type: dropdown
+    id: cgroup
+    attributes:
+      label: Cgroup mode
+      options: [v2, v1, hybrid, unknown]
+    validations:
+      required: true
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Symptom
+      description: Describe unsupported paths, unmapped counts, missing fields, or incorrect output.
+    validations:
+      required: true
+  - type: textarea
+    id: fixture
+    attributes:
+      label: Synthetic or redacted fixture
+      description: Never attach production identifiers, credentials, or sensitive file contents.

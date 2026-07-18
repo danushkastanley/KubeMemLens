@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -14,6 +15,7 @@ func NewClient() (kubernetes.Interface, error) {
 	if err != nil {
 		return nil, err
 	}
+	config.UserAgent = "kube-memlens-agent/" + buildinfo.Version
 
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {

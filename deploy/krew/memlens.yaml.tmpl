@@ -1,0 +1,60 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: memlens
+spec:
+  version: "{{VERSION}}"
+  homepage: https://github.com/danushkastanley/KubeMemLens
+  shortDescription: Explain Kubernetes cgroup memory from the terminal
+  description: |
+    KubeMemLens partitions anonymous memory, filesystem-backed cache, tmpfs,
+    and residual/other, then adds kernel, writeback, and recent pressure
+    evidence. It is a read-only incident diagnostic tool and does not mutate
+    workloads.
+  caveats: |
+    Deep cluster inspection requires the separately installed KubeMemLens Helm
+    chart. Review its hostPath, RBAC, NetworkPolicy, and compatibility matrix
+    before installation.
+  platforms:
+    - selector:
+        matchLabels:
+          os: linux
+          arch: amd64
+      uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_linux_amd64.tar.gz
+      sha256: "{{SHA_LINUX_AMD64}}"
+      bin: kubectl-memlens
+    - selector:
+        matchLabels:
+          os: linux
+          arch: arm64
+      uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_linux_arm64.tar.gz
+      sha256: "{{SHA_LINUX_ARM64}}"
+      bin: kubectl-memlens
+    - selector:
+        matchLabels:
+          os: darwin
+          arch: amd64
+      uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_darwin_amd64.tar.gz
+      sha256: "{{SHA_DARWIN_AMD64}}"
+      bin: kubectl-memlens
+    - selector:
+        matchLabels:
+          os: darwin
+          arch: arm64
+      uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_darwin_arm64.tar.gz
+      sha256: "{{SHA_DARWIN_ARM64}}"
+      bin: kubectl-memlens
+    - selector:
+        matchLabels:
+          os: windows
+          arch: amd64
+      uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_windows_amd64.zip
+      sha256: "{{SHA_WINDOWS_AMD64}}"
+      bin: kubectl-memlens.exe
+    - selector:
+        matchLabels:
+          os: windows
+          arch: arm64
+      uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_windows_arm64.zip
+      sha256: "{{SHA_WINDOWS_ARM64}}"
+      bin: kubectl-memlens.exe

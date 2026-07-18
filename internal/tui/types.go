@@ -20,6 +20,7 @@ type viewMode int
 
 const (
 	viewNamespaces viewMode = iota
+	viewWorkloads
 	viewPods
 	viewContainers
 	viewDetail
@@ -37,6 +38,7 @@ const (
 
 type snapshotData struct {
 	Namespaces []api.NamespaceSnapshot
+	Workloads  []api.WorkloadSnapshot
 	Pods       []api.PodSnapshot
 	Containers []api.ContainerSnapshot
 	FetchedAt  time.Time
@@ -48,6 +50,8 @@ func (v viewMode) String() string {
 		return "namespaces"
 	case viewPods:
 		return "pods"
+	case viewWorkloads:
+		return "workloads"
 	case viewContainers:
 		return "containers"
 	case viewDetail:

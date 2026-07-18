@@ -1,0 +1,81 @@
+{{- if .Values.metrics.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kube-memlens
+  namespace: {{ .Values.namespace.name | quote }}
+{{- with .Values.metrics.prometheusRule.labels }}
+  labels:
+{{ toYaml . | nindent 4 }}
+{{- end }}
+spec:
+  groups:
+    - name: kube-memlens.recording
+      rules:
+        - record: kubememlens:pod_memory_limit_usage:ratio
+          expr: |
+            kubememlens_pod_memory_bytes{type="total"}
+            /
+            kubememlens_pod_memory_bytes{type="max"}
+        - record: kubememlens:pod_anon_fraction:ratio
+          expr: |
+            kubememlens_pod_memory_bytes{type="anon"}
+            /
+            clamp_min(kubememlens_pod_memory_bytes{type="total"}, 1)
+        - record: kubememlens:pod_file_cache_fraction:ratio
+          expr: |
+            kubememlens_pod_memory_bytes{type="file_cache"}
+            /
+            clamp_min(kubememlens_pod_memory_bytes{type="total"}, 1)
+    - name: kube-memlens.alerts
+      rules:
+        - alert: KubeMemLensAgentSnapshotStale
+          expr: max by (node) (kubememlens_collector_agent_snapshot_age_seconds) > 30
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: KubeMemLens agent snapshot is stale
+            description: The collector has not received a fresh snapshot from node {{ "{{ $labels.node }}" }} for more than 30 seconds.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "agent-snapshot-stale.md" | quote }}
+        - alert: KubeMemLensPodMemoryPressure
+          expr: kubememlens_pod_diagnosis{diagnosis="memory-pressure"} == 1
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod is experiencing sustained memory pressure
+            description: Pod {{ "{{ $labels.namespace }}/{{ $labels.pod }}" }} has sustained cgroup reclaim or PSI evidence.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "pod-memory-pressure.md" | quote }}
+        - alert: KubeMemLensPodOOMRisk
+          expr: max_over_time(kubememlens_pod_diagnosis{diagnosis="oom-risk"}[5m]) == 1
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: Recent Pod OOM or hard-limit event detected
+            description: Pod {{ "{{ $labels.namespace }}/{{ $labels.pod }}" }} exposed recent OOM, OOM-kill, or memory.max evidence.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "pod-oom-risk.md" | quote }}
+        - alert: KubeMemLensPodLimitRisk
+          expr: kubememlens_pod_diagnosis{diagnosis="limit-risk"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Pod memory is close to its hard limit
+            description: Pod {{ "{{ $labels.namespace }}/{{ $labels.pod }}" }} has remained close to memory.max for five minutes.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "pod-limit-risk.md" | quote }}
+        - alert: KubeMemLensMappingCoverageLow
+          expr: |
+            sum by (instance) (kubememlens_agent_last_scan_containers{kind="mapped"})
+            /
+            clamp_min(sum by (instance) (kubememlens_agent_last_scan_containers{kind="found"}), 1)
+            < 0.95
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: KubeMemLens cgroup mapping coverage is low
+            description: One agent has mapped fewer than 95 percent of discovered workload container cgroups.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "mapping-coverage-low.md" | quote }}
+{{- end }}

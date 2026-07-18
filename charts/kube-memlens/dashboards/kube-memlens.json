@@ -1,0 +1,53 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Top Pods by charged memory",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "topk(10, kubememlens_pod_memory_bytes{type=\"total\"})", "legendFormat": "{{namespace}}/{{pod}}"}],
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "type": "timeseries",
+      "title": "Selected Pod composition",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "kubememlens_pod_memory_bytes{namespace=~\"$namespace\",pod=~\"$pod\",type=~\"anon|file_cache|shmem|kernel\"}", "legendFormat": "{{type}}"}],
+      "fieldConfig": {"defaults": {"unit": "bytes", "custom": {"stacking": {"mode": "normal", "group": "composition"}}}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "type": "state-timeline",
+      "title": "Pod diagnosis",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "kubememlens_pod_diagnosis{namespace=~\"$namespace\",pod=~\"$pod\"} == 1", "legendFormat": "{{diagnosis}}"}],
+      "gridPos": {"h": 7, "w": 12, "x": 0, "y": 8}
+    },
+    {
+      "type": "timeseries",
+      "title": "Agent snapshot age",
+      "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"},
+      "targets": [{"expr": "kubememlens_collector_agent_snapshot_age_seconds", "legendFormat": "{{node}}"}],
+      "fieldConfig": {"defaults": {"unit": "s", "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 30}]}}, "overrides": []},
+      "gridPos": {"h": 7, "w": 12, "x": 12, "y": 8}
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["kubernetes", "memory", "kube-memlens"],
+  "templating": {
+    "list": [
+      {"name": "DS_PROMETHEUS", "type": "datasource", "query": "prometheus", "label": "Prometheus"},
+      {"name": "namespace", "type": "query", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "query": {"query": "label_values(kubememlens_pod_memory_bytes, namespace)", "refId": "namespace"}, "includeAll": true, "allValue": ".*"},
+      {"name": "pod", "type": "query", "datasource": {"type": "prometheus", "uid": "${DS_PROMETHEUS}"}, "query": {"query": "label_values(kubememlens_pod_memory_bytes{namespace=~\"$namespace\"}, pod)", "refId": "pod"}, "includeAll": true, "allValue": ".*"}
+    ]
+  },
+  "time": {"from": "now-1h", "to": "now"},
+  "timezone": "browser",
+  "title": "KubeMemLens",
+  "uid": "kube-memlens"
+}

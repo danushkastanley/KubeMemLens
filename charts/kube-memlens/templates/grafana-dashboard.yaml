@@ -1,0 +1,12 @@
+{{- if .Values.metrics.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-memlens-grafana-dashboard
+  namespace: {{ .Values.namespace.name | quote }}
+  labels:
+{{ toYaml .Values.metrics.grafanaDashboard.labels | nindent 4 }}
+data:
+  kube-memlens.json: |-
+{{ .Files.Get "dashboards/kube-memlens.json" | nindent 4 }}
+{{- end }}

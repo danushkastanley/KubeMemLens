@@ -101,7 +101,7 @@ func TestParseDirectoryAllowsMissingEvents(t *testing.T) {
 	}
 }
 
-func writeFile(t *testing.T, dir, name, data string) {
+func writeFile(t testHelper, dir, name, data string) {
 	t.Helper()
 	if err := os.WriteFile(filepath.Join(dir, name), []byte(data), 0o644); err != nil {
 		t.Fatalf("write %s: %v", name, err)

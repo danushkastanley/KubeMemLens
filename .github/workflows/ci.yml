@@ -1,0 +1,318 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Verify modules
+        run: go mod verify
+
+      - name: Check formatting
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Check shell script syntax
+        run: bash -n hack/*.sh
+
+      - name: Check shell scripts
+        run: >-
+          docker run --rm
+          -v "$PWD:/mnt:ro"
+          -w /mnt
+          koalaman/shellcheck:v0.10.0@sha256:2097951f02e735b613f4a34de20c40f937a6c8f18ecb170612c88c34517221fb
+          hack/e2e-kind.sh hack/qualify-cluster.sh hack/render-krew-manifest.sh hack/soak-live-density.sh
+
+      - name: Check density soak safety gate
+        run: |
+          if hack/soak-live-density.sh >/tmp/soak.out 2>&1; then
+            echo "density soak ran without explicit acknowledgement"
+            exit 1
+          fi
+          grep -q 'SOAK_ACKNOWLEDGE' /tmp/soak.out
+
+      - name: Test and report statement coverage
+        run: |
+          go test -covermode=atomic -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out | tee coverage-summary.txt
+          coverage="$(awk '$1 == "total:" {print $3}' coverage-summary.txt)"
+          {
+            echo '### Go statement coverage'
+            echo
+            echo "Current aggregate coverage: **${coverage}**"
+            echo
+            echo 'Coverage is reported for visibility; behaviour and risk determine required tests.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Test with race detector
+        run: go test -race ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Scan reachable vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+
+      - name: Build commands
+        run: go build ./cmd/...
+
+      - name: Check Krew manifest renderer
+        run: |
+          sh -n hack/render-krew-manifest.sh
+          checksums=$(mktemp)
+          manifest=$(mktemp)
+          for platform in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+            echo "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  kube-memlens_0.0.0_${platform}.tar.gz" >> "$checksums"
+          done
+          for platform in windows_amd64 windows_arm64; do
+            echo "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  kube-memlens_0.0.0_${platform}.zip" >> "$checksums"
+          done
+          hack/render-krew-manifest.sh v0.0.0 "$checksums" "$manifest"
+          grep -q 'version: "v0.0.0"' "$manifest"
+          grep -q 'sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' "$manifest"
+
+  security:
+    name: Supply-chain checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Build the runtime image
+        run: docker build --build-arg VERSION=ci-security -t kube-memlens:ci-security .
+
+      - name: Scan Dockerfile and Kubernetes configuration
+        run: >-
+          docker run --rm
+          -v "$PWD:/work:ro"
+          -v "${{ runner.temp }}/trivy-cache:/root/.cache/trivy"
+          -w /work
+          ghcr.io/aquasecurity/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f
+          config --exit-code 1 --severity HIGH,CRITICAL --skip-dirs .git .
+
+      - name: Scan the repository for committed secrets
+        run: >-
+          docker run --rm
+          -v "$PWD:/work:ro"
+          -v "${{ runner.temp }}/trivy-cache:/root/.cache/trivy"
+          -w /work
+          ghcr.io/aquasecurity/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f
+          fs --exit-code 1 --scanners secret --skip-dirs .git .
+
+      - name: Scan the built image for high and critical vulnerabilities
+        run: >-
+          docker run --rm
+          -v /var/run/docker.sock:/var/run/docker.sock
+          -v "${{ runner.temp }}/trivy-cache:/root/.cache/trivy"
+          ghcr.io/aquasecurity/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f
+          image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln
+          kube-memlens:ci-security
+
+  helm:
+    name: Helm checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Lint chart
+        run: >-
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f
+          lint charts/kube-memlens
+
+      - name: Render default chart
+        run: >-
+          docker run --rm
+          -v "$PWD:/work"
+          -w /work
+          alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f
+          template kube-memlens charts/kube-memlens --namespace kube-memlens
+          > /tmp/kube-memlens.yaml
+
+      - name: Validate rendered Kubernetes resources
+        run: >-
+          docker run --rm -i
+          ghcr.io/yannh/kubeconform:v0.7.0@sha256:85dbef6b4b312b99133decc9c6fc9495e9fc5f92293d4ff3b7e1b30f5611823c
+          -strict -summary
+          < /tmp/kube-memlens.yaml
+
+      - name: Check exact ingestion limit rendering
+        run: |
+          grep -q -- '--max-snapshot-bytes=4194304' /tmp/kube-memlens.yaml
+          grep -q -- '--max-response-bytes=16777216' /tmp/kube-memlens.yaml
+          grep -q 'kubernetes.io/os: linux' /tmp/kube-memlens.yaml
+
+      - name: Validate immutable image rendering
+        run: |
+          digest="sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            template kube-memlens charts/kube-memlens \
+            --namespace kube-memlens \
+            --set-string image.repository=registry.example/kube-memlens \
+            --set-string image.digest="${digest}" \
+            | grep -Fq "registry.example/kube-memlens@${digest}"
+          if docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            template kube-memlens charts/kube-memlens \
+            --namespace kube-memlens \
+            --set-string image.digest=latest; then
+            echo "chart accepted a non-sha256 image digest"
+            exit 1
+          fi
+
+      - name: Render optional ServiceMonitor
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            template kube-memlens charts/kube-memlens \
+            --namespace kube-memlens \
+            --set metrics.serviceMonitor.enabled=true \
+            --show-only templates/servicemonitor.yaml \
+            | grep -q '^kind: ServiceMonitor$'
+
+      - name: Validate optional Prometheus rules
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            template kube-memlens charts/kube-memlens \
+            --namespace kube-memlens \
+            --set metrics.prometheusRule.enabled=true \
+            --show-only templates/prometheusrule.yaml \
+            > /tmp/kube-memlens-prometheusrule.yaml
+          ruby -e 'require "yaml"; d=YAML.safe_load(File.read(ARGV[0]), permitted_classes: [], aliases: false); File.write(ARGV[1], YAML.dump({"groups"=>d.fetch("spec").fetch("groups")}))' \
+            /tmp/kube-memlens-prometheusrule.yaml /tmp/kube-memlens-rules.yaml
+          docker run --rm \
+            --entrypoint /bin/promtool \
+            -v /tmp/kube-memlens-rules.yaml:/rules.yaml:ro \
+            prom/prometheus:v3.12.0@sha256:69f5241418838263316593f7274a304b095c40bcf22e57272865da91bd60a8ac \
+            check rules /rules.yaml
+
+      - name: Validate Grafana dashboard JSON
+        run: jq -e '.title and (.panels | length == 4)' charts/kube-memlens/dashboards/kube-memlens.json >/dev/null
+
+      - name: Reject unsafe collector replicas
+        run: |
+          if docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            template kube-memlens charts/kube-memlens \
+            --namespace kube-memlens \
+            --set collector.replicas=2; then
+            echo "chart accepted an unsafe multi-replica collector"
+            exit 1
+          fi
+
+  kind-e2e:
+    name: kind / Kubernetes ${{ matrix.kubernetes }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - kubernetes: 1.34.8
+            node-image: kindest/node:v1.34.8@sha256:02722c2dedddcfc00febf5d27fbeb9b7b2c14294c82109ff4a85d89ac9ba3256
+            kubectl-version: v1.34.8
+            kubectl-sha256: f6249132865c13abe3c9dd5038f5da65849cb86eee1608c001831504e481aa8c
+          - kubernetes: 1.35.5
+            node-image: kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e940429c2ce42fa3a5619ec2bbc60b949c0ac95
+            kubectl-version: v1.35.5
+            kubectl-sha256: 90f75ea6ecc9ea5633262e1c0b83a40560003b30fc94a04cb099404fcef0c224
+          - kubernetes: 1.36.1
+            node-image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
+            kubectl-version: v1.36.1
+            kubectl-sha256: 629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Validate version-aligned matrix row
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ matrix.kubectl-version }}" = "v${{ matrix.kubernetes }}"
+          case "${{ matrix.node-image }}" in
+            "kindest/node:v${{ matrix.kubernetes }}@sha256:"????????????????????????????????????????????????????????????????) ;;
+            *)
+              echo "node image is not an immutable Kubernetes ${{ matrix.kubernetes }} image"
+              exit 1
+              ;;
+          esac
+
+      - name: Install pinned cluster tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools_dir="${RUNNER_TEMP}/kube-memlens-tools"
+          mkdir -p "${tools_dir}"
+
+          curl -fsSLo "${tools_dir}/kind" https://kind.sigs.k8s.io/dl/v0.32.0/kind-linux-amd64
+          echo "50030de23cf40a18505f20426f6a8506bedf13c6e509244bd1fa9463721b0f54  ${tools_dir}/kind" | sha256sum --check
+          chmod +x "${tools_dir}/kind"
+
+          curl -fsSLo "${tools_dir}/helm.tar.gz" https://get.helm.sh/helm-v3.18.4-linux-amd64.tar.gz
+          echo "f8180838c23d7c7d797b208861fecb591d9ce1690d8704ed1e4cb8e2add966c1  ${tools_dir}/helm.tar.gz" | sha256sum --check
+          tar -xzf "${tools_dir}/helm.tar.gz" -C "${tools_dir}"
+          mv "${tools_dir}/linux-amd64/helm" "${tools_dir}/helm"
+
+          curl -fsSLo "${tools_dir}/kubectl" \
+            "https://dl.k8s.io/release/${{ matrix.kubectl-version }}/bin/linux/amd64/kubectl"
+          echo "${{ matrix.kubectl-sha256 }}  ${tools_dir}/kubectl" | sha256sum --check
+          chmod +x "${tools_dir}/kubectl"
+          echo "${tools_dir}" >> "${GITHUB_PATH}"
+
+      - name: Run install, diagnosis, upgrade, rollback, and uninstall
+        env:
+          E2E_NODE_IMAGE: ${{ matrix.node-image }}
+          E2E_ARTIFACT_DIR: ${{ runner.temp }}/kube-memlens-e2e
+          E2E_RUN_DENSITY_BENCHMARKS: "true"
+          E2E_RUN_LIVE_DENSITY_SMOKE: "true"
+          E2E_LIVE_DENSITY_IMAGE: busybox:1.37.0@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
+        run: hack/e2e-kind.sh
