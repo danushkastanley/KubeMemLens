@@ -83,7 +83,7 @@ func compactPodLines(pod api.PodSnapshot) []string {
 	lines := []string{
 		"Pod", pod.PodName,
 		"Namespace", pod.Namespace,
-		"Node", pod.NodeName,
+		"Node / Pod age", pod.NodeName + " / " + formatPodAge(pod) + " pod · " + FormatAge(pod.CapturedAt) + " sample",
 		"",
 		"Diagnosis", string(result.Diagnosis),
 		"Severity    " + string(result.Severity),

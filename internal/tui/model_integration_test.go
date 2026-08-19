@@ -146,6 +146,38 @@ func TestAllEntityFramesAndDetailsRender(t *testing.T) {
 	}
 }
 
+func TestHeaderHidesConnectionImplementationDetails(t *testing.T) {
+	m := loadedFixtureModel(t, 160, 35)
+	header := m.renderHeader(160)
+	if strings.Contains(header, "connection:") || strings.Contains(header, m.connectionDescription) {
+		t.Fatalf("header exposes connection implementation details: %q", header)
+	}
+}
+
+func TestPodViewsUseKubernetesCreationAge(t *testing.T) {
+	reader := tuiFixtureReader()
+	createdAt := time.Now().UTC().Add(-49 * time.Hour)
+	for index := range reader.current.Pods {
+		reader.current.Pods[index].Context.CreatedAt = createdAt
+	}
+
+	m := newModel(context.Background(), Options{AllNamespaces: true}, reader, "test")
+	m.width, m.height = 160, 35
+	m.resizeViewports()
+	message := m.fetchCmd()().(fetchMsg)
+	updated, _ := m.Update(message)
+	m = updated.(appModel)
+	m.loading = false
+	m.view = viewPods
+
+	if frame := m.renderPods(160); !strings.Contains(frame, "2d") {
+		t.Fatalf("Pod table does not show Kubernetes creation age:\n%s", frame)
+	}
+	if detail := strings.Join(compactPodLines(reader.current.Pods[0]), "\n"); !strings.Contains(detail, "Pod age") || !strings.Contains(detail, "2d") {
+		t.Fatalf("Pod detail does not show Kubernetes creation age:\n%s", detail)
+	}
+}
+
 func TestLoadingEmptyErrorHelpAndActionFrames(t *testing.T) {
 	m := newModel(context.Background(), Options{}, tuiFixtureReader(), "test")
 	m.width, m.height = 80, 24

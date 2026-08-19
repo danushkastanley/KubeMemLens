@@ -122,7 +122,6 @@ func (m appModel) renderHeader(width int) string {
 		}
 		parts = append(parts, "focus: "+focus)
 	}
-	parts = append(parts, "connection: "+m.connectionDescription)
 	return headerStyle.Render(truncate(strings.Join(parts, " | "), width))
 }
 
@@ -283,7 +282,7 @@ func (m appModel) renderPods(width int) string {
 				presentation.limit,
 				presentation.composition,
 				presentation.severity + " " + trend,
-				FormatAge(item.CapturedAt),
+				formatPodAge(item),
 			}, widths, numericIndexes(1)))
 			continue
 		}
@@ -297,7 +296,7 @@ func (m appModel) renderPods(width int) string {
 			presentation.signal,
 			presentation.diagnosis,
 			trend,
-			FormatAge(item.CapturedAt),
+			formatPodAge(item),
 		}, widths, numericIndexes(3)))
 	}
 	return truncateLines(lines, width)

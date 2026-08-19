@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/rivo/uniseg"
 )
 
@@ -27,6 +28,17 @@ func FormatAge(capturedAt time.Time) string {
 		return fmt.Sprintf("%dh", int(age.Hours()))
 	}
 	return fmt.Sprintf("%dd", int(age.Hours()/24))
+}
+
+func formatPodAge(pod api.PodSnapshot) string {
+	return FormatAge(pod.Context.CreatedAt)
+}
+
+func formatPodCreatedAt(pod api.PodSnapshot) string {
+	if pod.Context.CreatedAt.IsZero() {
+		return "unknown"
+	}
+	return pod.Context.CreatedAt.UTC().Format("2006-01-02 15:04:05 MST") + " (" + formatPodAge(pod) + " ago)"
 }
 
 func truncate(value string, width int) string {
