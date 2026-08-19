@@ -12,11 +12,27 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: kube-memlens-agent
+{{- if .Values.agent.metrics.enabled }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: {{ .Values.agent.metrics.port | quote }}
+{{- end }}
     spec:
-      serviceAccountName: kube-memlens
+      serviceAccountName: kube-memlens-agent
+      nodeSelector:
+{{ toYaml .Values.agent.nodeSelector | nindent 8 }}
+{{- with .Values.agent.tolerations }}
+      tolerations:
+{{ toYaml . | nindent 8 }}
+{{- end }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: agent
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ include "kube-memlens.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/memlens-agent"]
           args:
@@ -24,29 +40,36 @@ spec:
             - "--interval={{ .Values.agent.interval }}"
             - "--collector-url={{ .Values.agent.collectorURL }}"
             - "--node-name=$(NODE_NAME)"
+{{- if .Values.agent.metrics.enabled }}
+            - "--metrics-listen=:{{ .Values.agent.metrics.port }}"
+{{- else }}
+            - "--metrics-listen="
+{{- end }}
           env:
             - name: NODE_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+{{- if .Values.agent.metrics.enabled }}
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.agent.metrics.port }}
+{{- end }}
           securityContext:
             privileged: {{ .Values.security.privileged }}
             readOnlyRootFilesystem: {{ .Values.security.readOnlyRootFilesystem }}
             allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+{{ toYaml .Values.agent.resources | nindent 12 }}
           volumeMounts:
             - name: cgroup
               mountPath: /host/sys/fs/cgroup
-              readOnly: true
-            - name: proc
-              mountPath: /host/proc
               readOnly: true
       volumes:
         - name: cgroup
           hostPath:
             path: {{ .Values.agent.cgroupRootHostPath | quote }}
-            type: Directory
-        - name: proc
-          hostPath:
-            path: {{ .Values.agent.procRootHostPath | quote }}
             type: Directory
 {{- end }}

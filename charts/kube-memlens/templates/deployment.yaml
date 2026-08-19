@@ -1,4 +1,7 @@
 {{- if .Values.collector.enabled }}
+{{- if ne (int .Values.collector.replicas) 1 }}
+{{- fail "collector.replicas must be 1 while the collector uses an in-memory per-instance store" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -14,18 +17,45 @@ spec:
       labels:
         app.kubernetes.io/name: kube-memlens-collector
     spec:
-      serviceAccountName: kube-memlens
+      serviceAccountName: kube-memlens-collector
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: collector
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ include "kube-memlens.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/memlens-collector"]
           args:
             - "--listen=:{{ .Values.collector.service.port }}"
+            - "--ingest-listen=:{{ .Values.collector.ingestion.port }}"
             - "--snapshot-ttl={{ .Values.collector.snapshotTTL }}"
+            - "--history-duration={{ .Values.collector.history.duration }}"
+            - "--history-max-series={{ .Values.collector.history.maxSeries }}"
+            - "--history-max-points={{ .Values.collector.history.maxPoints }}"
+            - "--history-max-response-series={{ .Values.collector.history.maxResponseSeries }}"
+            - "--max-snapshot-bytes={{ int64 .Values.collector.ingestion.maxSnapshotBytes }}"
+            - "--max-snapshot-containers={{ .Values.collector.ingestion.maxContainers }}"
+            - "--max-snapshot-age={{ .Values.collector.ingestion.maxSnapshotAge }}"
+            - "--max-snapshot-future-skew={{ .Values.collector.ingestion.maxFutureSkew }}"
+            - "--store-max-nodes={{ .Values.collector.store.maxNodes }}"
+            - "--store-max-containers={{ .Values.collector.store.maxContainers }}"
+            - "--max-response-bytes={{ int64 .Values.collector.maxResponseBytes }}"
+            - "--metrics-enabled={{ .Values.metrics.enabled }}"
+            - "--metrics-include-namespaces={{ .Values.metrics.includeNamespaces }}"
+            - "--metrics-include-pods={{ .Values.metrics.includePods }}"
+            - "--metrics-include-containers={{ .Values.metrics.includeContainers }}"
+            - "--metrics-include-diagnosis={{ .Values.metrics.includeDiagnosis }}"
+            - "--metrics-include-events={{ .Values.metrics.includeEvents }}"
+            - "--metrics-max-pods={{ .Values.metrics.maxPods }}"
+            - "--metrics-max-containers={{ .Values.metrics.maxContainers }}"
           ports:
             - name: http
               containerPort: {{ .Values.collector.service.port }}
+            - name: ingest
+              containerPort: {{ .Values.collector.ingestion.port }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -38,4 +68,8 @@ spec:
             privileged: false
             readOnlyRootFilesystem: {{ .Values.security.readOnlyRootFilesystem }}
             allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+{{ toYaml .Values.collector.resources | nindent 12 }}
 {{- end }}

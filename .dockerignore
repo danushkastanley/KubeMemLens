@@ -4,6 +4,7 @@ docs
 examples
 *.test
 coverage.out
+dist
 kubectl-memlens
 memlens-agent
 memlens-collector

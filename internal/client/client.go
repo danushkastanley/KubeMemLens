@@ -11,5 +11,8 @@ type SnapshotReader interface {
 	Containers(ctx context.Context) ([]api.ContainerSnapshot, error)
 	Pods(ctx context.Context) ([]api.PodSnapshot, error)
 	Namespaces(ctx context.Context) ([]api.NamespaceSnapshot, error)
+	Nodes(ctx context.Context) ([]api.NodeSnapshotStatus, error)
+	Workloads(ctx context.Context) ([]api.WorkloadSnapshot, error)
+	PodHistory(ctx context.Context, namespace, podName string) ([]api.PodHistory, error)
 	DebugStore(ctx context.Context) (api.DebugStore, error)
 }

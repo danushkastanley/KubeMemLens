@@ -1,0 +1,198 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and draft release
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+        with:
+          cosign-release: v3.1.2
+
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          syft-version: v1.44.0
+
+      - name: Resolve build date
+        run: |
+          echo "BUILD_DATE=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
+          echo "IMAGE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Build representative release image for vulnerability scanning
+        run: |
+          docker build \
+            --build-arg VERSION="$GITHUB_REF_NAME" \
+            --build-arg COMMIT="$GITHUB_SHA" \
+            --build-arg BUILD_DATE="$BUILD_DATE" \
+            -t kube-memlens:release-scan .
+
+      - name: Scan representative release image
+        run: >-
+          docker run --rm
+          -v /var/run/docker.sock:/var/run/docker.sock
+          -v "${{ runner.temp }}/trivy-cache:/root/.cache/trivy"
+          ghcr.io/aquasecurity/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f
+          image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln
+          kube-memlens:release-scan
+
+      - name: Build release archives and SBOMs
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate release archives and SBOMs
+        run: |
+          archive_count=$(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')
+          sbom_count=$(find dist -maxdepth 1 -type f -name '*.sbom.json' | wc -l | tr -d ' ')
+          test "$archive_count" = 6
+          test "$sbom_count" = 6
+          (cd dist && sha256sum --check checksums.txt)
+          for sbom in dist/*.sbom.json; do
+            jq -e '
+              .spdxVersion == "SPDX-2.3" and
+              (.packages | type == "array" and length > 0) and
+              any(.creationInfo.creators[]; . == "Tool: syft-1.44.0")
+            ' "$sbom" >/dev/null
+          done
+          if grep -F "$GITHUB_WORKSPACE" dist/*.sbom.json; then
+            echo "release SBOM contains the local workspace path"
+            exit 1
+          fi
+
+      - name: Attest release archives
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/checksums.txt
+
+      - name: Render Krew manifest
+        run: hack/render-krew-manifest.sh "$GITHUB_REF_NAME" dist/checksums.txt dist/memlens.yaml
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build and push multi-architecture image
+        id: image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ghcr.io/danushkastanley/kube-memlens:${{ env.IMAGE_VERSION }}
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Sign image
+        env:
+          IMAGE: ghcr.io/danushkastanley/kube-memlens
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: cosign sign --yes "${IMAGE}@${DIGEST}"
+
+      - name: Attest image
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-name: ghcr.io/danushkastanley/kube-memlens
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+
+      - name: Package Helm chart
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          chart_version="${VERSION#v}"
+          cp -R charts/kube-memlens /tmp/kube-memlens-release-chart
+          sed -i "s#image: ghcr.io/danushkastanley/kube-memlens:.*#image: ghcr.io/danushkastanley/kube-memlens:${chart_version}#" \
+            /tmp/kube-memlens-release-chart/Chart.yaml
+          grep -F "image: ghcr.io/danushkastanley/kube-memlens:${chart_version}" \
+            /tmp/kube-memlens-release-chart/Chart.yaml
+          docker run --rm \
+            -v "$PWD:/work" \
+            -v /tmp/kube-memlens-release-chart:/release-chart:ro \
+            -w /work \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            package /release-chart \
+            --destination dist \
+            --version "$chart_version" \
+            --app-version "$chart_version"
+
+      - name: Log Helm in to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/kube-memlens-helm
+          printf '%s' "$GH_TOKEN" | docker run --rm -i \
+            -e HELM_REGISTRY_CONFIG=/helm/config.json \
+            -v /tmp/kube-memlens-helm:/helm \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Push and sign Helm chart
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          chart_version="${VERSION#v}"
+          docker run --rm \
+            -e HELM_REGISTRY_CONFIG=/helm/config.json \
+            -v /tmp/kube-memlens-helm:/helm \
+            -v "$PWD:/work" \
+            -w /work \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            push "dist/kube-memlens-${chart_version}.tgz" \
+            oci://ghcr.io/danushkastanley/charts
+          cosign sign --yes "ghcr.io/danushkastanley/charts/kube-memlens:${chart_version}"
+
+      - name: Add Helm chart to draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          chart_version="${VERSION#v}"
+          gh release upload "$VERSION" \
+            "dist/kube-memlens-${chart_version}.tgz" \
+            dist/memlens.yaml \
+            --clobber

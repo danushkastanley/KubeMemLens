@@ -6,7 +6,6 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 
-	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	memmodel "github.com/danushkastanley/kube-memlens/internal/model"
 )
@@ -18,15 +17,15 @@ var (
 )
 
 func (m appModel) View() string {
-	width := m.width
-	if width <= 0 {
-		width = 100
-	}
+	plan := m.layout()
+	width := plan.contentWidth()
 
 	var b strings.Builder
 	b.WriteString(m.renderHeader(width))
 	b.WriteString("\n\n")
-	if m.help {
+	if m.action.mode != actionClosed {
+		b.WriteString(m.renderAction(width))
+	} else if m.help {
 		b.WriteString(m.renderHelp(width))
 	} else if m.statusErr != nil && len(m.data.Namespaces) == 0 {
 		b.WriteString(m.renderConnectionError(width))
@@ -35,31 +34,75 @@ func (m appModel) View() string {
 	} else if len(m.data.Namespaces) == 0 && m.statusErr == nil && !m.loading {
 		b.WriteString(m.renderEmpty(width))
 	} else {
-		switch m.view {
-		case viewNamespaces:
-			b.WriteString(m.renderNamespaces(width))
-		case viewPods:
-			b.WriteString(m.renderPods(width))
-		case viewContainers:
-			b.WriteString(m.renderContainers(width))
-		case viewDetail:
-			b.WriteString(m.renderDetail(width))
-		}
+		b.WriteString(m.renderContent(plan))
 	}
 	b.WriteString("\n")
 	b.WriteString(m.renderFooter(width))
 	return b.String()
 }
 
+func (m appModel) renderContent(plan layoutPlan) string {
+	if m.view == viewDetail {
+		return m.renderDetail(plan.width)
+	}
+	if m.view == viewPods && plan.mode == layoutWide {
+		return m.renderWideDashboard(plan)
+	}
+	renderTable := func(width int) string {
+		switch m.view {
+		case viewNodes:
+			return m.renderNodes(width)
+		case viewNamespaces:
+			return m.renderNamespaces(width)
+		case viewWorkloads:
+			return m.renderWorkloads(width)
+		case viewPods:
+			return m.renderPods(width)
+		case viewContainers:
+			return m.renderContainers(width)
+		default:
+			return ""
+		}
+	}
+	if !plan.splitDetail {
+		return renderTable(plan.width)
+	}
+	left := renderTable(plan.tableWidth)
+	rightLines := m.inlineDetailLines(plan.detailWidth)
+	viewport := m.viewports[viewDetail]
+	viewport.resize(plan.bodyRows)
+	viewport.reconcile(len(rightLines))
+	right := truncateLines(viewportWindow(viewport, rightLines), plan.detailWidth)
+	leftPane := lipgloss.NewStyle().Width(plan.tableWidth).Render(left)
+	rightPane := lipgloss.NewStyle().Width(plan.detailWidth).Render(right)
+	divider := helpStyle.Render("│")
+	return lipgloss.JoinHorizontal(lipgloss.Top, leftPane, divider, rightPane)
+}
+
 func (m appModel) renderHeader(width int) string {
 	parts := []string{
 		"KubeMemLens",
 		"view: " + m.view.String(),
-		"connection: " + m.connectionDescription,
 		"sort: " + m.sort.String(),
 	}
 	if ns, all := m.activeNamespace(); !all && ns != "" {
 		parts = append(parts, "namespace: "+ns)
+	}
+	if m.currentWorkloadName != "" {
+		parts = append(parts, "workload: "+m.currentWorkloadKind+"/"+m.currentWorkloadName)
+	}
+	if m.currentNode != "" {
+		parts = append(parts, "node: "+m.currentNode)
+	}
+	if m.loading || m.paused {
+		states := make([]string, 0, 2)
+		if m.paused {
+			states = append(states, "paused")
+		}
+		if m.loading {
+			states = append(states, "refreshing")
+		}
+		parts = append(parts, "state: "+strings.Join(states, "/"))
 	}
 	if m.query != "" || m.searching {
 		parts = append(parts, "filter: "+m.query)
@@ -69,19 +112,34 @@ func (m appModel) renderHeader(width int) string {
 	} else {
 		parts = append(parts, "refreshed: "+FormatAge(m.lastRefresh)+" ago")
 	}
-	if m.loading {
-		parts = append(parts, "refreshing")
-	}
 	if m.statusErr != nil {
 		parts = append(parts, errorStyle.Render("status: connection error"))
 	}
+	if m.layout().splitDetail {
+		focus := "table"
+		if m.focus == focusDetail {
+			focus = "detail"
+		}
+		parts = append(parts, "focus: "+focus)
+	}
+	parts = append(parts, "connection: "+m.connectionDescription)
 	return headerStyle.Render(truncate(strings.Join(parts, " | "), width))
 }
 
 func (m appModel) renderFooter(width int) string {
-	footer := "q quit · r refresh · / search · tab switch · enter drill · e explain · ? help"
+	footer := "q quit · space pause · r refresh · / filter · N/n/w/p/c views · enter drill · e explain · ? help"
 	if m.searching {
 		footer = "search: " + m.query + " · enter keep · esc clear · backspace delete"
+	} else if m.view == viewDetail {
+		viewport := m.viewports[viewDetail]
+		viewport.reconcile(len(m.detailLines(width)))
+		start, end := viewport.visibleRange()
+		footer = fmt.Sprintf("detail %d–%d/%d · j/k scroll · PgUp/PgDown page · g/G ends · h back · q quit", start+1, end, viewport.count)
+	} else if m.layout().splitDetail {
+		footer = "tab focus · j/k move or scroll · PgUp/PgDown page · enter drill · N/n/w/p/c views · ? help"
+	}
+	if m.action.mode != actionClosed {
+		footer = "Esc close · action keys shown above"
 	}
 	return helpStyle.Render(truncate(footer, width))
 }
@@ -92,16 +150,48 @@ func (m appModel) renderHelp(width int) string {
 		"",
 		"q / Ctrl+C   quit",
 		"r            refresh now",
-		"/            search current table",
-		"Esc          clear search or leave detail view",
-		"Tab          cycle namespace, pod, and container views",
-		"n / p / c    jump to namespace, pod, or container view",
+		"Space        pause/resume automatic refresh",
+		"/            filter current table",
+		"Esc          clear filter or leave detail view",
+		"Tab          switch table/detail focus in wide layouts",
+		"N / n / w / p / c jump to node, namespace, workload, pod, or container view",
 		"Enter        drill into namespace, pod, or container's pod",
 		"e            explain selected pod",
 		"h / Backspace go back",
 		"k/j or arrows move selection",
 		"PgUp/PgDown  move faster",
+		"g / G        jump to first or last row",
 		"s            cycle sort: total, rss, cache, shmem, name",
+		"a            incident action menu",
+		"R / x / C    recommendations / compare / capture",
+		"y            copy safe follow-up command",
+	}
+	return truncateLines(lines, width)
+}
+
+func (m appModel) renderWorkloads(width int) string {
+	items := m.visibleWorkloads()
+	if len(items) == 0 {
+		return "No workloads match the current filter."
+	}
+	widths := workloadWidths(width)
+	lines := []string{tableRow([]string{"NAMESPACE", "KIND", "WORKLOAD", "PODS", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "LARGEST", "MAX POD", "DIAGNOSIS"}, widths, nil)}
+	viewport := m.viewports[viewWorkloads]
+	viewport.reconcile(len(items))
+	start, end := viewport.visibleRange()
+	for i := start; i < end; i++ {
+		item := items[i]
+		prefix := " "
+		if i == viewport.selected {
+			prefix = "›"
+		}
+		lines = append(lines, prefix+tableRow([]string{
+			item.Namespace, item.Kind, item.Name, fmt.Sprintf("%d", item.PodCount),
+			memmodel.FormatCompactBytes(item.Memory.TotalBytes), memmodel.FormatCompactBytes(item.Memory.RSSBytes()),
+			memmodel.FormatCompactBytes(item.Memory.CacheBytes()), memmodel.FormatCompactBytes(item.Memory.ShmemBytes),
+			memmodel.FormatCompactBytes(item.Memory.ResidualBytes()), item.LargestPodName,
+			memmodel.FormatCompactBytes(item.LargestPodBytes), string(explain.Analyze(item.Memory).Diagnosis),
+		}, widths, numericIndexes(3, 4, 5, 6, 7, 8, 10)))
 	}
 	return truncateLines(lines, width)
 }
@@ -128,10 +218,14 @@ func (m appModel) renderNamespaces(width int) string {
 		return "No namespaces match the current filter."
 	}
 	widths := namespaceWidths(width)
-	lines := []string{tableRow([]string{"NAMESPACE", "PODS", "TOTAL", "RSS", "CACHE", "SHMEM", "SLAB", "DIAGNOSIS", "AGE"}, widths, nil)}
-	for i, item := range items {
+	lines := []string{tableRow([]string{"NAMESPACE", "PODS", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS", "AGE"}, widths, nil)}
+	viewport := m.viewports[viewNamespaces]
+	viewport.reconcile(len(items))
+	start, end := viewport.visibleRange()
+	for i := start; i < end; i++ {
+		item := items[i]
 		prefix := " "
-		if i == m.selected {
+		if i == viewport.selected {
 			prefix = "›"
 		}
 		lines = append(lines, prefix+tableRow([]string{
@@ -141,40 +235,72 @@ func (m appModel) renderNamespaces(width int) string {
 			memmodel.FormatCompactBytes(item.Memory.RSSBytes()),
 			memmodel.FormatCompactBytes(item.Memory.CacheBytes()),
 			memmodel.FormatCompactBytes(item.Memory.ShmemBytes),
-			memmodel.FormatCompactBytes(item.Memory.SlabBytes),
+			memmodel.FormatCompactBytes(item.Memory.ResidualBytes()),
 			string(explain.Analyze(item.Memory).Diagnosis),
 			FormatAge(item.CapturedAt),
 		}, widths, numericIndexes(1, 2, 3, 4, 5, 6)))
 	}
-	return truncateLines(limitLines(lines, m.bodyRows()), width)
+	return truncateLines(lines, width)
 }
 
 func (m appModel) renderPods(width int) string {
 	items := m.visiblePods()
 	if len(items) == 0 {
+		if m.query != "" {
+			return fmt.Sprintf("No Pods match filter %q. Press Esc to clear it.", m.query)
+		}
 		return "No pods match the current filter."
 	}
-	widths := podWidths(width)
-	lines := []string{tableRow([]string{"NAMESPACE", "POD", "NODE", "TOTAL", "RSS", "CACHE", "SHMEM", "SLAB", "DIAGNOSIS", "AGE"}, widths, nil)}
-	for i, item := range items {
+	compact := width < 115
+	var widths []int
+	var lines []string
+	if compact {
+		widths = withDynamic(width, []int{8, 12, 12, 11, 5}, 16)
+		lines = []string{tableRow([]string{"POD", "TOTAL", "LIMIT", "A/F/S/O", "RISK", "AGE"}, widths, nil)}
+	} else {
+		widths = withTwoDynamic(width, []int{12, 8, 14, 16, 14, 14, 3, 6}, 12, 18)
+		lines = []string{tableRow([]string{"NAMESPACE", "POD", "NODE", "TOTAL", "LIMIT", "A/F/S/O", "SIGNAL", "DIAGNOSIS", "TR", "AGE"}, widths, nil)}
+	}
+	viewport := m.viewports[viewPods]
+	viewport.reconcile(len(items))
+	start, end := viewport.visibleRange()
+	for i := start; i < end; i++ {
+		item := items[i]
+		presentation := presentMemory(item.Memory, 12, false)
+		trend := trendLabel(m.podTrends[podKey(item.Namespace, item.PodName)])
 		prefix := " "
-		if i == m.selected {
+		if i == viewport.selected {
 			prefix = "›"
+		}
+		if compact {
+			identity := item.PodName
+			if m.opts.AllNamespaces || m.currentNamespace == "" {
+				identity = item.Namespace + "/" + item.PodName
+			}
+			lines = append(lines, prefix+tableRow([]string{
+				identity,
+				memmodel.FormatCompactBytes(item.Memory.TotalBytes),
+				presentation.limit,
+				presentation.composition,
+				presentation.severity + " " + trend,
+				FormatAge(item.CapturedAt),
+			}, widths, numericIndexes(1)))
+			continue
 		}
 		lines = append(lines, prefix+tableRow([]string{
 			item.Namespace,
 			item.PodName,
 			item.NodeName,
 			memmodel.FormatCompactBytes(item.Memory.TotalBytes),
-			memmodel.FormatCompactBytes(item.Memory.RSSBytes()),
-			memmodel.FormatCompactBytes(item.Memory.CacheBytes()),
-			memmodel.FormatCompactBytes(item.Memory.ShmemBytes),
-			memmodel.FormatCompactBytes(item.Memory.SlabBytes),
-			string(explain.Analyze(item.Memory).Diagnosis),
+			presentation.limit,
+			presentation.composition,
+			presentation.signal,
+			presentation.diagnosis,
+			trend,
 			FormatAge(item.CapturedAt),
-		}, widths, numericIndexes(3, 4, 5, 6, 7)))
+		}, widths, numericIndexes(3)))
 	}
-	return truncateLines(limitLines(lines, m.bodyRows()), width)
+	return truncateLines(lines, width)
 }
 
 func (m appModel) renderContainers(width int) string {
@@ -183,10 +309,14 @@ func (m appModel) renderContainers(width int) string {
 		return "No containers match the current filter."
 	}
 	widths := containerWidths(width)
-	lines := []string{tableRow([]string{"NAMESPACE", "POD", "CONTAINER", "NODE", "TOTAL", "RSS", "CACHE", "SHMEM", "SLAB", "DIAGNOSIS", "AGE"}, widths, nil)}
-	for i, item := range items {
+	lines := []string{tableRow([]string{"NAMESPACE", "POD", "CONTAINER", "NODE", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS", "AGE"}, widths, nil)}
+	viewport := m.viewports[viewContainers]
+	viewport.reconcile(len(items))
+	start, end := viewport.visibleRange()
+	for i := start; i < end; i++ {
+		item := items[i]
 		prefix := " "
-		if i == m.selected {
+		if i == viewport.selected {
 			prefix = "›"
 		}
 		lines = append(lines, prefix+tableRow([]string{
@@ -198,75 +328,19 @@ func (m appModel) renderContainers(width int) string {
 			memmodel.FormatCompactBytes(item.Memory.RSSBytes()),
 			memmodel.FormatCompactBytes(item.Memory.CacheBytes()),
 			memmodel.FormatCompactBytes(item.Memory.ShmemBytes),
-			memmodel.FormatCompactBytes(item.Memory.SlabBytes),
+			memmodel.FormatCompactBytes(item.Memory.ResidualBytes()),
 			string(explain.Analyze(item.Memory).Diagnosis),
 			FormatAge(item.CapturedAt),
 		}, widths, numericIndexes(4, 5, 6, 7, 8)))
 	}
-	return truncateLines(limitLines(lines, m.bodyRows()), width)
+	return truncateLines(lines, width)
 }
 
 func (m appModel) renderDetail(width int) string {
-	pod, ok := m.selectedPod()
-	if !ok {
-		return "Selected pod is no longer present in collector snapshots."
-	}
-	result := explain.Analyze(pod.Memory)
-	lines := []string{
-		"Pod: " + pod.PodName,
-		"Namespace: " + pod.Namespace,
-		"Node: " + pod.NodeName,
-		"Captured: " + pod.CapturedAt.Format("2006-01-02 15:04:05 MST") + " (" + FormatAge(pod.CapturedAt) + " ago)",
-		"",
-		"Memory breakdown:",
-		"Total charged memory: " + memmodel.FormatBytes(pod.Memory.TotalBytes),
-		"RSS / anon:           " + memmodel.FormatBytes(pod.Memory.RSSBytes()),
-		"File cache:           " + memmodel.FormatBytes(pod.Memory.CacheBytes()),
-		"Active file:          " + memmodel.FormatBytes(pod.Memory.ActiveFileBytes),
-		"Inactive file:        " + memmodel.FormatBytes(pod.Memory.InactiveFileBytes),
-		"Shmem / tmpfs:        " + memmodel.FormatBytes(pod.Memory.ShmemBytes),
-		"Slab / kernel:        " + memmodel.FormatBytes(pod.Memory.SlabBytes),
-		"Dirty/writeback:      " + memmodel.FormatDirtyWriteback(pod.Memory),
-		fmt.Sprintf("OOM events:           %d", pod.Memory.OOMEvents),
-		fmt.Sprintf("OOM kill events:      %d", pod.Memory.OOMKillEvents),
-		fmt.Sprintf("High events:          %d", pod.Memory.HighEvents),
-		fmt.Sprintf("Max events:           %d", pod.Memory.MaxEvents),
-		"",
-		"Diagnosis:",
-		string(result.Diagnosis),
-		"",
-		"Likely explanation:",
-		result.LikelyExplanation,
-		"",
-		"Signals:",
-	}
-	for _, signal := range result.Signals {
-		lines = append(lines, "- "+signal)
-	}
-	lines = append(lines, "", "Suggested checks:")
-	for _, check := range result.SuggestedChecks {
-		lines = append(lines, "- "+check)
-	}
-	lines = append(lines, "", "Containers:")
-	lines = append(lines, renderContainerSummary(pod.Containers)...)
-	return truncateLines(limitLines(lines, m.bodyRows()), width)
-}
-
-func renderContainerSummary(containers []api.ContainerSnapshot) []string {
-	widths := []int{18, 8, 8, 8, 7, 8, 18}
-	lines := []string{tableRow([]string{"CONTAINER", "TOTAL", "RSS", "CACHE", "SHMEM", "SLAB", "DIAGNOSIS"}, widths, nil)}
-	for _, container := range containers {
-		lines = append(lines, tableRow([]string{
-			container.ContainerName,
-			memmodel.FormatCompactBytes(container.Memory.TotalBytes),
-			memmodel.FormatCompactBytes(container.Memory.RSSBytes()),
-			memmodel.FormatCompactBytes(container.Memory.CacheBytes()),
-			memmodel.FormatCompactBytes(container.Memory.ShmemBytes),
-			memmodel.FormatCompactBytes(container.Memory.SlabBytes),
-			string(explain.Analyze(container.Memory).Diagnosis),
-		}, widths, numericIndexes(1, 2, 3, 4, 5)))
-	}
-	return lines
+	lines := m.detailLines(width)
+	viewport := m.viewports[viewDetail]
+	viewport.reconcile(len(lines))
+	return truncateLines(viewportWindow(viewport, lines), width)
 }
 
 func tableRow(cells []string, widths []int, right map[int]struct{}) string {
@@ -293,20 +367,6 @@ func truncateLines(lines []string, width int) string {
 	return strings.Join(lines, "\n")
 }
 
-func limitLines(lines []string, max int) []string {
-	if max <= 0 || len(lines) <= max {
-		return lines
-	}
-	return lines[:max]
-}
-
 func (m appModel) bodyRows() int {
-	if m.height <= 0 {
-		return 25
-	}
-	rows := m.height - 5
-	if rows < 5 {
-		return 5
-	}
-	return rows
+	return m.layout().bodyRows
 }

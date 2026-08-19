@@ -31,7 +31,7 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		Use:   "kubectl-memlens",
 		Short: "Terminal-first Kubernetes memory inspector",
 		Long: "KubeMemLens helps explain why pod or container memory is high by separating cgroup memory " +
-			"into RSS/anon, file cache, tmpfs, slab, dirty/writeback, and pressure signals.",
+			"into non-overlapping RSS/anon, filesystem cache, tmpfs, and residual/other buckets, with kernel, writeback, and pressure drill-down evidence.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -51,6 +51,13 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	cmd.AddCommand(newExplainCommand(flags.options))
 	cmd.AddCommand(newTUICommand(flags.options))
 	cmd.AddCommand(newStatusCommand(flags.options))
+	cmd.AddCommand(newDoctorCommand(flags.options))
+	cmd.AddCommand(newHistoryCommand(flags.options))
+	cmd.AddCommand(newCaptureCommand(flags.options))
+	cmd.AddCommand(newReplayCommand())
+	cmd.AddCommand(newCompareCommand(flags.options))
+	cmd.AddCommand(newRecommendCommand(flags.options))
+	cmd.AddCommand(newVersionCommand())
 
 	return cmd
 }

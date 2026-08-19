@@ -1,0 +1,22 @@
+plugins:
+  kube-memlens-explain:
+    shortCut: Shift-M
+    override: false
+    confirm: false
+    dangerous: false
+    description: Explain Pod memory with KubeMemLens
+    scopes:
+      - pods
+    command: kubectl
+    background: false
+    args:
+      - memlens
+      - explain
+      - pod
+      - $NAME
+      - --namespace
+      - $NAMESPACE
+      - --context
+      - $CONTEXT
+      - --kubeconfig
+      - $KUBECONFIG

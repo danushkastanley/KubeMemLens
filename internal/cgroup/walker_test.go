@@ -1,6 +1,7 @@
 package cgroup
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -84,7 +85,35 @@ func TestWalkerSkipsParentPodCgroup(t *testing.T) {
 	}
 }
 
-func writeCgroupFiles(t *testing.T, dir string, current, anon uint64) {
+func BenchmarkWalker(b *testing.B) {
+	for _, containers := range []int{100, 1000, 5000, 10000} {
+		b.Run(fmt.Sprintf("containers-%d", containers), func(b *testing.B) {
+			root := b.TempDir()
+			podDir := filepath.Join(root, "kubepods", "burstable", "pod"+testPodUID)
+			for i := 0; i < containers; i++ {
+				containerID := fmt.Sprintf("%064x", i+1)
+				writeCgroupFiles(b, filepath.Join(podDir, containerID), 100, 60)
+			}
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				entries, err := (Walker{Root: root}).Walk()
+				if err != nil {
+					b.Fatalf("Walk returned error: %v", err)
+				}
+				if len(entries) != containers {
+					b.Fatalf("entries = %d, want %d", len(entries), containers)
+				}
+			}
+		})
+	}
+}
+
+type testHelper interface {
+	Helper()
+	Fatalf(string, ...any)
+}
+
+func writeCgroupFiles(t testHelper, dir string, current, anon uint64) {
 	t.Helper()
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatalf("mkdir %s: %v", dir, err)

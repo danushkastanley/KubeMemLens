@@ -10,21 +10,24 @@ KubeMemLens is designed as a terminal-first tool that can start locally and grow
 - `internal/explain`: diagnosis heuristics and incident-friendly explanations.
 - `examples/cgroup-v2`: local sample data for development and tests.
 - `memlens-agent`: DaemonSet binary that scans node cgroups and posts snapshots.
-- `memlens-collector`: in-memory HTTP collector for latest container snapshots.
+- `memlens-collector`: in-memory HTTP collector for latest container snapshots and bounded Pod trends.
 - `internal/client`: collector readers for direct HTTP and Kubernetes API service proxy modes.
-- `internal/tui`: Bubble Tea dashboard for browsing namespaces, pods, containers, and pod explanations.
+- `internal/tui`: Bubble Tea dashboard for risk-oriented node, namespace, workload, Pod and container investigation.
+- `internal/incident`: shared redacted incident-bundle writing used by the CLI and TUI.
+- `internal/metrics`: Prometheus/OpenMetrics text renderer for conservative collector metrics.
 
 ## Cluster Flow
 
 1. The agent runs on each node as a DaemonSet.
-2. The agent walks `/host/sys/fs/cgroup` and returns only container-looking cgroups.
-3. The agent lists pods through the Kubernetes API and builds a pod/container index for its node.
-4. The agent maps container cgroup IDs to namespace, pod, container, and node metadata.
-5. The agent posts `AgentSnapshot` JSON to the collector at `/api/v1/snapshots`.
-6. The collector stores the latest container snapshots in memory.
-7. The CLI and TUI query collector APIs through one of two connection modes:
+2. The agent walks `/host/sys/fs/cgroup`, parses composition, peak, boundaries, PSI, swap, local events, and reclaim signals, and returns only container-looking cgroups.
+3. The agent performs one node-filtered Pod list, follows changes through a Kubernetes watch, and builds a local pod/container index.
+4. The agent maps container cgroup IDs to namespace, Pod, container, node, resource request/limit, QoS, restart/termination, phase, creation-time, runtime class, memory-backed `emptyDir` counts/limits, direct owner, and top-level workload metadata. Its cached own-node GET adds MemoryPressure and allocatable memory. ReplicaSet and Job owner GETs are cached and bounded.
+5. The agent posts versioned `AgentSnapshot` JSON, including cgroup/runtime diagnostics, to the ingestion listener on port `8081` at `/api/v1/snapshots`.
+6. The collector stores the latest container snapshots plus a bounded rolling Pod history in memory, deriving event and scan/steal/refault/major-fault deltas from consecutive container instances. It defaults to 5,000 node records, 100,000 current containers, and 16 MiB per encoded read response. Current clients request at most 500 records per keyset page; the server reduces a page further when its encoded body would reach the byte ceiling. Clients deterministically rebuild Pod, namespace and workload views, while legacy array endpoints remain during the pre-1.0 compatibility window. History defaults to 15 minutes, 180 points per Pod instance, 1,000 total series, and 20 returned instances per request.
+7. The CLI and TUI query the read-only collector listener on port `8080` through one of two connection modes:
    - HTTP direct mode, usually via a user-managed port-forward.
    - Kubernetes API service proxy mode, which is the default when no collector URL is provided.
+8. Prometheus can scrape collector `/metrics` for namespace and pod memory gauges. Container metrics are opt-in.
 
 Pod and namespace totals are sums of mapped container cgroups only. Parent pod cgroups are intentionally not added to avoid double-counting.
 
@@ -40,6 +43,12 @@ HTTP fallback mode still uses:
 agent -> collector service -> port-forward -> CLI/TUI
 ```
 
+The v0.5 metrics flow is:
+
+```text
+agent -> collector store -> /metrics -> Prometheus
+```
+
 ## Future Components
 
 ### CLI / kubectl plugin
@@ -52,20 +61,24 @@ kubectl memlens
 
 ### Terminal dashboard
 
-The Bubble Tea TUI shows namespace, pod, and container tables with search, sort, refresh, and a pod explanation view. It reads from the collector through the shared client layer, so it can use either HTTP mode or Kubernetes API service proxy mode.
+The Bubble Tea TUI provides node, namespace, top-level workload, Pod, container and detail views. A reusable viewport owns selection and virtualised windows, while layout, risk presentation, filters, selected history and incident actions remain separate modules. Compact and standard terminals render one focused surface. At 150×30 and larger, the Pod view renders a master-detail memory dashboard with namespace and node context; Tab changes table/detail focus rather than changing entity view.
+
+Snapshot views refresh concurrently within one timeout. Selected-Pod history has its own generation-keyed state: only one request is in flight for the selection, late responses are discarded, the last good series survives a refresh error and pause stops automatic updates without disabling manual refresh. Pod detail combines a bounded trend with cgroup limit, PSI/event, Kubernetes context, confidence and safe next commands. Container detail explicitly labels parent-Pod history because container-level history is not retained.
+
+Incident actions call typed internal interfaces rather than spawning the CLI. Recommendations and comparisons are read-only; capture reuses `internal/incident` for redaction, atomic mode-`0600` writes and explicit overwrite confirmation. The TUI reads through the shared client layer, so HTTP and Kubernetes API service-proxy modes retain the same behaviour.
 
 ### Node-local agent
 
-The agent runs as a DaemonSet. It reads cgroup memory files from the node, maps cgroup paths to containers, and posts snapshots to the collector. A future version should replace per-interval pod listing with an informer/cache.
+The agent runs as a DaemonSet. It reads cgroup memory files from the node, maps cgroup paths to containers through a node-filtered informer cache, and posts snapshots to the collector.
 
 ### Collector
 
-The collector receives recent snapshots from node agents and makes them available to the CLI and TUI. Long-term storage is intentionally out of scope for now.
+The collector receives recent snapshots from node agents and makes them available to the CLI, TUI, and `/metrics`. Metrics are rendered from the same latest in-memory snapshots as the API, so pod and namespace totals stay consistent. A compact rolling history retains Pod composition, swap, PSI, peak, and event deltas for short incident review. Age, point, series, and response limits bound its memory and API cost; it is deliberately ephemeral and is not long-term monitoring storage.
 
 ### Kubernetes metadata mapper
 
-The Kubernetes package maps container IDs from pod status to cgroup paths. It currently uses simple list calls for v0.2 and keeps informer work as a later optimisation.
+The Kubernetes package maps container IDs from Pod status to cgroup paths and attaches context available from the same Pod object, including runtime class and bounded aggregate facts about memory-backed `emptyDir` volumes without collecting volume names. Continuous agent mode uses a filtered informer cache; one-shot mode performs one direct list before exiting. Each agent also caches a GET of its own Node every 30 seconds for MemoryPressure and allocatable memory. A separate bounded resolver follows ReplicaSet to Deployment and Job to CronJob with cached `get` calls; StatefulSet, DaemonSet, and other direct top-level owners need no extra lookup.
 
 ### Optional eBPF attribution
 
-A future eBPF mode may attribute file-cache and allocation behaviour more precisely. That mode should be optional and reviewed separately because it changes the security model.
+A future eBPF mode may attribute short-lived file and page-cache behaviour more precisely. It is deferred as a separately installed, on-demand extension because it changes the node and multi-tenant trust boundaries. See the [design gate](ebpf/OPTIONAL_EBPF_DESIGN.md), [threat model](security/KubeMemLens-threat-model.md), [benchmark protocol](ebpf/BENCHMARK_PROTOCOL.md), and [ADR 0001](adr/0001-defer-ebpf-until-security-and-benchmark-gates.md). The standard agent will not load BPF programmes.

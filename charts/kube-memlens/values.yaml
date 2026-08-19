@@ -1,6 +1,10 @@
 image:
-  repository: ghcr.io/example/kube-memlens
-  tag: dev
+  repository: ghcr.io/danushkastanley/kube-memlens
+  # Empty uses Chart.appVersion so packaged releases stay aligned.
+  tag: ""
+  # An exact sha256 digest takes precedence over tag. Use it for qualification
+  # and other environments that require immutable workload artefacts.
+  digest: ""
   pullPolicy: IfNotPresent
 
 namespace:
@@ -9,22 +13,85 @@ namespace:
 
 agent:
   enabled: true
+  nodeSelector:
+    kubernetes.io/os: linux
+  # Add only the tolerations required for the Linux node pools being observed.
+  tolerations: []
   cgroupRootHostPath: /sys/fs/cgroup
-  procRootHostPath: /proc
   interval: 5s
-  collectorURL: http://kube-memlens-collector:8080
+  collectorURL: http://kube-memlens-collector:8081
+  metrics:
+    enabled: true
+    port: 8082
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
 
 collector:
   enabled: true
+  # Multiple replicas would each hold an independent in-memory view.
   replicas: 1
   snapshotTTL: 30s
+  history:
+    duration: 15m
+    maxSeries: 1000
+    maxPoints: 180
+    maxResponseSeries: 20
+  ingestion:
+    port: 8081
+    maxSnapshotBytes: 4194304
+    maxContainers: 10000
+    maxSnapshotAge: 2m
+    maxFutureSkew: 30s
+  store:
+    maxNodes: 5000
+    maxContainers: 100000
+  maxResponseBytes: 16777216
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 128Mi
   service:
     port: 8080
+
+metrics:
+  enabled: true
+  includeNamespaces: true
+  includePods: true
+  # Container metrics are useful but can be high-cardinality in busy clusters.
+  includeContainers: false
+  includeDiagnosis: true
+  # Memory event metrics are gauges from latest snapshots, not monotonic counters.
+  includeEvents: true
+  maxPods: 2000
+  maxContainers: 5000
+  serviceAnnotations: {}
+  serviceMonitor:
+    enabled: false
+    interval: 30s
+    scrapeTimeout: 10s
+    labels: {}
+  prometheusRule:
+    enabled: false
+    labels: {}
+    runbookBaseURL: https://github.com/danushkastanley/kube-memlens/blob/main/docs/runbooks
+  grafanaDashboard:
+    enabled: false
+    labels:
+      grafana_dashboard: "1"
 
 security:
   privileged: false
   readOnlyRootFilesystem: true
 
-# v0.2 is cgroup-read focused and should run with read-only hostPath mounts.
-# Future eBPF mode may require elevated permissions and must receive a separate
-# security review before those permissions are enabled.
+networkPolicy:
+  enabled: true
+
+# The standard profile is cgroup-read focused and uses a read-only hostPath.
+# Optional eBPF tracing is not implemented; any future tracer requires its own
+# installation profile, security review, and benchmark gates.

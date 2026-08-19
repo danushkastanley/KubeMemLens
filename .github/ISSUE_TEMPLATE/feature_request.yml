@@ -1,0 +1,40 @@
+name: Feature request
+description: Propose an incident workflow or diagnostic improvement.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: job
+    attributes:
+      label: Operator job
+      description: What Kubernetes memory question or incident task should become easier?
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current workflow
+      description: How is this handled today, and where does it fail?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: Describe the smallest useful terminal, API, metric, or integration change.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and alternatives
+      description: Link official docs or comparable tools and describe alternatives considered.
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: Product boundaries
+      options:
+        - label: This does not require external telemetry or unbounded storage.
+          required: true
+        - label: This does not add automatic remediation or default privileged/eBPF access.
+          required: true

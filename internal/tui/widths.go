@@ -10,6 +10,11 @@ func podWidths(total int) []int {
 	return withDynamic(total, fixed, 20)
 }
 
+func workloadWidths(total int) []int {
+	fixed := []int{12, 6, 8, 8, 8, 7, 8, 16, 8, 18}
+	return withTwoDynamic(total, fixed, 14, 18)
+}
+
 func containerWidths(total int) []int {
 	fixed := []int{12, 10, 8, 8, 8, 7, 8, 18, 6}
 	return withTwoDynamic(total, fixed, 18, 16)

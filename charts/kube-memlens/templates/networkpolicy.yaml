@@ -1,0 +1,28 @@
+{{- if and .Values.collector.enabled .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kube-memlens-collector
+  namespace: {{ .Values.namespace.name | quote }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kube-memlens-collector
+  policyTypes:
+    - Ingress
+  ingress:
+    # Keep read and metrics access compatible with API-server service proxy,
+    # port-forwarding, and in-cluster Prometheus. These handlers are read-only.
+    - ports:
+        - port: http
+          protocol: TCP
+    # Snapshot ingestion is writable and is limited to KubeMemLens agents in
+    # this namespace. Enforcement requires a NetworkPolicy-capable CNI.
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: kube-memlens-agent
+      ports:
+        - port: ingest
+          protocol: TCP
+{{- end }}

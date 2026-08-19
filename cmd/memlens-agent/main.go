@@ -2,14 +2,19 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/agent"
+	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
 	"github.com/danushkastanley/kube-memlens/internal/kube"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 	"k8s.io/client-go/kubernetes"
@@ -23,7 +28,14 @@ func main() {
 	nodeName := flag.String("node-name", defaultNodeName(), "Kubernetes node name")
 	kubeEnabled := flag.Bool("kube", true, "use Kubernetes API for pod/container metadata")
 	scanTimeout := flag.Duration("scan-timeout", 10*time.Second, "per-scan timeout")
+	cacheSyncTimeout := flag.Duration("cache-sync-timeout", 15*time.Second, "maximum initial Kubernetes metadata cache sync wait")
+	metricsListenAddr := flag.String("metrics-listen", ":8082", "HTTP listen address for agent metrics and health; empty disables it")
+	versionOnly := flag.Bool("version", false, "show build information and exit")
 	flag.Parse()
+	if *versionOnly {
+		fmt.Println(buildinfo.Current(runtime.Version(), runtime.GOOS, runtime.GOARCH).String())
+		return
+	}
 
 	var kubeClient kubernetes.Interface
 	if *kubeEnabled {
@@ -44,7 +56,12 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), *scanTimeout)
 		defer cancel()
 
-		result, err := runScan(ctx, scanner, kubeClient, *nodeName, *kubeEnabled)
+		index, err := loadPodIndex(ctx, kubeClient, *nodeName, *kubeEnabled)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "load Kubernetes metadata: %v\n", err)
+			os.Exit(1)
+		}
+		result, err := scanner.Scan(ctx, index)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "scan failed: %v\n", err)
 			os.Exit(1)
@@ -54,6 +71,7 @@ func main() {
 		fmt.Printf("Container cgroups found: %d\n", result.ContainersFound)
 		fmt.Printf("Mapped containers: %d\n", result.Mapped)
 		fmt.Printf("Unmapped containers: %d\n", result.Unmapped)
+		fmt.Printf("Infrastructure cgroups: %d\n", result.InfrastructureCgroups)
 		fmt.Printf("Total charged memory: %s\n", model.FormatBytes(result.TotalMemory.TotalBytes))
 		if result.RootFallback {
 			fmt.Println("Used direct root cgroup scan because no container cgroups were found.")
@@ -70,19 +88,79 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	telemetry := &agent.Telemetry{}
+	var metricsServer *http.Server
+	if strings.TrimSpace(*metricsListenAddr) != "" {
+		metricsServer = newMetricsServer(*metricsListenAddr, telemetry.Handler())
+		go func() {
+			fmt.Printf("memlens-agent metrics endpoint listening on %s\n", metricsServer.Addr)
+			if err := metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				fmt.Fprintf(os.Stderr, "memlens-agent metrics server failed: %v\n", err)
+				stop()
+			}
+		}()
+		defer shutdownMetricsServer(metricsServer)
+	}
+	var podCache *kube.PodCache
+	var nodeContextCache *kube.NodeContextCache
+	var ownerResolver *kube.WorkloadOwnerResolver
+	if *kubeEnabled && kubeClient != nil {
+		podCache = kube.NewPodCache(kubeClient, *nodeName)
+		go podCache.Run(ctx)
+		syncCtx, syncCancel := context.WithTimeout(ctx, *cacheSyncTimeout)
+		if podCache.WaitForSync(syncCtx) {
+			fmt.Printf("kubernetes metadata cache synced node=%s pods=%d\n", *nodeName, podCache.PodCount())
+		} else {
+			fmt.Fprintf(os.Stderr, "kubernetes metadata cache initial sync timed out node=%s\n", *nodeName)
+		}
+		syncCancel()
+		nodeContextCache = kube.NewNodeContextCache(kubeClient, *nodeName, 30*time.Second)
+		ownerResolver = kube.NewWorkloadOwnerResolver(kubeClient, 5*time.Minute)
+	}
 
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
 
+	nodeContextErrorReported := false
+	workloadContextErrorReported := false
 	for {
 		start := time.Now()
 		scanCtx, cancel := context.WithTimeout(ctx, *scanTimeout)
-		result, err := runScan(scanCtx, scanner, kubeClient, *nodeName, *kubeEnabled)
+		index := kube.EmptyPodIndex()
+		metadataCachePods := 0
+		if podCache != nil {
+			index = podCache.Index()
+			metadataCachePods = podCache.PodCount()
+		}
+		if ownerResolver != nil {
+			var resolutionErrors int
+			index, resolutionErrors = ownerResolver.ResolveIndex(scanCtx, index, time.Now().UTC())
+			if resolutionErrors > 0 && !workloadContextErrorReported {
+				fmt.Fprintf(os.Stderr, "Kubernetes workload owner context unavailable for %d containers\n", resolutionErrors)
+				workloadContextErrorReported = true
+			} else if resolutionErrors == 0 {
+				workloadContextErrorReported = false
+			}
+		}
+		if nodeContextCache != nil {
+			nodeContext, nodeErr := nodeContextCache.Context(scanCtx, time.Now().UTC())
+			index.NodeContext = nodeContext
+			if nodeErr != nil && !nodeContextErrorReported {
+				fmt.Fprintf(os.Stderr, "Kubernetes node context unavailable: %v\n", nodeErr)
+				nodeContextErrorReported = true
+			} else if nodeErr == nil {
+				nodeContextErrorReported = false
+			}
+		}
+		result, err := scanner.Scan(scanCtx, index)
+		telemetry.RecordScan(time.Now().UTC(), time.Since(start), result, err, metadataCachePods)
 		posted := false
 		if err == nil && *collectorURL != "" {
 			if postErr := agent.PostSnapshot(scanCtx, *collectorURL, result.Snapshot); postErr != nil {
+				telemetry.RecordPost(postErr)
 				err = postErr
 			} else {
+				telemetry.RecordPost(nil)
 				posted = true
 			}
 		}
@@ -95,11 +173,12 @@ func main() {
 				fmt.Printf("scan warning node=%s error=%q\n", *nodeName, result.WalkError.Error())
 			}
 			fmt.Printf(
-				"scan complete node=%s containers=%d mapped=%d unmapped=%d posted=%t duration=%s\n",
+				"scan complete node=%s containers=%d mapped=%d unmapped=%d infrastructure=%d posted=%t duration=%s\n",
 				*nodeName,
 				result.ContainersFound,
 				result.Mapped,
 				result.Unmapped,
+				result.InfrastructureCgroups,
 				posted,
 				time.Since(start).Round(time.Millisecond),
 			)
@@ -114,20 +193,46 @@ func main() {
 	}
 }
 
-func runScan(ctx context.Context, scanner agent.Scanner, client kubernetes.Interface, nodeName string, kubeEnabled bool) (agent.ScanResult, error) {
-	index := kube.PodIndex{
-		ByPodUID:      map[string][]kube.PodRef{},
-		ByContainerID: map[string]kube.PodRef{},
+func newMetricsServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    16 << 10,
 	}
+}
+
+func shutdownMetricsServer(server *http.Server) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := server.Shutdown(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "memlens-agent metrics shutdown failed: %v\n", err)
+	}
+}
+
+func loadPodIndex(ctx context.Context, client kubernetes.Interface, nodeName string, kubeEnabled bool) (kube.PodIndex, error) {
+	index := kube.EmptyPodIndex()
 	if kubeEnabled && client != nil {
 		pods, err := kube.ListPodsForNode(ctx, client, nodeName)
 		if err != nil {
-			return agent.ScanResult{}, err
+			return kube.PodIndex{}, err
 		}
 		index = kube.BuildPodIndexFromPods(pods)
+		var resolutionErrors int
+		index, resolutionErrors = kube.NewWorkloadOwnerResolver(client, 5*time.Minute).ResolveIndex(ctx, index, time.Now().UTC())
+		if resolutionErrors > 0 {
+			return kube.PodIndex{}, fmt.Errorf("resolve %d Kubernetes workload owners", resolutionErrors)
+		}
+		nodeContext, err := kube.NewNodeContextCache(client, nodeName, time.Minute).Context(ctx, time.Now().UTC())
+		if err != nil {
+			return kube.PodIndex{}, err
+		}
+		index.NodeContext = nodeContext
 	}
-
-	return scanner.Scan(ctx, index)
+	return index, nil
 }
 
 func defaultNodeName() string {

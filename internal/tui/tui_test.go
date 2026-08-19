@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -64,6 +65,39 @@ func TestSortNamespacesByCache(t *testing.T) {
 	SortNamespaces(namespaces, sortCache)
 	if namespaces[0].Namespace != "b" {
 		t.Fatalf("sortCache first = %s, want b", namespaces[0].Namespace)
+	}
+}
+
+func TestFilterAndSortWorkloads(t *testing.T) {
+	workloads := []api.WorkloadSnapshot{
+		{Namespace: "default", Kind: "Deployment", Name: "api", LargestPodName: "api-b", Memory: model.MemoryBreakdown{TotalBytes: 200}},
+		{Namespace: "default", Kind: "StatefulSet", Name: "worker", Memory: model.MemoryBreakdown{TotalBytes: 100}},
+	}
+	filtered := FilterWorkloads(workloads, "default", false, "deploy")
+	if len(filtered) != 1 || filtered[0].Name != "api" {
+		t.Fatalf("unexpected workloads: %#v", filtered)
+	}
+	SortWorkloads(workloads, sortTotal)
+	if workloads[0].Name != "api" {
+		t.Fatalf("largest workload = %s, want api", workloads[0].Name)
+	}
+}
+
+func TestHistoryTrendShowsShapeAndEvents(t *testing.T) {
+	pod := api.PodSnapshot{PodUID: "uid-a", NodeName: "node-a"}
+	lines := renderHistoryTrend(pod, []api.PodHistory{{
+		PodUID: "uid-a", NodeName: "node-a",
+		Points: []api.MemoryHistoryPoint{
+			{TotalBytes: 1 << 20},
+			{TotalBytes: 2 << 20, HighEventsDelta: 1},
+			{TotalBytes: 3 << 20, OOMKillEventsDelta: 1, PSISomeAvg10: 2.5, ReclaimDeltasKnown: true, PageScanDelta: 10, PageStealDelta: 8, RefaultFileDelta: 2},
+		},
+	}}, 100)
+	joined := strings.Join(lines, "\n")
+	for _, want := range []string{"▁▄█", "Δ +2Mi", "kill=1", "high=1", "2.50", "efficiency=80%", "refault=2"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("history trend missing %q: %s", want, joined)
+		}
 	}
 }
 

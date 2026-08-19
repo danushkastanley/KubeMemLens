@@ -15,6 +15,7 @@ import (
 type statusReport struct {
 	Connection statusConnection `json:"connection"`
 	Store      *api.DebugStore  `json:"store,omitempty"`
+	Metrics    *statusMetrics   `json:"metrics,omitempty"`
 	Data       statusData       `json:"data"`
 	Error      string           `json:"error,omitempty"`
 }
@@ -28,6 +29,12 @@ type statusConnection struct {
 
 type statusData struct {
 	Status string `json:"status"`
+}
+
+type statusMetrics struct {
+	Endpoint string `json:"endpoint"`
+	Enabled  string `json:"enabled"`
+	Hint     string `json:"hint"`
 }
 
 func newStatusCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
@@ -98,6 +105,11 @@ func buildStatusReport(ctx context.Context, opts client.Options) (statusReport, 
 		return report, err
 	}
 	report.Store = &store
+	report.Metrics = &statusMetrics{
+		Endpoint: "/metrics",
+		Enabled:  "unknown",
+		Hint:     "scrape collector service port 8080 path /metrics",
+	}
 	report.Data.Status = "ok"
 	return report, nil
 }
@@ -114,13 +126,20 @@ func renderStatusReport(report statusReport) string {
 		health,
 	)
 	if report.Store != nil {
-		text += fmt.Sprintf("\nStore:\n  containers: %d\n  stale containers: %d\n  pods: %d\n  namespaces: %d\n\nData:\n  status: %s\n\nHints:\n  kubectl logs -n kube-memlens ds/kube-memlens-agent\n  kubectl logs -n kube-memlens deploy/kube-memlens-collector\n",
+		text += fmt.Sprintf("\nStore:\n  containers: %d\n  stale containers: %d\n  pods: %d\n  namespaces: %d\n",
 			report.Store.TotalContainers,
 			report.Store.StaleContainers,
 			report.Store.Pods,
 			report.Store.Namespaces,
-			report.Data.Status,
 		)
+		if report.Metrics != nil {
+			text += fmt.Sprintf("\nMetrics:\n  endpoint: %s\n  enabled: %s\n  hint: %s\n",
+				report.Metrics.Endpoint,
+				report.Metrics.Enabled,
+				report.Metrics.Hint,
+			)
+		}
+		text += fmt.Sprintf("\nData:\n  status: %s\n\nHints:\n  kubectl logs -n kube-memlens ds/kube-memlens-agent\n  kubectl logs -n kube-memlens deploy/kube-memlens-collector\n", report.Data.Status)
 		return text
 	}
 

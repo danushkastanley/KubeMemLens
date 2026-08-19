@@ -1,0 +1,47 @@
+name: Bug report
+description: Report reproducible incorrect behaviour or a regression.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not report vulnerabilities here. Follow SECURITY.md and redact cluster or workload identifiers.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Describe the observed behaviour and user impact.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Provide minimal, synthetic steps and commands.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: KubeMemLens version
+      description: Paste `kubectl memlens version` or the commit SHA.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Kubernetes, kernel, cgroup mode, runtime, operating system, and installation method.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence
+      description: Include only relevant output. Remove credentials and real identifiers.

@@ -23,77 +23,145 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 
 	var namespace string
 	var allNamespaces bool
+	var podTopOptions topOptions
 	podsCmd := &cobra.Command{
 		Use:   "pods",
 		Short: "Show pod memory summaries",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := podTopOptions.validate(); err != nil {
+				return err
+			}
+			labelSelector, fieldSelector, err := parseSelectors(podTopOptions.LabelSelector, podTopOptions.FieldSelector)
+			if err != nil {
+				return err
+			}
 			opts := collectorOptions()
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
 			}
-			pods, err := reader.Pods(cmd.Context())
-			if err != nil {
-				return collectorUnavailableError(opts, description, err)
-			}
-			if !allNamespaces {
-				pods = filterPodsByNamespace(pods, namespace)
-			}
-			printPodsTable(cmd.OutOrStdout(), pods)
-			return nil
+			return watchTop(cmd.Context(), cmd.OutOrStdout(), podTopOptions, func() error {
+				pods, fetchErr := reader.Pods(cmd.Context())
+				if fetchErr != nil {
+					return collectorUnavailableError(opts, description, fetchErr)
+				}
+				if !allNamespaces {
+					pods = filterPodsByNamespace(pods, namespace)
+				}
+				return writeTopRows(cmd.OutOrStdout(), podRows(pods, labelSelector, fieldSelector), podTopOptions, printPodRows)
+			})
 		},
 	}
 	podsCmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "show pods across all namespaces")
 	podsCmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "namespace to show when --all-namespaces is not set")
+	addTopFlags(podsCmd, &podTopOptions, true)
 	cmd.AddCommand(podsCmd)
 
 	var containerNamespace string
 	var containerAllNamespaces bool
+	var containerTopOptions topOptions
 	containersCmd := &cobra.Command{
 		Use:   "containers",
 		Short: "Show container memory summaries",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := containerTopOptions.validate(); err != nil {
+				return err
+			}
+			labelSelector, fieldSelector, err := parseSelectors(containerTopOptions.LabelSelector, containerTopOptions.FieldSelector)
+			if err != nil {
+				return err
+			}
 			opts := collectorOptions()
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
 			}
-			containers, err := reader.Containers(cmd.Context())
-			if err != nil {
-				return collectorUnavailableError(opts, description, err)
-			}
-			if !containerAllNamespaces {
-				containers = filterContainersByNamespace(containers, containerNamespace)
-			}
-			printContainersTable(cmd.OutOrStdout(), containers)
-			return nil
+			return watchTop(cmd.Context(), cmd.OutOrStdout(), containerTopOptions, func() error {
+				containers, fetchErr := reader.Containers(cmd.Context())
+				if fetchErr != nil {
+					return collectorUnavailableError(opts, description, fetchErr)
+				}
+				if !containerAllNamespaces {
+					containers = filterContainersByNamespace(containers, containerNamespace)
+				}
+				return writeTopRows(cmd.OutOrStdout(), containerRows(containers, labelSelector, fieldSelector), containerTopOptions, printContainerRows)
+			})
 		},
 	}
 	containersCmd.Flags().BoolVarP(&containerAllNamespaces, "all-namespaces", "A", false, "show containers across all namespaces")
 	containersCmd.Flags().StringVarP(&containerNamespace, "namespace", "n", "default", "namespace to show when --all-namespaces is not set")
+	addTopFlags(containersCmd, &containerTopOptions, true)
 	cmd.AddCommand(containersCmd)
 
-	cmd.AddCommand(&cobra.Command{
+	var workloadNamespace string
+	var workloadAllNamespaces bool
+	var workloadTopOptions topOptions
+	workloadsCmd := &cobra.Command{
+		Use:   "workloads",
+		Short: "Show top-level workload memory summaries",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := workloadTopOptions.validate(); err != nil {
+				return err
+			}
+			labelSelector, fieldSelector, err := parseSelectors(workloadTopOptions.LabelSelector, workloadTopOptions.FieldSelector)
+			if err != nil {
+				return err
+			}
+			opts := collectorOptions()
+			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			if err != nil {
+				return collectorUnavailableError(opts, description, err)
+			}
+			return watchTop(cmd.Context(), cmd.OutOrStdout(), workloadTopOptions, func() error {
+				workloads, fetchErr := reader.Workloads(cmd.Context())
+				if fetchErr != nil {
+					return collectorUnavailableError(opts, description, fetchErr)
+				}
+				if !workloadAllNamespaces {
+					workloads = filterWorkloadsByNamespace(workloads, workloadNamespace)
+				}
+				return writeTopRows(cmd.OutOrStdout(), workloadRows(workloads, labelSelector, fieldSelector), workloadTopOptions, printWorkloadRows)
+			})
+		},
+	}
+	workloadsCmd.Flags().BoolVarP(&workloadAllNamespaces, "all-namespaces", "A", false, "show workloads across all namespaces")
+	workloadsCmd.Flags().StringVarP(&workloadNamespace, "namespace", "n", "default", "namespace to show when --all-namespaces is not set")
+	addTopFlags(workloadsCmd, &workloadTopOptions, true)
+	cmd.AddCommand(workloadsCmd)
+
+	var namespaceTopOptions topOptions
+	namespacesCmd := &cobra.Command{
 		Use:     "ns",
 		Aliases: []string{"namespaces"},
 		Short:   "Show namespace memory summaries",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := namespaceTopOptions.validate(); err != nil {
+				return err
+			}
+			_, fieldSelector, err := parseSelectors("", namespaceTopOptions.FieldSelector)
+			if err != nil {
+				return err
+			}
 			opts := collectorOptions()
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
 			}
-			namespaces, err := reader.Namespaces(cmd.Context())
-			if err != nil {
-				return collectorUnavailableError(opts, description, err)
-			}
-			printNamespacesTable(cmd.OutOrStdout(), namespaces)
-			return nil
+			return watchTop(cmd.Context(), cmd.OutOrStdout(), namespaceTopOptions, func() error {
+				namespaces, fetchErr := reader.Namespaces(cmd.Context())
+				if fetchErr != nil {
+					return collectorUnavailableError(opts, description, fetchErr)
+				}
+				return writeTopRows(cmd.OutOrStdout(), namespaceRows(namespaces, fieldSelector), namespaceTopOptions, printNamespaceRows)
+			})
 		},
-	})
+	}
+	addTopFlags(namespacesCmd, &namespaceTopOptions, false)
+	cmd.AddCommand(namespacesCmd)
 
 	return cmd
 }
@@ -121,13 +189,23 @@ func filterContainersByNamespace(containers []api.ContainerSnapshot, namespace s
 	return filtered
 }
 
+func filterWorkloadsByNamespace(workloads []api.WorkloadSnapshot, namespace string) []api.WorkloadSnapshot {
+	filtered := make([]api.WorkloadSnapshot, 0, len(workloads))
+	for _, workload := range workloads {
+		if workload.Namespace == namespace {
+			filtered = append(filtered, workload)
+		}
+	}
+	return filtered
+}
+
 func printPodsTable(w interface{ Write([]byte) (int, error) }, pods []api.PodSnapshot) {
 	sort.Slice(pods, func(i, j int) bool {
 		return pods[i].Memory.TotalBytes > pods[j].Memory.TotalBytes
 	})
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tRSS\tCACHE\tSHMEM\tSLAB\tDIAGNOSIS\tAGE")
+	fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tAGE")
 	for _, pod := range pods {
 		printMemoryRow(tw, []string{
 			pod.Namespace,
@@ -146,20 +224,21 @@ func printContainersTable(w interface{ Write([]byte) (int, error) }, containers 
 	})
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tRSS\tCACHE\tSHMEM\tSLAB\tDIAGNOSIS\tAGE")
+	fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tAGE")
 	for _, container := range containers {
 		fmt.Fprintf(
 			tw,
-			"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			container.Namespace,
 			container.PodName,
 			container.ContainerName,
 			container.NodeName,
 			model.FormatCompactBytes(container.Memory.TotalBytes),
+			limitUsage(container.Memory),
 			model.FormatCompactBytes(container.Memory.RSSBytes()),
 			model.FormatCompactBytes(container.Memory.CacheBytes()),
 			model.FormatCompactBytes(container.Memory.ShmemBytes),
-			model.FormatCompactBytes(container.Memory.SlabBytes),
+			model.FormatCompactBytes(container.Memory.ResidualBytes()),
 			explain.Analyze(container.Memory).Diagnosis,
 			formatAge(container.CapturedAt),
 		)
@@ -184,7 +263,7 @@ func printNamespacesTable(w interface{ Write([]byte) (int, error) }, namespaces 
 	})
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAMESPACE\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tSLAB\tDIAGNOSIS")
+	fmt.Fprintln(tw, "NAMESPACE\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
 	for _, namespace := range namespaces {
 		fmt.Fprintf(
 			tw,
@@ -195,8 +274,26 @@ func printNamespacesTable(w interface{ Write([]byte) (int, error) }, namespaces 
 			model.FormatCompactBytes(namespace.Memory.RSSBytes()),
 			model.FormatCompactBytes(namespace.Memory.CacheBytes()),
 			model.FormatCompactBytes(namespace.Memory.ShmemBytes),
-			model.FormatCompactBytes(namespace.Memory.SlabBytes),
+			model.FormatCompactBytes(namespace.Memory.ResidualBytes()),
 			explain.Analyze(namespace.Memory).Diagnosis,
+		)
+	}
+	_ = tw.Flush()
+}
+
+func printWorkloadsTable(w interface{ Write([]byte) (int, error) }, workloads []api.WorkloadSnapshot) {
+	sort.Slice(workloads, func(i, j int) bool {
+		return workloads[i].Memory.TotalBytes > workloads[j].Memory.TotalBytes
+	})
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "NAMESPACE\tKIND\tWORKLOAD\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tLARGEST POD\tMAX POD\tDIAGNOSIS")
+	for _, workload := range workloads {
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			workload.Namespace, workload.Kind, workload.Name, workload.PodCount,
+			model.FormatCompactBytes(workload.Memory.TotalBytes), model.FormatCompactBytes(workload.Memory.RSSBytes()),
+			model.FormatCompactBytes(workload.Memory.CacheBytes()), model.FormatCompactBytes(workload.Memory.ShmemBytes),
+			model.FormatCompactBytes(workload.Memory.ResidualBytes()), workload.LargestPodName,
+			model.FormatCompactBytes(workload.LargestPodBytes), explain.Analyze(workload.Memory).Diagnosis,
 		)
 	}
 	_ = tw.Flush()
@@ -205,15 +302,16 @@ func printNamespacesTable(w interface{ Write([]byte) (int, error) }, namespaces 
 func printMemoryRow(tw *tabwriter.Writer, prefix []string, memory model.MemoryBreakdown) {
 	fmt.Fprintf(
 		tw,
-		"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 		prefix[0],
 		prefix[1],
 		prefix[2],
 		model.FormatCompactBytes(memory.TotalBytes),
+		limitUsage(memory),
 		model.FormatCompactBytes(memory.RSSBytes()),
 		model.FormatCompactBytes(memory.CacheBytes()),
 		model.FormatCompactBytes(memory.ShmemBytes),
-		model.FormatCompactBytes(memory.SlabBytes),
+		model.FormatCompactBytes(memory.ResidualBytes()),
 		explain.Analyze(memory).Diagnosis,
 		prefix[3],
 	)
