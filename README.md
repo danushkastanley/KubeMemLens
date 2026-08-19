@@ -14,7 +14,24 @@ The goal is to make incidents like "kubectl top says memory is high, but the app
 
 KubeMemLens is a locally verified v0.5 release candidate, not yet a supported public release. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI queries the collector through the Kubernetes API service proxy by default, with HTTP/port-forward mode as a fallback. The collector also exposes conservative Prometheus/OpenMetrics metrics at `/metrics`.
 
-The full lifecycle path has passed locally on the current upstream-supported Kubernetes 1.34, 1.35 and 1.36 minors. The repeatable [existing-cluster qualification](docs/qualification.md) path is prepared for compatible GKE, EKS, AKS and CRI-O environments and has passed locally with Calico enforcing ingestion isolation. Provider support remains unclaimed until provider runs produce reviewed evidence.
+The full lifecycle path has passed locally on the current upstream-supported Kubernetes 1.34, 1.35 and 1.36 minors. The repeatable [existing-cluster qualification](docs/qualification.md) path has also qualified one Amazon EKS managed Linux node-group profile and passed locally with Calico enforcing ingestion isolation. GKE, AKS, CRI-O and other provider/runtime profiles remain unclaimed until their own runs produce reviewed evidence.
+
+## TUI 2.0
+
+![KubeMemLens TUI 2.0 showing namespaces, risk-ordered Pods, selected Pod evidence, node memory context and current cgroup signals](docs/images/kube-memlens-tui-2.0.jpg)
+
+The terminal interface is an incident-focused memory cockpit rather than a generic Kubernetes browser. Its current workflow includes:
+
+- responsive compact, standard and wide layouts, with a usable 80×24 minimum and a master-detail dashboard from 150×30;
+- virtualised tables and detail views with stable selection across refresh, sorting and filtering;
+- first-class node, namespace, workload, Pod and container navigation;
+- risk-oriented Pod ordering plus structured severity, diagnosis, pressure, owner and freshness filters;
+- non-overlapping anonymous/file-cache/shmem/other composition bars, limit/headroom gauges, live trends and sampled OOM, `memory.high`, `memory.max` and PSI signals;
+- bounded, race-safe selected-Pod history that retains the last good series through a refresh error;
+- read-only recommendations, live Pod comparison, safe command copy and mode-`0600` redacted incident capture; and
+- Kubernetes API service-proxy connectivity by default, with no port-forward required for normal use.
+
+The summary deliberately says **observed Pod charge**: it is the sum of mapped Pod cgroups, not total cluster or node memory usage. Colours reinforce text labels but are not required; set `NO_COLOR=1` for monochrome output.
 
 ## Example
 
@@ -215,17 +232,38 @@ Future installed usage:
 kubectl memlens tui
 ```
 
-Example layout:
+At 80×24, the Pod table keeps the incident fields visible and makes every detail line reachable by keyboard:
 
 ```text
-KubeMemLens | view: pods | connection: kube-proxy kube-memlens/kube-memlens-collector:8080 | refreshed: 2s ago
+KubeMemLens | view: pods | sort: risk desc | refreshed: 2s ago
 
-NAMESPACE     POD                         NODE       TOTAL   RSS    CACHE  SHMEM  OTHER  DIAGNOSIS
-kube-system   coredns-...                 minikube   72Mi    31Mi   20Mi   0Mi    21Mi   normal
-kube-memlens  kube-memlens-agent-...      minikube   40Mi    18Mi   12Mi   0Mi    10Mi   normal
+POD                  TOTAL    LIMIT             A/F/S/O       RISK   AGE
+›payments/api-0      812Mi    ███████░ 79%      ███▓▓▒░░      HIGH↑  2s
+ payments/worker-0   643Mi    █████░░░ 63%      ██▓▓▓░░░      MED→   2s
 
-q quit · r refresh · / search · tab switch · enter drill · e explain · ? help
+q quit · space pause · r refresh · / filter · N/n/w/p/c views · enter drill
 ```
+
+At 150 columns and 30 rows or larger, the Pod view becomes a dense master-detail dashboard. It adds an observed-Pod-charge summary strip, namespace context, the risk-ordered Pod table, selected Pod evidence, node memory context and current sampled cgroup signals. “Observed Pod charge” is the sum of mapped Pod cgroups; it is not total cluster or node memory usage. Node allocatable memory is context, and the displayed charge/allocatable percentage is explicitly partial-scope.
+
+The primary `A/F/S/O` bar partitions charged memory into anonymous, filesystem cache excluding shmem, shmem/tmpfs and residual/other. Limit gauges say `unknown` or `unlimited` when a percentage would be misleading. OOM, `memory.high`, `memory.max` and PSI labels describe the current cgroup sample or counter-delta window; they are not Kubernetes eviction events. Colours reinforce text labels but are not required—set `NO_COLOR=1` for monochrome output.
+
+Key controls:
+
+| Key | Behaviour |
+|---|---|
+| `j`/`k`, arrows, Page Up/Page Down, `g`/`G` | Move within the visible table or detail viewport |
+| `N`, `n`, `w`, `p`, `c` | Open node, namespace, workload, Pod or container views |
+| `Enter` or `e` | Drill into the selected entity or open its explanation |
+| `h`, Backspace or Escape | Return or clear the active filter |
+| `/` | Filter the current view; Pod filters also accept `severity:`, `diagnosis:`, `pressure:`, `owner:` and `state:` tokens |
+| `s` | Cycle risk, total, RSS, cache, shmem and name sorting |
+| Space / `r` | Pause automatic refresh / refresh manually; manual refresh remains available while paused |
+| Tab | At wide sizes, move focus between the table and selected detail; it no longer changes entity view |
+| `a`, `R`, `x`, `C`, `y` | Open incident actions, recommendations, compare, redacted capture or copy a safe command |
+| `?` / `q` | Show help / quit and restore the terminal |
+
+Recommendations and comparisons are read-only. TUI capture uses the same redaction and private-file rules as the CLI, refuses overwrite without confirmation and never applies a resource change. Deep memory evidence requires the standard cgroup v2 agent path and history remains bounded and in memory. Container detail can show the parent Pod's bounded history; KubeMemLens does not claim container-level historical attribution. See the [local TUI 2.0 qualification record](docs/qualification/local-tui-2.0-2026-08-19.md) for the verified terminal and cluster path.
 
 ## Prometheus / OpenMetrics Export
 

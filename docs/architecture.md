@@ -12,7 +12,8 @@ KubeMemLens is designed as a terminal-first tool that can start locally and grow
 - `memlens-agent`: DaemonSet binary that scans node cgroups and posts snapshots.
 - `memlens-collector`: in-memory HTTP collector for latest container snapshots and bounded Pod trends.
 - `internal/client`: collector readers for direct HTTP and Kubernetes API service proxy modes.
-- `internal/tui`: Bubble Tea dashboard for browsing namespaces, pods, containers, and pod explanations.
+- `internal/tui`: Bubble Tea dashboard for risk-oriented node, namespace, workload, Pod and container investigation.
+- `internal/incident`: shared redacted incident-bundle writing used by the CLI and TUI.
 - `internal/metrics`: Prometheus/OpenMetrics text renderer for conservative collector metrics.
 
 ## Cluster Flow
@@ -60,7 +61,11 @@ kubectl memlens
 
 ### Terminal dashboard
 
-The Bubble Tea TUI provides namespace, top-level workload, Pod, container, and detail views with search, sort, pause/resume, refresh, drill-down, and backtracking. Snapshot views refresh concurrently within one timeout; Pod detail fetches bounded history only on demand and combines a compact trend with PSI/events, Kubernetes context, confidence, and safe next commands. It reads through the shared client layer, so it can use either HTTP mode or Kubernetes API service proxy mode.
+The Bubble Tea TUI provides node, namespace, top-level workload, Pod, container and detail views. A reusable viewport owns selection and virtualised windows, while layout, risk presentation, filters, selected history and incident actions remain separate modules. Compact and standard terminals render one focused surface. At 150×30 and larger, the Pod view renders a master-detail memory dashboard with namespace and node context; Tab changes table/detail focus rather than changing entity view.
+
+Snapshot views refresh concurrently within one timeout. Selected-Pod history has its own generation-keyed state: only one request is in flight for the selection, late responses are discarded, the last good series survives a refresh error and pause stops automatic updates without disabling manual refresh. Pod detail combines a bounded trend with cgroup limit, PSI/event, Kubernetes context, confidence and safe next commands. Container detail explicitly labels parent-Pod history because container-level history is not retained.
+
+Incident actions call typed internal interfaces rather than spawning the CLI. Recommendations and comparisons are read-only; capture reuses `internal/incident` for redaction, atomic mode-`0600` writes and explicit overwrite confirmation. The TUI reads through the shared client layer, so HTTP and Kubernetes API service-proxy modes retain the same behaviour.
 
 ### Node-local agent
 

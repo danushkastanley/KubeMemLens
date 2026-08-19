@@ -73,6 +73,21 @@ run_live_density_smoke() {
     hack/soak-live-density.sh
 }
 
+run_tui_smoke() {
+  if [ "${E2E_RUN_TUI_SMOKE:-false}" != true ]; then
+    return
+  fi
+  local output_dir=${artifact_dir:-${work_dir}/artifacts}/tui-smoke
+  TUI_E2E_CONTEXT="kind-${cluster_name}" \
+    TUI_E2E_KUBECONFIG="${kubeconfig}" \
+    TUI_E2E_CLI="${cli}" \
+    TUI_E2E_COLLECTOR_NAMESPACE="${namespace}" \
+    TUI_E2E_WORKLOAD_IMAGE="${E2E_TUI_WORKLOAD_IMAGE:-public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028}" \
+    TUI_E2E_ARTIFACT_DIR="${output_dir}" \
+    TUI_E2E_ACKNOWLEDGE=run-and-remove-kube-memlens-tui-smoke \
+    hack/e2e-tui-kind.sh
+}
+
 for command in docker go helm jq kind kubectl; do
   if ! command -v "${command}" >/dev/null 2>&1; then
     echo "required command not found: ${command}" >&2
@@ -253,6 +268,7 @@ KUBECONFIG="${kubeconfig}" kubectl get --raw \
   "/api/v1/namespaces/${namespace}/pods/${agent_pod}:8082/proxy/metrics" \
   > "${work_dir}/agent-metrics.txt"
 grep -q '^kubememlens_agent_scans_total' "${work_dir}/agent-metrics.txt"
+run_tui_smoke
 run_live_density_smoke
 
 helm upgrade kube-memlens ./charts/kube-memlens \

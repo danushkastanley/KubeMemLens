@@ -1,17 +1,15 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
-	"path/filepath"
 	"runtime"
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
 	"github.com/danushkastanley/kube-memlens/internal/client"
+	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/spf13/cobra"
 )
 
@@ -107,65 +105,9 @@ func selectCapturePods(pods []api.PodSnapshot, namespace, podName string) []api.
 }
 
 func redactIncident(bundle *api.IncidentBundle) {
-	for i := range bundle.Pods {
-		bundle.Pods[i].PodUID = ""
-		for j := range bundle.Pods[i].Containers {
-			bundle.Pods[i].Containers[j].PodUID = ""
-			bundle.Pods[i].Containers[j].ContainerID = ""
-			bundle.Pods[i].Containers[j].CgroupPath = ""
-			bundle.Pods[i].Containers[j].Context.Labels = nil
-		}
-		bundle.Pods[i].Context.Labels = nil
-	}
-	for i := range bundle.Histories {
-		bundle.Histories[i].PodUID = ""
-	}
+	incident.Redact(bundle)
 }
 
 func writeIncidentBundle(stdout io.Writer, output string, force bool, bundle api.IncidentBundle) error {
-	if output == "-" {
-		encoder := json.NewEncoder(stdout)
-		encoder.SetIndent("", "  ")
-		return encoder.Encode(bundle)
-	}
-	if !force {
-		if _, err := os.Stat(output); err == nil {
-			return fmt.Errorf("output file %s already exists; use --force to replace it", output)
-		} else if !os.IsNotExist(err) {
-			return fmt.Errorf("inspect output file %s: %w", output, err)
-		}
-	}
-	dir := filepath.Dir(output)
-	temp, err := os.CreateTemp(dir, ".kube-memlens-incident-*")
-	if err != nil {
-		return fmt.Errorf("create incident file: %w", err)
-	}
-	tempName := temp.Name()
-	defer os.Remove(tempName)
-	if err := temp.Chmod(0o600); err != nil {
-		temp.Close()
-		return fmt.Errorf("protect incident file: %w", err)
-	}
-	encoder := json.NewEncoder(temp)
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(bundle); err != nil {
-		temp.Close()
-		return fmt.Errorf("encode incident file: %w", err)
-	}
-	if err := temp.Sync(); err != nil {
-		temp.Close()
-		return fmt.Errorf("sync incident file: %w", err)
-	}
-	if err := temp.Close(); err != nil {
-		return fmt.Errorf("close incident file: %w", err)
-	}
-	if force {
-		if err := os.Remove(output); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("replace incident file: %w", err)
-		}
-	}
-	if err := os.Rename(tempName, output); err != nil {
-		return fmt.Errorf("publish incident file: %w", err)
-	}
-	return nil
+	return incident.Write(stdout, output, force, bundle)
 }

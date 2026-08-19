@@ -21,6 +21,8 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Live Pod comparison and before/after Pod or workload incident comparison with composition deltas and per-signal growth rates.
 - Kubectl-style label/field selection, sorting, watch, header suppression, and table/JSON/YAML/CSV top output.
 - K9s-style TUI workload drill-down, pause/resume, fast navigation, and on-demand bounded Pod trends.
+- TUI 2.0 virtualised tables/details, responsive wide memory dashboard, first-class node navigation, risk filters/sorting, live selected-Pod history and typed read-only incident actions.
+- Opt-in three-size PTY qualification with a disposable 20-Pod kind workload and sanitised assertion summary.
 - Optional recording/alerting rules, focused runbooks, and a four-panel Grafana dashboard.
 - Read-only K9s Pod plugin and versioned JSON/YAML explanation contract without runtime identifiers.
 - Composition-aware recommendation export with rationale, guard conditions, and automatic mutation disabled.
@@ -45,8 +47,9 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Collector snapshots replace each node atomically, clear missing containers, garbage-collect stale container data, and reject out-of-order updates.
 - Collector reads and ingestion use separate ports and a default NetworkPolicy restricts writable ingestion to agent Pods.
 - Agent and collector use separate least-privilege ServiceAccounts and hardened security contexts.
-- Go networking dependencies and the minimum Go version were updated to resolve reachable vulnerabilities.
+- Go, `golang.org/x/text` and the digest-pinned builder were updated to patched releases after reachable-vulnerability scanning.
 - TUI snapshot reads now refresh concurrently, and collector storage/API responses have explicit capacity ceilings surfaced by `doctor`.
+- TUI defaults to risk-ordered Pods; Tab now changes table/detail focus in wide layouts, while `N/n/w/p/c` select entity views explicitly.
 - Helm supports exact image digests and the agent explicitly targets Linux nodes, with operator-scoped tolerations available for reviewed node pools.
 
 ### Security

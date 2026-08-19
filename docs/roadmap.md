@@ -49,6 +49,10 @@
 - Add short rolling history from collector snapshots.
 - Show pressure changes without adding long-term persistence.
 - Keep trend views bounded and terminal-friendly.
+- Add virtualised tables and detail views for compact, standard and wide terminals.
+- Add first-class node/workload/Pod/container navigation, risk filtering and sorting.
+- Add the wide observed-Pod-charge dashboard and read-only incident actions.
+- Verify the minimum-size workflow and wide layout against a disposable 20-Pod kind cluster.
 
 ## v0.8: Optional eBPF File Attribution
 

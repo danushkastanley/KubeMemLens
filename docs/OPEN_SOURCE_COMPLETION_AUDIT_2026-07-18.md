@@ -28,11 +28,11 @@ The default installation remains non-privileged and capability-free. Optional eB
 |---|---|
 | Pod list every five seconds | Node-filtered informer cache with sync timeout and cache metrics |
 | Full cgroup walk cost unknown | Reproducible 100/1k/5k/10k fixtures, macOS baseline, Linux kind-node benchmark mode and a prepared live soak; actual 5k/10k live evidence remains ADR 0002 |
-| Sequential TUI full-list reads | One bounded paged container traversal builds namespace/workload/Pod/container views per refresh; history remains on-demand |
+| Sequential TUI full-list reads | One bounded paged container traversal builds node/namespace/workload/Pod/container views per refresh; row/detail viewports render only the visible window and selected history remains on-demand |
 | Unbounded/unpaginated list endpoints | Current clients request at most 500-record keyset pages with byte-aware reduction; a 10,000-record regression traverses all records within the response ceiling |
 | Unsafe collector replicas | Helm rejects any replica count other than one |
 | Missing self-observability | Agent scan/map/cache/post and collector ingestion/request/history metrics use bounded label sets |
-| Missing runtime/provider matrix | containerd kind path is live-tested; an immutable-image existing-cluster harness now records Linux-node coverage, runtime, Pod security, NetworkPolicy, upgrade/rollback and cleanup evidence; actual CRI-O and GKE/EKS/AKS qualification remains ADR 0002 |
+| Missing runtime/provider matrix | containerd kind and one EKS managed-Linux profile are qualified; an immutable-image harness records Linux-node coverage, runtime, Pod security, NetworkPolicy, upgrade/rollback and cleanup evidence; CRI-O, GKE, AKS and broader EKS qualification remain ADR 0002 |
 
 ## Feature pillar traceability
 
@@ -70,11 +70,13 @@ Evidence: `internal/cli/capture.go`, `replay.go`, `compare.go`, related tests, a
 
 ### K9s-like interaction and integrations
 
-- Bubble Tea namespace → workload → Pod → container → evidence navigation with filter, sort, pause/resume, refresh, drill/back and on-demand history.
+- Bubble Tea node/namespace/workload/Pod/container/evidence navigation with virtualised scrolling, structured filters, deterministic risk sort, pause/manual refresh, drill/back and race-safe on-demand history.
+- Compact and standard layouts preserve the minimum diagnostic fields; the wide Pod dashboard combines observed Pod charge, namespace context, Pod composition/limits/signals, selected evidence and node context without claiming total node usage.
+- Typed recommendations, compare, private redacted capture and command-copy actions remain read-only. Tab changes table/detail focus only in wide layouts.
 - K9s Pod plugin invokes the CLI with current context/kubeconfig; machine explanation v1 exposes severity/caveats/evidence-window metadata while excluding runtime IDs, cgroup paths, UIDs, labels and raw objects.
 - Composition-aware recommendations are text/JSON/YAML and always set `automaticMutation: false`.
 
-Evidence: `internal/tui`, `deploy/k9s/plugins.yaml`, `docs/k9s-integration.md`, `docs/explanation-schema.md`, `internal/recommend`.
+Evidence: `internal/tui`, `internal/incident`, `hack/tui-smoke.exp`, `hack/e2e-tui-kind.sh`, [local TUI qualification](qualification/local-tui-2.0-2026-08-19.md), `deploy/k9s/plugins.yaml`, `docs/k9s-integration.md`, `docs/explanation-schema.md`, `internal/recommend`.
 
 ### Community diagnosis feedback
 
@@ -107,12 +109,14 @@ Evidence: `docs/ebpf`, `docs/security/KubeMemLens-threat-model.md`, ADR 0001.
 
 ## Verification completed locally
 
-- Complete unit suite, 48.3% aggregate statement coverage report, race suite, vet, builds, formatting/diff checks and reachable-vulnerability scan.
+- Complete unit suite, 61.5% aggregate statement coverage report, race suite, vet, builds, formatting/diff checks and reachable-vulnerability scan. The 19 August rerun used Go 1.26.6 and reported zero reachable vulnerabilities.
 - Digest-pinned Trivy 0.72.0 configuration and committed-secret scans plus a scan of the built scratch image; no high/critical configuration or image finding and no committed secret was reported.
 - Helm lint/default and optional renders, strict Kubeconform validation, unsafe-replica rejection.
 - Prometheus 3.12 `promtool check rules`: eight rules valid; dashboard JSON parsed and panel count checked.
 - K9s plugin and issue-form YAML parsed; machine explanation privacy/recommendation contracts, severity/caveats and exact evidence windows tested.
 - Kubernetes 1.34.8, 1.35.5 and 1.36.1/containerd kind installs, strict doctor, top/selectors, Pod/workload explanations with a real elapsed counter window, history/since, live compare, capture/replay preserving the window, Pod/workload before-after compare, metrics, upgrade, rollback, uninstall and cluster-RBAC removal. The development density/churn smoke ran on the 1.34 path.
+- TUI 2.0 state, resize, virtualisation, failure, privacy and race tests, with 78.4% package statement coverage. A one-iteration 10,000-Pod risk-filter/sort benchmark completed in 146 ms on the local Apple M4 Pro. A disposable 20-Pod kind run passed the full 80×24 workflow plus 120×30 and 180×50 PTY layout checks, then completed Helm rollback/uninstall, RBAC removal and cluster deletion.
+- One Amazon EKS 1.36.2 managed Linux node-group profile passed immutable-image verification, 11/11 strict doctor checks, 7/7 mapping, VPC CNI ingestion isolation, explanation privacy, metrics, upgrade, rollback, uninstall, RBAC removal and AWS residue cleanup. See the [sanitised EKS record](qualification/eks-managed-linux-2026-07-18.md).
 - Two-node Kubernetes 1.34.8/containerd/Calico 3.32.1 qualification with immutable image identity, Linux-node coverage, Pod-security assertions, 15/15 mapping, enforced ingestion NetworkPolicy, sanitised evidence, upgrade, rollback recovery, uninstall and RBAC cleanup.
 - Linux arm64 kind-node synthetic fixtures at 5,000/10,000 cgroups and Pod mappings; see the performance baseline for limitations.
 - Synthetic 10,000-container collector/API regression: the legacy array hit the configured 16 MiB ceiling while current keyset pages returned all records without duplicates or an oversized body.
@@ -124,7 +128,7 @@ Evidence: `docs/ebpf`, `docs/security/KubeMemLens-threat-model.md`, ADR 0001.
 These are deliberately not marked complete:
 
 1. GitHub-hosted CI from a clean pushed commit, including all three upstream-supported minor versions in the declared kind matrix.
-2. Provider-specific NetworkPolicy enforcement, CRI-O, and representative GKE, EKS and AKS Linux node pools, including the new install-to-first-valid-explanation measurement. Generic Kubernetes NetworkPolicy semantics are verified locally with Calico.
+2. CRI-O and representative GKE/AKS profiles, plus EKS profiles beyond the single qualified Amazon Linux/containerd row. Generic Kubernetes NetworkPolicy semantics are verified locally with Calico and the qualified EKS run observed VPC CNI ingestion denial.
 3. Execute the prepared [5,000/10,000 live-container churn/soak](qualification/live-density-soak.md) and review its per-component agent/collector resources, node/API latency, mapping, filesystem-read/API-request and separately attached workload-impact evidence.
 4. An authorised pre-release tag and audit of actual archives, image, chart, checksums, SBOMs, signatures and provenance.
 5. Authorised publication, immutable Krew submission and Artifact Hub listing.

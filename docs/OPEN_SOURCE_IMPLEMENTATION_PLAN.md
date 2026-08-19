@@ -80,8 +80,10 @@ The goal is complete only after every research recommendation and release gate i
   - `top` supports Pod label selectors, an explicit safe field-selector set, deterministic sort fields, bounded refresh intervals, header suppression, and table/JSON/YAML/CSV output.
   - Structured rows intentionally omit container IDs, Pod UIDs, cgroup paths, and arbitrary label maps.
 - [x] Refine the TUI into the K9s-like memory workflow described by the research.
-  - Namespace, top-level workload, Pod, container, and detail views support fast keyboard navigation, search, sort, pause/resume, refresh, drill-down, and backtracking.
-  - Pod detail fetches bounded history on demand and shows a compact trend, PSI, incident events, confidence, Kubernetes context, and follow-up commands.
+  - Node, namespace, top-level workload, Pod, container and detail views use virtualised keyboard navigation, risk filters/sorting, pause/manual refresh, drill-down and backtracking.
+  - Compact, standard and wide layouts retain the diagnostic hierarchy; the wide Pod view adds observed-charge, namespace, node and sampled-signal context without presenting Pod charge as total node usage.
+  - Selected-Pod history is generation-keyed and race-safe. Typed compare, recommendation, redacted capture and copy actions remain read-only.
+  - State, render, privacy and race tests pass with 78.4% TUI statement coverage; a one-iteration 10,000-Pod risk-filter/sort benchmark completed in 146 ms on the local Apple M4 Pro; the [local PTY qualification](qualification/local-tui-2.0-2026-08-19.md) passed at 80×24, 120×30 and 180×50 with 20 workload Pods.
 
 ### Phase D — integrations and advanced attribution
 
@@ -108,7 +110,7 @@ The goal is complete only after every research recommendation and release gate i
 
 ## Current verification record
 
-Verified on 18 July 2026:
+Verified on 18 July 2026 and extended for TUI 2.0 on 19 August 2026:
 
 - `go test ./...`
 - `go test -race ./...`
@@ -127,10 +129,11 @@ Verified on 18 July 2026:
 - Live Kubernetes 1.34.8, 1.35.5 and 1.36.1/containerd 2.x runs on kind 0.32.0 passed Helm install, 11/11 workload-container mapping, strict `doctor`, `status`, selectors/structured `top`, Pod/workload `explain`, history/since, live comparison, capture/replay, Pod/workload incident comparison, machine-output privacy, recommendations, collector/agent metrics, a valid upgrade and rollback, uninstall, and cluster-scoped RBAC removal.
 - `hack/e2e-kind.sh` preserves that install-to-uninstall path with isolated kubeconfig and digest-pinned Kubernetes 1.34.8/1.35.5/1.36.1 CI jobs, matching the three upstream-supported minors as of 18 July 2026; its live explanation gate waits for and validates an exact elapsed counter window through capture/replay.
 - The live path was repeated after pressure parsing and Kubernetes context were added; `doctor --strict` confirmed cgroup v2/systemd, containerd, zero cgroup read errors, Node MemoryPressure=False, and 11/11 mapping before and after rollback.
-- `hack/qualify-cluster.sh` statically validates and prepares the same evidence path for authorised GKE/EKS/AKS, CRI-O and NetworkPolicy-capable clusters. It has not yet been executed against those external environments.
+- `hack/qualify-cluster.sh` preserves the same evidence path for authorised GKE/EKS/AKS, CRI-O and NetworkPolicy-capable clusters. It has passed for one [EKS managed-Linux profile](qualification/eks-managed-linux-2026-07-18.md); GKE, AKS, CRI-O and other EKS profiles remain unqualified.
 - The qualification harness passed end to end on a two-node Kubernetes 1.34.8/containerd/Calico 3.32.1 kind cluster, including digest identity, Linux-node coverage, 15/15 mapping, enforced ingestion isolation, explanation privacy, metrics, upgrade, rollback recovery, uninstall and RBAC cleanup. See [the evidence record](qualification/local-kind-calico-2026-07-18.md).
+- On 19 August 2026, the opt-in TUI path passed a disposable 20-Pod kind lifecycle. The full 80×24 flow covered off-screen selection, risk sort, filtering, live history, final commands, pause/manual refresh, a read-only recommendation and terminal restoration; 120×30 and 180×50 layout sessions also passed.
 
-Not yet verified: GitHub-hosted execution of the three-supported-minor kind matrix, provider-specific NetworkPolicy modes, CRI-O or GKE/EKS/AKS nodes, actual 5,000/10,000-container soak results, and the tag-driven release workflow. The repeatable live-soak procedure is documented in [the density runbook](qualification/live-density-soak.md); an unrun harness is not performance evidence. These gates are recorded in [ADR 0002](adr/0002-require-external-qualification-before-public-release.md).
+Not yet verified: GitHub-hosted execution of the three-supported-minor kind matrix, GKE/AKS/CRI-O and provider profiles beyond the qualified EKS row, actual 5,000/10,000-container soak results, and the tag-driven release workflow. The repeatable live-soak procedure is documented in [the density runbook](qualification/live-density-soak.md); an unrun harness is not performance evidence. These gates are recorded in [ADR 0002](adr/0002-require-external-qualification-before-public-release.md).
 
 Optional eBPF tracing remains intentionally unimplemented. Its architecture, threat model and benchmark protocol are recorded, but prototype measurements and an independent security review are release gates rather than paper claims.
 

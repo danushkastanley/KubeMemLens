@@ -1,0 +1,101 @@
+#!/usr/bin/expect -f
+
+set timeout 45
+if {$argc != 7} {
+  puts stderr "usage: tui-smoke.exp <cli> <kubeconfig> <context> <collector-namespace> <columns> <rows> <full|layout>"
+  exit 2
+}
+
+set cli [lindex $argv 0]
+set kubeconfig [lindex $argv 1]
+set context [lindex $argv 2]
+set collector_namespace [lindex $argv 3]
+set columns [lindex $argv 4]
+set rows [lindex $argv 5]
+set mode [lindex $argv 6]
+set send_slow {1 0.01}
+
+proc require_pattern {pattern description} {
+  expect {
+    -re $pattern { puts "PASS $description" }
+    timeout { puts stderr "PTY smoke timed out waiting for $description"; exit 1 }
+    eof { puts stderr "TUI exited while waiting for $description"; exit 1 }
+  }
+}
+
+log_user 0
+stty columns $columns rows $rows
+spawn -noecho env TERM=xterm-256color NO_COLOR=1 $cli \
+  --kubeconfig $kubeconfig --context $context \
+  --collector-namespace $collector_namespace tui --all-namespaces --refresh 1s
+
+require_pattern {KubeMemLens} "application opened"
+if {$columns >= 150} {
+  require_pattern {OBSERVED POD CHARGE} "wide diagnostic dashboard rendered"
+}
+require_pattern {A/F/S/O} "Pod diagnostic table rendered"
+
+send -- "G"
+require_pattern {›} "selection followed scrolling beyond the first screen"
+if {$mode eq "layout"} {
+  send -- "N"
+  require_pattern {CHARGE} "node view rendered"
+  send -- "p"
+  require_pattern {A/F/S/O} "Pod view restored"
+  send -- "q"
+  expect {
+    eof { puts "PASS terminal exited cleanly" }
+    timeout { puts stderr "TUI did not exit cleanly"; exit 1 }
+  }
+  exit 0
+}
+
+send -- "s"
+require_pattern {sort: total desc} "risk sort advanced deterministically"
+send -- "N"
+require_pattern {CHARGE} "node view rendered"
+
+send -- "p"
+require_pattern {A/F/S/O} "Pod view restored"
+send -- "/"
+require_pattern {search:} "filter input opened"
+send -s -- "kube-memlens-tui-alpha"
+require_pattern {search: kube-memlens-tui-alpha} "filter query entered"
+send -- "\r"
+require_pattern {kube-memlens-tu} "filter applied to compact Pod identities"
+
+after 200
+send -- "e"
+require_pattern {Diagnosis:} "Pod detail opened"
+after 1500
+send -- "r"
+require_pattern {refreshing} "detail refresh started"
+send -- "\033\[6~"
+send -- "\033\[6~"
+require_pattern {Recent Pod history} "history remained live through refresh"
+send -- "G"
+require_pattern {Next commands:} "detail scrolled to final section"
+send -- "h"
+require_pattern {A/F/S/O} "detail returned to Pod table"
+send -- "\033"
+after 300
+
+send -- " "
+require_pattern {paused} "refresh paused"
+after 2200
+require_pattern {refreshed: [2-9]s} "paused refresh age advanced"
+send -- "r"
+require_pattern {refreshed: 0s} "manual refresh remained available while paused"
+send -- " "
+after 300
+
+send -- "R"
+require_pattern {Read-only recommendations} "recommendation action opened"
+require_pattern {Automatic mutation: disabled} "recommendation remained read-only"
+send -- "\r"
+
+send -- "q"
+expect {
+  eof { puts "PASS terminal exited cleanly" }
+  timeout { puts stderr "TUI did not exit cleanly"; exit 1 }
+}

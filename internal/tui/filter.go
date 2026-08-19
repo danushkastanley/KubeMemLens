@@ -2,6 +2,7 @@ package tui
 
 import (
 	"strings"
+	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
@@ -23,13 +24,17 @@ func FilterNamespaces(items []api.NamespaceSnapshot, namespace string, allNamesp
 }
 
 func FilterPods(items []api.PodSnapshot, namespace string, allNamespaces bool, query string) []api.PodSnapshot {
-	query = strings.ToLower(strings.TrimSpace(query))
+	return FilterPodsAt(items, namespace, allNamespaces, query, time.Now(), 30*time.Second)
+}
+
+func FilterPodsAt(items []api.PodSnapshot, namespace string, allNamespaces bool, query string, now time.Time, staleAfter time.Duration) []api.PodSnapshot {
+	spec := parseFilter(query)
 	filtered := make([]api.PodSnapshot, 0, len(items))
 	for _, item := range items {
 		if !allNamespaces && namespace != "" && item.Namespace != namespace {
 			continue
 		}
-		if query != "" && !podMatches(item, query) {
+		if !spec.matchesPod(item, now, staleAfter) {
 			continue
 		}
 		filtered = append(filtered, item)
@@ -38,13 +43,20 @@ func FilterPods(items []api.PodSnapshot, namespace string, allNamespaces bool, q
 }
 
 func FilterWorkloads(items []api.WorkloadSnapshot, namespace string, allNamespaces bool, query string) []api.WorkloadSnapshot {
-	query = strings.ToLower(strings.TrimSpace(query))
+	spec := parseFilter(query)
 	filtered := make([]api.WorkloadSnapshot, 0, len(items))
 	for _, item := range items {
 		if !allNamespaces && namespace != "" && item.Namespace != namespace {
 			continue
 		}
-		if query != "" && !containsAny([]string{item.Namespace, item.Kind, item.Name, item.LargestPodName, string(explain.Analyze(item.Memory).Diagnosis)}, query) {
+		result := explain.AnalyzeWorkload(item)
+		if spec.text != "" && !containsAny([]string{item.Namespace, item.Kind, item.Name, item.LargestPodName, string(result.Diagnosis)}, spec.text) {
+			continue
+		}
+		if spec.owner != "" && !containsAny([]string{item.Kind, item.Name}, spec.owner) {
+			continue
+		}
+		if !matchesMemoryFilters(spec, item.Memory, string(result.Severity), string(result.Diagnosis)) {
 			continue
 		}
 		filtered = append(filtered, item)
@@ -53,7 +65,7 @@ func FilterWorkloads(items []api.WorkloadSnapshot, namespace string, allNamespac
 }
 
 func FilterContainers(items []api.ContainerSnapshot, namespace string, allNamespaces bool, query string) []api.ContainerSnapshot {
-	query = strings.ToLower(strings.TrimSpace(query))
+	spec := parseFilter(query)
 	filtered := make([]api.ContainerSnapshot, 0, len(items))
 	for _, item := range items {
 		if item.Namespace == "" || item.PodName == "" || item.ContainerName == "" {
@@ -62,7 +74,14 @@ func FilterContainers(items []api.ContainerSnapshot, namespace string, allNamesp
 		if !allNamespaces && namespace != "" && item.Namespace != namespace {
 			continue
 		}
-		if query != "" && !containerMatches(item, query) {
+		result := explain.AnalyzeContainer(item)
+		if spec.text != "" && !containerMatches(item, spec.text) {
+			continue
+		}
+		if spec.owner != "" && !containsAny([]string{item.Context.OwnerKind, item.Context.OwnerName, item.Context.WorkloadKind, item.Context.WorkloadName}, spec.owner) {
+			continue
+		}
+		if !matchesMemoryFilters(spec, item.Memory, string(result.Severity), string(result.Diagnosis)) {
 			continue
 		}
 		filtered = append(filtered, item)

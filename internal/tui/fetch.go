@@ -6,19 +6,32 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/client"
 )
 
 func (m appModel) fetchCmd() tea.Cmd {
+	generation := m.fetchGeneration
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(m.ctx, 5*time.Second)
 		defer cancel()
 		if reader, ok := m.client.(client.CurrentSnapshotReader); ok {
-			current, err := reader.CurrentSnapshot(ctx)
-			if err != nil {
-				return fetchMsg{err: err}
+			var current client.CurrentSnapshot
+			var nodes []api.NodeSnapshotStatus
+			var currentErr, nodesErr error
+			var wait sync.WaitGroup
+			wait.Add(2)
+			go func() { defer wait.Done(); current, currentErr = reader.CurrentSnapshot(ctx) }()
+			go func() { defer wait.Done(); nodes, nodesErr = m.client.Nodes(ctx) }()
+			wait.Wait()
+			if currentErr != nil {
+				return fetchMsg{generation: generation, err: currentErr}
 			}
-			return fetchMsg{data: snapshotData{
+			if nodesErr != nil {
+				return fetchMsg{generation: generation, err: nodesErr}
+			}
+			return fetchMsg{generation: generation, data: snapshotData{
+				Nodes:      nodes,
 				Namespaces: current.Namespaces,
 				Workloads:  current.Workloads,
 				Pods:       current.Pods, Containers: current.Containers,
@@ -26,31 +39,64 @@ func (m appModel) fetchCmd() tea.Cmd {
 			}}
 		}
 		var data snapshotData
-		var namespaceErr, workloadErr, podErr, containerErr error
+		var namespaceErr, workloadErr, podErr, containerErr, nodeErr error
 		var wait sync.WaitGroup
-		wait.Add(4)
+		wait.Add(5)
+		go func() { defer wait.Done(); data.Nodes, nodeErr = m.client.Nodes(ctx) }()
 		go func() { defer wait.Done(); data.Namespaces, namespaceErr = m.client.Namespaces(ctx) }()
 		go func() { defer wait.Done(); data.Workloads, workloadErr = m.client.Workloads(ctx) }()
 		go func() { defer wait.Done(); data.Pods, podErr = m.client.Pods(ctx) }()
 		go func() { defer wait.Done(); data.Containers, containerErr = m.client.Containers(ctx) }()
 		wait.Wait()
-		for _, err := range []error{namespaceErr, workloadErr, podErr, containerErr} {
+		for _, err := range []error{nodeErr, namespaceErr, workloadErr, podErr, containerErr} {
 			if err != nil {
-				return fetchMsg{err: err}
+				return fetchMsg{generation: generation, err: err}
 			}
 		}
 		data.FetchedAt = time.Now().UTC()
-		return fetchMsg{data: data}
+		return fetchMsg{generation: generation, data: data}
 	}
 }
 
-func (m appModel) fetchHistoryCmd(namespace, podName string) tea.Cmd {
+func (m *appModel) beginFetch() tea.Cmd {
+	if m.loading {
+		return nil
+	}
+	m.loading = true
+	m.fetchGeneration++
+	return m.fetchCmd()
+}
+
+func (m appModel) fetchHistoryCmd(request historyRequest) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(m.ctx, 5*time.Second)
 		defer cancel()
-		series, err := m.client.PodHistory(ctx, namespace, podName)
-		return historyMsg{namespace: namespace, podName: podName, series: series, err: err}
+		series, err := m.client.PodHistory(ctx, request.namespace, request.podName)
+		return historyMsg{namespace: request.namespace, podName: request.podName, generation: request.generation, series: series, err: err}
 	}
+}
+
+func (m *appModel) historyRefreshCmd() tea.Cmd {
+	request, ok := m.selectedHistory.start()
+	if !ok {
+		return nil
+	}
+	return m.fetchHistoryCmd(request)
+}
+
+func (m *appModel) ensureHistoryTarget() tea.Cmd {
+	if m.view == viewDetail && (m.detail.kind == entityPod || m.detail.kind == entityContainer) {
+		m.selectedHistory.selectPod(m.detail.namespace, m.detail.podName)
+		return m.historyRefreshCmd()
+	}
+	if m.view == viewPods && m.layout().splitDetail {
+		if pod, ok := m.selectedVisiblePod(); ok {
+			m.selectedHistory.selectPod(pod.Namespace, pod.PodName)
+			return m.historyRefreshCmd()
+		}
+	}
+	m.selectedHistory.clearSelection()
+	return nil
 }
 
 func (m appModel) tickCmd() tea.Cmd {

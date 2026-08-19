@@ -57,6 +57,9 @@ func selectHistorySeries(pod api.PodSnapshot, histories []api.PodHistory) api.Po
 			return history
 		}
 	}
+	if pod.PodUID != "" {
+		return api.PodHistory{}
+	}
 	for _, history := range histories {
 		if history.NodeName == pod.NodeName {
 			return history

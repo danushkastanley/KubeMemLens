@@ -47,7 +47,7 @@ jobs:
           -v "$PWD:/mnt:ro"
           -w /mnt
           koalaman/shellcheck:v0.10.0@sha256:2097951f02e735b613f4a34de20c40f937a6c8f18ecb170612c88c34517221fb
-          hack/e2e-kind.sh hack/qualify-cluster.sh hack/render-krew-manifest.sh hack/soak-live-density.sh
+          hack/e2e-kind.sh hack/e2e-tui-kind.sh hack/qualify-cluster.sh hack/render-krew-manifest.sh hack/soak-live-density.sh
 
       - name: Check density soak safety gate
         run: |
