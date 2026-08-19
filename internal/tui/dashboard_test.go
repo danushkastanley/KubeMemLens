@@ -10,7 +10,7 @@ import (
 func TestWidePodDashboardMatchesMemoryTroubleshootingHierarchy(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	m := loadedFixtureModel(t, 180, 50)
-	frame := m.View()
+	frame := m.viewString()
 	for _, want := range []string{
 		"OBSERVED POD CHARGE", "NODE ALLOCATABLE", "CHARGE / ALLOCATABLE",
 		"TOP NAMESPACE", "RISK PODS", "NAMESPACES", "PODS · RISK ORDER",
@@ -39,7 +39,7 @@ func TestWidePodDashboardMatchesMemoryTroubleshootingHierarchy(t *testing.T) {
 func TestDashboardSignalPanelUsesSampledCgroupEvidence(t *testing.T) {
 	t.Setenv("NO_COLOR", "1")
 	m := loadedFixtureModel(t, 180, 50)
-	frame := m.View()
+	frame := m.viewString()
 	if !strings.Contains(frame, "high 1 PSI 2.0/0.0") {
 		t.Fatalf("dashboard omitted current cgroup signal:\n%s", frame)
 	}

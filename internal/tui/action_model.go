@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 	"github.com/danushkastanley/kube-memlens/internal/api"
 )
 
@@ -35,7 +35,7 @@ type actionMsg struct {
 	err    error
 }
 
-func (m appModel) handleActionKey(message tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := message.String()
 	switch m.action.mode {
 	case actionMenu:
@@ -65,8 +65,8 @@ func (m appModel) handleActionKey(message tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.action.input = string(runes[:len(runes)-1])
 			}
 		default:
-			if len(message.Runes) > 0 {
-				m.action.input += string(message.Runes)
+			if message.Key().Text != "" {
+				m.action.input += message.Key().Text
 			}
 		}
 	case actionResultMode:

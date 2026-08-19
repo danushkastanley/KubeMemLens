@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/danushkastanley/kube-memlens/internal/client"
 )
@@ -23,7 +23,7 @@ func Run(ctx context.Context, opts Options) error {
 		opts.RefreshInterval = 5 * time.Second
 	}
 	model := newModel(ctx, opts, reader, description)
-	program := tea.NewProgram(model, tea.WithAltScreen(), tea.WithContext(ctx))
+	program := tea.NewProgram(model, tea.WithContext(ctx))
 	_, err := program.Run()
 	return err
 }

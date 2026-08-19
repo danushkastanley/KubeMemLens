@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/model"
@@ -57,16 +57,16 @@ func TestWideLayoutRendersMasterDetailAndChangesFocus(t *testing.T) {
 	m.resizeViewports()
 	m.reconcileCurrentViewport("")
 
-	frame := m.View()
+	frame := m.viewString()
 	for _, want := range []string{"POD", "api", "│", "Likely explanation", "focus: table"} {
 		if !strings.Contains(frame, want) {
 			t.Fatalf("wide frame missing %q:\n%s", want, frame)
 		}
 	}
 
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyTab})
+	updated, _ := m.handleKey(tea.KeyPressMsg(tea.Key{Code: tea.KeyTab}))
 	m = updated.(appModel)
-	if m.focus != focusDetail || !strings.Contains(m.View(), "focus: detail") {
+	if m.focus != focusDetail || !strings.Contains(m.viewString(), "focus: detail") {
 		t.Fatalf("Tab did not move focus to detail")
 	}
 }
@@ -89,20 +89,23 @@ func TestCompactHeaderKeepsActiveSortVisible(t *testing.T) {
 	m := loadedFixtureModel(t, 80, 24)
 	m.connectionDescription = "kube-proxy namespace/service-with-a-long-name:8080"
 	m.sort = sortTotal
-	if frame := m.View(); !strings.Contains(strings.Split(frame, "\n")[0], "sort: total desc") {
+	if frame := m.viewString(); !strings.Contains(strings.Split(frame, "\n")[0], "sort: total desc") {
 		t.Fatalf("compact header hid the active sort mode:\n%s", frame)
 	}
 }
 
-func TestCompactHeaderKeepsRefreshStateVisible(t *testing.T) {
+func TestCompactHeaderKeepsMeaningfulStateVisible(t *testing.T) {
 	m := loadedFixtureModel(t, 80, 24)
 	m.connectionDescription = "kube-proxy namespace/service-with-a-long-name:8080"
 	m.loading = true
 	m.paused = true
-	header := strings.Split(m.View(), "\n")[0]
-	for _, want := range []string{"refreshing", "paused"} {
+	header := strings.Split(m.viewString(), "\n")[0]
+	for _, want := range []string{"state: paused", "last update:"} {
 		if !strings.Contains(header, want) {
 			t.Fatalf("compact header hid %q: %q", want, header)
 		}
+	}
+	if strings.Contains(header, "refreshing") {
+		t.Fatalf("compact header exposed transient refresh state: %q", header)
 	}
 }
