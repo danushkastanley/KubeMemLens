@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/danushkastanley/kube-memlens/internal/explain"
@@ -16,7 +17,13 @@ var (
 	helpStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 
-func (m appModel) View() string {
+func (m appModel) View() tea.View {
+	view := tea.NewView(m.viewString())
+	view.AltScreen = true
+	return view
+}
+
+func (m appModel) viewString() string {
 	plan := m.layout()
 	width := plan.contentWidth()
 
@@ -94,23 +101,29 @@ func (m appModel) renderHeader(width int) string {
 	if m.currentNode != "" {
 		parts = append(parts, "node: "+m.currentNode)
 	}
-	if m.loading || m.paused {
-		states := make([]string, 0, 2)
-		if m.paused {
-			states = append(states, "paused")
-		}
-		if m.loading {
-			states = append(states, "refreshing")
-		}
-		parts = append(parts, "state: "+strings.Join(states, "/"))
+	states := make([]string, 0, 2)
+	if m.paused {
+		states = append(states, "paused")
 	}
+	if m.statusErr != nil {
+		states = append(states, "degraded")
+	} else if len(states) == 0 {
+		if m.lastRefresh.IsZero() && m.loading {
+			states = append(states, "connecting")
+		} else {
+			states = append(states, "live")
+		}
+	}
+	parts = append(parts, "state: "+strings.Join(states, "/"))
 	if m.query != "" || m.searching {
 		parts = append(parts, "filter: "+m.query)
 	}
-	if m.lastRefresh.IsZero() {
-		parts = append(parts, "refreshed: never")
-	} else {
-		parts = append(parts, "refreshed: "+FormatAge(m.lastRefresh)+" ago")
+	if m.paused || m.statusErr != nil {
+		lastUpdate := "never"
+		if !m.lastRefresh.IsZero() {
+			lastUpdate = FormatAge(m.lastRefresh) + " ago"
+		}
+		parts = append(parts, "last update: "+lastUpdate)
 	}
 	if m.statusErr != nil {
 		parts = append(parts, errorStyle.Render("status: connection error"))
@@ -122,7 +135,6 @@ func (m appModel) renderHeader(width int) string {
 		}
 		parts = append(parts, "focus: "+focus)
 	}
-	parts = append(parts, "connection: "+m.connectionDescription)
 	return headerStyle.Render(truncate(strings.Join(parts, " | "), width))
 }
 
@@ -283,7 +295,7 @@ func (m appModel) renderPods(width int) string {
 				presentation.limit,
 				presentation.composition,
 				presentation.severity + " " + trend,
-				FormatAge(item.CapturedAt),
+				formatPodAge(item),
 			}, widths, numericIndexes(1)))
 			continue
 		}
@@ -297,7 +309,7 @@ func (m appModel) renderPods(width int) string {
 			presentation.signal,
 			presentation.diagnosis,
 			trend,
-			FormatAge(item.CapturedAt),
+			formatPodAge(item),
 		}, widths, numericIndexes(3)))
 	}
 	return truncateLines(lines, width)

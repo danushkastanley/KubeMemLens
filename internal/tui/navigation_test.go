@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/model"
@@ -29,7 +29,7 @@ func TestLongPodTableScrollsSelectionIntoView(t *testing.T) {
 	m.reconcileCurrentViewport("")
 	m.currentViewport().last()
 
-	frame := m.View()
+	frame := m.viewString()
 	if !strings.Contains(frame, "›") || !strings.Contains(frame, "pod-099") {
 		t.Fatalf("last selected Pod is not visible:\n%s", frame)
 	}
@@ -56,7 +56,7 @@ func TestDetailCanReachFinalCommands(t *testing.T) {
 	m.syncDetailViewport()
 	m.currentViewport().last()
 
-	frame := m.View()
+	frame := m.viewString()
 	if !strings.Contains(frame, "kubectl describe pod/api -n default") {
 		t.Fatalf("final detail command is unreachable:\n%s", frame)
 	}
@@ -92,7 +92,7 @@ func TestPageMovementUsesCurrentCapacity(t *testing.T) {
 	}
 	m.reconcileCurrentViewport("")
 
-	updated, _ := m.handleKey(tea.KeyMsg{Type: tea.KeyPgDown})
+	updated, _ := m.handleKey(tea.KeyPressMsg(tea.Key{Code: tea.KeyPgDown}))
 	m = updated.(appModel)
 	if m.currentViewport().selected != m.currentViewport().capacity {
 		t.Fatalf("page down selected %d, capacity %d", m.currentViewport().selected, m.currentViewport().capacity)

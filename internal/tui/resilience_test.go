@@ -12,7 +12,7 @@ func TestConnectionFailureRetainsLastGoodFrameAndRecoveryClearsError(t *testing.
 
 	updated, _ := m.Update(fetchMsg{err: errors.New("connection interrupted")})
 	m = updated.(appModel)
-	frame := m.View()
+	frame := m.viewString()
 	if len(m.data.Pods) != previousPods || !strings.Contains(frame, "api-0") || !strings.Contains(frame, "connection error") {
 		t.Fatalf("failure did not retain data and expose error:\n%s", frame)
 	}
@@ -23,15 +23,15 @@ func TestConnectionFailureRetainsLastGoodFrameAndRecoveryClearsError(t *testing.
 		Namespaces: recovered.Namespaces, Workloads: recovered.Workloads,
 	}})
 	m = updated.(appModel)
-	if m.statusErr != nil || !strings.Contains(m.View(), "api-0") {
-		t.Fatalf("recovery state err=%v frame:\n%s", m.statusErr, m.View())
+	if m.statusErr != nil || !strings.Contains(m.viewString(), "api-0") {
+		t.Fatalf("recovery state err=%v frame:\n%s", m.statusErr, m.viewString())
 	}
 }
 
 func TestFilteredEmptyFrameNamesFilterAndReset(t *testing.T) {
 	m := loadedFixtureModel(t, 80, 24)
 	m.query = "does-not-exist"
-	frame := m.View()
+	frame := m.viewString()
 	for _, want := range []string{"does-not-exist", "Press Esc to clear it"} {
 		if !strings.Contains(frame, want) {
 			t.Fatalf("empty filter frame missing %q:\n%s", want, frame)

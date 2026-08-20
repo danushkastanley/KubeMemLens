@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/client"
@@ -119,7 +119,7 @@ func TestAllEntityFramesAndDetailsRender(t *testing.T) {
 		m.view = view
 		m.resizeViewports()
 		m.reconcileCurrentViewport("")
-		frame := m.View()
+		frame := m.viewString()
 		for _, want := range expected {
 			if !strings.Contains(frame, want) {
 				t.Fatalf("view %v missing %q:\n%s", view, want, frame)
@@ -146,28 +146,78 @@ func TestAllEntityFramesAndDetailsRender(t *testing.T) {
 	}
 }
 
+func TestHeaderHidesConnectionImplementationDetails(t *testing.T) {
+	m := loadedFixtureModel(t, 160, 35)
+	header := m.renderHeader(160)
+	if strings.Contains(header, "connection:") || strings.Contains(header, m.connectionDescription) {
+		t.Fatalf("header exposes connection implementation details: %q", header)
+	}
+}
+
+func TestSuccessfulAutomaticRefreshKeepsHeaderStable(t *testing.T) {
+	m := loadedFixtureModel(t, 160, 35)
+	m.lastRefresh = time.Now().Add(-time.Second)
+	before := m.renderHeader(160)
+
+	updated, _ := m.Update(tickMsg(time.Now()))
+	m = updated.(appModel)
+	during := m.renderHeader(160)
+
+	updated, _ = m.Update(fetchMsg{generation: m.fetchGeneration, data: m.data})
+	m = updated.(appModel)
+	after := m.renderHeader(160)
+
+	if before != during || during != after {
+		t.Fatalf("header changed during successful automatic refresh:\nbefore: %q\nduring: %q\nafter:  %q", before, during, after)
+	}
+}
+
+func TestPodViewsUseKubernetesCreationAge(t *testing.T) {
+	reader := tuiFixtureReader()
+	createdAt := time.Now().UTC().Add(-49 * time.Hour)
+	for index := range reader.current.Pods {
+		reader.current.Pods[index].Context.CreatedAt = createdAt
+	}
+
+	m := newModel(context.Background(), Options{AllNamespaces: true}, reader, "test")
+	m.width, m.height = 160, 35
+	m.resizeViewports()
+	message := m.fetchCmd()().(fetchMsg)
+	updated, _ := m.Update(message)
+	m = updated.(appModel)
+	m.loading = false
+	m.view = viewPods
+
+	if frame := m.renderPods(160); !strings.Contains(frame, "2d") {
+		t.Fatalf("Pod table does not show Kubernetes creation age:\n%s", frame)
+	}
+	if detail := strings.Join(compactPodLines(reader.current.Pods[0]), "\n"); !strings.Contains(detail, "Pod age") || !strings.Contains(detail, "2d") {
+		t.Fatalf("Pod detail does not show Kubernetes creation age:\n%s", detail)
+	}
+}
+
 func TestLoadingEmptyErrorHelpAndActionFrames(t *testing.T) {
 	m := newModel(context.Background(), Options{}, tuiFixtureReader(), "test")
 	m.width, m.height = 80, 24
-	if frame := m.View(); !strings.Contains(frame, "Loading collector snapshots") {
+	if frame := m.viewString(); !strings.Contains(frame, "Loading collector snapshots") {
 		t.Fatalf("loading frame:\n%s", frame)
 	}
 	m.loading = false
-	if frame := m.View(); !strings.Contains(frame, "No collector snapshots") {
+	if frame := m.viewString(); !strings.Contains(frame, "No collector snapshots") {
 		t.Fatalf("empty frame:\n%s", frame)
 	}
 	m.statusErr = errors.New("offline")
-	if frame := m.View(); !strings.Contains(frame, "Could not connect") {
+	if frame := m.viewString(); !strings.Contains(frame, "Could not connect") {
 		t.Fatalf("error frame:\n%s", frame)
 	}
 	m.statusErr = nil
 	m.help = true
-	if frame := m.View(); !strings.Contains(frame, "Keybindings") || !strings.Contains(frame, "incident action menu") {
+	if frame := m.viewString(); !strings.Contains(frame, "Keybindings") || !strings.Contains(frame, "incident action menu") {
 		t.Fatalf("help frame:\n%s", frame)
 	}
 	m.help = false
 	m.action.mode = actionMenu
-	if frame := m.View(); !strings.Contains(frame, "Incident actions") || !strings.Contains(frame, "No action mutates") {
+	if frame := m.viewString(); !strings.Contains(frame, "Incident actions") || !strings.Contains(frame, "No action mutates") {
 		t.Fatalf("action frame:\n%s", frame)
 	}
 }
@@ -236,8 +286,8 @@ func TestActionStateMachineRecommendationCompareCaptureAndCopy(t *testing.T) {
 		t.Fatal("recommendation action did not start")
 	}
 	m = applyCommand(t, m, command)
-	if !strings.Contains(m.View(), "Automatic mutation: disabled") {
-		t.Fatalf("recommendation result:\n%s", m.View())
+	if !strings.Contains(m.viewString(), "Automatic mutation: disabled") {
+		t.Fatalf("recommendation result:\n%s", m.viewString())
 	}
 	updated, _ = m.handleActionKey(keyMessage("esc"))
 	m = updated.(appModel)
@@ -253,8 +303,8 @@ func TestActionStateMachineRecommendationCompareCaptureAndCopy(t *testing.T) {
 	updated, command = m.handleKey(keyMessage("x"))
 	m = updated.(appModel)
 	m = applyCommand(t, m, command)
-	if !strings.Contains(m.View(), "Live Pod comparison") {
-		t.Fatalf("comparison result:\n%s", m.View())
+	if !strings.Contains(m.viewString(), "Live Pod comparison") {
+		t.Fatalf("comparison result:\n%s", m.viewString())
 	}
 	updated, _ = m.handleActionKey(keyMessage("esc"))
 	m = updated.(appModel)
@@ -265,16 +315,16 @@ func TestActionStateMachineRecommendationCompareCaptureAndCopy(t *testing.T) {
 	updated, command = m.handleActionKey(keyMessage("enter"))
 	m = updated.(appModel)
 	m = applyCommand(t, m, command)
-	if !strings.Contains(m.View(), "Redacted capture written") {
-		t.Fatalf("capture result:\n%s", m.View())
+	if !strings.Contains(m.viewString(), "Redacted capture written") {
+		t.Fatalf("capture result:\n%s", m.viewString())
 	}
 	updated, _ = m.handleActionKey(keyMessage("esc"))
 	m = updated.(appModel)
 
 	updated, command = m.handleKey(keyMessage("y"))
 	m = updated.(appModel)
-	if command == nil || !strings.Contains(m.View(), "Command copied") {
-		t.Fatalf("copy result:\n%s", m.View())
+	if command == nil || !strings.Contains(m.viewString(), "Command copied") {
+		t.Fatalf("copy result:\n%s", m.viewString())
 	}
 }
 
@@ -282,7 +332,7 @@ func TestRenderedFramesExcludeRuntimeIdentifiers(t *testing.T) {
 	m := loadedFixtureModel(t, 180, 50)
 	for _, view := range []viewMode{viewNodes, viewNamespaces, viewWorkloads, viewPods, viewContainers} {
 		m.view = view
-		frame := m.View()
+		frame := m.viewString()
 		for _, forbidden := range []string{"sensitive-uid", "container-secret", "/sensitive/cgroup", "customer-secret"} {
 			if strings.Contains(frame, forbidden) {
 				t.Fatalf("view %v contains %q", view, forbidden)
@@ -300,26 +350,27 @@ func applyCommand(t *testing.T, m appModel, command tea.Cmd) appModel {
 	return updated.(appModel)
 }
 
-func keyMessage(key string) tea.KeyMsg {
+func keyMessage(key string) tea.KeyPressMsg {
 	switch key {
 	case "enter":
-		return tea.KeyMsg{Type: tea.KeyEnter}
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter})
 	case "esc":
-		return tea.KeyMsg{Type: tea.KeyEsc}
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyEsc})
 	case "backspace":
-		return tea.KeyMsg{Type: tea.KeyBackspace}
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyBackspace})
 	case "up":
-		return tea.KeyMsg{Type: tea.KeyUp}
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyUp})
 	case "down":
-		return tea.KeyMsg{Type: tea.KeyDown}
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyDown})
 	case "pgup":
-		return tea.KeyMsg{Type: tea.KeyPgUp}
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyPgUp})
 	case "pgdown":
-		return tea.KeyMsg{Type: tea.KeyPgDown}
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeyPgDown})
 	case " ":
-		return tea.KeyMsg{Type: tea.KeySpace}
+		return tea.KeyPressMsg(tea.Key{Code: tea.KeySpace, Text: " "})
 	default:
-		return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)}
+		runes := []rune(key)
+		return tea.KeyPressMsg(tea.Key{Code: runes[0], Text: key})
 	}
 }
 

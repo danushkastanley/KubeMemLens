@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/client"
@@ -123,7 +123,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case actionMsg:
 		m.completeAction(msg)
 		return m, nil
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		return m.handleKey(msg)
 	default:
 		return m, nil
@@ -150,7 +150,7 @@ func (m *appModel) updatePodTrends(next []api.PodSnapshot) {
 	m.podTrends = trends
 }
 
-func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.action.mode != actionClosed {
 		return m.handleActionKey(msg)
 	}
@@ -169,8 +169,8 @@ func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.resetCurrentViewport()
 			}
 		default:
-			if len(msg.Runes) > 0 {
-				m.query += string(msg.Runes)
+			if msg.Key().Text != "" {
+				m.query += msg.Key().Text
 				m.resetCurrentViewport()
 			}
 		}
@@ -199,7 +199,7 @@ func (m appModel) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd())
 	case "/":
 		m.searching = true
-	case " ":
+	case "space":
 		m.paused = !m.paused
 	case "esc":
 		if m.query != "" {

@@ -145,7 +145,7 @@ func (m appModel) dashboardPods(width, rows int) string {
 		row := tableRow([]string{
 			pod.PodName, pod.NodeName, memmodel.FormatCompactBytes(pod.Memory.TotalBytes),
 			presentation.limit, presentation.composition, presentation.signal,
-			risk.label + trendLabel(m.podTrends[podKey(pod.Namespace, pod.PodName)]), FormatAge(pod.CapturedAt),
+			risk.label + trendLabel(m.podTrends[podKey(pod.Namespace, pod.PodName)]), formatPodAge(pod),
 		}, widths, numericIndexes(2))
 		selected := index == viewport.selected
 		marker := " "
