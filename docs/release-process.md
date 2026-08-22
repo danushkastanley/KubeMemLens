@@ -11,7 +11,7 @@ KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer 
 5. Complete the declared live-cluster compatibility matrix, including upgrade and uninstall.
 6. Review `govulncheck`, the pinned Trivy configuration/secret/runtime-image scans, licences, RBAC, NetworkPolicy, host mounts, image user, and sensitive metric labels.
 7. Check the [current upstream Kubernetes support window](https://kubernetes.io/releases/), move the kind matrix to all three supported minors, and keep each checksum-pinned kubectl on the same minor as its node image.
-7. Confirm the rollback path and known limitations.
+8. Confirm the rollback path and known limitations.
 
 ## Build
 

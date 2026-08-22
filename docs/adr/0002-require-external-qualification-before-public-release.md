@@ -1,6 +1,7 @@
 # ADR 0002: Require External Qualification Before Public Release
 
 Date: 18 July 2026
+Amended: 22 August 2026
 Status: accepted
 
 ## Context
@@ -14,10 +15,12 @@ Treat the following as mandatory external release gates, not as inferred support
 - Run the declared GitHub Actions matrix from a clean pushed commit.
 - Qualify representative GKE, EKS and AKS Linux node pools and a NetworkPolicy-enforcing CNI.
 - Qualify CRI-O if it remains in the public compatibility contract.
-- Run 5,000/10,000 live-container density and churn soaks with node/workload impact measurements. Linux synthetic fixture benchmarks are useful development evidence but do not satisfy this gate.
+- Run a live-container density and churn soak at the largest scale claimed for the release, with node and workload impact measurements. Linux synthetic fixture benchmarks do not support a live-density claim.
 - Create and audit a semantic pre-release tag, generated archives, image, OCI chart, checksums, SBOMs, signatures and provenance.
 - Publish only after that audit, then submit immutable Krew metadata and list the chart on Artifact Hub.
 - Complete the independent eBPF security/performance gates in ADR 0001 before implementing or advertising tracing.
+
+These are maintainer-owned release gates. They are not routine pull-request requirements. Contributors run checks proportionate to their change and record anything they could not verify. Provider or large-cluster evidence is required from a pull request only when that change makes or alters the corresponding public claim.
 
 External cluster qualification uses `hack/qualify-cluster.sh` with an exact context, new dedicated namespace, immutable workload/probe image digests and explicit acknowledgement. It records sanitised evidence and removes only the release and namespace it created. The script does not create cloud infrastructure, publish results or turn an unrun matrix row into a support claim.
 
@@ -25,7 +28,7 @@ The current list APIs use deterministic ordering, hard store limits, a 16 MiB en
 
 ## Alternatives
 
-- Claim provider or large-cluster support from kind and synthetic fixtures: rejected because it would overstate evidence.
+- Claim provider or live-cluster scale from kind and synthetic fixtures: rejected because it would overstate evidence.
 - Publish a tag directly from the local worktree: rejected because it bypasses review and the user's explicit authority over external mutation.
 - Silently truncate large responses: rejected because incomplete diagnosis could be mistaken for whole-cluster evidence.
 - Add offset pagination: rejected because concurrent node replacement would make offsets unstable. Opaque keyset pagination provides bounded forward traversal without exposing that implementation as a public token contract.
@@ -34,5 +37,6 @@ The current list APIs use deterministic ordering, hard store limits, a 16 MiB en
 
 - The source implementation may reach a locally verified release-candidate state while the public release remains blocked.
 - `docs/compatibility.md` distinguishes prepared, locally verified and externally qualified rows.
+- The public scale ceiling must match the largest reviewed live soak. Higher synthetic results remain development evidence only.
 - Any final hand-off must list these gates plainly; no “production-ready” or provider-support claim is permitted before evidence exists.
 - The local rollback remains deletion of the optional release candidate/cluster. Published artefacts are immutable and require a new version to fix forward.

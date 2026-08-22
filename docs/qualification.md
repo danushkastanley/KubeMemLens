@@ -2,6 +2,8 @@
 
 This runbook turns managed-provider and runtime compatibility into repeatable evidence. It does not create a GKE, EKS or AKS cluster, push an image, publish results, or declare support merely because a manifest rendered.
 
+This is maintainer-owned release qualification. Ordinary pull requests use proportionate local and CI checks described in [CONTRIBUTING.md](../CONTRIBUTING.md); contributors do not need managed-provider accounts unless their change makes a provider-specific claim.
+
 Use only a disposable cluster or a cluster whose owner has authorised installation of a read-only hostPath DaemonSet, cluster-scoped read RBAC, a NetworkPolicy and two short-lived probe Pods.
 
 ## Scope
@@ -18,9 +20,7 @@ Use only a disposable cluster or a cluster whose owner has authorised installati
 - uninstall, cluster-scoped RBAC removal and deletion of the dedicated namespace;
 - sanitised environment evidence without context, cluster, node or provider-resource identifiers.
 
-It does not prove a high-density workload soak, long-duration reliability, every CNI mode, or optional eBPF support. Run the separate [live container-density and churn soak](qualification/live-density-soak.md) after installation qualification on a cluster with sufficient capacity.
-
-The harness itself passed locally on a two-node Kubernetes 1.34.8/containerd cluster with Calico 3.32.1 enforcing the ingress policy. See [the sanitised evidence record](qualification/local-kind-calico-2026-07-18.md). That validates the procedure and policy semantics, not any managed provider.
+It does not prove long-duration reliability, every CNI mode, managed-provider compatibility, or optional eBPF support. Provider records will be published together after the GKE, EKS and AKS qualification matrix completes.
 
 ## Managed-provider boundary
 

@@ -7,7 +7,7 @@ Date: 18 July 2026
 
 This protocol decides whether an optional KubeMemLens tracer is safe enough to continue towards implementation. It does not turn a prototype into a supported feature. Results must be recorded for every declared kernel/provider combination, including failure and event-loss behaviour.
 
-The current non-eBPF synthetic baseline is in [Phase A performance baseline](../PERFORMANCE_BASELINE_2026-07-18.md). It measured cgroup scanning on macOS fixtures, not Linux node overhead, and must not be used as an eBPF performance claim.
+Record a non-eBPF baseline in every claimed environment before measuring an optional tracer. Local fixture timings do not establish Linux node overhead.
 
 ## Test matrix
 
@@ -34,7 +34,7 @@ For each environment run:
 5. Maximum allowed concurrent selected traces.
 6. Event flood beyond the configured ring/output ceiling.
 7. Pod deletion/recreation, client disconnect, tracer `SIGTERM` and forced restart.
-8. Standard agent scan at 100, 1,000, 5,000 and 10,000 containers where practical.
+8. Standard agent scan at each live density claimed for the release.
 
 Use fixed-seed workload generators, immutable image digests and a recorded node image/kernel. Retain scripts in `hack/` and publish raw machine-readable results with the pull request.
 
