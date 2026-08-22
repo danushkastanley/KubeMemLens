@@ -17,7 +17,7 @@ Configure a GitHub environment named `release` before the first tag. Restrict it
 
 ## Build
 
-Push an annotated semantic-version tag such as `v0.5.0-rc.1`. The release workflow has two jobs:
+Push an annotated semantic-version tag such as `v0.5.0-alpha.1`. The release workflow has two jobs:
 
 - The read-only build job creates and validates the six CLI archives, SBOMs, Krew manifest and Helm package. It scans a representative image and transfers the bundle through a one-day GitHub Actions artefact.
 - The protected publish job downloads and revalidates that bundle. It signs the complete checksum file, creates provenance, and refuses to continue when a release already exists for the tag.
