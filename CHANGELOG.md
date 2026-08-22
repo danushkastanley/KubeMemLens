@@ -12,7 +12,6 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Collector ingestion outcome and request-duration metrics.
 - CI for formatting, tests, race detection, vet, vulnerability scanning, builds, and Helm validation.
 - CI coverage reporting plus digest-pinned configuration, committed-secret, and built-image security scans.
-- Open-source product research, implementation plan, and performance baseline.
 - Bounded Pod history with pressure/event markers and workload roll-ups that retain replica outliers.
 - Cached top-level workload owner resolution with explicit doctor and RBAC diagnostics.
 - Evidence-based explanation confidence and copyable Pod/workload follow-up commands.
@@ -51,6 +50,10 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - TUI snapshot reads now refresh concurrently, and collector storage/API responses have explicit capacity ceilings surfaced by `doctor`.
 - TUI defaults to risk-ordered Pods; Tab now changes table/detail focus in wide layouts, while `N/n/w/p/c` select entity views explicitly.
 - Helm supports exact image digests and the agent explicitly targets Linux nodes, with operator-scoped tolerations available for reviewed node pools.
+
+### Fixed
+
+- TUI refreshes preserve the terminal title, use synchronized rendering where supported, and report Pod age from Kubernetes creation time rather than snapshot age.
 
 ### Security
 

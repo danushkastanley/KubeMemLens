@@ -31,7 +31,7 @@ KubeMemLens is designed as a terminal-first tool that can start locally and grow
 
 Pod and namespace totals are sums of mapped container cgroups only. Parent pod cgroups are intentionally not added to avoid double-counting.
 
-The v0.4 default data flow keeps the collector cluster-internal:
+The default data flow keeps the collector cluster-internal:
 
 ```text
 agent -> collector service -> Kubernetes API service proxy -> CLI/TUI

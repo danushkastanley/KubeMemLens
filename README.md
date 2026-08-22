@@ -14,7 +14,7 @@ The goal is to make incidents like "kubectl top says memory is high, but the app
 
 KubeMemLens is a locally verified v0.5 release candidate, not yet a supported public release. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI queries the collector through the Kubernetes API service proxy by default, with HTTP/port-forward mode as a fallback. The collector also exposes conservative Prometheus/OpenMetrics metrics at `/metrics`.
 
-The full lifecycle path has passed locally on the current upstream-supported Kubernetes 1.34, 1.35 and 1.36 minors. The repeatable [existing-cluster qualification](docs/qualification.md) path has also qualified one Amazon EKS managed Linux node-group profile and passed locally with Calico enforcing ingestion isolation. GKE, AKS, CRI-O and other provider/runtime profiles remain unclaimed until their own runs produce reviewed evidence.
+The full lifecycle path has passed locally on the current upstream-supported Kubernetes 1.34, 1.35 and 1.36 minors. Managed-provider qualification is still in progress. GKE, EKS, AKS, CRI-O and other provider/runtime profiles remain unclaimed until the planned matrix completes and its reviewed evidence is published.
 
 ## TUI 2.0
 
@@ -85,7 +85,6 @@ make vet
 make vuln
 make check
 make qualify-cluster # requires the explicit environment in docs/qualification.md
-make soak-live-density # destructive opt-in; see docs/qualification/live-density-soak.md
 ```
 
 ## Cluster Smoke Test
@@ -238,8 +237,8 @@ At 80×24, the Pod table keeps the incident fields visible and makes every detai
 KubeMemLens | view: pods | sort: risk desc | refreshed: 2s ago
 
 POD                  TOTAL    LIMIT             A/F/S/O       RISK   AGE
-›payments/api-0      812Mi    ███████░ 79%      ███▓▓▒░░      HIGH↑  2s
- payments/worker-0   643Mi    █████░░░ 63%      ██▓▓▓░░░      MED→   2s
+›payments/api-0      812Mi    ███████░ 79%      ███▓▓▒░░      HIGH↑  3d
+ payments/worker-0   643Mi    █████░░░ 63%      ██▓▓▓░░░      MED→   5h
 
 q quit · space pause · r refresh · / filter · N/n/w/p/c views · enter drill
 ```
@@ -263,7 +262,7 @@ Key controls:
 | `a`, `R`, `x`, `C`, `y` | Open incident actions, recommendations, compare, redacted capture or copy a safe command |
 | `?` / `q` | Show help / quit and restore the terminal |
 
-Recommendations and comparisons are read-only. TUI capture uses the same redaction and private-file rules as the CLI, refuses overwrite without confirmation and never applies a resource change. Deep memory evidence requires the standard cgroup v2 agent path and history remains bounded and in memory. Container detail can show the parent Pod's bounded history; KubeMemLens does not claim container-level historical attribution. See the [local TUI 2.0 qualification record](docs/qualification/local-tui-2.0-2026-08-19.md) for the verified terminal and cluster path.
+Recommendations and comparisons are read-only. TUI capture uses the same redaction and private-file rules as the CLI, refuses overwrite without confirmation and never applies a resource change. Deep memory evidence requires the standard cgroup v2 agent path and history remains bounded and in memory. Container detail can show the parent Pod's bounded history; KubeMemLens does not claim container-level historical attribution.
 
 ## Prometheus / OpenMetrics Export
 
@@ -371,21 +370,8 @@ See `examples/rbac/kube-memlens-viewer.yaml` for a minimal Role that an admin ca
 
 v0.5 reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. CLI kube-proxy mode uses the user's Kubernetes credentials and is governed by RBAC. Metrics are exposed only by the in-cluster collector service by default. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
 
-## Roadmap
-
-- v0.1: local parser and sample CLI
-- v0.2: Kubernetes cgroup mapping, DaemonSet scan, collector snapshots, and collector-backed CLI
-- v0.3: terminal dashboard, search/sort, pod explain view
-- v0.4: kubectl-native collector connectivity through Kubernetes API service proxy
-- v0.5: Prometheus/OpenMetrics export with cardinality guardrails
-- v0.6: agent informer cache, cgroup mapping hardening, and scan-cost measurement
-- v0.7: TUI trends and short history
-- v0.8: qualify optional, on-demand eBPF tracing only if its security and benchmark gates pass
-
 ## Contributing
 
 Small, focused issues and pull requests are welcome. Please keep language incident-friendly, avoid overclaiming root cause, and add tests when behaviour changes.
 
-False or ambiguous explanations have a dedicated issue form and [privacy-preserving community feedback process](docs/community-feedback.md); KubeMemLens does not collect product telemetry.
-
-The [open-source completion audit](docs/OPEN_SOURCE_COMPLETION_AUDIT_2026-07-18.md) maps the research recommendations to implementation evidence and lists the external qualification gates that must pass before the first public release.
+False or ambiguous explanations have a dedicated issue form and [privacy-preserving community feedback process](docs/community-feedback.md); KubeMemLens does not collect product telemetry. Compatibility claims require reviewed evidence from the [qualification process](docs/qualification.md).

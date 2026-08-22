@@ -7,7 +7,7 @@ Thank you for helping make Kubernetes memory incidents easier to understand.
 - Search existing issues and pull requests.
 - Open an issue before a large feature, new dependency, public contract, privilege change, or architectural migration.
 - Keep changes focused. Separate behaviour-preserving refactors from product changes where practical.
-- Preserve the product boundaries in [the implementation plan](docs/OPEN_SOURCE_IMPLEMENTATION_PLAN.md).
+- Review the [architecture](docs/architecture.md), [security model](docs/security-model.md), and [roadmap](docs/roadmap.md) before changing product boundaries.
 
 ## Development setup
 
@@ -33,6 +33,17 @@ make run-sample-explain
 ```
 
 For chart work, follow the local-cluster smoke test in [README.md](README.md).
+
+## Verification scope
+
+Match verification to the change. A normal pull request does not require a cloud account, a managed cluster, or a large workload.
+
+- Run focused package tests while developing, then `make check` when the local toolchain and network allow it. CI runs the full repository checks.
+- Use kind or minikube for changes to the agent, collector, chart, RBAC, NetworkPolicy, or live TUI behaviour.
+- Use synthetic fixtures for parser, aggregation, API-boundary and presentation changes.
+- State which checks you ran and which relevant paths you could not run. Missing provider access is acceptable when the change does not make a provider-specific claim.
+
+Maintainers own the GKE, EKS and AKS release matrix. Provider qualification is required before the project publishes a provider-support claim, not before every contribution can be reviewed or merged. Scale testing follows the same rule: a PR needs extra capacity evidence only when it changes the scale contract or makes a new scale claim.
 
 ## Pull requests
 
