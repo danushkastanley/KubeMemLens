@@ -12,9 +12,23 @@ The goal is to make incidents like "kubectl top says memory is high, but the app
 
 ## Status
 
-KubeMemLens is a locally verified v0.5 release candidate, not yet a supported public release. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI queries the collector through the Kubernetes API service proxy by default, with HTTP/port-forward mode as a fallback. The collector also exposes conservative Prometheus/OpenMetrics metrics at `/metrics`.
+KubeMemLens is in alpha. `v0.0.1-alpha.3` is intended for evaluation on disposable or explicitly authorised clusters and does not carry a production stability or support guarantee. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI queries the collector through the Kubernetes API service proxy by default, with HTTP/port-forward mode as a fallback. The collector also exposes conservative Prometheus/OpenMetrics metrics at `/metrics`.
 
 The full lifecycle path has passed locally on the current upstream-supported Kubernetes 1.34, 1.35 and 1.36 minors. Managed-provider qualification is still in progress. GKE, EKS, AKS, CRI-O and other provider/runtime profiles remain unclaimed until the planned matrix completes and its reviewed evidence is published.
+
+## Install the alpha
+
+Use the exact alpha version. Review the [installation guide](docs/installation.md), [compatibility matrix](docs/compatibility.md), and [release assets](https://github.com/danushkastanley/KubeMemLens/releases) before installing it.
+
+```sh
+helm upgrade --install kube-memlens \
+  oci://ghcr.io/danushkastanley/charts/kube-memlens \
+  --version 0.0.1-alpha.3 \
+  --namespace kube-memlens \
+  --create-namespace
+```
+
+The chart uses the version-aligned release image by default. Qualification and policy-controlled installs should pin the image digest recorded in `release-subjects.txt`.
 
 ## TUI 2.0
 
@@ -368,7 +382,7 @@ See `examples/rbac/kube-memlens-viewer.yaml` for a minimal Role that an admin ca
 
 ## Security Posture
 
-v0.5 reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. CLI kube-proxy mode uses the user's Kubernetes credentials and is governed by RBAC. Metrics are exposed only by the in-cluster collector service by default. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
+The alpha release reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. CLI kube-proxy mode uses the user's Kubernetes credentials and is governed by RBAC. Metrics are exposed only by the in-cluster collector service by default. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 # Installation, Upgrade, and Uninstall
 
-KubeMemLens has not published its first supported release. Use source installs only for development until a release candidate completes the compatibility matrix.
+KubeMemLens is in alpha and has no supported production release. Alpha artefacts are for evaluation on disposable or explicitly authorised clusters. Use exact versions and review the compatibility matrix and release assets before installation.
 
 ## Requirements
 
@@ -40,12 +40,12 @@ The agent targets `kubernetes.io/os: linux`. Node pools with custom taints requi
 
 ## Release install
 
-After a release is published and verified, the intended OCI chart flow is:
+For a published and verified alpha, use the exact OCI chart version:
 
 ```sh
 helm upgrade --install kube-memlens \
   oci://ghcr.io/danushkastanley/charts/kube-memlens \
-  --version <version-without-v> \
+  --version 0.0.1-alpha.3 \
   --namespace kube-memlens \
   --create-namespace
 ```

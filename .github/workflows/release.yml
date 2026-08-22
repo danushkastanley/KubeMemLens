@@ -39,6 +39,16 @@ jobs:
           echo "BUILD_DATE=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
           echo "CHART_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
+      - name: Check release documentation
+        run: |
+          chart_version=$(awk '$1 == "version:" {print $2; exit}' charts/kube-memlens/Chart.yaml)
+          app_version=$(awk '$1 == "appVersion:" {gsub(/"/, "", $2); print $2; exit}' charts/kube-memlens/Chart.yaml)
+          test "$chart_version" = "$CHART_VERSION"
+          test "$app_version" = "$CHART_VERSION"
+          grep -Fq "$GITHUB_REF_NAME" README.md
+          grep -Fq "## ${CHART_VERSION} - " CHANGELOG.md
+          grep -Fq -- "--version ${CHART_VERSION}" docs/installation.md
+
       - name: Build representative release image
         run: |
           docker build \

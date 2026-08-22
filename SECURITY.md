@@ -2,12 +2,13 @@
 
 ## Supported versions
 
-KubeMemLens has not published its first supported release. The `main` branch is under active development and receives security fixes, but it does not yet carry a stability or support guarantee.
+KubeMemLens is in alpha. Alpha versions and the `main` branch receive fixes on a best-effort basis but do not carry a production stability or support guarantee.
 
-This table will be updated when the first release is tagged:
+This table will be updated when the first supported release is published:
 
 | Version | Supported |
 |---|---|
+| `0.0.1-alpha.x` | Best effort, pre-release |
 | Unreleased `main` | Best effort |
 
 ## Report a vulnerability

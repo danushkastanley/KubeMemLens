@@ -9,7 +9,7 @@ This matrix distinguishes implemented support from verified environments. Empty 
 | Go | Module baseline 1.26.6 | CI configuration, patched digest-pinned builder and local build/test |
 | Host accounting | cgroup v2 `memory.*` files | Parser, walker, and synthetic fixtures |
 | cgroup v1 | Unsupported | No v1 parser or deployment path |
-| CPU architecture | Linux, macOS, and Windows amd64/arm64 CLI archives; Linux amd64/arm64 image configuration | Current-source archives and SBOMs validated locally; published tag workflow not yet executed |
+| CPU architecture | Linux, macOS, and Windows amd64/arm64 CLI archives; Linux amd64/arm64 image configuration | Alpha tag workflow validates archives, SBOMs and the multi-architecture image before draft promotion |
 | Kubernetes | The three upstream-supported minor releases: 1.34, 1.35 and 1.36 as of 22 August 2026 | Automated kind lifecycle matrix |
 | Container runtimes | Recognises containerd, Docker, CRI-O, and raw hex cgroup path conventions | containerd 2.x on kind verified; other runtimes remain fixture-only |
 | Collector scale | Exactly one in-memory replica | Helm enforces one replica |

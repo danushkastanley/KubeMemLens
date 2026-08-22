@@ -4,6 +4,8 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+## 0.0.1-alpha.3 - 2026-08-22
+
 ### Added
 
 - Prometheus/OpenMetrics collector export with cardinality guardrails and optional ServiceMonitor.

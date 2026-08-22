@@ -2,9 +2,9 @@
 
 KubeMemLens is privacy-first and local-first.
 
-## v0.5
+## Current alpha
 
-The v0.5 tool reads local cgroup sample files, node cgroup v2 memory files, Kubernetes pod/node metadata, and collector snapshots from the in-cluster collector. It does not send telemetry and does not include SaaS behaviour.
+The current alpha reads local cgroup sample files, node cgroup v2 memory files, Kubernetes pod/node metadata, and collector snapshots from the in-cluster collector. It does not send telemetry and does not include SaaS behaviour.
 
 ## Host Access
 
@@ -12,7 +12,7 @@ DaemonSet mode uses a read-only hostPath mount for `/sys/fs/cgroup`. This path i
 
 ## Permissions
 
-v0.5 is intended to stay cgroup-read focused. It should not require privileged containers unless a specific environment requires different host access. The agent ServiceAccount needs `get`, `list`, and `watch` access for Pods across namespaces so it can map cgroups to Kubernetes metadata. It also has `get` on Nodes so each agent can read only its scheduled node's MemoryPressure condition; the client caches that GET for 30 seconds. Kubernetes RBAC cannot restrict a ClusterRole's `get` verb dynamically to the Pod's node name, so a compromised agent token could read another Node object. The code never lists or watches Nodes, and the collector has no API token.
+The alpha is intended to stay cgroup-read focused. It should not require privileged containers unless a specific environment requires different host access. The agent ServiceAccount needs `get`, `list`, and `watch` access for Pods across namespaces so it can map cgroups to Kubernetes metadata. It also has `get` on Nodes so each agent can read only its scheduled node's MemoryPressure condition; the client caches that GET for 30 seconds. Kubernetes RBAC cannot restrict a ClusterRole's `get` verb dynamically to the Pod's node name, so a compromised agent token could read another Node object. The code never lists or watches Nodes, and the collector has no API token.
 
 Top-level workload resolution adds `get` only for ReplicaSets and Jobs. The agent follows only direct owner references from Pods already scheduled on its node: ReplicaSet to Deployment and Job to CronJob. Successful lookups are cached for five minutes in a bounded 2,000-entry cache. It does not list or watch these workload resources. Kubernetes RBAC cannot constrain these `get` permissions to only names referenced by local Pods, so this is an explicit metadata-read trade-off surfaced by `doctor`.
 
@@ -22,7 +22,7 @@ Pod watch data supplies requests, limits, QoS, restart/termination state, phase,
 
 CLI kube-proxy mode uses the user's Kubernetes credentials to access the collector service through the Kubernetes API server. That access is governed by Kubernetes RBAC. Users need `get` on `services` and `services/proxy` in the collector namespace, which is `kube-memlens` by default.
 
-The collector remains cluster-internal. KubeMemLens does not expose the collector through an external load balancer, add collector auth, or create a port-forward automatically in v0.5.
+The collector remains cluster-internal. KubeMemLens does not expose the collector through an external load balancer, add collector auth, or create a port-forward automatically in the alpha release.
 
 Collector reads, metrics, and health checks listen on port `8080`. Snapshot ingestion listens separately on port `8081`. The default NetworkPolicy permits read-only port access for Kubernetes API service proxy, port-forwarding, and Prometheus, but permits writable ingestion only from KubeMemLens agent Pods in the release namespace. This restriction requires a CNI that enforces Kubernetes NetworkPolicy.
 
@@ -34,13 +34,13 @@ The `/metrics` endpoint exposes namespace names, pod names, container names only
 
 Agent metrics contain only scan outcome, duration, mapping totals, post outcomes, and metadata-cache size. They do not contain workload or node identifiers.
 
-The endpoint intentionally does not export pod UID, container ID, cgroup path, image, file path, owner references, or arbitrary Kubernetes labels in v0.5. Container metrics are disabled by default to reduce metric cardinality.
+The endpoint intentionally does not export pod UID, container ID, cgroup path, image, file path, owner references, or arbitrary Kubernetes labels in the alpha release. Container metrics are disabled by default to reduce metric cardinality.
 
 Metrics are served by the collector service inside the cluster. Access depends on Kubernetes network policy, service exposure, Prometheus scrape configuration, and RBAC when using the Kubernetes API service proxy.
 
 ## Telemetry
 
-There is no telemetry by default and the CLI does not make external network calls. The v0.5 metrics endpoint is local to the user's cluster. Any future export path should remain explicit and local to the user's infrastructure unless the project intentionally adds a separate hosted product.
+There is no telemetry by default and the CLI does not make external network calls. The alpha metrics endpoint is local to the user's cluster. Any future export path should remain explicit and local to the user's infrastructure unless the project intentionally adds a separate hosted product.
 
 ## Collector Storage
 

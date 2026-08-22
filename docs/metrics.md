@@ -40,7 +40,7 @@ Container metrics use:
 - `node`
 - `type`, `event`, or `diagnosis`
 
-KubeMemLens intentionally does not export pod UID, container ID, image, cgroup path, file path, owner references, or arbitrary Kubernetes labels in v0.5.
+KubeMemLens intentionally does not export pod UID, container ID, image, cgroup path, file path, owner references, or arbitrary Kubernetes labels in the alpha release.
 
 ## Collector Metrics
 
