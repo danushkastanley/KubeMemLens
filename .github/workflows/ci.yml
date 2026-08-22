@@ -99,6 +99,7 @@ jobs:
           grep -q -- '--bundle=dist/checksums.txt.sigstore.json' .github/workflows/release.yml
           test "$(grep -c 'dist/checksums.txt.sigstore.json' .github/workflows/release.yml)" -eq 2
           ! grep -Eq -- '--output-(certificate|signature)' .github/workflows/release.yml
+          grep -Fq 'oci://ghcr.io/danushkastanley/charts 2>&1)' .github/workflows/release.yml
           grep -q '^      contents: read$' .github/workflows/release.yml
           grep -q '^      name: release$' .github/workflows/release.yml
           grep -q '^  disable: true$' .goreleaser.yml
