@@ -1,5 +1,7 @@
 # Roadmap
 
+The milestone labels below describe capability sequencing. They are not published release tag versions; public pre-release tags use the `v<major>.<minor>.<patch>-alpha.<number>` format.
+
 ## v0.1: Local Parser And Sample CLI
 
 - Parse cgroup v2 memory files.

@@ -43,7 +43,7 @@ HTTP fallback mode still uses:
 agent -> collector service -> port-forward -> CLI/TUI
 ```
 
-The v0.5 metrics flow is:
+The alpha metrics flow is:
 
 ```text
 agent -> collector store -> /metrics -> Prometheus

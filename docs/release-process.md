@@ -5,7 +5,7 @@ KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer 
 ## Pre-release gate
 
 1. Start from a clean, reviewed commit on `main`.
-2. Confirm the target version and update `CHANGELOG.md`, chart metadata, support matrix, and release notes.
+2. Read `README.md`, then confirm the target version and maturity label across `CHANGELOG.md`, chart metadata, installation, compatibility, security, roadmap, and release notes.
 3. Run `make check`; inspect the reported statement coverage rather than treating a percentage as a substitute for behaviour-focused tests.
 4. Run Helm lint, rendering, strict schema validation, and the unsafe-replica rejection check.
 5. Complete the declared live-cluster compatibility matrix, including upgrade and uninstall.
