@@ -249,8 +249,6 @@ jobs:
         run: |
           cosign sign-blob --yes \
             --bundle=dist/checksums.txt.sigstore.json \
-            --output-certificate=dist/checksums.txt.pem \
-            --output-signature=dist/checksums.txt.sig \
             dist/checksums.txt
 
       - name: Attest release files
@@ -278,8 +276,6 @@ jobs:
             dist/kube-memlens_*.zip \
             dist/*.sbom.json \
             dist/checksums.txt \
-            dist/checksums.txt.pem \
-            dist/checksums.txt.sig \
             dist/checksums.txt.sigstore.json \
             "dist/kube-memlens-${IMAGE_VERSION}.tgz" \
             dist/memlens.yaml \

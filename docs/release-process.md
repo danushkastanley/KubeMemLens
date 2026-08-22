@@ -37,7 +37,7 @@ The Dockerfile frontend and multi-architecture Go builder image are also pinned 
 Before promotion:
 
 - download and verify every checksum;
-- verify the Cosign bundle, signature and certificate identity against this repository workflow;
+- verify the Cosign bundle and certificate identity against this repository workflow;
 - inspect SBOMs and provenance;
 - run each CLI archive's `version` command on a representative platform;
 - pull the image by digest and confirm it runs as UID/GID 65532;
