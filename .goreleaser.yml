@@ -37,18 +37,6 @@ checksum:
 sboms:
   - artifacts: archive
 
-signs:
-  - cmd: cosign
-    artifacts: checksum
-    certificate: ${artifact}.pem
-    signature: ${artifact}.sig
-    args:
-      - sign-blob
-      - --yes
-      - --output-certificate=${certificate}
-      - --output-signature=${signature}
-      - ${artifact}
-
 changelog:
   use: git
   sort: asc
@@ -58,8 +46,4 @@ changelog:
       - '^test:'
 
 release:
-  draft: true
-  prerelease: auto
-  footer: >-
-    Verify checksums and signatures before installation. See SECURITY.md and
-    the release documentation for supported environments and known limits.
+  disable: true
