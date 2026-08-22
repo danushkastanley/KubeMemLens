@@ -325,7 +325,7 @@ jobs:
             push "dist/kube-memlens-${chart_version}.tgz" \
             oci://ghcr.io/danushkastanley/charts)
           printf '%s\n' "$output"
-          chart_digest=$(awk '$1 == "Digest:" {print $2}' <<< "$output" | tail -1)
+          chart_digest=$(awk '$1 == "Digest:" {print $2}' <<< "$output" | tr -d '\r' | tail -1)
           grep -Eq '^sha256:[0-9a-f]{64}$' <<< "$chart_digest"
           cosign sign --yes "ghcr.io/danushkastanley/charts/kube-memlens@${chart_digest}"
           echo "digest=${chart_digest}" >> "$GITHUB_OUTPUT"
