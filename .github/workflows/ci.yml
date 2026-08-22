@@ -85,6 +85,25 @@ jobs:
       - name: Build commands
         run: go build ./cmd/...
 
+      - name: Check GoReleaser configuration
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          args: check
+
+      - name: Check release workflow policy
+        run: |
+          grep -q '^permissions: {}$' .github/workflows/release.yml
+          grep -q 'args: release --clean --skip=publish' .github/workflows/release.yml
+          grep -q '^      contents: read$' .github/workflows/release.yml
+          grep -q '^      name: release$' .github/workflows/release.yml
+          grep -q '^  disable: true$' .goreleaser.yml
+          if grep -q -- '--clobber' .github/workflows/release.yml; then
+            echo 'release workflow permits asset overwrite'
+            exit 1
+          fi
+
       - name: Check Krew manifest renderer
         run: |
           sh -n hack/render-krew-manifest.sh

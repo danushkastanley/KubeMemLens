@@ -4,21 +4,19 @@ on:
   push:
     tags: ['v*']
 
-permissions:
-  contents: write
-  packages: write
-  id-token: write
-  attestations: write
+permissions: {}
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  release:
-    name: Build and draft release
+  build:
+    name: Build and validate release bundle
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - name: Check out repository
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -31,22 +29,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
-        with:
-          cosign-release: v3.1.2
-
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
           syft-version: v1.44.0
 
-      - name: Resolve build date
+      - name: Resolve build metadata
         run: |
           echo "BUILD_DATE=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
-          echo "IMAGE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          echo "CHART_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
 
-      - name: Build representative release image for vulnerability scanning
+      - name: Build representative release image
         run: |
           docker build \
             --build-arg VERSION="$GITHUB_REF_NAME" \
@@ -63,16 +56,14 @@ jobs:
           image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln
           kube-memlens:release-scan
 
-      - name: Build release archives and SBOMs
+      - name: Build archives and SBOMs without publishing
         uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
           distribution: goreleaser
           version: v2.17.0
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          args: release --clean --skip=publish
 
-      - name: Validate release archives and SBOMs
+      - name: Validate archives and SBOMs
         run: |
           archive_count=$(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')
           sbom_count=$(find dist -maxdepth 1 -type f -name '*.sbom.json' | wc -l | tr -d ' ')
@@ -91,16 +82,113 @@ jobs:
             exit 1
           fi
 
-      - name: Attest release archives
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
-        with:
-          subject-path: |
-            dist/*.tar.gz
-            dist/*.zip
-            dist/checksums.txt
-
       - name: Render Krew manifest
         run: hack/render-krew-manifest.sh "$GITHUB_REF_NAME" dist/checksums.txt dist/memlens.yaml
+
+      - name: Package Helm chart
+        run: |
+          cp -R charts/kube-memlens /tmp/kube-memlens-release-chart
+          sed -i "s#image: ghcr.io/danushkastanley/kube-memlens:.*#image: ghcr.io/danushkastanley/kube-memlens:${CHART_VERSION}#" \
+            /tmp/kube-memlens-release-chart/Chart.yaml
+          grep -F "image: ghcr.io/danushkastanley/kube-memlens:${CHART_VERSION}" \
+            /tmp/kube-memlens-release-chart/Chart.yaml
+          docker run --rm \
+            -v "$PWD:/work" \
+            -v /tmp/kube-memlens-release-chart:/release-chart:ro \
+            -w /work \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            package /release-chart \
+            --destination dist \
+            --version "$CHART_VERSION" \
+            --app-version "$CHART_VERSION"
+
+      - name: Add chart and Krew checksums
+        run: |
+          (
+            cd dist
+            sha256sum "kube-memlens-${CHART_VERSION}.tgz" memlens.yaml >> checksums.txt
+            sha256sum --check checksums.txt
+          )
+
+      - name: Upload validated release bundle
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-bundle-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: Sign and draft release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: release
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Download validated release bundle
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-bundle-${{ github.sha }}
+          path: dist
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+        with:
+          cosign-release: v3.1.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Resolve build metadata
+        run: |
+          echo "BUILD_DATE=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
+          echo "IMAGE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Validate downloaded bundle
+        run: |
+          archive_count=$(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')
+          sbom_count=$(find dist -maxdepth 1 -type f -name '*.sbom.json' | wc -l | tr -d ' ')
+          test "$archive_count" = 6
+          test "$sbom_count" = 6
+          test -f "dist/kube-memlens-${IMAGE_VERSION}.tgz"
+          (cd dist && sha256sum --check checksums.txt)
+
+      - name: Refuse an existing release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          status=$(curl --silent --show-error \
+            --output /tmp/release-check.json \
+            --write-out '%{http_code}' \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2022-11-28' \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}")
+          case "$status" in
+            404)
+              ;;
+            200)
+              echo "release ${GITHUB_REF_NAME} already exists; use a new version"
+              exit 1
+              ;;
+            *)
+              message=$(jq -r '.message // "unknown GitHub API error"' /tmp/release-check.json)
+              echo "release preflight failed with HTTP ${status}: ${message}"
+              exit 1
+              ;;
+          esac
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
@@ -109,8 +197,92 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Refuse an existing image tag
+        env:
+          IMAGE: ghcr.io/danushkastanley/kube-memlens
+        run: |
+          set +e
+          output=$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_VERSION}" 2>&1)
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "image ${IMAGE}:${IMAGE_VERSION} already exists; use a new version"
+            exit 1
+          fi
+          if ! grep -Eqi 'not found|manifest unknown' <<< "$output"; then
+            echo "image preflight failed: ${output}"
+            exit 1
+          fi
+
+      - name: Log Helm in to GHCR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/kube-memlens-helm
+          printf '%s' "$GH_TOKEN" | docker run --rm -i \
+            -e HELM_REGISTRY_CONFIG=/helm/config.json \
+            -v /tmp/kube-memlens-helm:/helm \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Refuse an existing chart version
+        run: |
+          set +e
+          output=$(docker run --rm \
+            -e HELM_REGISTRY_CONFIG=/helm/config.json \
+            -v /tmp/kube-memlens-helm:/helm \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            show chart oci://ghcr.io/danushkastanley/charts/kube-memlens \
+            --version "$IMAGE_VERSION" 2>&1)
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            echo "chart kube-memlens:${IMAGE_VERSION} already exists; use a new version"
+            exit 1
+          fi
+          if ! grep -Eqi 'not found|manifest unknown' <<< "$output"; then
+            echo "chart preflight failed: ${output}"
+            exit 1
+          fi
+
+      - name: Sign checksums
+        run: |
+          cosign sign-blob --yes \
+            --output-certificate=dist/checksums.txt.pem \
+            --output-signature=dist/checksums.txt.sig \
+            dist/checksums.txt
+
+      - name: Attest release files
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.tgz
+            dist/*.sbom.json
+            dist/checksums.txt
+            dist/memlens.yaml
+
+      - name: Create unique draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          release_flags=(--draft --verify-tag --title "$VERSION" --generate-notes)
+          if [[ "$VERSION" == *-* ]]; then
+            release_flags+=(--prerelease)
+          fi
+          gh release create "$VERSION" \
+            dist/kube-memlens_*.tar.gz \
+            dist/kube-memlens_*.zip \
+            dist/*.sbom.json \
+            dist/checksums.txt \
+            dist/checksums.txt.pem \
+            dist/checksums.txt.sig \
+            "dist/kube-memlens-${IMAGE_VERSION}.tgz" \
+            dist/memlens.yaml \
+            "${release_flags[@]}" \
+            --notes 'Verify checksums, signatures and provenance before installation.'
 
       - name: Build and push multi-architecture image
         id: image
@@ -140,59 +312,36 @@ jobs:
           subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: true
 
-      - name: Package Helm chart
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: |
-          chart_version="${VERSION#v}"
-          cp -R charts/kube-memlens /tmp/kube-memlens-release-chart
-          sed -i "s#image: ghcr.io/danushkastanley/kube-memlens:.*#image: ghcr.io/danushkastanley/kube-memlens:${chart_version}#" \
-            /tmp/kube-memlens-release-chart/Chart.yaml
-          grep -F "image: ghcr.io/danushkastanley/kube-memlens:${chart_version}" \
-            /tmp/kube-memlens-release-chart/Chart.yaml
-          docker run --rm \
-            -v "$PWD:/work" \
-            -v /tmp/kube-memlens-release-chart:/release-chart:ro \
-            -w /work \
-            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
-            package /release-chart \
-            --destination dist \
-            --version "$chart_version" \
-            --app-version "$chart_version"
-
-      - name: Log Helm in to GHCR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          mkdir -p /tmp/kube-memlens-helm
-          printf '%s' "$GH_TOKEN" | docker run --rm -i \
-            -e HELM_REGISTRY_CONFIG=/helm/config.json \
-            -v /tmp/kube-memlens-helm:/helm \
-            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
-            registry login ghcr.io --username "${{ github.actor }}" --password-stdin
-
       - name: Push and sign Helm chart
+        id: chart
         env:
           VERSION: ${{ github.ref_name }}
         run: |
           chart_version="${VERSION#v}"
-          docker run --rm \
+          output=$(docker run --rm \
             -e HELM_REGISTRY_CONFIG=/helm/config.json \
             -v /tmp/kube-memlens-helm:/helm \
             -v "$PWD:/work" \
             -w /work \
             alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
             push "dist/kube-memlens-${chart_version}.tgz" \
-            oci://ghcr.io/danushkastanley/charts
-          cosign sign --yes "ghcr.io/danushkastanley/charts/kube-memlens:${chart_version}"
+            oci://ghcr.io/danushkastanley/charts)
+          printf '%s\n' "$output"
+          chart_digest=$(awk '$1 == "Digest:" {print $2}' <<< "$output" | tail -1)
+          grep -Eq '^sha256:[0-9a-f]{64}$' <<< "$chart_digest"
+          cosign sign --yes "ghcr.io/danushkastanley/charts/kube-memlens@${chart_digest}"
+          echo "digest=${chart_digest}" >> "$GITHUB_OUTPUT"
 
-      - name: Add Helm chart to draft release
+      - name: Record published subjects
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHART_DIGEST: ${{ steps.chart.outputs.digest }}
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
           VERSION: ${{ github.ref_name }}
         run: |
           chart_version="${VERSION#v}"
-          gh release upload "$VERSION" \
-            "dist/kube-memlens-${chart_version}.tgz" \
-            dist/memlens.yaml \
-            --clobber
+          {
+            echo "image=ghcr.io/danushkastanley/kube-memlens@${IMAGE_DIGEST}"
+            echo "chart=ghcr.io/danushkastanley/charts/kube-memlens@${CHART_DIGEST}"
+          } > dist/release-subjects.txt
+          gh release upload "$VERSION" dist/release-subjects.txt

@@ -13,22 +13,18 @@ KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer 
 7. Check the [current upstream Kubernetes support window](https://kubernetes.io/releases/), move the kind matrix to all three supported minors, and keep each checksum-pinned kubectl on the same minor as its node image.
 8. Confirm the rollback path and known limitations.
 
+Configure a GitHub environment named `release` before the first tag. Restrict it to protected release tags and require maintainer approval. The workflow references this environment so its publication job cannot start until the configured protection rules pass.
+
 ## Build
 
-Push an annotated semantic-version tag such as `v0.5.0-rc.1`. The release workflow:
+Push an annotated semantic-version tag such as `v0.5.0-rc.1`. The release workflow has two jobs:
 
-- builds CLI archives for Linux, macOS, and Windows on amd64 and arm64;
-- injects version, commit, and build date;
-- creates checksums and archive SBOMs;
-- builds and vulnerability-scans a representative release image before publishing multi-architecture image manifests;
-- signs the checksum file with keyless Cosign and emits its certificate;
-- generates GitHub build provenance;
-- builds a linux/amd64 and linux/arm64 image with SBOM and provenance;
-- pushes and signs the digest in GHCR;
-- packages and pushes the version-aligned OCI Helm chart;
-- creates a draft GitHub release for manual review.
+- The read-only build job creates and validates the six CLI archives, SBOMs, Krew manifest and Helm package. It scans a representative image and transfers the bundle through a one-day GitHub Actions artefact.
+- The protected publish job downloads and revalidates that bundle. It signs the complete checksum file, creates provenance, and refuses to continue when a release already exists for the tag.
+- The publish job creates one draft release without replacement flags, then builds and signs the multi-architecture image and pushes and signs the version-aligned OCI Helm chart.
+- The final release asset records the exact image digest and chart reference for the draft audit.
 
-No workflow run should be described as successful until the actual Actions logs and resulting artefacts have been inspected.
+GoReleaser cannot publish directly because `.goreleaser.yml` disables its release publisher and the build job also passes `--skip=publish`. Only the environment-gated publish job receives `contents`, `packages`, `id-token` and `attestations` write permissions. No workflow run should be described as successful until the Actions logs and resulting artefacts have been inspected.
 
 Trivy runs from the official `0.72.0` image pinned by immutable digest. KubeMemLens does not use mutable Trivy action tags: Aqua Security's [March 2026 advisory](https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23) documented compromised action tags and explicitly identifies digest-pinned images as unaffected. Version and digest upgrades require reviewing the official immutable release and rerunning all three scans locally or in CI.
 
@@ -51,8 +47,8 @@ Before promotion:
 
 ## Promotion and rollback
 
-Publish the GitHub draft only after the audit passes. Submit Krew and Artifact Hub metadata after the immutable release artefacts exist.
+Publish the GitHub draft only after the audit passes. GitHub release immutability applies after publication, not while the release remains a draft. Submit Krew and Artifact Hub metadata after the immutable release artefacts exist.
 
 For Artifact Hub, register one Helm OCI repository at `oci://ghcr.io/danushkastanley/charts/kube-memlens`. Artifact Hub then supplies the repository ID. Render `deploy/artifacthub/artifacthub-repo.yml.tmpl` with that ID and the maintainer's public Artifact Hub account email, review the public contact, and push it as the registry's special `artifacthub.io` metadata tag using the media types in the official Artifact Hub OCI instructions. The chart package includes a chart-local README and version-aligned `artifacthub.io/images` metadata so the indexed package can resolve its installation documentation and release image.
 
-Do not replace artefacts for an existing version. If a release is defective, document the issue, mark it appropriately, fix forward with a new version, and provide an explicit Helm rollback revision or prior exact version. Revoke or remove a compromised artefact only as part of a documented security response.
+Do not replace artefacts for an existing version. The workflow has no `--clobber` path and stops when the tag already has a release. If a run leaves a partial draft or publishes any package before failing, inspect the external state and fix forward with a new version. If a release is defective, document the issue, mark it appropriately, and provide an explicit Helm rollback revision or prior exact version. Revoke or remove a compromised artefact only as part of a documented security response.
