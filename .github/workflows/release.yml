@@ -323,7 +323,7 @@ jobs:
             -w /work \
             alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
             push "dist/kube-memlens-${chart_version}.tgz" \
-            oci://ghcr.io/danushkastanley/charts)
+            oci://ghcr.io/danushkastanley/charts 2>&1)
           printf '%s\n' "$output"
           chart_digest=$(grep -Eo 'sha256:[0-9a-f]{64}' <<< "$output" | tail -1)
           printf 'Resolved chart digest: %s\n' "$chart_digest"
