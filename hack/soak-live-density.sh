@@ -2,6 +2,9 @@
 
 set -Eeuo pipefail
 
+# shellcheck source=hack/lib/retry.sh
+source hack/lib/retry.sh
+
 # Create a dedicated, finite workload namespace against an explicitly selected
 # cluster. KubeMemLens must already be installed and healthy.
 
@@ -344,7 +347,12 @@ wait_for_mapping || fail "mapping did not recover after rolling restart"
 churn_recovery_seconds=$((SECONDS - churn_started))
 sample_once post-churn
 
-if ! "${cli}" "${cli_args[@]}" doctor --strict --output json > "${work_dir}/final-doctor.json"; then
+final_doctor=${work_dir}/final-doctor.json
+if ! retry_to_file 24 5 "${final_doctor}" \
+  "${cli}" "${cli_args[@]}" doctor --strict --output json; then
+  jq '{checks, mapping}' "${final_doctor}" \
+    | tee "${artifact_dir}/final-doctor-failure.json" >&2
+  chmod 600 "${artifact_dir}/final-doctor-failure.json"
   fail "final strict doctor check failed"
 fi
 outcome=passed
