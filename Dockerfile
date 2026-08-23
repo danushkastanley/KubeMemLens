@@ -21,6 +21,19 @@ RUN LDFLAGS="-s -w -X github.com/danushkastanley/kube-memlens/internal/buildinfo
 
 FROM scratch
 
+ARG VERSION=dev
+ARG COMMIT=unknown
+ARG BUILD_DATE=unknown
+
+LABEL org.opencontainers.image.title="KubeMemLens" \
+      org.opencontainers.image.description="Terminal-first Kubernetes memory inspector" \
+      org.opencontainers.image.source="https://github.com/danushkastanley/KubeMemLens" \
+      org.opencontainers.image.url="https://github.com/danushkastanley/KubeMemLens" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${COMMIT}" \
+      org.opencontainers.image.created="${BUILD_DATE}"
+
 COPY --from=build /out/kubectl-memlens /kubectl-memlens
 COPY --from=build /out/memlens-agent /memlens-agent
 COPY --from=build /out/memlens-collector /memlens-collector

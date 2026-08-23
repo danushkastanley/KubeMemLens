@@ -57,6 +57,16 @@ jobs:
             --build-arg BUILD_DATE="$BUILD_DATE" \
             -t kube-memlens:release-scan .
 
+      - name: Validate representative release image metadata
+        run: |
+          image=kube-memlens:release-scan
+          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = '65532:65532'
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.version"}}')" = "$GITHUB_REF_NAME"
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.created"}}')" = "$BUILD_DATE"
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.source"}}')" = https://github.com/danushkastanley/KubeMemLens
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.licenses"}}')" = Apache-2.0
+
       - name: Scan representative release image
         run: >-
           docker run --rm
