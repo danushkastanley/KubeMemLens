@@ -282,14 +282,17 @@ jobs:
             node-image: kindest/node:v1.34.8@sha256:02722c2dedddcfc00febf5d27fbeb9b7b2c14294c82109ff4a85d89ac9ba3256
             kubectl-version: v1.34.8
             kubectl-sha256: f6249132865c13abe3c9dd5038f5da65849cb86eee1608c001831504e481aa8c
+            tui_smoke: false
           - kubernetes: 1.35.5
             node-image: kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e940429c2ce42fa3a5619ec2bbc60b949c0ac95
             kubectl-version: v1.35.5
             kubectl-sha256: 90f75ea6ecc9ea5633262e1c0b83a40560003b30fc94a04cb099404fcef0c224
+            tui_smoke: false
           - kubernetes: 1.36.1
             node-image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
             kubectl-version: v1.36.1
             kubectl-sha256: 629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7
+            tui_smoke: true
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -335,6 +338,12 @@ jobs:
           chmod +x "${tools_dir}/kubectl"
           echo "${tools_dir}" >> "${GITHUB_PATH}"
 
+      - name: Install TUI smoke dependency
+        if: matrix.tui_smoke
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends expect
+
       - name: Run install, diagnosis, upgrade, rollback, and uninstall
         env:
           E2E_NODE_IMAGE: ${{ matrix.node-image }}
@@ -342,4 +351,5 @@ jobs:
           E2E_RUN_DENSITY_BENCHMARKS: "true"
           E2E_RUN_LIVE_DENSITY_SMOKE: "true"
           E2E_LIVE_DENSITY_IMAGE: busybox:1.37.0@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
+          E2E_RUN_TUI_SMOKE: ${{ matrix.tui_smoke }}
         run: hack/e2e-kind.sh
