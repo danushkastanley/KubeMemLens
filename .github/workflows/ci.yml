@@ -97,6 +97,7 @@ jobs:
           grep -q '^permissions: {}$' .github/workflows/release.yml
           grep -q 'args: release --clean --skip=publish' .github/workflows/release.yml
           grep -q 'name: Check release documentation' .github/workflows/release.yml
+          grep -q 'name: Validate representative release image metadata' .github/workflows/release.yml
           grep -q -- '--bundle=dist/checksums.txt.sigstore.json' .github/workflows/release.yml
           test "$(grep -c 'dist/checksums.txt.sigstore.json' .github/workflows/release.yml)" -eq 2
           ! grep -Eq -- '--output-(certificate|signature)' .github/workflows/release.yml
@@ -133,7 +134,22 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Build the runtime image
-        run: docker build --build-arg VERSION=ci-security -t kube-memlens:ci-security .
+        run: |
+          docker build \
+            --build-arg VERSION=ci-security \
+            --build-arg COMMIT="$GITHUB_SHA" \
+            --build-arg BUILD_DATE=1970-01-01T00:00:00Z \
+            -t kube-memlens:ci-security .
+
+      - name: Validate runtime image metadata
+        run: |
+          image=kube-memlens:ci-security
+          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = '65532:65532'
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.version"}}')" = ci-security
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.created"}}')" = 1970-01-01T00:00:00Z
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.source"}}')" = https://github.com/danushkastanley/KubeMemLens
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.licenses"}}')" = Apache-2.0
 
       - name: Scan Dockerfile and Kubernetes configuration
         run: >-
