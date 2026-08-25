@@ -6,27 +6,12 @@ metadata:
   namespace: {{ .Values.namespace.name | quote }}
   labels:
     app.kubernetes.io/name: kube-memlens-collector
-{{- if eq .Values.agent.ingestionMode "legacy" }}
-{{- with .Values.metrics.serviceAnnotations }}
-  annotations:
-{{ toYaml . | nindent 4 }}
-{{- end }}
-{{- end }}
 spec:
   type: ClusterIP
   selector:
     app.kubernetes.io/name: kube-memlens-collector
   ports:
-{{- if eq .Values.agent.ingestionMode "authenticated" }}
     - name: https-extension
       port: 443
       targetPort: extension
-{{- else }}
-    - name: http
-      port: {{ .Values.collector.service.port }}
-      targetPort: http
-    - name: ingest
-      port: {{ .Values.collector.ingestion.port }}
-      targetPort: ingest
-{{- end }}
 {{- end }}

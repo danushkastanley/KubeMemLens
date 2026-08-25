@@ -1,7 +1,4 @@
 {{- if .Values.agent.enabled }}
-{{- if not (has .Values.agent.ingestionMode (list "authenticated" "legacy")) }}
-{{- fail "agent.ingestionMode must be authenticated or legacy" }}
-{{- end }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -15,12 +12,6 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: kube-memlens-agent
-{{- if .Values.agent.metrics.enabled }}
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path: /metrics
-        prometheus.io/port: {{ .Values.agent.metrics.port | quote }}
-{{- end }}
     spec:
       serviceAccountName: kube-memlens-agent
       automountServiceAccountToken: false
@@ -46,15 +37,10 @@ spec:
           args:
             - "--cgroup-root=/host/sys/fs/cgroup"
             - "--interval={{ .Values.agent.interval }}"
-{{- if eq .Values.agent.ingestionMode "authenticated" }}
             - "--ingestion-mode=authenticated"
-{{- else }}
-            - "--ingestion-mode=legacy"
-            - "--collector-url={{ .Values.agent.collectorURL }}"
-{{- end }}
             - "--node-name=$(NODE_NAME)"
 {{- if .Values.agent.metrics.enabled }}
-            - "--metrics-listen=:{{ .Values.agent.metrics.port }}"
+            - "--metrics-listen=127.0.0.1:{{ .Values.agent.metrics.port }}"
 {{- else }}
             - "--metrics-listen="
 {{- end }}
@@ -63,11 +49,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-{{- if .Values.agent.metrics.enabled }}
-          ports:
-            - name: metrics
-              containerPort: {{ .Values.agent.metrics.port }}
-{{- end }}
           securityContext:
             privileged: {{ .Values.security.privileged }}
             readOnlyRootFilesystem: {{ .Values.security.readOnlyRootFilesystem }}

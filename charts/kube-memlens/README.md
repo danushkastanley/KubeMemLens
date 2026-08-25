@@ -27,10 +27,12 @@ The current alpha is not yet supported as a shared multi-tenant service. Agent w
 
 - One agent Pod per selected Linux node reads `/sys/fs/cgroup` read-only and maps container cgroups to Kubernetes Pods.
 - One collector replica retains bounded current snapshots and short Pod history in memory.
-- Authenticated reads, workload metrics and agent writes use the aggregated TLS Service on port `443`; agent health/metrics uses port `8082`.
-- The collector Pod retains a health-only listener on port `8080`. The default Service exposes neither that listener nor plaintext ingestion port `8081`.
+- Authenticated reads, workload metrics and agent writes use the aggregated TLS Service on port `443`; agent health/metrics binds only to Pod-local `127.0.0.1:8082` and is not advertised for remote scraping.
+- The collector Pod retains a health-only listener on port `8080`. The production Service exposes neither that listener nor a plaintext ingestion or collector-metrics port.
 
 The collector must remain at one replica because replicas do not share state. The chart rejects other replica counts.
+
+Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collectorURL`, `collector.ingestion.port`, `metrics.serviceAnnotations` and `metrics.serviceMonitor` are no longer part of the chart contract. Persisted copies are inert and cannot reopen a direct listener; remove them from saved values files.
 
 ## Important values
 
@@ -41,7 +43,6 @@ The collector must remain at one replica because replicas do not share state. Th
 | `image.digest` | empty | Preferred immutable image identity |
 | `agent.nodeSelector` | `kubernetes.io/os: linux` | Linux-node targeting |
 | `agent.tolerations` | empty | Operator-reviewed node-pool tolerations |
-| `agent.ingestionMode` | `authenticated` | Kubernetes aggregated ingestion; `legacy` is for controlled pre-v1 rollback only |
 | `agent.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime |
 | `collector.replicas` | `1` | Required single in-memory collector |
 | `collector.read.maxConcurrentRequests` | `4` | Authenticated read admission ceiling; aggregate construction is serialised |
@@ -51,7 +52,6 @@ The collector must remain at one replica because replicas do not share state. Th
 | `extensionTLS.rotateBefore` | `720h` | Serving-certificate rotation window |
 | `networkPolicy.enabled` | `true` | Cluster-local read and APIService ingress policy |
 | `metrics.includeContainers` | `false` | High-cardinality container metrics opt-in |
-| `metrics.serviceMonitor.enabled` | `false` | Direct Prometheus Operator integration in explicit legacy mode only |
 | `metrics.prometheusRule.enabled` | `false` | Optional recording and alert rules |
 | `metrics.grafanaDashboard.enabled` | `false` | Optional dashboard ConfigMap |
 
@@ -65,7 +65,7 @@ The chart defines three unbound ClusterRoles:
 - `kube-memlens-cluster-viewer`, explicitly bound to approved cluster operators; and
 - `kube-memlens-metrics-reader`, separately bound to an authenticated metrics scraper.
 
-The chart deliberately creates no viewer bindings. Follow the [tenant-scoped read runbook](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/runbooks/tenant-scoped-reads.md) to grant and revoke access. The legacy direct ServiceMonitor integration is available only with `agent.ingestionMode=legacy`; authenticated installations must read the aggregated `metrics` resource through the Kubernetes API server.
+The chart deliberately creates no viewer bindings. Follow the [tenant-scoped read runbook](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/runbooks/tenant-scoped-reads.md) to grant and revoke access. Metrics readers use the aggregated `metrics` resource through the Kubernetes API server; the chart does not render a direct collector `ServiceMonitor`.
 
 ## Uninstall
 

@@ -11,7 +11,7 @@ KubeMemLens is designed as a terminal-first tool that can start locally and grow
 - `examples/cgroup-v2`: local sample data for development and tests.
 - `memlens-agent`: DaemonSet binary that scans node cgroups and posts snapshots.
 - `memlens-collector`: in-memory collector plus authenticated extension server for latest container snapshots and bounded Pod trends.
-- `internal/client`: collector readers for the authenticated aggregated API and explicit legacy HTTP mode.
+- `internal/client`: collector readers for the authenticated aggregated API, with direct HTTP code retained only for controlled pre-v1 rollback.
 - `internal/tui`: Bubble Tea dashboard for risk-oriented node, namespace, workload, Pod and container investigation.
 - `internal/incident`: shared redacted incident-bundle writing used by the CLI and TUI.
 - `internal/metrics`: Prometheus/OpenMetrics text renderer for conservative collector metrics.
@@ -25,7 +25,7 @@ KubeMemLens is designed as a terminal-first tool that can start locally and grow
 5. The agent uses its rotating, Pod-bound ServiceAccount token to read the collector epoch and create a node snapshot through the Kubernetes aggregated API.
 6. The collector stores the latest container snapshots plus a bounded rolling Pod history in memory, deriving event and scan/steal/refault/major-fault deltas from consecutive container instances. It defaults to 5,000 node records, 100,000 current containers and 16 MiB per encoded read response. The server scans immutable node shards, retains at most 501 opaque identities while selecting a 500-item keyset page, and aggregates only the selected Pods or workloads. Nested evidence has its own byte budget, aggregate construction is serialised, and authenticated admission defaults to four requests. History defaults to 15 minutes, 180 points per Pod instance, 1,000 total series and 20 returned instances per request.
 7. The CLI and TUI use the caller's kubeconfig to query namespaced or cluster-scoped resources through the Kubernetes aggregated API. A namespace selection changes the server request scope; it is not a client-side filter over cluster data.
-8. Authenticated scrapers read the separate cluster-scoped metrics resource. Container metrics remain opt-in. The direct HTTP client and ServiceMonitor integration are retained only for explicit legacy development mode.
+8. Authenticated scrapers read the separate cluster-scoped metrics resource. Container metrics remain opt-in. The production chart has no direct collector metrics or legacy HTTP Service path.
 
 Pod and namespace totals are sums of mapped container cgroups only. Parent pod cgroups are intentionally not added to avoid double-counting.
 
@@ -34,12 +34,6 @@ The default data flow keeps the collector cluster-internal:
 ```text
 agent -> Kubernetes API server -> authenticated APIService -> collector
 CLI/TUI -> Kubernetes API server -> authenticated APIService -> tenant-scoped read API
-```
-
-Explicit legacy development mode still uses:
-
-```text
-agent -> collector service -> port-forward -> CLI/TUI
 ```
 
 The authenticated metrics flow is:
@@ -54,7 +48,7 @@ agent -> collector store -> authenticated metrics resource -> Kubernetes API ser
 
 Agent ingestion now uses the aggregated Kubernetes API at `memory.kubememlens.io/v1alpha1`. Kubernetes authenticates the Pod-bound ServiceAccount token and applies RBAC. The extension server accepts request-header identity only from the validated aggregation proxy and delegates the exact resource request through `SubjectAccessReview` before mutating the store. PROD-004 moves reads to the same boundary.
 
-Namespace Roles cover Pod, container, workload and history resources. Cluster views, workload-labelled metrics and agent writes use separate least-privilege bindings. Agent writes must match authenticated Pod UID, node name and node UID claims plus the current collector epoch and a strictly increasing sequence. Secure-profile charts disable legacy direct workload routes. See [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md) and the [endpoint policy](security/authentication-and-authorisation.md).
+Namespace Roles cover Pod, container, workload and history resources. Cluster views, workload-labelled metrics and agent writes use separate least-privilege bindings. Agent writes must match authenticated Pod UID, node name and node UID claims plus the current collector epoch and a strictly increasing sequence. The production chart does not render legacy direct workload routes. See [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md) and the [endpoint policy](security/authentication-and-authorisation.md).
 
 ### CLI / kubectl plugin
 
@@ -70,7 +64,7 @@ The Bubble Tea TUI provides node, namespace, top-level workload, Pod, container 
 
 Snapshot views refresh concurrently within one timeout. Selected-Pod history has its own generation-keyed state: only one request is in flight for the selection, late responses are discarded, the last good series survives a refresh error and pause stops automatic updates without disabling manual refresh. Pod detail combines a bounded trend with cgroup limit, PSI/event, Kubernetes context, confidence and safe next commands. Container detail explicitly labels parent-Pod history because container-level history is not retained.
 
-Incident actions call typed internal interfaces rather than spawning the CLI. Recommendations and comparisons are read-only; capture reuses `internal/incident` for redaction, atomic mode-`0600` writes and explicit overwrite confirmation. The TUI reads through the shared client layer. Secure installs use the Kubernetes aggregated resources and the caller's kubeconfig without widening the selected principal's server-authorised scope. Direct HTTP and Kubernetes Service-proxy clients remain explicit legacy development modes.
+Incident actions call typed internal interfaces rather than spawning the CLI. Recommendations and comparisons are read-only; capture reuses `internal/incident` for redaction, atomic mode-`0600` writes and explicit overwrite confirmation. The TUI reads through the shared client layer. Chart installs use the Kubernetes aggregated resources and the caller's kubeconfig without widening the selected principal's server-authorised scope. Direct HTTP and Kubernetes Service-proxy client code remains only for controlled pre-v1 rollback and is not wired into the production chart.
 
 ### Node-local agent
 

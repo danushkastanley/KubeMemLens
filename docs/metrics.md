@@ -1,10 +1,10 @@
 # Metrics
 
-KubeMemLens exposes Prometheus/OpenMetrics-compatible content through the aggregated `metrics/current` resource. The secure profile requires a separate metrics-reader binding. Direct `/metrics` remains available only in explicit legacy mode.
+KubeMemLens exposes Prometheus/OpenMetrics-compatible content through the aggregated `metrics/current` resource. The production chart requires a separate metrics-reader binding and does not expose a direct collector `/metrics` route or `ServiceMonitor`.
 
 The [support and compatibility contract](compatibility.md#data-and-metadata-exposure) is the canonical source for metric metadata visibility, retention ownership and tenant-boundary requirements.
 
-Each agent also exposes low-cardinality operational metrics at `/metrics` on port `8082` by default. These metrics contain scan and mapping counts only; they do not contain namespace, Pod, container, cgroup, or node identifiers.
+Each agent also exposes low-cardinality operational metrics at `/metrics` on loopback port `8082` by default. These metrics contain scan and mapping counts only; they do not contain namespace, Pod, container, cgroup or node identifiers.
 
 The endpoint renders latest in-memory snapshots. Memory event values are gauges, not counters, because snapshots can reset when pods restart, agents restart, or collector state expires.
 
@@ -91,7 +91,17 @@ KubeMemLens intentionally does not export pod UID, container ID, image, cgroup p
 - `kubememlens_agent_last_scan_containers{kind="found|mapped|unmapped"}`
 - `kubememlens_agent_metadata_cache_pods`
 
-The Helm chart adds standard Prometheus scrape annotations to agent Pods when `agent.metrics.enabled` is true. Set it to false to disable the agent HTTP listener and annotations.
+The chart binds agent metrics to `127.0.0.1:8082` inside each agent Pod. It does not declare a metrics container port or add Prometheus scrape annotations, so another workload cannot scrape node-local density counts through the Pod network by default. Set `agent.metrics.enabled=false` to disable even this loopback diagnostics endpoint.
+
+For an explicitly authorised local diagnostic, forward one agent Pod and inspect it locally:
+
+```sh
+agent_pod=$(kubectl get pod -n kube-memlens -l app.kubernetes.io/name=kube-memlens-agent -o jsonpath='{.items[0].metadata.name}')
+kubectl port-forward -n kube-memlens "pod/${agent_pod}" 18082:8082
+curl http://127.0.0.1:18082/metrics
+```
+
+Running the agent binary with an explicit non-loopback value such as `--metrics-listen=:8082` widens access and is intended only for a separately reviewed local environment. The metrics contain aggregate container, mapping and Pod-cache counts, so NetworkPolicy must not be their only confidentiality control.
 
 ## Memory Metrics
 
@@ -223,12 +233,6 @@ metrics:
   includeEvents: true
   maxPods: 2000
   maxContainers: 5000
-  serviceAnnotations: {}
-  serviceMonitor:
-    enabled: false
-    interval: 30s
-    scrapeTimeout: 10s
-    labels: {}
   prometheusRule:
     enabled: false
     labels: {}

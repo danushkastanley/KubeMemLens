@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -Eeuo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -8,7 +7,12 @@ cd "${root}"
 source hack/lib/tenant-read-identity.sh
 # shellcheck source=hack/lib/tenant-read-evidence.sh
 source hack/lib/tenant-read-evidence.sh
-
+# shellcheck source=hack/lib/tenant-isolation-controls.sh
+source hack/lib/tenant-isolation-controls.sh
+# shellcheck source=hack/lib/tenant-isolation-http.sh
+source hack/lib/tenant-isolation-http.sh
+# shellcheck source=hack/lib/tenant-isolation-run.sh
+source hack/lib/tenant-isolation-run.sh
 kubeconfig=${TENANT_READ_KUBECONFIG:-}
 context=${TENANT_READ_CONTEXT:-}
 release_namespace=${TENANT_READ_NAMESPACE:-kube-memlens}
@@ -74,10 +78,20 @@ cleanup() {
     kill "${watch_pid}" >/dev/null 2>&1 || true
     wait "${watch_pid}" >/dev/null 2>&1 || true
   fi
+  if [ "${isolation_run_started}" = true ]; then
+    tenant_isolation_cleanup || { status=1; isolation_summary_written=false; }
+  fi
+  if [ "${TENANT_READ_RUN_ISOLATION:-false}" = true ] &&
+    [ "${isolation_summary_written}" != true ] && [ -n "${artifact_dir}" ]; then
+    mkdir -p "${artifact_dir}"
+    jq -n '{schemaVersion:1,outcome:"failed",privacy:{rawResponsesRetained:false,credentialsRetained:false,runtimeIdentifiersIncluded:false}}' \
+      > "${artifact_dir}/tenant-isolation-summary.json"
+    chmod 0600 "${artifact_dir}/tenant-isolation-summary.json"
+  fi
   kctl delete clusterrolebinding "${cluster_binding}" --ignore-not-found >/dev/null 2>&1 || true
   kctl delete namespace "${namespace_a}" "${namespace_b}" --ignore-not-found --wait=true --timeout=60s >/dev/null 2>&1 || true
   rm -f "${work_dir}/tenant-a.kubeconfig" "${work_dir}/cluster-operator.kubeconfig"
-  if [ "${status}" -eq 0 ]; then
+  if [ "${status}" -eq 0 ] || [ "${TENANT_READ_RUN_ISOLATION:-false}" = true ]; then
     rm -rf "${work_dir}"
   else
     echo "tenant-scoped read diagnostics: ${work_dir}" >&2
@@ -362,6 +376,9 @@ fi
 
 namespace_perf=$(tenant_read_measure_requests "${work_dir}" "${user_a}" "${api}/namespaces/${namespace_a}/pods" namespace)
 cluster_perf=$(tenant_read_measure_requests "${work_dir}" "${cluster_user}" "${api}/pods" cluster)
+if [ "${TENANT_READ_RUN_ISOLATION:-false}" = true ]; then
+  tenant_isolation_run
+fi
 jq -n \
   --arg phase "${phase}" \
   --arg serverVersion "$(kctl version -o json | jq -r '.serverVersion.gitVersion')" \

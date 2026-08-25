@@ -1,6 +1,6 @@
 # Authentication and authorisation architecture
 
-Status: accepted design; PROD-003 agent ingestion implemented, tenant reads pending
+Status: accepted, implemented and locally validated through PROD-005
 Decision: [ADR 0004](../adr/0004-use-kubernetes-aggregation-for-authentication.md)
 Implementation owners: PROD-003, PROD-004 and PROD-005
 
@@ -42,8 +42,8 @@ The production group is `memory.kubememlens.io/v1alpha1`. These are virtual reso
 | `ingestionepochs` | Cluster | `get` | Node agent only | Return current collector epoch and schema version |
 | `nodesnapshots` | Cluster | `create` | Node agent only | Bind Pod and node claims, validate epoch and sequence, then validate payload |
 | `/healthz` on the Pod listener | Local probe | `get` | Kubelet or cluster network allowed by policy | Process health only, no store or identity data |
-| Agent `/metrics` | Cluster-local | `get` | Operator monitoring path | Low-cardinality process counters without workload or node labels |
-| Legacy `/api/v1/*` and workload `/metrics` | Direct Service | None in secure profile | No production principal | Listener disabled or request rejected before routing |
+| Agent `/metrics` | Pod loopback | `get` | Explicit local operator diagnostic | Low-cardinality process counters without workload or node labels; no remote chart port or scrape annotation |
+| Legacy `/api/v1/*` and workload `/metrics` | Direct Service | None in production chart | No production principal | The chart cannot enable or expose the legacy listener |
 
 Client-side compare, capture and recommendation actions may use only records already returned by authorised API calls. They cannot switch to a wider server resource or infer whether a denied object exists. CLI and TUI streaming views use bounded polling; each refresh performs a new authenticated and authorised `list` request. The API does not advertise a Kubernetes `watch` verb.
 
@@ -169,11 +169,12 @@ One security decision record contains:
 - principal type, not a raw token;
 - verb, resource and namespace-scoped or cluster-scoped marker;
 - allow, deny or error;
-- bounded reason code;
-- agent node-claim match result for ingestion; and
-- request completion status and duration.
+- bounded reason code; and
+- agent node-claim match result for ingestion.
 
-Do not log usernames by default. A cluster administrator may correlate request IDs with Kubernetes audit logs. Metrics use bounded labels only and never include username, group, namespace, Pod, token, UID or object name.
+Ingestion completion events also record bounded status and duration. Read-authorisation events do not. Do not log usernames by default. A cluster administrator may correlate request IDs with Kubernetes audit logs.
+
+Security-decision metrics use bounded labels and never include username, group, namespace, Pod, token, UID or object name. The separately authorised aggregated workload metrics resource intentionally includes namespace, Pod and node display names under its documented cardinality limits. It never includes credentials, UIDs, container IDs, cgroup paths or Kubernetes label maps.
 
 ## Failure behaviour
 
@@ -212,7 +213,7 @@ The extension server imports `k8s.io/apiserver` and `k8s.io/component-base` at t
 
 This adds the Kubernetes API-server transitive graph to the collector build even though KubeMemLens does not use etcd or admission storage. The repository keeps the modules version-aligned, scans reachable vulnerabilities, scans the built image, and tests the real aggregation path. The packages are Apache-2.0 licensed and maintained with Kubernetes. Removing them would require another supported Kubernetes extension-server library that preserves request-header rotation and exact delegated `SubjectAccessReview` behaviour.
 
-Operational response, rotation and rollback steps are in the [authenticated ingestion runbook](../runbooks/authenticated-agent-ingestion.md).
+Operational response, rotation and rollback steps are in the [authenticated ingestion runbook](../runbooks/authenticated-agent-ingestion.md). Cross-tenant containment is in the [tenant isolation incident runbook](../runbooks/tenant-isolation-incident.md), and the complete abuse matrix is in [tenant isolation validation](tenant-isolation-validation.md).
 
 ## Feasibility evidence
 
@@ -238,4 +239,4 @@ On 25 August 2026, Kubernetes 1.35.5 kind verification passed:
 - the agent could get the ingestion epoch and create, but not list, node snapshots; and
 - the metrics scraper could get metrics but could not list Pods.
 
-The custom token audience in this check isolates TokenReview claim and audience behaviour. The production aggregated path uses the Kubernetes API server audience and never forwards the token to the extension server. This check proves only the Kubernetes identity and RBAC inputs. PROD-003 separately verifies the aggregated TLS write path and serving-certificate lifecycle. PROD-004 still owns the read-resource implementation.
+The custom token audience in this check isolates TokenReview claim and audience behaviour. The production aggregated path uses the Kubernetes API server audience and never forwards the token to the extension server. This check proves only the Kubernetes identity and RBAC inputs. PROD-003 verifies the aggregated TLS write path and serving-certificate lifecycle, PROD-004 verifies tenant-scoped read resources, and PROD-005 records the combined adversarial gate.

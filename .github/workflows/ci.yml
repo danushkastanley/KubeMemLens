@@ -305,7 +305,7 @@ jobs:
             exit 1
           fi
 
-      - name: Render optional ServiceMonitor
+      - name: Keep removed legacy chart values inert
         run: |
           docker run --rm \
             -v "$PWD:/work" \
@@ -315,8 +315,14 @@ jobs:
             --namespace kube-memlens \
             --set agent.ingestionMode=legacy \
             --set metrics.serviceMonitor.enabled=true \
-            --show-only templates/servicemonitor.yaml \
-            | grep -q '^kind: ServiceMonitor$'
+            > /tmp/kube-memlens-obsolete-values.yaml
+          test "$(grep -c -- '--ingestion-mode=authenticated' /tmp/kube-memlens-obsolete-values.yaml)" -eq 2
+          ! grep -q -- '--ingestion-mode=legacy' /tmp/kube-memlens-obsolete-values.yaml
+          ! grep -q -- '--collector-url=' /tmp/kube-memlens-obsolete-values.yaml
+          ! grep -q -- '--ingest-listen=' /tmp/kube-memlens-obsolete-values.yaml
+          ! grep -q '^kind: ServiceMonitor$' /tmp/kube-memlens-obsolete-values.yaml
+          test "$(grep -c '^    - name: https-extension$' /tmp/kube-memlens-obsolete-values.yaml)" -eq 1
+          ! grep -q '^    - name: ingest$' /tmp/kube-memlens-obsolete-values.yaml
 
       - name: Validate optional Prometheus rules
         run: |
@@ -368,6 +374,7 @@ jobs:
             tui_smoke: false
             authenticated_ingestion_smoke: false
             tenant_scoped_read_smoke: false
+            tenant_isolation_smoke: false
           - kubernetes: 1.35.5
             node-image: kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e940429c2ce42fa3a5619ec2bbc60b949c0ac95
             kubectl-version: v1.35.5
@@ -375,6 +382,7 @@ jobs:
             tui_smoke: false
             authenticated_ingestion_smoke: false
             tenant_scoped_read_smoke: false
+            tenant_isolation_smoke: false
           - kubernetes: 1.36.1
             node-image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
             kubectl-version: v1.36.1
@@ -382,6 +390,7 @@ jobs:
             tui_smoke: true
             authenticated_ingestion_smoke: true
             tenant_scoped_read_smoke: true
+            tenant_isolation_smoke: true
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -443,4 +452,5 @@ jobs:
           E2E_RUN_TUI_SMOKE: ${{ matrix.tui_smoke }}
           E2E_RUN_AUTHENTICATED_INGESTION_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
           E2E_RUN_TENANT_SCOPED_READ_SMOKE: ${{ matrix.tenant_scoped_read_smoke }}
+          E2E_RUN_TENANT_ISOLATION_SMOKE: ${{ matrix.tenant_isolation_smoke }}
         run: hack/e2e-kind.sh

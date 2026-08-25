@@ -89,11 +89,25 @@ run_tui_smoke() {
 }
 
 run_tenant_scoped_read_smoke() {
-  if [ "${E2E_RUN_TENANT_SCOPED_READ_SMOKE:-false}" != true ]; then
+  local phase=$1
+  if [ "${E2E_RUN_TENANT_SCOPED_READ_SMOKE:-false}" != true ] &&
+    { [ "${phase}" != install ] || [ "${E2E_RUN_TENANT_ISOLATION_SMOKE:-false}" != true ]; }; then
     return
   fi
-  local phase=$1
   local output_dir=${artifact_dir:-${work_dir}/artifacts}/tenant-scoped-reads/${phase}
+  local verifier=hack/verify-tenant-scoped-reads-kind.sh
+  local isolation_acknowledgement=
+  local expected_commit="" expected_image="" expected_runtime="" expected_local_image="" expected_chart=""
+  if [ "${phase}" = install ] && [ "${E2E_RUN_TENANT_ISOLATION_SMOKE:-false}" = true ]; then
+    verifier=hack/verify-tenant-isolation-kind.sh
+    isolation_acknowledgement=remove-and-restore-kube-memlens-security-controls
+    expected_commit=$(git rev-parse HEAD)
+    expected_image=${image}
+    expected_runtime=$(KUBECONFIG="${kubeconfig}" kubectl get pods -n "${namespace}" -o json |
+      jq -r '.items[] | select(.metadata.labels["app.kubernetes.io/name"] | startswith("kube-memlens-")) | .status.containerStatuses[].imageID' | sort -u)
+    expected_local_image=$(docker image inspect "${image}" --format '{{.Id}}')
+    expected_chart=$(git ls-files charts/kube-memlens | sort | xargs shasum -a 256 | shasum -a 256 | awk '{print $1}')
+  fi
   TENANT_READ_KUBECONFIG="${kubeconfig}" \
     TENANT_READ_CONTEXT="kind-${cluster_name}" \
     TENANT_READ_NAMESPACE="${namespace}" \
@@ -101,7 +115,14 @@ run_tenant_scoped_read_smoke() {
     TENANT_READ_PHASE="${phase}" \
     TENANT_READ_ARTIFACT_DIR="${output_dir}" \
     TENANT_READ_ACKNOWLEDGE=run-and-clean-tenant-read-verification \
-    hack/verify-tenant-scoped-reads-kind.sh
+    ISOLATION_RELEASE_NAME=kube-memlens \
+    ISOLATION_ACKNOWLEDGE="${isolation_acknowledgement}" \
+    ISOLATION_EXPECTED_COMMIT="${expected_commit}" \
+    ISOLATION_EXPECTED_IMAGE_REFERENCE="${expected_image}" \
+    ISOLATION_EXPECTED_RUNTIME_IMAGE_ID="${expected_runtime}" \
+    ISOLATION_EXPECTED_LOCAL_IMAGE_ID="${expected_local_image}" \
+    ISOLATION_EXPECTED_CHART_SOURCE_SHA256="${expected_chart}" \
+    "${verifier}"
 }
 
 assert_authenticated_ingestion_healthy() {
@@ -169,7 +190,7 @@ trap cleanup EXIT
 echo "Building ${image}"
 docker build \
   --build-arg VERSION=e2e \
-  --build-arg COMMIT="$(git rev-parse --short HEAD 2>/dev/null || printf unknown)" \
+  --build-arg COMMIT="$(git rev-parse HEAD 2>/dev/null || printf unknown)" \
   --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   -t "${image}" .
 go build -trimpath -o "${cli}" ./cmd/kubectl-memlens
@@ -311,10 +332,12 @@ KUBECONFIG="${kubeconfig}" kubectl get --raw \
   | jq -r '.content' > "${work_dir}/collector-metrics.txt"
 grep -q '^kubememlens_collector_ingestion_requests_total' "${work_dir}/collector-metrics.txt"
 grep -q 'kind="history_points"' "${work_dir}/collector-metrics.txt"
-KUBECONFIG="${kubeconfig}" kubectl get --raw \
+if KUBECONFIG="${kubeconfig}" kubectl get --raw \
   "/api/v1/namespaces/${namespace}/pods/${agent_pod}:8082/proxy/metrics" \
-  > "${work_dir}/agent-metrics.txt"
-grep -q '^kubememlens_agent_scans_total' "${work_dir}/agent-metrics.txt"
+  > "${work_dir}/agent-metrics.txt" 2>&1; then
+  echo "agent metrics are remotely reachable through the Pod proxy" >&2
+  exit 1
+fi
 run_tui_smoke
 run_live_density_smoke
 

@@ -27,7 +27,7 @@ The milestone labels below describe capability sequencing. They are not publishe
 ## v0.4: Kubectl-Native Collector Connectivity
 
 - Use the tenant-scoped Kubernetes aggregated API by default.
-- Retain direct HTTP and Service-proxy clients only for explicit legacy development mode.
+- Keep direct HTTP and Service-proxy code only for controlled pre-v1 rollback, outside the production chart.
 - Add collector discovery flags for namespace, service, port, kubeconfig, and context.
 - Add `status` for collector health and latest snapshot counts.
 - Fail closed without a direct HTTP fallback when the authenticated API is unavailable.
@@ -37,7 +37,7 @@ The milestone labels below describe capability sequencing. They are not publishe
 - Expose recent memory bucket metrics through a separately authorised aggregated resource.
 - Keep labels controlled to avoid cardinality surprises.
 - Add cardinality guardrails for pod and container metrics.
-- Retain direct ServiceMonitor support only for explicit legacy mode until an authenticated scraper is configured.
+- Use the separately authorised aggregated metrics resource as the only production chart scrape path.
 - Document metric names, labels, Helm values, and PromQL examples.
 
 ## v0.6: Cgroup Mapping Hardening And Informer Cache

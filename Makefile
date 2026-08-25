@@ -1,4 +1,4 @@
-.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind qualify-cluster soak-live-density
+.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -55,6 +55,9 @@ verify-authenticated-ingestion-kind:
 
 verify-tenant-scoped-reads-kind:
 	hack/verify-tenant-scoped-reads-kind.sh
+
+verify-tenant-isolation-kind:
+	hack/verify-tenant-isolation-kind.sh
 
 qualify-cluster:
 	hack/qualify-cluster.sh

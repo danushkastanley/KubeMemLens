@@ -1,4 +1,4 @@
-{{- if and .Values.collector.enabled (eq .Values.agent.ingestionMode "authenticated") }}
+{{- if .Values.collector.enabled }}
 {{- $hookAnnotations := dict
       "helm.sh/hook" "post-install,post-upgrade,post-rollback"
       "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded,hook-failed" -}}

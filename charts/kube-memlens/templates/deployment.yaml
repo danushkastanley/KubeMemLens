@@ -33,7 +33,6 @@ spec:
           command: ["/memlens-collector"]
           args:
             - "--listen=:{{ .Values.collector.service.port }}"
-{{- if eq .Values.agent.ingestionMode "authenticated" }}
             - "--ingestion-mode=authenticated"
             - "--extension-port={{ .Values.collector.ingestion.extensionPort }}"
             - "--extension-tls-cert-file=/var/run/kube-memlens/tls/tls.crt"
@@ -42,10 +41,6 @@ spec:
             - "--ingestion-max-concurrent={{ .Values.collector.ingestion.maxConcurrentRequests }}"
             - "--ingestion-requests-per-second-per-agent={{ .Values.collector.ingestion.requestsPerSecondPerAgent }}"
             - "--ingestion-burst-per-agent={{ .Values.collector.ingestion.burstPerAgent }}"
-{{- else }}
-            - "--ingestion-mode=legacy"
-            - "--ingest-listen=:{{ .Values.collector.ingestion.port }}"
-{{- end }}
             - "--snapshot-ttl={{ .Values.collector.snapshotTTL }}"
             - "--read-max-concurrent={{ .Values.collector.read.maxConcurrentRequests }}"
             - "--history-duration={{ .Values.collector.history.duration }}"
@@ -70,13 +65,8 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.collector.service.port }}
-{{- if eq .Values.agent.ingestionMode "authenticated" }}
             - name: extension
               containerPort: {{ .Values.collector.ingestion.extensionPort }}
-{{- else }}
-            - name: ingest
-              containerPort: {{ .Values.collector.ingestion.port }}
-{{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -93,7 +83,6 @@ spec:
               drop: ["ALL"]
           resources:
 {{ toYaml .Values.collector.resources | nindent 12 }}
-{{- if eq .Values.agent.ingestionMode "authenticated" }}
           volumeMounts:
             - name: extension-tls
               mountPath: /var/run/kube-memlens/tls
@@ -123,5 +112,4 @@ spec:
                     - path: namespace
                       fieldRef:
                         fieldPath: metadata.namespace
-{{- end }}
 {{- end }}

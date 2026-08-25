@@ -24,7 +24,7 @@ The agent and collector use separate ServiceAccounts and explicitly projected ro
 
 Pod watch data supplies requests, limits, QoS, restart/termination state, phase, creation time, runtime class, labels, memory-backed `emptyDir` counts/aggregate limits, and direct controller ownership to local explanations. Volume names are not collected. Label maps are capped at 64 entries and bounded again by snapshot request limits. They support local Kubernetes label selection but are not emitted as Prometheus labels or included in default redacted incident bundles. The cached own-node GET adds MemoryPressure and allocatable-memory context. Bounded owner GETs add the top-level workload, and `doctor` reports both Node and workload-owner permission failures.
 
-The CLI and TUI use the user's kubeconfig to access virtual `memory.kubememlens.io` resources through the Kubernetes API server. Namespace RoleBindings grant only that namespace. All-namespace, node and cluster-status reads require the separate cluster-viewer role. Metrics require another explicit role. Legacy direct HTTP and Service-proxy clients remain only for an explicit development mode.
+The CLI and TUI use the user's kubeconfig to access virtual `memory.kubememlens.io` resources through the Kubernetes API server. Namespace RoleBindings grant only that namespace. All-namespace, node and cluster-status reads require the separate cluster-viewer role. Metrics require another explicit role. Direct HTTP and Service-proxy client code remains only for controlled pre-v1 rollback and is not enabled by the production chart.
 
 The collector remains cluster-internal. KubeMemLens does not expose it through an external load balancer or create a port-forward automatically.
 
@@ -36,11 +36,11 @@ The collector defaults to at most 5,000 node records, 100,000 current container 
 
 The aggregated metrics resource exposes namespace names, pod names, container names only when container metrics are enabled, node names, memory buckets, memory event counts, and KubeMemLens diagnoses.
 
-Agent metrics contain only scan outcome, duration, mapping totals, post outcomes, and metadata-cache size. They do not contain workload or node identifiers.
+Agent metrics contain only scan outcome, duration, mapping totals, post outcomes, and metadata-cache size. They do not contain workload or node identifiers, but their node-local aggregate counts can still reveal workload density. The chart therefore binds this endpoint to Pod-local loopback, does not advertise a metrics port and adds no scrape annotations. An explicit non-loopback CLI override is a reviewed local-development choice, not part of the shared-cluster profile.
 
 The endpoint intentionally does not export pod UID, container ID, cgroup path, image, file path, owner references, or arbitrary Kubernetes labels in the alpha release. Container metrics are disabled by default to reduce metric cardinality.
 
-Metrics require `get` on the cluster-scoped KubeMemLens metrics resource. The cluster-viewer role does not include that permission. Direct `/metrics` and ServiceMonitor integration remain only in explicit legacy mode.
+Metrics require `get` on the cluster-scoped KubeMemLens metrics resource. The cluster-viewer role does not include that permission. The production chart exposes no direct collector `/metrics` route or `ServiceMonitor`.
 
 ## Telemetry
 
@@ -57,6 +57,10 @@ The [data and metadata exposure contract](compatibility.md#data-and-metadata-exp
 CI verifies modules, runs `govulncheck`, reports Go statement coverage, scans committed configuration and secret patterns, builds the actual scratch runtime image, and fails on high or critical image vulnerabilities. Release tags repeat the runtime-image vulnerability scan before publishing the multi-architecture image.
 
 The scanner itself is part of the threat model. Trivy `0.72.0` is invoked as an official container pinned by SHA-256 digest rather than through a mutable action tag. This follows Aqua Security's [2026 supply-chain incident guidance](https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23), which identifies digest-pinned images as unaffected. Scanner version or digest changes require normal dependency review.
+
+## Operational Logs
+
+Agent scan logs report a bounded failure reason and count rather than the raw cgroup error. This keeps cgroup paths, Pod UIDs and container IDs out of logs even when a filesystem read or parse fails.
 
 ## Incident Bundles
 
