@@ -2,6 +2,8 @@
 /memlens-agent
 /memlens-collector
 *.test
+__pycache__/
+*.pyc
 coverage.out
 /dist/
 /qualification-evidence/

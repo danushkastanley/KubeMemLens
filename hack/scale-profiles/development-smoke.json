@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "development-smoke",
+  "mode": "development",
+  "telemetryRequired": false,
+  "workload": {
+    "containers": 20,
+    "containersPerPod": 10,
+    "steadyStateSeconds": 30,
+    "sampleIntervalSeconds": 5,
+    "agentInterval": "5s",
+    "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+    "canaryMiB": 32
+  },
+  "evidence": {
+    "minimumSamples": 7,
+    "canaryControlSamples": 7
+  },
+  "budgets": {
+    "agentScanP99MillisecondsExclusive": 4000,
+    "cliP95Milliseconds": 2000,
+    "tuiP95Milliseconds": 2000,
+    "recoverySeconds": 120,
+    "memoryLimitRatio": 0.7,
+    "cpuThrottlingRatioExclusive": 0.01,
+    "agentPostFailureDelta": 0,
+    "agentScanFailureDelta": 0,
+    "apiErrorDelta": 0,
+    "apiRateLimitedDelta": 0,
+    "nodeMemoryPressureNodes": 0,
+    "canaryRegressionPercent": 10
+  },
+  "profileDigest": "sha256:ffff317162ef41a77b5e22bdf20e30e5d38fe3020c7f7fe533420b2396de9651"
+}

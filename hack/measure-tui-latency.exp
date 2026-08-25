@@ -1,0 +1,37 @@
+#!/usr/bin/expect -f
+
+set timeout 10
+if {$argc != 7} {
+  puts stderr "usage: measure-tui-latency.exp <cli> <kubeconfig> <context> <collector-namespace> <columns> <rows> <refresh>"
+  exit 2
+}
+
+set cli [lindex $argv 0]
+set kubeconfig [lindex $argv 1]
+set context [lindex $argv 2]
+set collector_namespace [lindex $argv 3]
+set columns [lindex $argv 4]
+set rows [lindex $argv 5]
+set refresh [lindex $argv 6]
+proc require_pattern {pattern description} {
+  expect {
+    -re $pattern {}
+    timeout { puts stderr "TUI latency probe timed out waiting for $description"; exit 1 }
+    eof { puts stderr "TUI latency probe exited while waiting for $description"; exit 1 }
+  }
+}
+
+log_user 0
+spawn -noecho env TERM=xterm-256color NO_COLOR=1 $cli \
+  --kubeconfig $kubeconfig --context $context \
+  --collector-namespace $collector_namespace tui --all-namespaces --refresh $refresh
+set child_tty $spawn_out(slave,name)
+stty columns $columns rows $rows < $child_tty
+
+require_pattern {KubeMemLens} "initial frame"
+require_pattern {A/F/S/O} "Pod table"
+send -- "q"
+expect {
+  eof { exit 0 }
+  timeout { puts stderr "TUI latency probe did not exit cleanly"; exit 1 }
+}

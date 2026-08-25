@@ -124,6 +124,8 @@ The collector is single-replica and in-memory. Its Deployment uses `Recreate`, s
 
 Current state defaults to at most 5,000 node records and 100,000 container snapshots, with 500 items per keyset page, a 16 MiB encoded JSON response ceiling and four admitted authenticated reads. Pod and workload pages build only selected identities and reserve half of the response ceiling for nested container evidence; aggregate construction is serialised. History defaults to 15 minutes, at most 181 points per Pod instance, 1,000 series in total and 20 returned instances for one Pod lookup. Tune `collector.store`, `collector.read`, `collector.maxResponseBytes` and `collector.history` only from measured cluster density and within the collector Pod's memory limit. Capacity breaches fail explicitly; they do not silently evict current nodes or truncate API results.
 
+These values are safety ceilings, not a sizing recommendation. The declared 5,000-container RC profile remains unqualified. Use the [scale qualification gate](scale-qualification.md) before publishing a live capacity or resource recommendation, and re-run it when the agent interval, limits, workload density or cluster shape changes.
+
 Rollback uses the normal Helm revision path:
 
 ```sh

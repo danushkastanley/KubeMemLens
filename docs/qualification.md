@@ -20,7 +20,7 @@ Use only a disposable cluster or a cluster whose owner has authorised installati
 - uninstall, cluster-scoped RBAC removal and deletion of the dedicated namespace;
 - sanitised environment evidence without context, cluster, node or provider-resource identifiers.
 
-It does not prove long-duration reliability, every CNI mode, managed-provider compatibility, or optional eBPF support. Provider records will be published together after the GKE, EKS and AKS qualification matrix completes.
+It does not prove long-duration reliability, live scale, every CNI mode, managed-provider compatibility, or optional eBPF support. Provider records will be published together after the GKE, EKS and AKS qualification matrix completes. Run the separate [scale qualification gate](scale-qualification.md) when a release claims a live container profile; neither result substitutes for the other.
 
 ## Managed-provider boundary
 

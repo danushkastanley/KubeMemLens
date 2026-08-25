@@ -98,6 +98,8 @@ A release qualification must record four times from the same clock:
 
 Record the collector generation before and after a restart. Record `history.resetAt`, `availableFrom`, `droppedSeries` and `evictedPoints`. Do not turn one local timing result into a provider or high-availability claim.
 
+The [scale qualification gate](scale-qualification.md) repeats the workload, agent, collector, Node, API and partial-rollout recovery checks at its declared density. Its 120-second budget does not widen the single-collector availability contract.
+
 ## Failure contract
 
 | Failure | Expected state and recovery |

@@ -123,6 +123,7 @@ baseline_state=$(jq -r '.store.reliability.state' <<<"${baseline}")
 baseline_generation=$(jq -r '.store.reliability.generation' <<<"${baseline}")
 baseline_history_reset=$(jq -r '.store.reliability.history.resetAt' <<<"${baseline}")
 baseline_containers=$(jq -r '.store.totalContainers' <<<"${baseline}")
+baseline_expected_nodes=$(jq -r '.store.reliability.expectedNodes' <<<"${baseline}")
 [ "${baseline_containers}" -gt 0 ] || {
   echo "collector baseline has no evidence" >&2
   exit 1
@@ -147,8 +148,10 @@ restart_during_outage=$("${kc[@]}" get pod "${pod}" -n "${namespace}" -o jsonpat
   echo "collector liveness restarted the process during an authorisation outage" >&2
   exit 1
 }
+api_recovery_started=${SECONDS}
 restore_binding
-api_recovery_seconds=$(wait_for_state ready 90)
+wait_for_state ready 90 >/dev/null
+api_recovery_seconds=$((SECONDS - api_recovery_started))
 
 blocked_selector=$(jq -c '. + {"kubememlens.io/reliability-blocked":"true"}' <<<"${agent_node_selector}")
 patch=$(jq -cn --argjson value "${blocked_selector}" '[{op:"replace",path:"/spec/template/spec/nodeSelector",value:$value}]')
@@ -180,10 +183,13 @@ new_history_reset=$(jq -r '.store.reliability.history.resetAt' <<<"${rebuilding}
 }
 jq -e '.store.totalContainers == 0 and .store.historyPoints == 0' <<<"${rebuilding}" >/dev/null
 
+agent_recovery_started=${SECONDS}
 restore_agent
 "${kc[@]}" rollout status daemonset/"${agent_daemonset}" -n "${namespace}" --timeout=90s >/dev/null
-agent_recovery_seconds=$(wait_for_state ready 90)
+wait_for_state ready 90 >/dev/null
+agent_recovery_seconds=$((SECONDS - agent_recovery_started))
 
+partial_rollout_started=${SECONDS}
 "${kc[@]}" create -f - >/dev/null <<EOF
 apiVersion: v1
 kind: Node
@@ -196,14 +202,20 @@ fake_node_created=true
 "${kc[@]}" patch node "${fake_node}" --subresource=status --type=merge \
   -p='{"status":{"conditions":[{"type":"Ready","status":"True","reason":"ReliabilityTest","message":"synthetic selected Node"}]}}' >/dev/null
 "${kc[@]}" patch node "${fake_node}" --type=merge -p='{"spec":{"taints":[]}}' >/dev/null
-partial_rollout_seconds=$(wait_for_state degraded 45)
-jq -e '.store.reliability.missingNodes == 1 and .store.reliability.expectedNodes == 2' <<<"$(cluster_status)" >/dev/null
+wait_for_state degraded 45 >/dev/null
+partial_rollout_seconds=$((SECONDS - partial_rollout_started))
+jq -e --argjson expected "$((baseline_expected_nodes + 1))" \
+  '.store.reliability.missingNodes == 1 and .store.reliability.expectedNodes == $expected' \
+  <<<"$(cluster_status)" >/dev/null
+node_recovery_started=${SECONDS}
 "${kc[@]}" delete node "${fake_node}" --wait=true --timeout=30s >/dev/null
 fake_node_created=false
 remove_fake_agent_pods
-node_recovery_seconds=$(wait_for_state ready 45)
+wait_for_state ready 45 >/dev/null
+node_recovery_seconds=$((SECONDS - node_recovery_started))
 
 pod=$(collector_pod)
+final_recovery_started=${SECONDS}
 shutdown_start=$(date +%s)
 "${kc[@]}" delete pod "${pod}" -n "${namespace}" --wait=true --timeout=30s >/dev/null
 shutdown_seconds=$(($(date +%s) - shutdown_start))
@@ -212,7 +224,8 @@ shutdown_seconds=$(($(date +%s) - shutdown_start))
   exit 1
 }
 wait_for_collector_ready
-final_recovery_seconds=$(wait_for_state ready 90)
+wait_for_state ready 90 >/dev/null
+final_recovery_seconds=$((SECONDS - final_recovery_started))
 
 jq -n \
   --arg baselineGeneration "${baseline_generation}" \

@@ -1,0 +1,45 @@
+{
+  "orchestrationOutcome": "completed",
+  "disruptionOperational": {"unexplainedRestarts": 0, "oomKills": 0},
+  "schemaVersion": 1,
+  "profile": {
+    "id": "rc-5000",
+    "digest": "sha256:b5ff85422cd4a7ba9e3ce74da83634e500d235315e28a256b9dff09483ad0dc8"
+  },
+  "workload": {
+    "containers": 5000,
+    "containersPerPod": 50,
+    "steadyStateSeconds": 1800,
+    "sampleIntervalSeconds": 30,
+    "agentInterval": "5s",
+    "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+    "canaryMiB": 256
+  },
+  "samples": [
+    {
+      "phase": "steady",
+      "workloadContainers": 5000,
+      "podName": "density-0",
+      "mapping": {"expected": 5000, "mapped": 5000, "unmapped": 0},
+      "reliability": {"state": "ready", "expectedNodes": 2, "freshNodes": 2, "staleNodes": 0, "missingNodes": 0},
+      "operational": {"unexplainedRestarts": 0, "oomKills": 0}
+    }
+  ],
+  "measurements": {
+    "agentScanMilliseconds": [3999],
+    "cliLatencyMilliseconds": [2000],
+    "tuiLatencyMilliseconds": [2000],
+    "recoverySeconds": {"workload": 120, "agent": 120, "collector": 120, "node": 120, "api": 120, "partialRollout": 120},
+    "components": {
+      "agent": {"memoryLimitRatios": [0.7], "cpuThrottlingRatios": [0.0099]},
+      "collector": {"memoryLimitRatios": [0.7], "cpuThrottlingRatios": [0.0099]}
+    },
+    "agentPostFailures": [0],
+    "agentScanFailures": [0],
+    "apiServer": {"errorDelta": 0, "rateLimitedDelta": 0},
+    "nodeMemoryPressureNodes": [0],
+    "canary": {"higherIsBetter": false, "control": [100], "observed": [95]}
+  },
+  "privacy": {"clusterIdentifiersIncluded": false, "workloadIdentifiersIncluded": false, "rawMetricsIncluded": false, "rawLogsIncluded": false},
+  "caveats": ["Local qualification evidence; no cluster or workload identifiers retained."]
+}

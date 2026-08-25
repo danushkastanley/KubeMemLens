@@ -1,0 +1,29 @@
+{
+  "orchestrationOutcome": "completed",
+  "disruptionOperational": {"unexplainedRestarts": 0, "oomKills": 0},
+  "schemaVersion": 1,
+  "profile": {
+    "id": "rc-5000",
+    "digest": "sha256:b5ff85422cd4a7ba9e3ce74da83634e500d235315e28a256b9dff09483ad0dc8"
+  },
+  "workload": {
+    "containers": 5000,
+    "containersPerPod": 50,
+    "steadyStateSeconds": 1800,
+    "sampleIntervalSeconds": 30,
+    "agentInterval": "5s",
+    "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+    "canaryMiB": 256
+  },
+  "samples": [
+    {
+      "phase": "steady",
+      "workloadContainers": 5000,
+      "mapping": {"expected": 5000, "mapped": 5000, "unmapped": 0},
+      "reliability": {"state": "ready", "expectedNodes": 2, "freshNodes": 2, "staleNodes": 0, "missingNodes": 0},
+      "operational": {"unexplainedRestarts": 0, "oomKills": 0}
+    }
+  ],
+  "privacy": {"clusterIdentifiersIncluded": false, "workloadIdentifiersIncluded": false, "rawMetricsIncluded": false, "rawLogsIncluded": false},
+  "caveats": ["Local qualification evidence; optional telemetry is unavailable."]
+}

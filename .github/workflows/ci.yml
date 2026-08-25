@@ -50,7 +50,9 @@ jobs:
           hack/*.sh hack/lib/*.sh
 
       - name: Test shell helpers
-        run: hack/test-retry.sh
+        run: |
+          hack/test-retry.sh
+          make check-scale-contract
 
       - name: Check density soak safety gate
         run: |
@@ -460,10 +462,17 @@ jobs:
           E2E_ARTIFACT_DIR: ${{ runner.temp }}/kube-memlens-e2e
           E2E_RUN_DENSITY_BENCHMARKS: "true"
           E2E_RUN_LIVE_DENSITY_SMOKE: "true"
-          E2E_LIVE_DENSITY_IMAGE: busybox:1.37.0@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
           E2E_RUN_TUI_SMOKE: ${{ matrix.tui_smoke }}
           E2E_RUN_AUTHENTICATED_INGESTION_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
           E2E_RUN_TENANT_SCOPED_READ_SMOKE: ${{ matrix.tenant_scoped_read_smoke }}
           E2E_RUN_TENANT_ISOLATION_SMOKE: ${{ matrix.tenant_isolation_smoke }}
           E2E_RUN_RELIABILITY_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
         run: hack/e2e-kind.sh
+
+      - name: Upload sanitised density smoke evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: density-smoke-kubernetes-${{ matrix.kubernetes }}
+          path: ${{ runner.temp }}/kube-memlens-e2e/live-density-smoke/density-soak-*.json
+          if-no-files-found: error
+          retention-days: 7
