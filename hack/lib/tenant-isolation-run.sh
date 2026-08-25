@@ -62,6 +62,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: ["services/proxy"]
+    resourceNames: ["kube-memlens-collector"]
     verbs: ["get"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -188,7 +189,7 @@ tenant_isolation_run() {
   tenant_isolation_prepare_http "${tenant_a_config}"
   tenant_isolation_assert_least_privilege
   tenant_isolation_assert_agent_loopback
-  [ "$(kubectl --kubeconfig "${tenant_a_config}" --context "${context}" auth can-i get services/proxy -n "${release_namespace}")" = yes ] ||
+  [ "$(kubectl --kubeconfig "${tenant_a_config}" --context "${context}" auth can-i get services --subresource=proxy -n "${release_namespace}")" = yes ] ||
     fail "tenant service-proxy test permission is unavailable"
 
   local collector_ip
