@@ -62,7 +62,7 @@ tenant_isolation_percentile() {
   local file=$1
   local percentile=$2
   sort -n "${file}" | awk -v percentile="${percentile}" '
-    {values[NR]=$1} END {index=int((NR*percentile+99)/100); if(index<1)index=1; print values[index]}'
+    {values[NR]=$1} END {position=int((NR*percentile+99)/100); if(position<1)position=1; print values[position]}'
 }
 
 tenant_isolation_interleaved_denials() {
