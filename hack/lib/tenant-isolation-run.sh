@@ -110,8 +110,10 @@ tenant_isolation_verify_build_identity() {
   local expected_runtime=${ISOLATION_EXPECTED_RUNTIME_IMAGE_ID:-}
   local expected_local_image=${ISOLATION_EXPECTED_LOCAL_IMAGE_ID:-}
   local expected_chart=${ISOLATION_EXPECTED_CHART_SOURCE_SHA256:-}
-  [ -n "${expected_commit}" ] && [ -n "${expected_image}" ] && [ -n "${expected_runtime}" ] &&
-    [ -n "${expected_local_image}" ] && [ -n "${expected_chart}" ] || fail "expected build identity is incomplete"
+  if [ -z "${expected_commit}" ] || [ -z "${expected_image}" ] || [ -z "${expected_runtime}" ] ||
+    [ -z "${expected_local_image}" ] || [ -z "${expected_chart}" ]; then
+    fail "expected build identity is incomplete"
+  fi
   [ "$(git rev-parse HEAD)" = "${expected_commit}" ] || fail "repository commit differs from expected build commit"
   [ -z "$(git status --porcelain --untracked-files=all)" ] || fail "repository must be clean for retained evidence"
 

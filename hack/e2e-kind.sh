@@ -97,7 +97,7 @@ run_tenant_scoped_read_smoke() {
   local output_dir=${artifact_dir:-${work_dir}/artifacts}/tenant-scoped-reads/${phase}
   local verifier=hack/verify-tenant-scoped-reads-kind.sh
   local isolation_acknowledgement=
-  local expected_commit= expected_image= expected_runtime= expected_local_image= expected_chart=
+  local expected_commit="" expected_image="" expected_runtime="" expected_local_image="" expected_chart=""
   if [ "${phase}" = install ] && [ "${E2E_RUN_TENANT_ISOLATION_SMOKE:-false}" = true ]; then
     verifier=hack/verify-tenant-isolation-kind.sh
     isolation_acknowledgement=remove-and-restore-kube-memlens-security-controls
