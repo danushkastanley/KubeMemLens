@@ -251,7 +251,7 @@ wait_for_doctor() {
 
 wait_for_doctor
 "${cli}" "${cli_args[@]}" status --output json > "${work_dir}/status.json"
-grep -q '"status": "ok"' "${work_dir}/status.json"
+jq -e '.data.status == "ready" and .store.reliability.state == "ready"' "${work_dir}/status.json" >/dev/null
 "${cli}" "${cli_args[@]}" top pods --all-namespaces > "${work_dir}/top.txt"
 grep -q '^NAMESPACE' "${work_dir}/top.txt"
 "${cli}" "${cli_args[@]}" top workloads --all-namespaces > "${work_dir}/workloads.txt"
