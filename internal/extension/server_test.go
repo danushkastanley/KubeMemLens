@@ -3,7 +3,9 @@ package extension
 import (
 	"context"
 	"encoding/pem"
+	"fmt"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
@@ -87,5 +89,63 @@ func TestAgentIdentityAuthorizerRequiresClaimsBeforeDelegation(t *testing.T) {
 	decision, _, err = gate.Authorize(context.Background(), attributes)
 	if err != nil || decision != authorizer.DecisionAllow || delegated != 1 {
 		t.Fatalf("valid identity decision=%v delegated=%d err=%v", decision, delegated, err)
+	}
+}
+
+func TestTenantReadAuthorizerDelegatesExactAttributesOnceAndAuditsBoundedFields(t *testing.T) {
+	delegated := 0
+	var received authorizer.Attributes
+	logs := []string{}
+	gate := agentIdentityAuthorizer{
+		expectedUsername: "system:serviceaccount:kube-memlens:kube-memlens-agent",
+		delegate: authorizer.AuthorizerFunc(func(_ context.Context, attributes authorizer.Attributes) (authorizer.Decision, string, error) {
+			delegated++
+			received = attributes
+			return authorizer.DecisionAllow, "sensitive delegate reason", nil
+		}),
+		logf: func(format string, args ...any) { logs = append(logs, fmt.Sprintf(format, args...)) },
+	}
+	secret := "tenant-secret-sentinel"
+	attributes := authorizer.AttributesRecord{
+		ResourceRequest: true, APIGroup: api.MemoryAPIGroup, APIVersion: api.MemoryAPIVersion,
+		Resource: "pods", Subresource: "history", Verb: "get", Namespace: secret, Name: "pod-" + secret,
+		User: &user.DefaultInfo{Name: "user-" + secret, Groups: []string{"group-" + secret}},
+	}
+
+	decision, _, err := gate.Authorize(context.Background(), attributes)
+	if err != nil || decision != authorizer.DecisionAllow || delegated != 1 {
+		t.Fatalf("decision=%v delegated=%d err=%v", decision, delegated, err)
+	}
+	if received.GetVerb() != "get" || received.GetAPIGroup() != api.MemoryAPIGroup ||
+		received.GetAPIVersion() != api.MemoryAPIVersion || received.GetResource() != "pods" ||
+		received.GetSubresource() != "history" || received.GetNamespace() != secret || received.GetName() != "pod-"+secret {
+		t.Fatalf("delegated attributes changed: %#v", received)
+	}
+	if len(logs) != 1 || strings.Contains(logs[0], secret) ||
+		!strings.Contains(logs[0], "principal=user verb=get resource=pods scope=namespace decision=allow reason=sar_allowed") {
+		t.Fatalf("unexpected audit log: %#v", logs)
+	}
+}
+
+func TestTenantReadAuthorizerPreservesNoOpinionWithoutCachingOrStoreWork(t *testing.T) {
+	delegated := 0
+	gate := agentIdentityAuthorizer{
+		delegate: authorizer.AuthorizerFunc(func(context.Context, authorizer.Attributes) (authorizer.Decision, string, error) {
+			delegated++
+			return authorizer.DecisionNoOpinion, "", nil
+		}),
+	}
+	attributes := authorizer.AttributesRecord{
+		ResourceRequest: true, APIGroup: api.MemoryAPIGroup, APIVersion: api.MemoryAPIVersion,
+		Resource: "containers", Verb: "list", Namespace: "team-a", User: &user.DefaultInfo{Name: "reader"},
+	}
+	for range 2 {
+		decision, _, err := gate.Authorize(context.Background(), attributes)
+		if err != nil || decision != authorizer.DecisionNoOpinion {
+			t.Fatalf("decision=%v err=%v", decision, err)
+		}
+	}
+	if delegated != 2 {
+		t.Fatalf("delegated=%d, want one exact decision per request", delegated)
 	}
 }

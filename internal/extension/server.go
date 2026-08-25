@@ -10,14 +10,18 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
 	"github.com/danushkastanley/kube-memlens/internal/kube"
+	apidiscoveryv2 "k8s.io/api/apidiscovery/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	apiserverconfig "k8s.io/apiserver/pkg/apis/apiserver"
+	"k8s.io/apiserver/pkg/audit"
 	"k8s.io/apiserver/pkg/authentication/authenticatorfactory"
 	"k8s.io/apiserver/pkg/authentication/request/headerrequest"
+	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
+	apiendpoints "k8s.io/apiserver/pkg/endpoints"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/dynamiccertificates"
 	"k8s.io/apiserver/pkg/server/healthz"
@@ -93,12 +97,22 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	config.Authorization.Authorizer = agentIdentityAuthorizer{
 		expectedUsername: o.Handler.opts.AgentUsername,
 		delegate:         config.Authorization.Authorizer,
+		logf:             o.Handler.opts.Logf,
 	}
 
 	server, err := config.Complete(nil).New("kube-memlens-extension", genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return fmt.Errorf("create extension server: %w", err)
 	}
+	discovery, err := apiendpoints.ConvertGroupVersionIntoToDiscovery(aggregatedDiscoveryResources())
+	if err != nil {
+		return fmt.Errorf("build aggregated discovery: %w", err)
+	}
+	groupVersion := metav1.GroupVersion{Group: api.MemoryAPIGroup, Version: api.MemoryAPIVersion}
+	server.AggregatedDiscoveryGroupManager.AddGroupVersion(api.MemoryAPIGroup, apidiscoveryv2.APIVersionDiscovery{
+		Version: api.MemoryAPIVersion, Resources: discovery, Freshness: apidiscoveryv2.DiscoveryFreshnessCurrent,
+	})
+	server.AggregatedDiscoveryGroupManager.SetGroupVersionPriority(groupVersion, 1000, 15)
 	o.Handler.Register(server.Handler.NonGoRestfulMux)
 	return server.PrepareRun().RunWithContext(ctx)
 }
@@ -106,16 +120,89 @@ func (o ServerOptions) Run(ctx context.Context) error {
 type agentIdentityAuthorizer struct {
 	expectedUsername string
 	delegate         authorizer.Authorizer
+	logf             func(string, ...any)
 }
 
 func (a agentIdentityAuthorizer) Authorize(ctx context.Context, attributes authorizer.Attributes) (authorizer.Decision, string, error) {
 	resource := attributes.GetResource()
 	if attributes.GetAPIGroup() == api.MemoryAPIGroup && (resource == "ingestionepochs" || resource == "nodesnapshots") {
 		if _, err := claimsFromUser(attributes.GetUser(), a.expectedUsername); err != nil {
+			a.record(ctx, attributes, authorizer.DecisionDeny, "agent_identity")
 			return authorizer.DecisionDeny, "agent identity is invalid", nil
 		}
 	}
-	return a.delegate.Authorize(ctx, attributes)
+	decision, reason, err := a.delegate.Authorize(ctx, attributes)
+	a.record(ctx, attributes, decision, authorisationReason(decision, err))
+	return decision, reason, err
+}
+
+func (a agentIdentityAuthorizer) record(ctx context.Context, attributes authorizer.Attributes, decision authorizer.Decision, reason string) {
+	if a.logf == nil || attributes.GetAPIGroup() != api.MemoryAPIGroup {
+		return
+	}
+	scope := "cluster"
+	if attributes.GetNamespace() != "" {
+		scope = "namespace"
+	}
+	requestID := audit.GetAuditIDTruncated(ctx)
+	if !validRequestID(requestID) {
+		requestID = "unavailable"
+	}
+	a.logf(
+		"security request_id=%s principal=%s verb=%s resource=%s scope=%s decision=%s reason=%s",
+		requestID, principalType(attributes.GetUser()), boundedVerb(attributes.GetVerb()),
+		boundedResource(attributes.GetResource()), scope, boundedDecision(decision), reason,
+	)
+}
+
+func authorisationReason(decision authorizer.Decision, err error) string {
+	if err != nil {
+		return "sar_error"
+	}
+	switch decision {
+	case authorizer.DecisionAllow:
+		return "sar_allowed"
+	case authorizer.DecisionDeny:
+		return "sar_denied"
+	default:
+		return "sar_no_opinion"
+	}
+}
+
+func principalType(info user.Info) string {
+	if info != nil && strings.HasPrefix(info.GetName(), "system:serviceaccount:") {
+		return "serviceaccount"
+	}
+	return "user"
+}
+
+func boundedVerb(verb string) string {
+	switch verb {
+	case "get", "list", "create":
+		return verb
+	default:
+		return "unknown"
+	}
+}
+
+func boundedResource(resource string) string {
+	switch resource {
+	case "pods", "containers", "workloads", "nodes", "clusterstatus", "metrics", "ingestionepochs", "nodesnapshots":
+		return resource
+	default:
+		return "unknown"
+	}
+}
+
+func boundedDecision(decision authorizer.Decision) string {
+	switch decision {
+	case authorizer.DecisionAllow:
+		return "allow"
+	case authorizer.DecisionDeny:
+		return "deny"
+	default:
+		return "no_opinion"
+	}
 }
 
 func configureRequestHeaderAuthentication(ctx context.Context, kubeconfigFile string, config *genericapiserver.Config) (*genericoptions.DynamicRequestHeaderController, error) {

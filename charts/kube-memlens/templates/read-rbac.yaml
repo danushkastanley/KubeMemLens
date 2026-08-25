@@ -1,0 +1,46 @@
+{{- if eq .Values.agent.ingestionMode "authenticated" }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-namespace-viewer
+rules:
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["containers", "workloads"]
+    verbs: ["list"]
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["pods/history"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-cluster-viewer
+rules:
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["containers", "workloads"]
+    verbs: ["list"]
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["pods/history"]
+    verbs: ["get"]
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["nodes"]
+    verbs: ["get", "list"]
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["clusterstatus"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-metrics-reader
+rules:
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["metrics"]
+    verbs: ["get"]
+{{- end }}

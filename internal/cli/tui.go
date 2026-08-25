@@ -20,8 +20,12 @@ func newTUICommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 			if cmd.Flags().Changed("namespace") && !cmd.Flags().Changed("all-namespaces") {
 				allNamespaces = false
 			}
+			connectionOptions, err := withReadScope(collectorOptions(), namespace, allNamespaces)
+			if err != nil {
+				return err
+			}
 			return tui.Run(cmd.Context(), tui.Options{
-				ConnectionOptions: collectorOptions(),
+				ConnectionOptions: connectionOptions,
 				RefreshInterval:   refresh,
 				Namespace:         namespace,
 				AllNamespaces:     allNamespaces,
@@ -29,7 +33,7 @@ func newTUICommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 		},
 	}
 	cmd.Flags().DurationVar(&refresh, "refresh", 5*time.Second, "collector refresh interval")
-	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "namespace to show")
-	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", true, "show all namespaces")
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "namespace to show")
+	cmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "show all namespaces; requires cluster-viewer access")
 	return cmd
 }

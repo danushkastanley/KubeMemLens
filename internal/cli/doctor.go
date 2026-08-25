@@ -48,7 +48,11 @@ func newDoctorCommand(collectorOptions collectorOptionsProvider) *cobra.Command 
 			if output != "text" && output != "json" {
 				return fmt.Errorf("invalid output %q, want text or json", output)
 			}
-			report, checkErr := buildDoctorReport(cmd.Context(), collectorOptions())
+			opts, err := withReadScope(collectorOptions(), "", true)
+			if err != nil {
+				return err
+			}
+			report, checkErr := buildDoctorReport(cmd.Context(), opts)
 			if output == "json" {
 				encoder := json.NewEncoder(cmd.OutOrStdout())
 				encoder.SetIndent("", "  ")

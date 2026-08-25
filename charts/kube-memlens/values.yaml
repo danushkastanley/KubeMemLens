@@ -39,6 +39,10 @@ collector:
   # Multiple replicas would each hold an independent in-memory view.
   replicas: 1
   snapshotTTL: 30s
+  read:
+    # Aggregate construction is serialised inside the collector; this admission
+    # ceiling bounds queued requests and their transport overhead.
+    maxConcurrentRequests: 4
   history:
     duration: 15m
     maxSeries: 1000
@@ -65,6 +69,7 @@ collector:
     limits:
       memory: 128Mi
   service:
+    # Pod-local health listener. The authenticated Service does not expose it.
     port: 8080
 
 extensionTLS:
@@ -84,8 +89,12 @@ metrics:
   includeEvents: true
   maxPods: 2000
   maxContainers: 5000
+  # Applied only to the direct metrics Service in explicit legacy mode.
   serviceAnnotations: {}
   serviceMonitor:
+    # Direct Service scraping is available only in explicit legacy mode.
+    # Authenticated scrapers use the aggregated metrics resource and its
+    # separately bound ClusterRole.
     enabled: false
     interval: 30s
     scrapeTimeout: 10s

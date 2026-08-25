@@ -12,7 +12,7 @@ The goal is to make incidents like "kubectl top says memory is high, but the app
 
 ## Status
 
-KubeMemLens is in alpha. `v0.0.1-alpha.3` is intended for evaluation on disposable or explicitly authorised clusters and does not carry a production stability or support guarantee. The published alpha is not suitable for shared multi-tenant clusters. Current `main` authenticates and node-binds agent writes through the Kubernetes aggregation layer, but tenant-scoped collector reads remain unfinished. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI queries the collector through the Kubernetes API service proxy by default, with HTTP/port-forward mode as a fallback. The collector also exposes conservative Prometheus/OpenMetrics metrics at `/metrics`.
+KubeMemLens is in alpha. `v0.0.1-alpha.3` is intended for evaluation on disposable or explicitly authorised clusters and does not carry a production stability or support guarantee. The published alpha is not suitable for shared multi-tenant clusters. Current `main` authenticates node-bound writes and tenant-scoped reads through the Kubernetes aggregation layer; the separate adversarial isolation gate remains before any shared-cluster claim. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI uses the caller's kubeconfig and the aggregated API by default. Conservative Prometheus/OpenMetrics output is available through a separately authorised metrics resource.
 
 The full lifecycle path has passed locally on the current upstream-supported Kubernetes 1.34, 1.35 and 1.36 minors. Managed-provider qualification is still in progress. GKE, EKS, AKS, CRI-O and other provider/runtime profiles remain unclaimed until the planned matrix completes and its reviewed evidence is published.
 
@@ -143,15 +143,13 @@ Run a one-shot agent scan:
 kubectl exec -n kube-memlens ds/kube-memlens-agent -- /memlens-agent --cgroup-root=/host/sys/fs/cgroup --once
 ```
 
-Query the collector directly, if you want to inspect the HTTP API:
+Inspect the authenticated API through Kubernetes:
 
 ```sh
-kubectl -n kube-memlens port-forward svc/kube-memlens-collector 18080:8080
-curl http://127.0.0.1:18080/healthz
-curl http://127.0.0.1:18080/api/v1/debug/store
-curl http://127.0.0.1:18080/api/v1/pods
-curl http://127.0.0.1:18080/api/v1/history/pods/kube-memlens/<pod-name>
-curl http://127.0.0.1:18080/metrics
+kubectl get --raw /apis/memory.kubememlens.io/v1alpha1
+kubectl get --raw /apis/memory.kubememlens.io/v1alpha1/namespaces/<namespace>/pods
+kubectl get --raw /apis/memory.kubememlens.io/v1alpha1/namespaces/<namespace>/pods/<pod-name>/history
+kubectl get --raw /apis/memory.kubememlens.io/v1alpha1/clusterstatus/current
 ```
 
 Use the CLI against collector snapshots without a manual port-forward:
@@ -181,26 +179,13 @@ Read-only composition-aware guidance is exportable with `kubectl memlens recomme
 
 ## Using Without Port-Forward
 
-By default, KubeMemLens uses the Kubernetes API service proxy to reach the in-cluster collector. The default collector target is:
-
-- namespace: `kube-memlens`
-- service: `kube-memlens-collector`
-- port: `8080`
+By default, KubeMemLens uses the caller's kubeconfig to reach `memory.kubememlens.io/v1alpha1`. Namespace commands use namespaced resource paths; `-A`, `status`, strict `doctor` and node views require the explicit cluster-viewer role.
 
 ```sh
 go run ./cmd/kubectl-memlens status
 go run ./cmd/kubectl-memlens doctor
 go run ./cmd/kubectl-memlens top pods -A
 go run ./cmd/kubectl-memlens tui
-```
-
-Override the collector target when needed:
-
-```sh
-go run ./cmd/kubectl-memlens status \
-  --collector-namespace=kube-memlens \
-  --collector-service=kube-memlens-collector \
-  --collector-port=8080
 ```
 
 Use a specific kubeconfig or context:
@@ -211,9 +196,10 @@ go run ./cmd/kubectl-memlens top pods -A --kubeconfig=/path/to/config --context=
 
 ## Fallback To Port-Forward
 
-HTTP mode is still supported for local debugging or restricted RBAC environments:
+HTTP mode is retained only for explicit legacy development installs. The authenticated chart does not expose its health-only port `8080` through the Service. Do not use legacy mode on a shared cluster.
 
 ```sh
+helm upgrade --install kube-memlens ./charts/kube-memlens -n kube-memlens --set agent.ingestionMode=legacy
 kubectl -n kube-memlens port-forward svc/kube-memlens-collector 18080:8080
 go run ./cmd/kubectl-memlens top pods -A --collector-url=http://127.0.0.1:18080
 go run ./cmd/kubectl-memlens top containers -A --collector-url=http://127.0.0.1:18080
@@ -280,11 +266,7 @@ Recommendations and comparisons are read-only. TUI capture uses the same redacti
 
 ## Prometheus / OpenMetrics Export
 
-The collector exposes scrapeable metrics at:
-
-```text
-/metrics
-```
+The authenticated profile exposes workload-labelled metrics as the cluster-scoped `metrics/current` resource. It requires a separate `kube-memlens-metrics-reader` binding.
 
 By default, namespace and pod metrics are enabled. Container metrics are disabled by default because they can create high-cardinality series in busy clusters.
 
@@ -296,23 +278,10 @@ helm upgrade --install kube-memlens ./charts/kube-memlens \
   --set metrics.includeContainers=true
 ```
 
-Port-forward smoke test:
+Authenticated smoke test:
 
 ```sh
-kubectl -n kube-memlens port-forward svc/kube-memlens-collector 18080:8080
-curl -s http://127.0.0.1:18080/metrics | head -40
-```
-
-Kubernetes API service proxy smoke test:
-
-```sh
-kubectl get --raw '/api/v1/namespaces/kube-memlens/services/http:kube-memlens-collector:8080/proxy/metrics' | head
-```
-
-If that service proxy form does not work in your cluster, try:
-
-```sh
-kubectl get --raw '/api/v1/namespaces/kube-memlens/services/kube-memlens-collector:8080/proxy/metrics' | head
+kubectl get --raw '/apis/memory.kubememlens.io/v1alpha1/metrics/current' | jq -r '.content' | head -40
 ```
 
 PromQL examples:
@@ -340,15 +309,16 @@ See `docs/metrics.md` for the metric list, labels, guardrails, Helm values, and 
 
 See [installation and upgrade](docs/installation.md), the [support and compatibility contract](docs/compatibility.md), and the [release process](docs/release-process.md) for the current distribution contract and unverified environments.
 
-## RBAC For Kube-Proxy Mode
+## Read RBAC
 
-The kubeconfig identity running the CLI needs permission to access the collector service proxy:
+Bind the chart's namespace-viewer ClusterRole in each authorised namespace. Cluster-wide reads and workload metrics use separate roles and are never bound by default:
 
 ```sh
-kubectl auth can-i get services/proxy -n kube-memlens
+kubectl auth can-i list pods.memory.kubememlens.io -n <namespace>
+kubectl auth can-i list pods.memory.kubememlens.io --all-namespaces
 ```
 
-See `examples/rbac/kube-memlens-viewer.yaml` for a minimal Role that an admin can bind to users or groups.
+See the [tenant-scoped read runbook](docs/runbooks/tenant-scoped-reads.md) for exact grants, revocation and multi-user verification.
 
 ## Current Scope
 
@@ -365,10 +335,10 @@ See `examples/rbac/kube-memlens-viewer.yaml` for a minimal Role that an admin ca
 - bounded in-memory Pod history for composition, swap, PSI, peak, and memory-event deltas
 - collector-backed `top pods`, `top containers`, `top workloads`, `top ns`, `explain pod`, and `explain workload`
 - K9s-style Bubble Tea workflow with namespace, workload, Pod, container, bounded trend, and evidence detail views
-- Kubernetes API service proxy mode for CLI/TUI collector access
+- tenant-scoped Kubernetes aggregated API mode for CLI/TUI collector access
 - `status` command for collector connectivity and latest snapshot counts
 - `doctor` checks for node freshness, cgroup v2, runtime layout, cgroup read errors, mapping, and store consistency
-- Prometheus/OpenMetrics `/metrics` endpoint with cardinality guardrails
+- separately authorised Prometheus/OpenMetrics resource with cardinality guardrails
 
 ## Non-Goals
 
@@ -382,7 +352,7 @@ See `examples/rbac/kube-memlens-viewer.yaml` for a minimal Role that an admin ca
 
 ## Security Posture
 
-The alpha release reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. CLI kube-proxy mode uses the user's Kubernetes credentials and is governed by RBAC, but permission to proxy the collector does not provide namespace-scoped authorisation inside the collector. Metrics are exposed only by the in-cluster collector service by default. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. The [support contract](docs/compatibility.md) records the v1 tenant boundary, exposed metadata and unsupported environments. The accepted [authentication design](docs/security/authentication-and-authorisation.md) now protects agent writes; PROD-004 and PROD-005 still own tenant reads and removal of the remaining legacy read paths. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
+The alpha release reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. Current `main` uses Kubernetes request-header authentication, exact delegated authorisation, server-side namespace filtering and node-bound ingestion. The secure Service exposes only TLS port `443`; the Pod's `8080` listener is health-only. Metrics use a separate cluster permission. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. The [support contract](docs/compatibility.md) records the v1 tenant boundary, exposed metadata and unsupported environments. PROD-005 still owns adversarial isolation validation before a shared-cluster claim. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
 
 ## Contributing
 

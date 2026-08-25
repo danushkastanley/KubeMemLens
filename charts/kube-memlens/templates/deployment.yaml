@@ -47,6 +47,7 @@ spec:
             - "--ingest-listen=:{{ .Values.collector.ingestion.port }}"
 {{- end }}
             - "--snapshot-ttl={{ .Values.collector.snapshotTTL }}"
+            - "--read-max-concurrent={{ .Values.collector.read.maxConcurrentRequests }}"
             - "--history-duration={{ .Values.collector.history.duration }}"
             - "--history-max-series={{ .Values.collector.history.maxSeries }}"
             - "--history-max-points={{ .Values.collector.history.maxPoints }}"

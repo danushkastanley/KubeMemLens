@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -119,6 +120,18 @@ func TestRenderEscapesLabelValues(t *testing.T) {
 	}
 
 	assertContains(t, out, `namespace="team/\"a\\b\nc"`)
+}
+
+func TestRenderRejectsOutputBeforeReturningPartialContent(t *testing.T) {
+	out, err := (Exporter{
+		Source: testSource{namespaces: []api.NamespaceSnapshot{{
+			Namespace: strings.Repeat("n", 253), Memory: model.MemoryBreakdown{TotalBytes: 1},
+		}}, debug: api.DebugStore{Namespaces: 1}},
+		TTL: time.Minute, Now: fixedNow, Opts: DefaultOptions(), MaxBytes: 128,
+	}).Render()
+	if !errors.Is(err, ErrOutputTooLarge) || out != "" {
+		t.Fatalf("Render output=%q error=%v", out, err)
+	}
 }
 
 func renderForTest(t *testing.T, opts Options) string {

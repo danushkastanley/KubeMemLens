@@ -13,6 +13,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/collector"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
@@ -32,6 +33,35 @@ func TestHandlerRequiresAgentIdentityForEpochAndSnapshot(t *testing.T) {
 		if recorder.Code != http.StatusForbidden {
 			t.Fatalf("%s status = %d, want 403", path, recorder.Code)
 		}
+	}
+}
+
+func TestDiscoveryAdvertisesTenantReadResourcesWithoutWatch(t *testing.T) {
+	handler, _, _ := testHandler(t, 10, 10, 1)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/apis/memory.kubememlens.io/v1alpha1", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	var resources metav1.APIResourceList
+	if err := json.Unmarshal(recorder.Body.Bytes(), &resources); err != nil {
+		t.Fatalf("decode discovery: %v", err)
+	}
+	want := map[string]bool{
+		"pods": true, "pods/history": true, "containers": true, "workloads": true,
+		"nodes": true, "clusterstatus": true, "metrics": true,
+		"ingestionepochs": true, "nodesnapshots": true,
+	}
+	for _, resource := range resources.APIResources {
+		delete(want, resource.Name)
+		for _, verb := range resource.Verbs {
+			if verb == "watch" {
+				t.Fatalf("resource %s advertises unsupported watch", resource.Name)
+			}
+		}
+	}
+	if len(want) != 0 {
+		t.Fatalf("discovery missing resources: %#v", want)
 	}
 }
 
@@ -130,7 +160,7 @@ func TestHandlerLogsAndMetricsUseBoundedResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
-	mux := http.NewServeMux()
+	mux := newTestRouteMux()
 	ingestionHandler.Register(mux)
 	secret := "credential-secret-sentinel"
 	claims := testClaims("pod-a", "node-a", "node-uid-a")
@@ -159,7 +189,7 @@ func TestHandlerConcurrencyLimitRejectsBeforeReadingSecondBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
-	mux := http.NewServeMux()
+	mux := newTestRouteMux()
 	handler.Register(mux)
 	body, _ := json.Marshal(testRequest(now, "epoch-a", 1, "node-a", "node-uid-a"))
 	blocked := &blockingReader{reader: bytes.NewReader(body), started: make(chan struct{}), release: make(chan struct{})}
@@ -187,6 +217,24 @@ func TestHandlerConcurrencyLimitRejectsBeforeReadingSecondBody(t *testing.T) {
 	<-firstDone
 }
 
+func TestHandlerRegisterRoutesReadPrefixes(t *testing.T) {
+	readHandler, now := populatedReadHandler(t)
+	handler, err := NewHandler(testCoordinator(t, readHandler.store, now, 10), HandlerOptions{
+		AgentUsername:    "system:serviceaccount:kube-memlens:kube-memlens-agent",
+		MaxSnapshotBytes: 1 << 20, MaxConcurrent: 2, RequestsPerSec: 10, Burst: 2, MaxIdentities: 20,
+	})
+	if err != nil {
+		t.Fatalf("NewHandler: %v", err)
+	}
+	mux := newTestRouteMux()
+	handler.Register(mux)
+	recorder := httptest.NewRecorder()
+	mux.ServeHTTP(recorder, readRequest(t, "/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods", true))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+}
+
 func testHandler(t *testing.T, maxBytes int64, requestsPerSecond float64, burst int) (http.Handler, *collector.Store, time.Time) {
 	t.Helper()
 	now := time.Unix(1_800_000_000, 0).UTC()
@@ -200,9 +248,21 @@ func testHandler(t *testing.T, maxBytes int64, requestsPerSecond float64, burst 
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
-	mux := http.NewServeMux()
+	mux := newTestRouteMux()
 	handler.Register(mux)
 	return mux, store, now
+}
+
+type testRouteMux struct {
+	*http.ServeMux
+}
+
+func newTestRouteMux() *testRouteMux {
+	return &testRouteMux{ServeMux: http.NewServeMux()}
+}
+
+func (m *testRouteMux) HandlePrefix(path string, handler http.Handler) {
+	m.Handle(path, handler)
 }
 
 func serveSnapshot(t *testing.T, handler http.Handler, claims AgentClaims, request api.NodeSnapshotRequest, encoding string) *httptest.ResponseRecorder {

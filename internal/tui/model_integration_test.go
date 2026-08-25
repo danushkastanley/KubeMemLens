@@ -16,10 +16,11 @@ import (
 )
 
 type fakeSnapshotReader struct {
-	current client.CurrentSnapshot
-	nodes   []api.NodeSnapshotStatus
-	history []api.PodHistory
-	err     error
+	current   client.CurrentSnapshot
+	nodes     []api.NodeSnapshotStatus
+	history   []api.PodHistory
+	err       error
+	nodeCalls int
 }
 
 func (reader *fakeSnapshotReader) Health(context.Context) error { return reader.err }
@@ -36,6 +37,7 @@ func (reader *fakeSnapshotReader) Namespaces(context.Context) ([]api.NamespaceSn
 	return reader.current.Namespaces, reader.err
 }
 func (reader *fakeSnapshotReader) Nodes(context.Context) ([]api.NodeSnapshotStatus, error) {
+	reader.nodeCalls++
 	return reader.nodes, reader.err
 }
 func (reader *fakeSnapshotReader) Workloads(context.Context) ([]api.WorkloadSnapshot, error) {
@@ -80,7 +82,7 @@ func TestFetchAdaptersProduceCompleteSnapshotData(t *testing.T) {
 		"legacy lists":  basicSnapshotReader{inner: reader},
 	} {
 		t.Run(name, func(t *testing.T) {
-			m := newModel(context.Background(), Options{}, adapter, "test")
+			m := newModel(context.Background(), Options{AllNamespaces: true}, adapter, "test")
 			message := m.fetchCmd()().(fetchMsg)
 			if message.err != nil {
 				t.Fatalf("fetch: %v", message.err)
@@ -89,6 +91,18 @@ func TestFetchAdaptersProduceCompleteSnapshotData(t *testing.T) {
 				t.Fatalf("snapshot data = %#v", message.data)
 			}
 		})
+	}
+}
+
+func TestNamespacedFetchDoesNotRequestClusterNodes(t *testing.T) {
+	reader := tuiFixtureReader()
+	m := newModel(context.Background(), Options{Namespace: "default", AllNamespaces: false}, reader, "test")
+	message := m.fetchCmd()().(fetchMsg)
+	if message.err != nil {
+		t.Fatalf("fetch: %v", message.err)
+	}
+	if reader.nodeCalls != 0 || len(message.data.Nodes) != 0 || len(message.data.Pods) == 0 {
+		t.Fatalf("namespaced fetch widened scope: calls=%d data=%#v", reader.nodeCalls, message.data)
 	}
 }
 
@@ -207,7 +221,7 @@ func TestLoadingEmptyErrorHelpAndActionFrames(t *testing.T) {
 		t.Fatalf("empty frame:\n%s", frame)
 	}
 	m.statusErr = errors.New("offline")
-	if frame := m.viewString(); !strings.Contains(frame, "Could not connect") {
+	if frame := m.viewString(); !strings.Contains(frame, "invalid response") {
 		t.Fatalf("error frame:\n%s", frame)
 	}
 	m.statusErr = nil

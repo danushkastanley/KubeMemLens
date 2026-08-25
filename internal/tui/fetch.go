@@ -20,9 +20,12 @@ func (m appModel) fetchCmd() tea.Cmd {
 			var nodes []api.NodeSnapshotStatus
 			var currentErr, nodesErr error
 			var wait sync.WaitGroup
-			wait.Add(2)
+			wait.Add(1)
 			go func() { defer wait.Done(); current, currentErr = reader.CurrentSnapshot(ctx) }()
-			go func() { defer wait.Done(); nodes, nodesErr = m.client.Nodes(ctx) }()
+			if m.opts.AllNamespaces {
+				wait.Add(1)
+				go func() { defer wait.Done(); nodes, nodesErr = m.client.Nodes(ctx) }()
+			}
 			wait.Wait()
 			if currentErr != nil {
 				return fetchMsg{generation: generation, err: currentErr}
@@ -41,8 +44,11 @@ func (m appModel) fetchCmd() tea.Cmd {
 		var data snapshotData
 		var namespaceErr, workloadErr, podErr, containerErr, nodeErr error
 		var wait sync.WaitGroup
-		wait.Add(5)
-		go func() { defer wait.Done(); data.Nodes, nodeErr = m.client.Nodes(ctx) }()
+		wait.Add(4)
+		if m.opts.AllNamespaces {
+			wait.Add(1)
+			go func() { defer wait.Done(); data.Nodes, nodeErr = m.client.Nodes(ctx) }()
+		}
 		go func() { defer wait.Done(); data.Namespaces, namespaceErr = m.client.Namespaces(ctx) }()
 		go func() { defer wait.Done(); data.Workloads, workloadErr = m.client.Workloads(ctx) }()
 		go func() { defer wait.Done(); data.Pods, podErr = m.client.Pods(ctx) }()

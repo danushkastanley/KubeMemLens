@@ -35,6 +35,8 @@ apiVersion: apiregistration.k8s.io/v1
 kind: APIService
 metadata:
   name: v1alpha1.memory.kubememlens.io
+  annotations:
+    memory.kubememlens.io/discovery-revision: "v1alpha1-tenant-reads-v1"
 spec:
   group: memory.kubememlens.io
   version: v1alpha1

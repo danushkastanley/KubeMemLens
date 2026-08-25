@@ -11,8 +11,9 @@ spec:
   policyTypes:
     - Ingress
   ingress:
-    # Keep read and metrics access compatible with API-server service proxy,
-    # port-forwarding, and in-cluster Prometheus. These handlers are read-only.
+    # The Pod-local HTTP listener serves health only in authenticated mode.
+    # Keeping it reachable allows kubelet probes without exposing tenant data
+    # through the Service.
     - ports:
         - port: http
           protocol: TCP

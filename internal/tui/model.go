@@ -105,6 +105,9 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.loading = false
 		if msg.err != nil {
+			if client.IsForbidden(msg.err) {
+				m.clearRevokedData()
+			}
 			m.statusErr = msg.err
 			return m, nil
 		}
@@ -128,6 +131,21 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+}
+
+func (m *appModel) clearRevokedData() {
+	m.data = snapshotData{}
+	m.podTrends = make(map[string]int8)
+	m.lastRefresh = time.Time{}
+	m.selectedHistory.clearSelection()
+	m.action = actionState{}
+	m.currentNamespace = ""
+	m.currentNode = ""
+	m.currentWorkloadKind = ""
+	m.currentWorkloadName = ""
+	m.selectedPodNS = ""
+	m.selectedPodName = ""
+	m.detail = entityRef{}
 }
 
 func (m *appModel) updatePodTrends(next []api.PodSnapshot) {

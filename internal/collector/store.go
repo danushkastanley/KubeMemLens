@@ -154,27 +154,33 @@ func (s *Store) ListNamespaces(now time.Time, ttl time.Duration) []api.Namespace
 }
 
 func (s *Store) Debug(now time.Time, ttl time.Duration) api.StoreDebug {
-	containers := s.ListContainers(now, ttl)
+	shards := s.readShards(now, ttl)
+	totalContainers := 0
+	pods := make(map[digestKey]struct{})
+	namespaces := make(map[string]struct{})
+	hasher := identityBuffer{}
+	visitScopedShards(shards, ReadScope{}, func(container api.ContainerSnapshot) {
+		totalContainers++
+		if key, ok := hasher.pod(container); ok {
+			pods[key] = struct{}{}
+		}
+		if container.Namespace != "" {
+			namespaces[container.Namespace] = struct{}{}
+		}
+	})
 
+	return s.debugWithCounts(now, totalContainers, len(pods), len(namespaces))
+}
+
+func (s *Store) debugWithCounts(now time.Time, totalContainers, pods, namespaces int) api.StoreDebug {
 	s.mu.Lock()
-	total := 0
-	for _, snapshot := range s.nodes {
-		total += len(snapshot.containers)
-	}
+	defer s.mu.Unlock()
 	s.history.prune(now)
 	historySeries, historyPoints := s.history.stats()
-	s.mu.Unlock()
-
 	return api.StoreDebug{
-		TotalContainers: total,
-		StaleContainers: 0,
-		NodeRecords:     len(s.nodes),
-		MaxNodes:        s.limits.MaxNodes,
-		MaxContainers:   s.limits.MaxContainers,
-		Pods:            countPods(containers),
-		Namespaces:      countNamespaces(containers),
-		HistorySeries:   historySeries,
-		HistoryPoints:   historyPoints,
+		TotalContainers: totalContainers, StaleContainers: 0, NodeRecords: len(s.nodes),
+		MaxNodes: s.limits.MaxNodes, MaxContainers: s.limits.MaxContainers,
+		Pods: pods, Namespaces: namespaces, HistorySeries: historySeries, HistoryPoints: historyPoints,
 	}
 }
 

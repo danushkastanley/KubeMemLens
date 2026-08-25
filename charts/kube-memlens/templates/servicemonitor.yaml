@@ -1,3 +1,6 @@
+{{- if and .Values.metrics.serviceMonitor.enabled (eq .Values.agent.ingestionMode "authenticated") }}
+{{- fail "metrics.serviceMonitor requires agent.ingestionMode=legacy until the scraper is configured for the authenticated aggregated metrics resource" }}
+{{- end }}
 {{- if .Values.metrics.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor

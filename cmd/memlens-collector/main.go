@@ -35,6 +35,7 @@ func main() {
 	ingestionMaxConcurrent := flag.Int("ingestion-max-concurrent", 4, "maximum snapshot bodies decoded concurrently")
 	ingestionRequestsPerSecond := flag.Float64("ingestion-requests-per-second-per-agent", 1, "accepted request rate per authenticated agent Pod")
 	ingestionBurst := flag.Int("ingestion-burst-per-agent", 2, "authenticated ingestion burst per agent Pod")
+	readMaxConcurrent := flag.Int("read-max-concurrent", 4, "maximum authenticated read requests admitted concurrently")
 	handlerOpts := collector.DefaultHandlerOptions(30 * time.Second)
 	historyOpts := collector.DefaultHistoryOptions()
 	storeLimits := collector.DefaultStoreLimits()
@@ -69,7 +70,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "ingestion mode must be legacy or authenticated")
 		os.Exit(2)
 	}
-	if historyOpts.Duration <= 0 || historyOpts.MaxSeries <= 0 || historyOpts.MaxPoints <= 0 || historyOpts.MaxResponseSeries <= 0 || storeLimits.MaxNodes <= 0 || storeLimits.MaxContainers <= 0 || handlerOpts.MaxResponseBytes <= 0 {
+	if historyOpts.Duration <= 0 || historyOpts.MaxSeries <= 0 || historyOpts.MaxPoints <= 0 || historyOpts.MaxResponseSeries <= 0 || storeLimits.MaxNodes <= 0 || storeLimits.MaxContainers <= 0 || handlerOpts.MaxResponseBytes <= 0 || *readMaxConcurrent <= 0 {
 		fmt.Fprintln(os.Stderr, "history, store, and response limits must be greater than zero")
 		os.Exit(2)
 	}
@@ -82,7 +83,11 @@ func main() {
 	defer stop()
 	serverFailures := make(chan error, 3)
 
-	readServer := newHTTPServer(*listenAddr, collector.NewReadHandlerWithOptions(store, handlerOpts))
+	readHandler := collector.NewHealthHandler()
+	if *ingestionMode == ingestionLegacy {
+		readHandler = collector.NewReadHandlerWithOptions(store, handlerOpts)
+	}
+	readServer := newHTTPServer(*listenAddr, readHandler)
 	servers := []struct {
 		name   string
 		server *http.Server
@@ -120,7 +125,7 @@ func main() {
 			err := (extension.ServerOptions{
 				BindPort: *extensionPort, CertFile: *extensionCertFile, KeyFile: *extensionKeyFile,
 				KubeconfigFile: *extensionKubeconfig, MaxBodyBytes: handlerOpts.MaxSnapshotBytes,
-				MaxRead: 64, MaxMutating: 32, RequestTimeout: 10 * time.Second, Handler: handler,
+				MaxRead: *readMaxConcurrent, MaxMutating: 32, RequestTimeout: 10 * time.Second, Handler: handler,
 			}).Run(ctx)
 			if err != nil && !errors.Is(err, context.Canceled) {
 				fmt.Printf("memlens-collector extension server failed: %v\n", err)

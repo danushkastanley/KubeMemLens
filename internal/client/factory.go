@@ -19,12 +19,30 @@ func NewSnapshotReader(ctx context.Context, opts Options) (SnapshotReader, strin
 	}
 
 	switch mode {
+	case ConnectionModeKubernetesAPI:
+		description := Describe(opts)
+		config, err := kube.BuildConfig(opts.Kubeconfig, opts.Context)
+		if err != nil {
+			return nil, description, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, description, ctx.Err()
+		default:
+		}
+		reader, err := NewKubernetesAPIClient(config, opts.ReadScope, opts.Timeout)
+		if err != nil {
+			return nil, description, err
+		}
+		return reader, description, nil
 	case ConnectionModeHTTP:
 		if opts.CollectorURL == "" {
 			return nil, "", fmt.Errorf("collector URL is required in http mode")
 		}
 		description := opts.CollectorURL
-		return NewCollectorClientWithTimeout(opts.CollectorURL, opts.Timeout), description, nil
+		reader := NewCollectorClientWithTimeout(opts.CollectorURL, opts.Timeout)
+		reader.scope = opts.ReadScope
+		return reader, description, nil
 	case ConnectionModeKubeProxy:
 		description := Describe(opts)
 		config, err := kube.BuildConfig(opts.Kubeconfig, opts.Context)
@@ -40,6 +58,7 @@ func NewSnapshotReader(ctx context.Context, opts Options) (SnapshotReader, strin
 		if err != nil {
 			return nil, description, err
 		}
+		reader.scope = opts.ReadScope
 		return reader, description, nil
 	default:
 		return nil, "", fmt.Errorf("unsupported connect mode %q", mode)

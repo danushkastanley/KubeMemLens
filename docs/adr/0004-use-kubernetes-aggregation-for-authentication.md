@@ -30,7 +30,7 @@ Use the upstream `k8s.io/apiserver` delegated authentication and authorisation p
 
 Human and automation clients keep using their existing kubeconfig credentials against the Kubernetes API server. No user bearer token, client certificate or exec-plugin output is sent to or stored by the collector.
 
-Namespace Roles grant `get`, `list` and `watch` only for namespaced KubeMemLens resources. A separate ClusterRole grants all-namespace and node views to approved cluster operators. There is no wildcard resource or verb grant.
+Namespace Roles grant only the `get` and `list` operations implemented by namespaced KubeMemLens resources. A separate ClusterRole grants all-namespace and node views to approved cluster operators. There is no wildcard resource or verb grant. CLI and TUI streaming views use bounded polling, and every refresh receives a new delegated decision.
 
 ### Agent identity
 

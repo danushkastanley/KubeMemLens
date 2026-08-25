@@ -23,7 +23,10 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 		Short: "Write a redacted incident bundle for offline replay",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), namespace, namespace == "")
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
@@ -36,9 +39,12 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			if podName != "" && len(pods) == 0 {
 				return fmt.Errorf("Pod %s/%s was not found in current collector snapshots", namespace, podName)
 			}
-			nodes, err := reader.Nodes(cmd.Context())
-			if err != nil {
-				return collectorUnavailableError(opts, description, err)
+			var nodes []api.NodeSnapshotStatus
+			if namespace == "" {
+				nodes, err = reader.Nodes(cmd.Context())
+				if err != nil {
+					return collectorUnavailableError(opts, description, err)
+				}
 			}
 			bundle := api.IncidentBundle{
 				SchemaVersion: api.CurrentIncidentSchemaVersion,
@@ -47,6 +53,10 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				Redacted:      !includeSensitive,
 				Pods:          pods,
 				Nodes:         nodes,
+			}
+			if namespace != "" {
+				bundle.Partial = true
+				bundle.Caveats = []string{"Cluster node summaries are omitted from a namespace-scoped capture."}
 			}
 			if includeHistory {
 				if len(pods) > maxCaptureHistoryPods {
@@ -67,7 +77,7 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				return err
 			}
 			if output != "-" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s (%d Pods, %d history series; redacted=%t)\n", output, len(bundle.Pods), len(bundle.Histories), bundle.Redacted)
+				fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s (%d Pods, %d history series; redacted=%t; partial=%t)\n", output, len(bundle.Pods), len(bundle.Histories), bundle.Redacted, bundle.Partial)
 			}
 			return nil
 		},

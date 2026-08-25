@@ -66,10 +66,17 @@ kctl wait --for=condition=Available "apiservice/${api_service}" --timeout=90s >/
 kctl get --raw /apis/memory.kubememlens.io/v1alpha1 > "${work_dir}/discovery.json"
 jq -e '
   .groupVersion == "memory.kubememlens.io/v1alpha1" and
-  .resources == [
-    {name:"ingestionepochs", singularName:"", namespaced:false, kind:"IngestionEpoch", verbs:["get"]},
-    {name:"nodesnapshots", singularName:"", namespaced:false, kind:"NodeSnapshot", verbs:["create"]}
-  ]
+  ([.resources[] | del(.group, .version, .storageVersionHash)] == [
+    {name:"pods", singularName:"pod", namespaced:true, kind:"PodMemory", verbs:["get","list"]},
+    {name:"pods/history", singularName:"", namespaced:true, kind:"PodMemoryHistory", verbs:["get"]},
+    {name:"containers", singularName:"container", namespaced:true, kind:"ContainerMemory", verbs:["list"]},
+    {name:"workloads", singularName:"workload", namespaced:true, kind:"WorkloadMemory", verbs:["list"]},
+    {name:"nodes", singularName:"node", namespaced:false, kind:"NodeMemory", verbs:["get","list"]},
+    {name:"clusterstatus", singularName:"clusterstatus", namespaced:false, kind:"ClusterStatus", verbs:["get"]},
+    {name:"metrics", singularName:"metrics", namespaced:false, kind:"Metrics", verbs:["get"]},
+    {name:"ingestionepochs", singularName:"ingestionepoch", namespaced:false, kind:"IngestionEpoch", verbs:["get"]},
+    {name:"nodesnapshots", singularName:"nodesnapshot", namespaced:false, kind:"NodeSnapshot", verbs:["create"]}
+  ])
 ' "${work_dir}/discovery.json" >/dev/null
 ports=$(kctl get service kube-memlens-collector -n "${namespace}" -o jsonpath='{range .spec.ports[*]}{.port}{"\n"}{end}')
 if grep -Fxq 8081 <<<"${ports}"; then
@@ -119,7 +126,7 @@ captured_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 jq -n --arg epoch "${epoch}" --arg node "${node_name}" --arg node_uid "${node_uid}" --arg captured "${captured_at}" '{
   apiVersion:"memory.kubememlens.io/v1alpha1", kind:"NodeSnapshot", metadata:{},
-  nodeUID:$node_uid, epoch:$epoch, sequence:100,
+  nodeUID:$node_uid, epoch:$epoch, sequence:1000000,
   snapshot:{schemaVersion:1,nodeName:$node,capturedAt:$captured,environment:{},containers:[]}
 }' > "${work_dir}/request.json"
 jq '.snapshot.nodeName = "forged-node"' "${work_dir}/request.json" > "${work_dir}/wrong-node.json"
@@ -134,23 +141,32 @@ post() {
     "${server}/apis/memory.kubememlens.io/v1alpha1/nodesnapshots"
 }
 
+post_after_rate_limit() {
+  local token=$1
+  local body=$2
+  local code=429
+  for _ in $(seq 1 8); do
+    code=$(post "${token}" "${body}")
+    [ "${code}" = 429 ] || break
+    sleep 2
+  done
+  echo "${code}"
+}
+
 [ "$(post "${token_one}" "${work_dir}/wrong-node.json")" = 403 ]
 jq -e '.reason == "node_claim_mismatch"' "${work_dir}/response.json" >/dev/null
-[ "$(post "${token_one}" "${work_dir}/request.json")" = 200 ]
+[ "$(post_after_rate_limit "${token_one}" "${work_dir}/request.json")" = 200 ]
 owner_changed=true
 jq -e '.accepted == true and .duplicate == false' "${work_dir}/response.json" >/dev/null
 [ "$(post "${token_two}" "${work_dir}/request.json")" = 429 ]
-sleep 2
-[ "$(post "${token_two}" "${work_dir}/request.json")" = 200 ]
+[ "$(post_after_rate_limit "${token_two}" "${work_dir}/request.json")" = 200 ]
 jq -e '.accepted == true and .duplicate == true' "${work_dir}/response.json" >/dev/null
 
-sleep 2
 jq '.snapshot.environment.cgroupDriver = "changed"' "${work_dir}/request.json" > "${work_dir}/changed.json"
-[ "$(post "${token_two}" "${work_dir}/changed.json")" = 409 ]
+[ "$(post_after_rate_limit "${token_two}" "${work_dir}/changed.json")" = 409 ]
 jq -e '.reason == "sequence_conflict"' "${work_dir}/response.json" >/dev/null
-sleep 2
-jq '.sequence = 99' "${work_dir}/request.json" > "${work_dir}/lower.json"
-[ "$(post "${token_two}" "${work_dir}/lower.json")" = 409 ]
+jq '.sequence = 999999' "${work_dir}/request.json" > "${work_dir}/lower.json"
+[ "$(post_after_rate_limit "${token_two}" "${work_dir}/lower.json")" = 409 ]
 jq -e '.reason == "sequence_replayed"' "${work_dir}/response.json" >/dev/null
 sleep 2
 [ "$(post "${token_two}" "${work_dir}/request.json" -H 'Content-Encoding: gzip')" = 415 ]

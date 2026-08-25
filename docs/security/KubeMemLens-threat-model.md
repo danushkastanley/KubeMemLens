@@ -121,7 +121,7 @@ Non-capabilities at the start of an abuse path:
 
 | Entry point | Untrusted input | Boundary and owner |
 | --- | --- | --- |
-| Aggregated read resources | Verb, namespace, resource, name, selectors and pagination | Kubernetes authentication plus extension delegated authorisation; future PROD-004 handlers |
+| Aggregated read resources | Verb, namespace, resource, name, selectors and pagination | Kubernetes authentication plus exact extension delegated authorisation and scope-first filtering |
 | `nodesnapshots` create | Identity extras, epoch, sequence, time and bounded snapshot JSON | Kubernetes authentication plus the PROD-003 extension node binding and `internal/collector` validation |
 | `ingestionepochs` get | Agent identity | Exact agent RBAC and extension identity check |
 | Aggregation listener | TLS client certificate and forwarded identity headers | Request-header authenticator configured from `extension-apiserver-authentication` |
@@ -162,7 +162,7 @@ Existing eBPF threat IDs TM-001 through TM-010 retain their original meanings. A
 | TM-009 | Tracer network or API bypass | In-cluster attacker reaches tracer | High cross-tenant impact | Kubernetes authentication; no unauthenticated node port; NetworkPolicy as defence in depth; bounded decoding | Unauthorised network and fuzz tests |
 | TM-010 | Provider or kernel incompatibility | Required BTF, hook or permission is absent | Medium availability or integrity impact | Per-node preflight; supported-state matrix; fail without attachment; retain deep-mode diagnosis | GKE, EKS, AKS and unsupported-node fixtures |
 | TM-011 | Unauthenticated or forged snapshot ingestion | Caller reaches the write listener | High diagnostic integrity breach | Production writes only through aggregated API; exact agent ServiceAccount; delegated SAR; direct listener disabled | Direct-connect, forged-header and wrong-account tests |
-| TM-012 | Cross-tenant list, detail or history read | Namespace principal has some read permission | High confidentiality breach | Namespaced virtual resources; exact namespace SAR; filter before lookup; cluster list requires ClusterRole | Two-namespace list, get, watch, history, compare and capture tests |
+| TM-012 | Cross-tenant list, detail or history read | Namespace principal has some read permission | High confidentiality breach | Namespaced virtual resources; exact namespace SAR; filter before lookup; cluster list requires ClusterRole | Two-namespace list, get, polling revocation, history, compare and capture tests |
 | TM-013 | Aggregation identity-header spoofing | Caller reaches extension Service directly | Critical authentication bypass | Validate proxy client CA and allowed name before trusting headers; use upstream delegated authenticator; reject direct requests | Direct TLS/plaintext and forged-header tests |
 | TM-014 | Stolen token or cross-node snapshot claim | Live agent token is copied | High integrity and tenant impact | Pod-bound rotated token; require Pod UID, node name and node UID extras; payload must match; delete Pod to revoke | TokenReview claim, wrong-node, deleted-Pod and expiry tests |
 | TM-015 | Snapshot replay or reordering | An accepted request is captured | High diagnostic integrity impact | Random collector epoch; strictly increasing sequence per authenticated Pod UID; bounded capture time | Duplicate, lower sequence, stale time and restart replay tests |

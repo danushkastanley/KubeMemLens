@@ -294,6 +294,18 @@ func ValidateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOpt
 	}
 	containerIDs := make(map[string]struct{}, len(snapshot.Containers))
 	for i, container := range snapshot.Containers {
+		if len(container.Namespace) > 63 {
+			return fmt.Errorf("containers[%d].namespace exceeds 63 bytes", i)
+		}
+		if len(container.PodName) > 253 {
+			return fmt.Errorf("containers[%d].podName exceeds 253 bytes", i)
+		}
+		if len(container.PodUID) > 128 {
+			return fmt.Errorf("containers[%d].podUID exceeds 128 bytes", i)
+		}
+		if len(container.ContainerName) > 63 {
+			return fmt.Errorf("containers[%d].containerName exceeds 63 bytes", i)
+		}
 		if strings.TrimSpace(container.ContainerID) == "" {
 			return fmt.Errorf("containers[%d].containerID is required", i)
 		}

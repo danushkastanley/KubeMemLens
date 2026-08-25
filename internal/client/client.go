@@ -16,3 +16,11 @@ type SnapshotReader interface {
 	PodHistory(ctx context.Context, namespace, podName string) ([]api.PodHistory, error)
 	DebugStore(ctx context.Context) (api.DebugStore, error)
 }
+
+type PodReader interface {
+	Pod(ctx context.Context, namespace, podName string) (api.PodSnapshot, error)
+}
+
+type MetricsReader interface {
+	Metrics(ctx context.Context) (api.Metrics, error)
+}

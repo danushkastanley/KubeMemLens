@@ -31,12 +31,12 @@ The production group is `memory.kubememlens.io/v1alpha1`. These are virtual reso
 | Resource or path | Scope | Verbs | Principal | Server decision |
 | --- | --- | --- | --- | --- |
 | API discovery | Cluster | `get` | Authenticated Kubernetes clients | API server and extension discovery policy |
-| `pods` | Namespace | `get`, `list`, `watch` | Namespace or cluster viewer | Filter by authorised request namespace before store lookup |
+| `pods` | Namespace | `get`, `list` | Namespace or cluster viewer | Filter by authorised request namespace before store lookup |
 | `pods/history` | Namespace | `get` | Namespace or cluster viewer | Require Pod name and the same namespace decision as the parent Pod |
-| `containers` | Namespace | `get`, `list`, `watch` | Namespace or cluster viewer | Never return a container outside the authorised namespace |
-| `workloads` | Namespace | `get`, `list`, `watch` | Namespace or cluster viewer | Aggregate only authorised Pods in the request namespace |
-| `pods` without a namespace | Cluster | `list`, `watch` | Cluster viewer only | Deny namespace Role holders even if a query filter narrows results |
-| `nodes` | Cluster | `get`, `list`, `watch` | Cluster viewer only | No namespace-level node listing |
+| `containers` | Namespace | `list` | Namespace or cluster viewer | Never return a container outside the authorised namespace |
+| `workloads` | Namespace | `list` | Namespace or cluster viewer | Aggregate only authorised Pods in the request namespace |
+| `pods` without a namespace | Cluster | `list` | Cluster viewer only | Deny namespace Role holders even if a query filter narrows results |
+| `nodes` | Cluster | `get`, `list` | Cluster viewer only | No namespace-level node listing |
 | `clusterstatus` | Cluster | `get` | Cluster viewer only | Return bounded health, coverage and store state without raw identifiers |
 | `metrics` | Cluster | `get` | Metrics scraper or a cluster operator with the separate metrics binding | Return workload-labelled metrics only through this authenticated path |
 | `ingestionepochs` | Cluster | `get` | Node agent only | Return current collector epoch and schema version |
@@ -45,16 +45,22 @@ The production group is `memory.kubememlens.io/v1alpha1`. These are virtual reso
 | Agent `/metrics` | Cluster-local | `get` | Operator monitoring path | Low-cardinality process counters without workload or node labels |
 | Legacy `/api/v1/*` and workload `/metrics` | Direct Service | None in secure profile | No production principal | Listener disabled or request rejected before routing |
 
-Client-side compare, capture and recommendation actions may use only records already returned by authorised API calls. They cannot switch to a wider server resource or infer whether a denied object exists.
+Client-side compare, capture and recommendation actions may use only records already returned by authorised API calls. They cannot switch to a wider server resource or infer whether a denied object exists. CLI and TUI streaming views use bounded polling; each refresh performs a new authenticated and authorised `list` request. The API does not advertise a Kubernetes `watch` verb.
 
 ## Roles
 
 ### Namespace viewer Role
 
 ```yaml
-apiGroups: ["memory.kubememlens.io"]
-resources: ["pods", "pods/history", "containers", "workloads"]
-verbs: ["get", "list", "watch"]
+- apiGroups: ["memory.kubememlens.io"]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: ["memory.kubememlens.io"]
+  resources: ["containers", "workloads"]
+  verbs: ["list"]
+- apiGroups: ["memory.kubememlens.io"]
+  resources: ["pods/history"]
+  verbs: ["get"]
 ```
 
 Bind this Role in each namespace the principal may inspect. A RoleBinding in the KubeMemLens installation namespace is not a tenant grant.
@@ -62,9 +68,21 @@ Bind this Role in each namespace the principal may inspect. A RoleBinding in the
 ### Cluster viewer ClusterRole
 
 ```yaml
-apiGroups: ["memory.kubememlens.io"]
-resources: ["pods", "pods/history", "containers", "workloads", "nodes", "clusterstatus"]
-verbs: ["get", "list", "watch"]
+- apiGroups: ["memory.kubememlens.io"]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: ["memory.kubememlens.io"]
+  resources: ["containers", "workloads"]
+  verbs: ["list"]
+- apiGroups: ["memory.kubememlens.io"]
+  resources: ["pods/history"]
+  verbs: ["get"]
+- apiGroups: ["memory.kubememlens.io"]
+  resources: ["nodes"]
+  verbs: ["get", "list"]
+- apiGroups: ["memory.kubememlens.io"]
+  resources: ["clusterstatus"]
+  verbs: ["get"]
 ```
 
 Grant `metrics` separately so an interactive cluster viewer does not automatically become a monitoring scraper.

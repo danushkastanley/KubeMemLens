@@ -1,6 +1,6 @@
 # Metrics
 
-KubeMemLens exposes Prometheus/OpenMetrics-compatible metrics from the collector at `/metrics`.
+KubeMemLens exposes Prometheus/OpenMetrics-compatible content through the aggregated `metrics/current` resource. The secure profile requires a separate metrics-reader binding. Direct `/metrics` remains available only in explicit legacy mode.
 
 The [support and compatibility contract](compatibility.md#data-and-metadata-exposure) is the canonical source for metric metadata visibility, retention ownership and tenant-boundary requirements.
 
@@ -241,6 +241,8 @@ metrics:
 
 The optional `PrometheusRule` includes recording rules plus alerts for stale agents, sustained Pod pressure, recent OOM evidence, sustained limit risk, and low mapping coverage. Each alert links to a focused runbook under `docs/runbooks`. The optional dashboard ConfigMap contains a small four-panel dashboard for top Pods, selected-Pod composition, diagnosis state, and agent freshness. Both resources require the operator's existing Prometheus/Grafana discovery setup and are disabled by default.
 
+`maxPods` and `maxContainers` are upper bounds. The collector also derives a conservative entity ceiling from `collector.maxResponseBytes`; a tighter response budget takes precedence. Namespace, Pod or container series that exceed these bounds are omitted and counted by `kubememlens_metrics_dropped_entities`. Store counts, agent freshness and ingestion outcomes remain available without materialising the full container view.
+
 Enable container metrics:
 
 ```sh
@@ -299,23 +301,8 @@ Pods with OOM-risk diagnosis:
 kubememlens_pod_diagnosis{diagnosis="oom-risk"} == 1
 ```
 
-## Smoke Tests
-
-Port-forward:
+## Smoke Test
 
 ```sh
-kubectl -n kube-memlens port-forward svc/kube-memlens-collector 18080:8080
-curl -s http://127.0.0.1:18080/metrics | head -40
-```
-
-Kubernetes API service proxy:
-
-```sh
-kubectl get --raw '/api/v1/namespaces/kube-memlens/services/http:kube-memlens-collector:8080/proxy/metrics' | head
-```
-
-Fallback service proxy form:
-
-```sh
-kubectl get --raw '/api/v1/namespaces/kube-memlens/services/kube-memlens-collector:8080/proxy/metrics' | head
+kubectl get --raw '/apis/memory.kubememlens.io/v1alpha1/metrics/current' | jq -r '.content' | head -40
 ```

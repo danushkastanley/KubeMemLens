@@ -42,6 +42,7 @@ type HandlerOptions struct {
 
 type Handler struct {
 	coordinator *Coordinator
+	reads       *ReadHandler
 	opts        HandlerOptions
 	concurrent  chan struct{}
 	limiterMu   sync.Mutex
@@ -71,6 +72,7 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	}
 	return &Handler{
 		coordinator: coordinator,
+		reads:       NewReadHandler(coordinator.store, coordinator.opts.Handler),
 		opts:        opts,
 		concurrent:  make(chan struct{}, opts.MaxConcurrent),
 		limiters:    map[string]identityLimiter{},
@@ -79,6 +81,7 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 
 type routeMux interface {
 	HandleFunc(string, func(http.ResponseWriter, *http.Request))
+	HandlePrefix(string, http.Handler)
 }
 
 func (h *Handler) Register(mux routeMux) {
@@ -86,6 +89,7 @@ func (h *Handler) Register(mux routeMux) {
 	mux.HandleFunc(groupVersion, h.discovery)
 	mux.HandleFunc(groupVersion+"/ingestionepochs/current", h.epoch)
 	mux.HandleFunc(groupVersion+"/nodesnapshots", h.snapshot)
+	mux.HandlePrefix(groupVersion+"/", h.reads)
 }
 
 func (h *Handler) discovery(w http.ResponseWriter, r *http.Request) {
@@ -96,11 +100,32 @@ func (h *Handler) discovery(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, metav1.APIResourceList{
 		TypeMeta:     metav1.TypeMeta{APIVersion: "v1", Kind: "APIResourceList"},
 		GroupVersion: api.MemoryAPIGroup + "/" + api.MemoryAPIVersion,
-		APIResources: []metav1.APIResource{
-			{Name: "ingestionepochs", Namespaced: false, Kind: "IngestionEpoch", Verbs: metav1.Verbs{"get"}},
-			{Name: "nodesnapshots", Namespaced: false, Kind: "NodeSnapshot", Verbs: metav1.Verbs{"create"}},
-		},
+		APIResources: discoveryResources(),
 	})
+}
+
+func discoveryResources() []metav1.APIResource {
+	return []metav1.APIResource{
+		{Name: "pods", SingularName: "pod", Namespaced: true, Kind: "PodMemory", Verbs: metav1.Verbs{"get", "list"}},
+		{Name: "pods/history", Namespaced: true, Kind: "PodMemoryHistory", Verbs: metav1.Verbs{"get"}},
+		{Name: "containers", SingularName: "container", Namespaced: true, Kind: "ContainerMemory", Verbs: metav1.Verbs{"list"}},
+		{Name: "workloads", SingularName: "workload", Namespaced: true, Kind: "WorkloadMemory", Verbs: metav1.Verbs{"list"}},
+		{Name: "nodes", SingularName: "node", Namespaced: false, Kind: "NodeMemory", Verbs: metav1.Verbs{"get", "list"}},
+		{Name: "clusterstatus", SingularName: "clusterstatus", Namespaced: false, Kind: "ClusterStatus", Verbs: metav1.Verbs{"get"}},
+		{Name: "metrics", SingularName: "metrics", Namespaced: false, Kind: "Metrics", Verbs: metav1.Verbs{"get"}},
+		{Name: "ingestionepochs", SingularName: "ingestionepoch", Namespaced: false, Kind: "IngestionEpoch", Verbs: metav1.Verbs{"get"}},
+		{Name: "nodesnapshots", SingularName: "nodesnapshot", Namespaced: false, Kind: "NodeSnapshot", Verbs: metav1.Verbs{"create"}},
+	}
+
+}
+
+func aggregatedDiscoveryResources() []metav1.APIResource {
+	resources := discoveryResources()
+	for index := range resources {
+		resources[index].Group = api.MemoryAPIGroup
+		resources[index].Version = api.MemoryAPIVersion
+	}
+	return resources
 }
 
 func (h *Handler) epoch(w http.ResponseWriter, r *http.Request) {

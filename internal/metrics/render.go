@@ -13,7 +13,7 @@ import (
 )
 
 type renderer struct {
-	b strings.Builder
+	b boundedBuilder
 }
 
 type memoryMetric struct {
@@ -26,19 +26,54 @@ type eventMetric struct {
 	value uint64
 }
 
-func newRenderer() *renderer {
-	return &renderer{}
+func newRenderer(maxBytes int) *renderer {
+	return &renderer{b: boundedBuilder{max: maxBytes}}
 }
 
-func (r *renderer) String() string {
-	r.b.WriteString("# EOF\n")
-	return r.b.String()
+func (r *renderer) String() (string, error) {
+	if r.b.err != nil {
+		return "", r.b.err
+	}
+	_, _ = r.b.WriteString("# EOF\n")
+	if r.b.err != nil {
+		return "", r.b.err
+	}
+	return r.b.String(), nil
+}
+
+type boundedBuilder struct {
+	b   strings.Builder
+	max int
+	err error
+}
+
+func (b *boundedBuilder) Write(data []byte) (int, error) {
+	if b.err != nil {
+		return 0, b.err
+	}
+	if b.max > 0 && b.b.Len()+len(data) > b.max {
+		b.err = ErrOutputTooLarge
+		return 0, b.err
+	}
+	return b.b.Write(data)
+}
+
+func (b *boundedBuilder) WriteString(value string) (int, error) {
+	return b.Write([]byte(value))
+}
+
+func (b *boundedBuilder) String() string {
+	return b.b.String()
 }
 
 func (r *renderer) render(source Source, now time.Time, ttl time.Duration, opts Options) {
 	containers := source.ListContainers(now, ttl)
 	pods := source.ListPods(now, ttl)
 	namespaces := source.ListNamespaces(now, ttl)
+	namespaceCount, podCount, containerCount := len(namespaces), len(pods), len(containers)
+	if counts, ok := source.(interface{ MetricsEntityCounts() (int, int, int) }); ok {
+		namespaceCount, podCount, containerCount = counts.MetricsEntityCounts()
+	}
 	debug := source.Debug(now, ttl)
 
 	r.helpType("kubememlens_collector_store_entities", "Current KubeMemLens collector store entity counts.", "gauge")
@@ -58,14 +93,14 @@ func (r *renderer) render(source Source, now time.Time, ttl time.Duration, opts 
 
 	r.renderAgentFreshness(source, now)
 	r.renderCollectorIngestion(source)
-	r.renderDroppedMetrics(len(pods), len(containers), opts)
-	if opts.IncludeNamespaceMetrics {
+	r.renderDroppedMetrics(namespaceCount, podCount, containerCount, len(namespaces), opts)
+	if opts.IncludeNamespaceMetrics && namespaceCount == len(namespaces) {
 		r.renderNamespaces(namespaces, opts)
 	}
-	if opts.IncludePodMetrics && len(pods) <= opts.MaxPods {
+	if opts.IncludePodMetrics && podCount <= opts.MaxPods {
 		r.renderPods(pods, opts)
 	}
-	if opts.IncludeContainerMetrics && len(containers) <= opts.MaxContainers {
+	if opts.IncludeContainerMetrics && containerCount <= opts.MaxContainers {
 		r.renderContainers(containers, opts)
 	}
 }
@@ -114,8 +149,11 @@ func (r *renderer) renderAgentFreshness(source Source, now time.Time) {
 	}
 }
 
-func (r *renderer) renderDroppedMetrics(podCount int, containerCount int, opts Options) {
+func (r *renderer) renderDroppedMetrics(namespaceCount, podCount, containerCount, retainedNamespaces int, opts Options) {
 	r.helpType("kubememlens_metrics_dropped_entities", "KubeMemLens entities skipped by metrics cardinality guardrails.", "gauge")
+	if opts.IncludeNamespaceMetrics && namespaceCount > retainedNamespaces {
+		r.sample("kubememlens_metrics_dropped_entities", labels{"level": "namespace", "reason": "response_budget_exceeded"}, float64(namespaceCount))
+	}
 	if !opts.IncludePodMetrics {
 		r.sample("kubememlens_metrics_dropped_entities", labels{"level": "pod", "reason": "disabled"}, float64(podCount))
 	} else if podCount > opts.MaxPods {

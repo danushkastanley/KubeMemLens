@@ -15,7 +15,7 @@ Use only a disposable cluster or a cluster whose owner has authorised installati
 - all KubeMemLens Pods retain the expected non-root, drop-all, read-only security posture;
 - strict `doctor`, status, mapping, explanation privacy and collector metrics;
 - elapsed seconds from Helm installation start to the first schema-valid explanation with severity, confidence, caveats and evidence-window metadata;
-- an ordinary Pod can reach the read-only service port but cannot reach the ingestion port;
+- an ordinary Pod cannot reach the removed plaintext read or ingestion Service ports;
 - one Helm upgrade, rollback and post-rollback strict diagnosis;
 - uninstall, cluster-scoped RBAC removal and deletion of the dedicated namespace;
 - sanitised environment evidence without context, cluster, node or provider-resource identifiers.
