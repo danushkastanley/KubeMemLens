@@ -106,8 +106,7 @@ run_tenant_scoped_read_smoke() {
     expected_runtime=$(KUBECONFIG="${kubeconfig}" kubectl get pods -n "${namespace}" -o json |
       jq -r '.items[] | select(.metadata.labels["app.kubernetes.io/name"] | startswith("kube-memlens-")) | .status.containerStatuses[].imageID' | sort -u)
     expected_local_image=$(docker image inspect "${image}" --format '{{.Id}}')
-    helm package charts/kube-memlens --destination "${work_dir}" >/dev/null
-    expected_chart=$(shasum -a 256 "${work_dir}"/kube-memlens-*.tgz | awk '{print $1}')
+    expected_chart=$(git ls-files charts/kube-memlens | sort | xargs shasum -a 256 | shasum -a 256 | awk '{print $1}')
   fi
   TENANT_READ_KUBECONFIG="${kubeconfig}" \
     TENANT_READ_CONTEXT="kind-${cluster_name}" \
@@ -122,7 +121,7 @@ run_tenant_scoped_read_smoke() {
     ISOLATION_EXPECTED_IMAGE_REFERENCE="${expected_image}" \
     ISOLATION_EXPECTED_RUNTIME_IMAGE_ID="${expected_runtime}" \
     ISOLATION_EXPECTED_LOCAL_IMAGE_ID="${expected_local_image}" \
-    ISOLATION_EXPECTED_CHART_SHA256="${expected_chart}" \
+    ISOLATION_EXPECTED_CHART_SOURCE_SHA256="${expected_chart}" \
     "${verifier}"
 }
 

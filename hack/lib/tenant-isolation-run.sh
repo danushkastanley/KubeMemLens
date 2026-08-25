@@ -109,13 +109,13 @@ tenant_isolation_verify_build_identity() {
   local expected_image=${ISOLATION_EXPECTED_IMAGE_REFERENCE:-}
   local expected_runtime=${ISOLATION_EXPECTED_RUNTIME_IMAGE_ID:-}
   local expected_local_image=${ISOLATION_EXPECTED_LOCAL_IMAGE_ID:-}
-  local expected_chart=${ISOLATION_EXPECTED_CHART_SHA256:-}
+  local expected_chart=${ISOLATION_EXPECTED_CHART_SOURCE_SHA256:-}
   [ -n "${expected_commit}" ] && [ -n "${expected_image}" ] && [ -n "${expected_runtime}" ] &&
     [ -n "${expected_local_image}" ] && [ -n "${expected_chart}" ] || fail "expected build identity is incomplete"
   [ "$(git rev-parse HEAD)" = "${expected_commit}" ] || fail "repository commit differs from expected build commit"
   [ -z "$(git status --porcelain --untracked-files=all)" ] || fail "repository must be clean for retained evidence"
 
-  local collector_pod agent_pod references runtime_ids collector_version agent_version package actual_chart
+  local collector_pod agent_pod references runtime_ids collector_version agent_version actual_chart
   collector_pod=$(kctl get pods -n "${release_namespace}" -l app.kubernetes.io/name=kube-memlens-collector -o jsonpath='{.items[0].metadata.name}')
   agent_pod=$(kctl get pods -n "${release_namespace}" -l app.kubernetes.io/name=kube-memlens-agent -o jsonpath='{.items[0].metadata.name}')
   references=$(kctl get pods -n "${release_namespace}" -o json | jq -r '.items[] | select(.metadata.labels["app.kubernetes.io/name"] | startswith("kube-memlens-")) | .spec.containers[].image' | sort -u)
@@ -127,19 +127,17 @@ tenant_isolation_verify_build_identity() {
   [[ "${collector_version}" == *"commit=${expected_commit}"* ]] || fail "collector binary commit is not the expected source"
   [[ "${agent_version}" == *"commit=${expected_commit}"* ]] || fail "agent binary commit is not the expected source"
 
-  helm package charts/kube-memlens --destination "${work_dir}" >/dev/null
-  package=$(find "${work_dir}" -maxdepth 1 -name 'kube-memlens-*.tgz' -print -quit)
-  actual_chart=$(shasum -a 256 "${package}" | awk '{print $1}')
-  [ "${actual_chart}" = "${expected_chart}" ] || fail "chart package hash differs from expected chart"
+  actual_chart=$(git ls-files charts/kube-memlens | sort | xargs shasum -a 256 | shasum -a 256 | awk '{print $1}')
+  [ "${actual_chart}" = "${expected_chart}" ] || fail "chart source hash differs from expected chart"
   helm get metadata "${isolation_release}" --kubeconfig "${kubeconfig}" --kube-context "${context}" -n "${release_namespace}" -o json > "${work_dir}/isolation-helm-metadata.json"
   helm get manifest "${isolation_release}" --kubeconfig "${kubeconfig}" --kube-context "${context}" -n "${release_namespace}" |
     shasum -a 256 | awk '{print $1}' > "${work_dir}/isolation-manifest-hash.txt"
   jq -n --arg commit "${expected_commit}" --arg imageReference "${expected_image}" \
     --arg runtimeImageID "${expected_runtime}" --arg localImageID "${expected_local_image}" \
-    --arg chartPackageSHA256 "${expected_chart}" --arg installedManifestSHA256 "$(cat "${work_dir}/isolation-manifest-hash.txt")" \
+    --arg chartSourceSHA256 "${expected_chart}" --arg installedManifestSHA256 "$(cat "${work_dir}/isolation-manifest-hash.txt")" \
     --slurpfile helm "${work_dir}/isolation-helm-metadata.json" \
     '{sourceCommit:$commit,repositoryClean:true,imageReference:$imageReference,runtimeImageID:$runtimeImageID,
-      localImageID:$localImageID,chartPackageSHA256:$chartPackageSHA256,installedManifestSHA256:$installedManifestSHA256,
+      localImageID:$localImageID,chartSourceSHA256:$chartSourceSHA256,installedManifestSHA256:$installedManifestSHA256,
       chart:{name:$helm[0].chart,version:$helm[0].version,appVersion:$helm[0].appVersion,revision:$helm[0].revision}}'
 }
 
