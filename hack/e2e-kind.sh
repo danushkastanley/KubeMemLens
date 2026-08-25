@@ -97,9 +97,17 @@ run_tenant_scoped_read_smoke() {
   local output_dir=${artifact_dir:-${work_dir}/artifacts}/tenant-scoped-reads/${phase}
   local verifier=hack/verify-tenant-scoped-reads-kind.sh
   local isolation_acknowledgement=
+  local expected_commit= expected_image= expected_runtime= expected_local_image= expected_chart=
   if [ "${phase}" = install ] && [ "${E2E_RUN_TENANT_ISOLATION_SMOKE:-false}" = true ]; then
     verifier=hack/verify-tenant-isolation-kind.sh
     isolation_acknowledgement=remove-and-restore-kube-memlens-security-controls
+    expected_commit=$(git rev-parse HEAD)
+    expected_image=${image}
+    expected_runtime=$(KUBECONFIG="${kubeconfig}" kubectl get pods -n "${namespace}" -o json |
+      jq -r '.items[] | select(.metadata.labels["app.kubernetes.io/name"] | startswith("kube-memlens-")) | .status.containerStatuses[].imageID' | sort -u)
+    expected_local_image=$(docker image inspect "${image}" --format '{{.Id}}')
+    helm package charts/kube-memlens --destination "${work_dir}" >/dev/null
+    expected_chart=$(shasum -a 256 "${work_dir}"/kube-memlens-*.tgz | awk '{print $1}')
   fi
   TENANT_READ_KUBECONFIG="${kubeconfig}" \
     TENANT_READ_CONTEXT="kind-${cluster_name}" \
@@ -110,6 +118,11 @@ run_tenant_scoped_read_smoke() {
     TENANT_READ_ACKNOWLEDGE=run-and-clean-tenant-read-verification \
     ISOLATION_RELEASE_NAME=kube-memlens \
     ISOLATION_ACKNOWLEDGE="${isolation_acknowledgement}" \
+    ISOLATION_EXPECTED_COMMIT="${expected_commit}" \
+    ISOLATION_EXPECTED_IMAGE_REFERENCE="${expected_image}" \
+    ISOLATION_EXPECTED_RUNTIME_IMAGE_ID="${expected_runtime}" \
+    ISOLATION_EXPECTED_LOCAL_IMAGE_ID="${expected_local_image}" \
+    ISOLATION_EXPECTED_CHART_SHA256="${expected_chart}" \
     "${verifier}"
 }
 
@@ -178,7 +191,7 @@ trap cleanup EXIT
 echo "Building ${image}"
 docker build \
   --build-arg VERSION=e2e \
-  --build-arg COMMIT="$(git rev-parse --short HEAD 2>/dev/null || printf unknown)" \
+  --build-arg COMMIT="$(git rev-parse HEAD 2>/dev/null || printf unknown)" \
   --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   -t "${image}" .
 go build -trimpath -o "${cli}" ./cmd/kubectl-memlens

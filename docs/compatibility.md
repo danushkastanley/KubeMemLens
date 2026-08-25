@@ -25,7 +25,7 @@ KubeMemLens is currently alpha software. The published alpha is for evaluation o
 | AKS node pools | Ubuntu with containerd on amd64 Linux node pools. Azure Linux is not claimed unless a separate passing row is added before the release decision. | No reviewed provider record. | PROD-008 | Qualification required |
 | Self-managed containerd | Linux cgroup v2 on amd64 or arm64 with containerd and the documented mount, scheduling and NetworkPolicy prerequisites. The exact distribution, kernel and runtime are frozen by qualification. | containerd 2.x on local kind. | PROD-008 | Qualification required |
 | Self-managed CRI-O | One real amd64 Linux cgroup v2 CRI-O distribution. Recognising a CRI-O cgroup path in a fixture is not qualification. | Synthetic fixtures only. | PROD-008 | Qualification required |
-| Shared multi-tenant clusters | Supported only when authenticated agent writes, tenant-scoped reads and adversarial isolation tests pass. | Authenticated node-bound writes and tenant-scoped reads are implemented on `main`; PROD-005 adversarial isolation remains pending. The published alpha does not have this boundary. | PROD-002 to PROD-005 | Qualification required |
+| Shared multi-tenant clusters | Supported only when authenticated agent writes, tenant-scoped reads and adversarial isolation tests pass. | The authenticated boundary and PROD-005 adversarial suite passed on local kind `v1.35.5`, including NetworkPolicy removal. The published alpha does not have this boundary. | PROD-002 to PROD-005; PROD-008 qualifies exact providers and CNIs. | Locally verified |
 | Collector availability | One best-effort, single-replica, in-memory collector with visible restart, partial, stale and history-loss states. | The single-replica store exists. Full failure-state evidence is pending. | PROD-006 | Qualification required |
 | Live scale | Only the live container, node and refresh profile measured and published for the release candidate. Configured store ceilings are rejection bounds, not scale claims. | Small local clusters and synthetic benchmarks. | PROD-007 | Qualification required |
 | Terminal UI | Apple Terminal, Ghostty, iTerm2 and Warp on macOS; xterm and at least two recorded modern Linux terminals; SSH and tmux at 80x24, 120x30 and 180x50. | State, render, race and local PTY tests. | PROD-009 | Qualification required |
@@ -69,7 +69,7 @@ Before v1 can claim shared-cluster support:
 
 TUI filters, namespace selection, Kubernetes service-proxy permission and NetworkPolicy reachability are not substitutes for application authorisation.
 
-The implemented interface is defined in the [authentication and authorisation architecture](security/authentication-and-authorisation.md), [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md) and the [tenant read runbook](runbooks/tenant-scoped-reads.md). PROD-005 still owns the independent adversarial validation gate.
+The implemented interface is defined in the [authentication and authorisation architecture](security/authentication-and-authorisation.md), [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md), the [tenant read runbook](runbooks/tenant-scoped-reads.md) and the [PROD-005 validation record](security/tenant-isolation-validation.md). Provider and enforcing-CNI qualification remains required before a provider-specific shared-cluster claim.
 
 ## Availability and history
 

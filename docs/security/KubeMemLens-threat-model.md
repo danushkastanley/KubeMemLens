@@ -1,7 +1,7 @@
 # KubeMemLens threat model
 
 Date: 26 August 2026
-Status: v1 authenticated API implemented; tenant-isolation validation in progress; optional eBPF tracer not implemented
+Status: v1 authenticated API and local tenant-isolation gate validated; optional eBPF tracer not implemented
 
 ## Executive summary
 
@@ -166,7 +166,7 @@ Existing eBPF threat IDs TM-001 through TM-010 retain their original meanings. A
 | TM-012 | Cross-tenant list, detail or history read | Namespace principal has some read permission | High confidentiality breach | Namespaced virtual resources; exact namespace SAR; filter before lookup; cluster list requires ClusterRole | ISO-LIVE-002 and ISO-LIVE-012 |
 | TM-013 | Aggregation identity-header spoofing | Caller reaches extension Service directly | Critical authentication bypass | Validate proxy client CA and allowed name before trusting headers; use upstream delegated authenticator; reject direct requests | ISO-LIVE-003 with NetworkPolicy present and absent |
 | TM-014 | Stolen token or cross-node snapshot claim | Live agent token is copied | High integrity and tenant impact | Pod-bound rotated token; require Pod UID, node name and node UID extras; payload must match; delete Pod to revoke | ISO-LIVE-004 plus TokenReview claim tests |
-| TM-015 | Snapshot replay or reordering | An accepted request is captured | High diagnostic integrity impact | Random collector epoch; strictly increasing sequence per authenticated Pod UID; bounded capture time | ISO-LIVE-005 duplicate, conflict, lower-sequence and old-epoch tests |
+| TM-015 | Snapshot replay or reordering | An accepted request is captured | High diagnostic integrity impact | Random collector epoch; strictly increasing sequence per authenticated Pod UID; bounded capture time | ISO-LIVE-005 duplicate, conflict, lower-sequence and epoch-mismatch tests |
 | TM-016 | Authentication or authorisation failure opens access | API server, SAR or config is unavailable | Critical tenant boundary failure | Deny no-opinion, timeout, malformed and transport errors; readiness fails; no legacy fallback | ISO-LIVE-006 plus fail-closed authoriser tests |
 | TM-017 | Credential, runtime identifier or unauthorised tenant metadata disclosure | Logs, metrics, errors or captures are accessible | High confidentiality impact | Bounded reason codes; no tokens, raw groups, UIDs, paths or denied names; authorised display names remain scope-bound; `0600` redacted captures | ISO-LIVE-007, capture scope tests and secret scans |
 | TM-018 | Collector compromise becomes Kubernetes compromise | Collector process is controlled | Critical cluster impact | Only auth-delegator and authentication ConfigMap read; no Pod, Node, Secret or workload read; projected token; separate bootstrap account | ISO-LIVE-008 and rendered RBAC audit |

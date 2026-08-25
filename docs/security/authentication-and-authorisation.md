@@ -1,6 +1,6 @@
 # Authentication and authorisation architecture
 
-Status: accepted and implemented; PROD-005 adversarial validation in progress
+Status: accepted, implemented and locally validated through PROD-005
 Decision: [ADR 0004](../adr/0004-use-kubernetes-aggregation-for-authentication.md)
 Implementation owners: PROD-003, PROD-004 and PROD-005
 
@@ -239,4 +239,4 @@ On 25 August 2026, Kubernetes 1.35.5 kind verification passed:
 - the agent could get the ingestion epoch and create, but not list, node snapshots; and
 - the metrics scraper could get metrics but could not list Pods.
 
-The custom token audience in this check isolates TokenReview claim and audience behaviour. The production aggregated path uses the Kubernetes API server audience and never forwards the token to the extension server. This check proves only the Kubernetes identity and RBAC inputs. PROD-003 verifies the aggregated TLS write path and serving-certificate lifecycle, PROD-004 verifies tenant-scoped read resources, and PROD-005 owns the combined adversarial gate.
+The custom token audience in this check isolates TokenReview claim and audience behaviour. The production aggregated path uses the Kubernetes API server audience and never forwards the token to the extension server. This check proves only the Kubernetes identity and RBAC inputs. PROD-003 verifies the aggregated TLS write path and serving-certificate lifecycle, PROD-004 verifies tenant-scoped read resources, and PROD-005 records the combined adversarial gate.

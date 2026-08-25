@@ -1,7 +1,7 @@
 # ADR 0004: Use Kubernetes aggregation for authentication
 
 Date: 25 August 2026
-Status: accepted; PROD-003 ingestion implemented, PROD-004 and PROD-005 pending
+Status: accepted and implemented through PROD-005
 
 ## Context
 
@@ -109,7 +109,7 @@ Rejected. A separate user and agent PKI adds issuance, rotation and revocation w
 
 ## Migration
 
-PROD-003 added the extension-server authentication layer, agent resource, node binding and replay contract. PROD-004 adds tenant-scoped read resources and moves the CLI to Kubernetes discovery. PROD-005 removes the remaining legacy read path and proves end-to-end tenant isolation with NetworkPolicy present and removed.
+PROD-003 added the extension-server authentication layer, agent resource, node binding and replay contract. PROD-004 added tenant-scoped read resources and moved the CLI to Kubernetes discovery. PROD-005 removed the remaining production-chart legacy path and proved end-to-end tenant isolation with NetworkPolicy present and removed.
 
 During migration, the alpha HTTP API remains clearly marked insecure and is never presented as the v1 shared-cluster path. No persisted data migration exists.
 

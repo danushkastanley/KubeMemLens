@@ -23,7 +23,7 @@ The acknowledgement permits the suite to remove and restore only the Helm-owned 
 | ISO-LIVE-002 | TM-012 | A namespace reader lists, gets and reads history in another namespace, then uses CLI polling, compare, recommendation and capture paths. | Every cross-namespace operation is forbidden. Polling stops after revocation. No prior or foreign data remains in the TUI or capture. |
 | ISO-LIVE-003 | TM-013 | A compromised workload reaches the Service and Pod directly, before and after NetworkPolicy removal. | Forged request headers and bearer tokens never authenticate. Reachability changes do not change the result. |
 | ISO-LIVE-004 | TM-014 | An agent claims another node and reuses a token after its bound Pod is deleted. | The node claim is rejected and the deleted-Pod token becomes unauthorised. |
-| ISO-LIVE-005 | TM-015 | An agent repeats a sequence, changes a repeated payload, lowers the sequence and retries a request from an old collector epoch. | Exact duplicates are idempotent. Conflicting, lower and old-epoch requests are rejected without store mutation. |
+| ISO-LIVE-005 | TM-015 | An agent repeats a sequence, changes a repeated payload, lowers the sequence and sends a mismatched epoch. | Exact duplicates are idempotent. Conflicting, lower and wrong-epoch requests are rejected without store mutation. |
 | ISO-LIVE-006 | TM-016 | The suite removes the collector's delegated-authorisation binding during an otherwise valid read. | The read returns no diagnostic data. Restoring the exact binding restores normal access. No direct fallback appears. |
 | ISO-LIVE-007 | TM-017 | The suite scans status bodies, captures, metrics, collector logs, agent logs and retained evidence for synthetic secrets and runtime identifiers. | No token, certificate, raw identity, Pod UID, container ID, cgroup path, label sentinel or data outside the principal's authorised scope appears. |
 | ISO-LIVE-008 | TM-018 | The collector ServiceAccount attempts to read Pods, Nodes, Secrets and workloads or mint credentials. | Kubernetes denies every operation outside the documented request-header ConfigMap read and SubjectAccessReview create permissions. |
@@ -59,7 +59,7 @@ Kind's default networking does not prove NetworkPolicy enforcement. The removal 
 | TM-012 | Two namespaces covered list, detail, history, CLI and revocation. | ISO-LIVE-002 adds compromised-workload, capture and stale-frame checks. |
 | TM-013 | A port-forward test rejected forged request headers. | ISO-LIVE-003 repeats Service and Pod-IP attacks with NetworkPolicy present and absent. |
 | TM-014 | Wrong-node and bound-token revocation tests existed. | ISO-LIVE-004 retains both as required regression checks. |
-| TM-015 | Duplicate, conflicting and lower sequences were covered. | ISO-LIVE-005 adds old-epoch rejection after collector restart. |
+| TM-015 | Duplicate, conflicting, lower-sequence and epoch-mismatch checks existed. | ISO-LIVE-005 retains them as required regression checks. |
 | TM-016 | Unit tests denied no-opinion decisions. | ISO-LIVE-006 adds delegated-authorisation failure injection and recovery. |
 | TM-017 | Extension logs and one capture path had sentinel checks. | ISO-LIVE-007 scans every retained output class and sanitises cgroup errors. |
 | TM-018 | Rendered RBAC was reviewed statically. | ISO-LIVE-008 exercises the live collector identity against forbidden resources. |
@@ -72,3 +72,17 @@ Kind's default networking does not prove NetworkPolicy enforcement. The removal 
 The live suite writes one sanitised JSON summary. It contains test identifiers, result classes, counts, response hashes, latency summaries, restart deltas, a NetworkPolicy spec hash, Kubernetes version and commit. It does not contain object names, raw responses, tokens, certificates, kubeconfigs, logs or runtime identifiers.
 
 The finding register is [PROD-005 findings](reviews/PROD-005-findings.md). Incident containment steps are in the [tenant isolation incident runbook](../runbooks/tenant-isolation-incident.md).
+
+## Reference result
+
+On 26 August 2026, the suite passed on kind Kubernetes `v1.35.5` at harness commit `41a6ca5`. The tested image digest was `sha256:0de9c86466a024a7397e711e646623d4d8a69d762aa882503f2eab12d7496322`.
+
+- Direct forged Service and Pod-IP requests returned `401`; the unbound snapshot write returned `403`.
+- The health listener returned `200`; legacy read, write and metrics paths returned `404`; port `8081` had no listener.
+- NetworkPolicy removal did not change any authentication result. Exact restoration matched spec hash `bb7fef59935af729426a793cde04c247fbed69061d2ad12dc6b072f87a2be3d3`.
+- Delegated-authoriser removal returned `500` without data and recovered after restoration.
+- Sixty existing/missing denial requests had one normalised body hash. Existing p95 was `8.699 ms`, missing p95 was `12.554 ms`, and maximum latency was `13.519 ms`.
+- Of 32 concurrent reads, 26 succeeded and six received bounded admission responses. Maximum latency was `15.483 ms`; recovery took `4.332 ms`.
+- Collector working set remained `32,268,288` bytes with zero restarts.
+
+The retained JSON contains only these sanitised classes, hashes, timings and counts. The cleanup check confirmed that both Helm-owned controls were restored and both fixture namespaces were absent.

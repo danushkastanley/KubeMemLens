@@ -11,7 +11,9 @@ isolation_summary_written=false
 tenant_isolation_cleanup() {
   local status=0
   tenant_isolation_restore_controls || status=1
+  tenant_isolation_scan_retained_evidence || status=1
   if [ "${isolation_release_resources_created}" = true ]; then
+    kctl delete clusterrolebinding kube-memlens-isolation-metrics-reader --ignore-not-found >/dev/null 2>&1 || status=1
     kctl delete rolebinding kube-memlens-isolation-service-proxy -n "${release_namespace}" --ignore-not-found >/dev/null 2>&1 || status=1
     kctl delete role kube-memlens-isolation-service-proxy -n "${release_namespace}" --ignore-not-found >/dev/null 2>&1 || status=1
   fi
@@ -28,6 +30,13 @@ metadata:
   name: kube-memlens-isolation-adversary
   namespace: ${namespace_a}
 automountServiceAccountToken: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-memlens-isolation-metrics-reader
+  namespace: ${namespace_a}
+automountServiceAccountToken: false
 ---
 apiVersion: v1
 kind: Pod
@@ -78,8 +87,83 @@ subjects:
   - kind: ServiceAccount
     name: ${tenant_reader_service_account}
     namespace: ${namespace_a}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-memlens-isolation-metrics-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-memlens-metrics-reader
+subjects:
+  - kind: ServiceAccount
+    name: kube-memlens-isolation-metrics-reader
+    namespace: ${namespace_a}
 YAML
   kctl wait --for=condition=Ready pod/kube-memlens-isolation-adversary -n "${namespace_a}" --timeout=60s >/dev/null
+}
+
+tenant_isolation_verify_build_identity() {
+  local expected_commit=${ISOLATION_EXPECTED_COMMIT:-}
+  local expected_image=${ISOLATION_EXPECTED_IMAGE_REFERENCE:-}
+  local expected_runtime=${ISOLATION_EXPECTED_RUNTIME_IMAGE_ID:-}
+  local expected_local_image=${ISOLATION_EXPECTED_LOCAL_IMAGE_ID:-}
+  local expected_chart=${ISOLATION_EXPECTED_CHART_SHA256:-}
+  [ -n "${expected_commit}" ] && [ -n "${expected_image}" ] && [ -n "${expected_runtime}" ] &&
+    [ -n "${expected_local_image}" ] && [ -n "${expected_chart}" ] || fail "expected build identity is incomplete"
+  [ "$(git rev-parse HEAD)" = "${expected_commit}" ] || fail "repository commit differs from expected build commit"
+  [ -z "$(git status --porcelain --untracked-files=all)" ] || fail "repository must be clean for retained evidence"
+
+  local collector_pod agent_pod references runtime_ids collector_version agent_version package actual_chart
+  collector_pod=$(kctl get pods -n "${release_namespace}" -l app.kubernetes.io/name=kube-memlens-collector -o jsonpath='{.items[0].metadata.name}')
+  agent_pod=$(kctl get pods -n "${release_namespace}" -l app.kubernetes.io/name=kube-memlens-agent -o jsonpath='{.items[0].metadata.name}')
+  references=$(kctl get pods -n "${release_namespace}" -o json | jq -r '.items[] | select(.metadata.labels["app.kubernetes.io/name"] | startswith("kube-memlens-")) | .spec.containers[].image' | sort -u)
+  [ "${references}" = "${expected_image}" ] || fail "deployed image reference differs from expected image"
+  runtime_ids=$(kctl get pods -n "${release_namespace}" -o json | jq -r '.items[] | select(.metadata.labels["app.kubernetes.io/name"] | startswith("kube-memlens-")) | .status.containerStatuses[].imageID' | sort -u)
+  [ "${runtime_ids}" = "${expected_runtime}" ] || fail "runtime image ID differs from expected image"
+  collector_version=$(kctl exec "pod/${collector_pod}" -n "${release_namespace}" -- /memlens-collector --version)
+  agent_version=$(kctl exec "pod/${agent_pod}" -n "${release_namespace}" -- /memlens-agent --version)
+  [[ "${collector_version}" == *"commit=${expected_commit}"* ]] || fail "collector binary commit is not the expected source"
+  [[ "${agent_version}" == *"commit=${expected_commit}"* ]] || fail "agent binary commit is not the expected source"
+
+  helm package charts/kube-memlens --destination "${work_dir}" >/dev/null
+  package=$(find "${work_dir}" -maxdepth 1 -name 'kube-memlens-*.tgz' -print -quit)
+  actual_chart=$(shasum -a 256 "${package}" | awk '{print $1}')
+  [ "${actual_chart}" = "${expected_chart}" ] || fail "chart package hash differs from expected chart"
+  helm get metadata "${isolation_release}" --kubeconfig "${kubeconfig}" --kube-context "${context}" -n "${release_namespace}" -o json > "${work_dir}/isolation-helm-metadata.json"
+  helm get manifest "${isolation_release}" --kubeconfig "${kubeconfig}" --kube-context "${context}" -n "${release_namespace}" |
+    shasum -a 256 | awk '{print $1}' > "${work_dir}/isolation-manifest-hash.txt"
+  jq -n --arg commit "${expected_commit}" --arg imageReference "${expected_image}" \
+    --arg runtimeImageID "${expected_runtime}" --arg localImageID "${expected_local_image}" \
+    --arg chartPackageSHA256 "${expected_chart}" --arg installedManifestSHA256 "$(cat "${work_dir}/isolation-manifest-hash.txt")" \
+    --slurpfile helm "${work_dir}/isolation-helm-metadata.json" \
+    '{sourceCommit:$commit,repositoryClean:true,imageReference:$imageReference,runtimeImageID:$runtimeImageID,
+      localImageID:$localImageID,chartPackageSHA256:$chartPackageSHA256,installedManifestSHA256:$installedManifestSHA256,
+      chart:{name:$helm[0].chart,version:$helm[0].version,appVersion:$helm[0].appVersion,revision:$helm[0].revision}}'
+}
+
+tenant_isolation_verify_metrics_and_capture() {
+  local config=${work_dir}/metrics-reader.kubeconfig
+  tenant_read_make_service_account_kubeconfig "${config}" "${namespace_a}" kube-memlens-isolation-metrics-reader
+  [ "$(kubectl --kubeconfig "${config}" --context "${context}" auth can-i get metrics.memory.kubememlens.io)" = yes ] || fail "metrics reader cannot get metrics"
+  [ "$(kubectl --kubeconfig "${config}" --context "${context}" auth can-i list pods.memory.kubememlens.io -n "${namespace_a}")" = no ] || fail "metrics reader can read tenant Pods"
+  kubectl --kubeconfig "${config}" --context "${context}" get --raw "${api}/metrics/current" > "${work_dir}/isolation-authorised-metrics.json"
+  local pod_uid container_id
+  pod_uid=$(kctl get pod "${pod_b}" -n "${namespace_b}" -o jsonpath='{.metadata.uid}')
+  container_id=$(kctl get pod "${pod_b}" -n "${namespace_b}" -o jsonpath='{.status.containerStatuses[0].containerID}')
+  container_id=${container_id#*://}
+  for file in "${work_dir}/isolation-authorised-metrics.json" "${work_dir}/incident.json"; do
+    [ -f "${file}" ] || fail "privacy evidence file is missing"
+    for sentinel in "${pod_uid}" "${container_id}" /kubepods '"labels"' cgroupPath containerID podUID; do
+      [ -z "${sentinel}" ] || ! grep -Fq "${sentinel}" "${file}" || fail "privacy evidence contains a prohibited identifier"
+    done
+  done
+}
+
+tenant_isolation_scan_retained_evidence() {
+  [ -n "${artifact_dir:-}" ] && [ -d "${artifact_dir}" ] || return 0
+  ! grep -ERq 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|BEGIN CERTIFICATE|Bearer |containerd://|/kubepods|"token"|"podUID"|"containerID"|"cgroupPath"' "${artifact_dir}"
 }
 
 tenant_isolation_direct_checks() {
@@ -184,6 +268,8 @@ tenant_isolation_run() {
   isolation_run_started=true
   for command in base64 curl shasum; do command -v "${command}" >/dev/null 2>&1 || fail "required isolation command not found: ${command}"; done
   isolation_release=${ISOLATION_RELEASE_NAME:-kube-memlens}
+  local build_identity
+  build_identity=$(tenant_isolation_verify_build_identity)
   tenant_isolation_prepare_controls
   tenant_isolation_create_adversary
   tenant_isolation_prepare_http "${tenant_a_config}"
@@ -234,10 +320,13 @@ tenant_isolation_run() {
   done
   [ "${own_code}" = 200 ] || fail "authorised read did not recover after binding restoration"
 
-  local timing abuse before_stats after_stats
+  local timing history_timing abuse before_stats after_stats
   timing=$(tenant_isolation_interleaved_denials \
     "${api}/namespaces/${namespace_b}/pods/${pod_b}" \
     "${api}/namespaces/${namespace_b}/pods/${missing_pod}" "${pod_b}" "${missing_pod}")
+  history_timing=$(tenant_isolation_interleaved_denials \
+    "${api}/namespaces/${namespace_b}/pods/${pod_b}/history" \
+    "${api}/namespaces/${namespace_b}/pods/${missing_pod}/history" "${pod_b}" "${missing_pod}")
   tenant_isolation_collector_stats "${work_dir}/isolation-before-stats.json"
   before_stats=$(cat "${work_dir}/isolation-before-stats.json")
   abuse=$(tenant_isolation_concurrent_reads "${api}/namespaces/${namespace_a}/pods")
@@ -255,6 +344,7 @@ tenant_isolation_run() {
     ! grep -Fq "${sentinel}" "${work_dir}/isolation-collector.log" || fail "collector log contains a sensitive sentinel"
   done
   tenant_isolation_scan_agent_logs
+  tenant_isolation_verify_metrics_and_capture
   if [ -f "${work_dir}/incident.json" ]; then
     ! grep -Fq "${namespace_b}" "${work_dir}/incident.json" || fail "tenant capture contains tenant B"
   fi
@@ -268,13 +358,14 @@ tenant_isolation_run() {
     --arg serviceProxySeconds "${service_proxy_time}" --arg noAuthorizerCode "${no_authorizer_code}" \
     --arg adversaryWriteCode "${adversary_write_code}" --arg networkPolicySpecHash "${network_hash}" \
     --arg kubernetesVersion "${server_version}" --arg repositoryCommit "${repository_commit}" \
-    --argjson timing "${timing}" --argjson abuse "${abuse}" --argjson before "${before_stats}" --argjson after "${after_stats}" \
-    '{schemaVersion:1,outcome:"passed",kubernetesVersion:$kubernetesVersion,repositoryCommit:$repositoryCommit,
+    --argjson buildIdentity "${build_identity}" --argjson timing "${timing}" --argjson historyTiming "${history_timing}" \
+    --argjson abuse "${abuse}" --argjson before "${before_stats}" --argjson after "${after_stats}" \
+    '{schemaVersion:1,outcome:"passed",kubernetesVersion:$kubernetesVersion,repositoryCommit:$repositoryCommit,buildIdentity:$buildIdentity,
       checks:{directBoundary:$direct,adversarySnapshotStatus:($adversaryWriteCode|tonumber),agentMetricsLoopbackOnly:true,
       networkPolicyRemovalEquivalent:true,networkPolicySpecHash:$networkPolicySpecHash,
       serviceProxy:{status:($serviceProxyCode|tonumber),seconds:($serviceProxySeconds|tonumber)},
       delegatedAuthorizerRemoval:{status:($noAuthorizerCode|tonumber),recovered:true},leastPrivilege:true,
-      denialEquivalence:$timing,concurrentAbuse:$abuse},resources:{before:$before,after:$after},
+      denialEquivalence:{pod:$timing,history:$historyTiming},concurrentAbuse:$abuse},resources:{before:$before,after:$after},
       privacy:{rawResponsesRetained:false,credentialsRetained:false,runtimeIdentifiersIncluded:false},
       caveats:["kind does not prove NetworkPolicy enforcement; it proves authentication is independent of policy presence"]}' > "${summary}"
   chmod 0600 "${summary}"
