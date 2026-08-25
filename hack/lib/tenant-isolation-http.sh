@@ -35,6 +35,11 @@ tenant_isolation_curl() {
     --write-out '%{http_code} %{time_total}' "${isolation_api_server}${path}"
 }
 
+tenant_isolation_http_status() {
+  awk '{for (field=1; field<NF; field++) if ($field ~ /^HTTP\/[0-9.]+$/ && $(field+1) ~ /^[0-9][0-9][0-9]$/) code=$(field+1)}
+    END {if (code == "") print "000"; else print code}' "$1"
+}
+
 tenant_isolation_adversary_request() {
   local url=$1
   local output=$2
@@ -50,7 +55,7 @@ tenant_isolation_adversary_request() {
   kctl exec pod/kube-memlens-isolation-adversary -n "${namespace_a}" -- \
     /bin/sh -c "${command}" sh "${url}" > "${output}" 2>&1
   set -e
-  awk '/HTTP\/[0-9.]+ [0-9][0-9][0-9]/ {code=$2} END {if (code == "") print "000"; else print code}' "${output}"
+  tenant_isolation_http_status "${output}"
 }
 
 tenant_isolation_percentile() {
