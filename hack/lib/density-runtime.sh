@@ -36,35 +36,36 @@ density_create_staged_workload() {
 }
 
 density_capture_startup_baseline() {
-  local component_json
-  component_json=$(k get pods -n "${collector_namespace}" -o json)
-  startup_component_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' <<<"${component_json}")
+  local component_file=${work_dir}/startup-component-baseline.json
+  k get pods -n "${collector_namespace}" -o json > "${component_file}"
+  startup_component_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' "${component_file}")
   startup_component_restarts=$(jq '[.items[].status.containerStatuses[]?.restartCount] | add // 0' \
-    <<<"${component_json}")
+    "${component_file}")
   startup_component_oom_kills=$(jq '[.items[].status.containerStatuses[]? |
-    select(.lastState.terminated.reason == "OOMKilled")] | length' <<<"${component_json}")
+    select(.lastState.terminated.reason == "OOMKilled")] | length' "${component_file}")
 }
 
 density_assert_startup_stable() {
-  local component_json workload_json component_replaced workload_replaced restarts oom_kills node_pressure current_uids
-  component_json=$(k get pods -n "${collector_namespace}" -o json)
-  workload_json=$(k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json)
+  local component_file=${work_dir}/startup-component.json workload_file=${work_dir}/startup-workload.json
+  local component_replaced workload_replaced restarts oom_kills node_pressure current_uids
+  k get pods -n "${collector_namespace}" -o json > "${component_file}"
+  k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
   component_replaced=$(jq --argjson expected "${startup_component_pod_uids}" \
-    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' <<<"${component_json}")
-  current_uids=$(jq -c '[.items[].metadata.uid] | sort' <<<"${workload_json}")
+    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' "${component_file}")
+  current_uids=$(jq -c '[.items[].metadata.uid] | sort' "${workload_file}")
   workload_replaced=$(jq -n --argjson expected "${startup_workload_pod_uids}" --argjson current "${current_uids}" \
     'if ($expected - $current | length) == 0 then 0 else 1 end')
-  restarts=$(jq -n --argjson components "${component_json}" --argjson workload "${workload_json}" \
+  restarts=$(jq -n --slurpfile components "${component_file}" --slurpfile workload "${workload_file}" \
     --argjson baseline "${startup_component_restarts}" \
     --argjson componentReplaced "${component_replaced}" --argjson workloadReplaced "${workload_replaced}" '
-    ([(([$components.items[].status.containerStatuses[]?.restartCount] | add // 0)-$baseline),0]|max) +
-    ([$workload.items[].status.containerStatuses[]?.restartCount] | add // 0) +
+    ([(([$components[0].items[].status.containerStatuses[]?.restartCount] | add // 0)-$baseline),0]|max) +
+    ([$workload[0].items[].status.containerStatuses[]?.restartCount] | add // 0) +
     $componentReplaced + $workloadReplaced')
-  oom_kills=$(jq -n --argjson components "${component_json}" --argjson workload "${workload_json}" \
+  oom_kills=$(jq -n --slurpfile components "${component_file}" --slurpfile workload "${workload_file}" \
     --argjson baseline "${startup_component_oom_kills}" '
-    ([(([$components.items[].status.containerStatuses[]? |
+    ([(([$components[0].items[].status.containerStatuses[]? |
       select(.lastState.terminated.reason == "OOMKilled")] | length)-$baseline),0]|max) +
-    ([$workload.items[].status.containerStatuses[]? |
+    ([$workload[0].items[].status.containerStatuses[]? |
       select(.lastState.terminated.reason == "OOMKilled")] | length)')
   node_pressure=$(k get nodes -o json | jq '
     [.items[].status.conditions[]? | select(.type == "MemoryPressure" and .status == "True")] | length')
@@ -75,19 +76,20 @@ density_assert_startup_stable() {
 }
 
 density_capture_operational_baseline() {
-  local component_json workload_json component_baseline workload_baseline
-  component_json=$(k get pods -n "${collector_namespace}" -o json)
-  workload_json=$(k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json)
-  component_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' <<<"${component_json}")
-  workload_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' <<<"${workload_json}")
+  local component_file=${work_dir}/operational-component-baseline.json
+  local workload_file=${work_dir}/operational-workload-baseline.json component_baseline workload_baseline
+  k get pods -n "${collector_namespace}" -o json > "${component_file}"
+  k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
+  component_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' "${component_file}")
+  workload_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' "${workload_file}")
   component_baseline=$(jq '
     {restarts: ([.items[].status.containerStatuses[]?.restartCount] | add // 0),
      oomKills: ([.items[].status.containerStatuses[]? |
-       select(.lastState.terminated.reason == "OOMKilled")] | length)}' <<<"${component_json}")
+       select(.lastState.terminated.reason == "OOMKilled")] | length)}' "${component_file}")
   workload_baseline=$(jq '
     {restarts: ([.items[].status.containerStatuses[]?.restartCount] | add // 0),
      oomKills: ([.items[].status.containerStatuses[]? |
-       select(.lastState.terminated.reason == "OOMKilled")] | length)}' <<<"${workload_json}")
+       select(.lastState.terminated.reason == "OOMKilled")] | length)}' "${workload_file}")
   baseline_workload_restarts=$(jq '.restarts' <<<"${workload_baseline}")
   baseline_workload_oom_kills=$(jq '.oomKills' <<<"${workload_baseline}")
   baseline_component_restarts=$(jq '.restarts' <<<"${component_baseline}")
@@ -99,21 +101,22 @@ density_capture_operational_baseline() {
 }
 
 density_collect_operational_json() {
-  local component_json workload_json component_replaced workload_replaced
-  component_json=$(k get pods -n "${collector_namespace}" -o json)
-  workload_json=$(k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json)
+  local component_file=${work_dir}/operational-component.json workload_file=${work_dir}/operational-workload.json
+  local component_replaced workload_replaced
+  k get pods -n "${collector_namespace}" -o json > "${component_file}"
+  k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
   component_replaced=$(jq --argjson expected "${component_pod_uids}" \
-    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' <<<"${component_json}")
+    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' "${component_file}")
   workload_replaced=$(jq --argjson expected "${workload_pod_uids}" \
-    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' <<<"${workload_json}")
-  jq -n --argjson components "${component_json}" --argjson workload "${workload_json}" \
+    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' "${workload_file}")
+  jq -n --slurpfile components "${component_file}" --slurpfile workload "${workload_file}" \
     --argjson componentReplaced "${component_replaced}" --argjson workloadReplaced "${workload_replaced}" '
-    {restarts: (([$components.items[].status.containerStatuses[]?.restartCount] | add // 0) +
-      ([$workload.items[].status.containerStatuses[]?.restartCount] | add // 0)),
+    {restarts: (([$components[0].items[].status.containerStatuses[]?.restartCount] | add // 0) +
+      ([$workload[0].items[].status.containerStatuses[]?.restartCount] | add // 0)),
      replacements:($componentReplaced + $workloadReplaced),
-     oomKills: (([$components.items[].status.containerStatuses[]? |
+     oomKills: (([$components[0].items[].status.containerStatuses[]? |
        select(.lastState.terminated.reason == "OOMKilled")] | length) +
-       ([$workload.items[].status.containerStatuses[]? |
+       ([$workload[0].items[].status.containerStatuses[]? |
        select(.lastState.terminated.reason == "OOMKilled")] | length))}'
 }
 
@@ -134,48 +137,48 @@ density_record_all_operational() {
 }
 
 density_record_workload_operational() {
-  local workload_json replaced issues
-  workload_json=$(k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json)
+  local workload_file=${work_dir}/disruption-workload.json replaced issues
+  k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
   replaced=$(jq --argjson expected "${workload_pod_uids}" \
-    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' <<<"${workload_json}")
-  issues=$(jq -n --argjson workload "${workload_json}" --argjson replaced "${replaced}" \
+    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' "${workload_file}")
+  issues=$(jq -n --slurpfile workload "${workload_file}" --argjson replaced "${replaced}" \
     --argjson restarts "${baseline_workload_restarts}" --argjson oomKills "${baseline_workload_oom_kills}" '
-    {restarts:(([(([$workload.items[].status.containerStatuses[]?.restartCount] | add // 0)-$restarts),0]|max)+$replaced),
-     oomKills:([(([$workload.items[].status.containerStatuses[]? |
+    {restarts:(([(([$workload[0].items[].status.containerStatuses[]?.restartCount] | add // 0)-$restarts),0]|max)+$replaced),
+     oomKills:([(([$workload[0].items[].status.containerStatuses[]? |
        select(.lastState.terminated.reason == "OOMKilled")] | length)-$oomKills),0]|max)}')
   density_accumulate_issues "${issues}"
 }
 
 density_record_component_operational() {
-  local component_json replaced issues
-  component_json=$(k get pods -n "${collector_namespace}" -o json)
+  local component_file=${work_dir}/disruption-component.json replaced issues
+  k get pods -n "${collector_namespace}" -o json > "${component_file}"
   replaced=$(jq --argjson expected "${component_pod_uids}" \
-    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' <<<"${component_json}")
-  issues=$(jq -n --argjson components "${component_json}" --argjson replaced "${replaced}" \
+    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' "${component_file}")
+  issues=$(jq -n --slurpfile components "${component_file}" --argjson replaced "${replaced}" \
     --argjson restarts "${baseline_component_restarts}" --argjson oomKills "${baseline_component_oom_kills}" '
-    {restarts:(([(([$components.items[].status.containerStatuses[]?.restartCount] | add // 0)-$restarts),0]|max)+$replaced),
-     oomKills:([(([$components.items[].status.containerStatuses[]? |
+    {restarts:(([(([$components[0].items[].status.containerStatuses[]?.restartCount] | add // 0)-$restarts),0]|max)+$replaced),
+     oomKills:([(([$components[0].items[].status.containerStatuses[]? |
        select(.lastState.terminated.reason == "OOMKilled")] | length)-$oomKills),0]|max)}')
   density_accumulate_issues "${issues}"
 }
 
 density_accept_workload_rollout() {
-  local workload_json issues
-  workload_json=$(k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json)
+  local workload_file=${work_dir}/accepted-workload-rollout.json issues
+  k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
   issues=$(jq '
     {restarts: ([.items[].status.containerStatuses[]?.restartCount] | add // 0),
      oomKills: ([.items[].status.containerStatuses[]? |
-       select(.lastState.terminated.reason == "OOMKilled")] | length)}' <<<"${workload_json}")
+       select(.lastState.terminated.reason == "OOMKilled")] | length)}' "${workload_file}")
   density_accumulate_issues "${issues}"
 }
 
 density_accept_component_rollout() {
-  local component_json issues
-  component_json=$(k get pods -n "${collector_namespace}" -o json)
+  local component_file=${work_dir}/accepted-component-rollout.json issues
+  k get pods -n "${collector_namespace}" -o json > "${component_file}"
   issues=$(jq '
     {restarts: ([.items[].status.containerStatuses[]?.restartCount] | add // 0),
      oomKills: ([.items[].status.containerStatuses[]? |
-       select(.lastState.terminated.reason == "OOMKilled")] | length)}' <<<"${component_json}")
+       select(.lastState.terminated.reason == "OOMKilled")] | length)}' "${component_file}")
   density_accumulate_issues "${issues}"
 }
 
