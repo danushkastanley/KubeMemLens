@@ -19,12 +19,10 @@ agent:
   tolerations: []
   cgroupRootHostPath: /sys/fs/cgroup
   interval: 5s
-  # The production path uses the Kubernetes aggregated API. Legacy direct HTTP
-  # remains only for controlled alpha rollback on a trusted evaluation cluster.
-  ingestionMode: authenticated
-  collectorURL: http://kube-memlens-collector:8081
   tokenExpirationSeconds: 3600
   metrics:
+    # The listener binds to Pod-local loopback and is not advertised for remote
+    # scraping. Set false to remove even that local diagnostics endpoint.
     enabled: true
     port: 8082
   resources:
@@ -49,7 +47,6 @@ collector:
     maxPoints: 180
     maxResponseSeries: 20
   ingestion:
-    port: 8081
     extensionPort: 8443
     maxConcurrentRequests: 4
     requestsPerSecondPerAgent: 1
@@ -89,16 +86,6 @@ metrics:
   includeEvents: true
   maxPods: 2000
   maxContainers: 5000
-  # Applied only to the direct metrics Service in explicit legacy mode.
-  serviceAnnotations: {}
-  serviceMonitor:
-    # Direct Service scraping is available only in explicit legacy mode.
-    # Authenticated scrapers use the aggregated metrics resource and its
-    # separately bound ClusterRole.
-    enabled: false
-    interval: 30s
-    scrapeTimeout: 10s
-    labels: {}
   prometheusRule:
     enabled: false
     labels: {}

@@ -89,11 +89,18 @@ run_tui_smoke() {
 }
 
 run_tenant_scoped_read_smoke() {
-  if [ "${E2E_RUN_TENANT_SCOPED_READ_SMOKE:-false}" != true ]; then
+  local phase=$1
+  if [ "${E2E_RUN_TENANT_SCOPED_READ_SMOKE:-false}" != true ] &&
+    { [ "${phase}" != install ] || [ "${E2E_RUN_TENANT_ISOLATION_SMOKE:-false}" != true ]; }; then
     return
   fi
-  local phase=$1
   local output_dir=${artifact_dir:-${work_dir}/artifacts}/tenant-scoped-reads/${phase}
+  local verifier=hack/verify-tenant-scoped-reads-kind.sh
+  local isolation_acknowledgement=
+  if [ "${phase}" = install ] && [ "${E2E_RUN_TENANT_ISOLATION_SMOKE:-false}" = true ]; then
+    verifier=hack/verify-tenant-isolation-kind.sh
+    isolation_acknowledgement=remove-and-restore-kube-memlens-security-controls
+  fi
   TENANT_READ_KUBECONFIG="${kubeconfig}" \
     TENANT_READ_CONTEXT="kind-${cluster_name}" \
     TENANT_READ_NAMESPACE="${namespace}" \
@@ -101,7 +108,9 @@ run_tenant_scoped_read_smoke() {
     TENANT_READ_PHASE="${phase}" \
     TENANT_READ_ARTIFACT_DIR="${output_dir}" \
     TENANT_READ_ACKNOWLEDGE=run-and-clean-tenant-read-verification \
-    hack/verify-tenant-scoped-reads-kind.sh
+    ISOLATION_RELEASE_NAME=kube-memlens \
+    ISOLATION_ACKNOWLEDGE="${isolation_acknowledgement}" \
+    "${verifier}"
 }
 
 assert_authenticated_ingestion_healthy() {
@@ -311,10 +320,12 @@ KUBECONFIG="${kubeconfig}" kubectl get --raw \
   | jq -r '.content' > "${work_dir}/collector-metrics.txt"
 grep -q '^kubememlens_collector_ingestion_requests_total' "${work_dir}/collector-metrics.txt"
 grep -q 'kind="history_points"' "${work_dir}/collector-metrics.txt"
-KUBECONFIG="${kubeconfig}" kubectl get --raw \
+if KUBECONFIG="${kubeconfig}" kubectl get --raw \
   "/api/v1/namespaces/${namespace}/pods/${agent_pod}:8082/proxy/metrics" \
-  > "${work_dir}/agent-metrics.txt"
-grep -q '^kubememlens_agent_scans_total' "${work_dir}/agent-metrics.txt"
+  > "${work_dir}/agent-metrics.txt" 2>&1; then
+  echo "agent metrics are remotely reachable through the Pod proxy" >&2
+  exit 1
+fi
 run_tui_smoke
 run_live_density_smoke
 

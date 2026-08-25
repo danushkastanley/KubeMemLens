@@ -82,7 +82,7 @@ kubectl memlens history pod <pod-name> -n <namespace>
 
 `status`, strict `doctor` and `-A` examples require the explicit cluster-viewer binding. A namespace viewer should verify with `kubectl memlens top pods -n <tenant-namespace>` and a Pod/history action in that same namespace.
 
-Authenticated reads and agent ingestion enter through the Kubernetes API server and TLS Service port `443`; agent operational metrics use `8082` by default. The collector Pod keeps port `8080` for health probes only. The default Service exposes neither port `8080` nor the legacy plaintext ingestion port `8081`.
+Authenticated reads and agent ingestion enter through the Kubernetes API server and TLS Service port `443`. Agent operational metrics bind only to `127.0.0.1:8082` inside each agent Pod and are not advertised for remote scraping. The collector Pod keeps port `8080` for health probes only. The production Service exposes neither port `8080` nor a plaintext ingestion or collector-metrics port.
 
 The chart creates unbound namespace-viewer, cluster-viewer and metrics-reader ClusterRoles. It never chooses principals on the administrator's behalf. To grant one user access to one namespace:
 

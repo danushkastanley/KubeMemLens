@@ -43,7 +43,7 @@ The terminal interface is an incident-focused memory cockpit rather than a gener
 - non-overlapping anonymous/file-cache/shmem/other composition bars, limit/headroom gauges, live trends and sampled OOM, `memory.high`, `memory.max` and PSI signals;
 - bounded, race-safe selected-Pod history that retains the last good series through a refresh error;
 - read-only recommendations, live Pod comparison, safe command copy and mode-`0600` redacted incident capture; and
-- Kubernetes API service-proxy connectivity by default, with no port-forward required for normal use.
+- Kubernetes aggregated-API connectivity by default, with no port-forward required for normal use.
 
 The summary deliberately says **observed Pod charge**: it is the sum of mapped Pod cgroups, not total cluster or node memory usage. Colours reinforce text labels but are not required; set `NO_COLOR=1` for monochrome output.
 
@@ -194,18 +194,9 @@ Use a specific kubeconfig or context:
 go run ./cmd/kubectl-memlens top pods -A --kubeconfig=/path/to/config --context=minikube
 ```
 
-## Fallback To Port-Forward
+## Pre-v1 rollback tooling
 
-HTTP mode is retained only for explicit legacy development installs. The authenticated chart does not expose its health-only port `8080` through the Service. Do not use legacy mode on a shared cluster.
-
-```sh
-helm upgrade --install kube-memlens ./charts/kube-memlens -n kube-memlens --set agent.ingestionMode=legacy
-kubectl -n kube-memlens port-forward svc/kube-memlens-collector 18080:8080
-go run ./cmd/kubectl-memlens top pods -A --collector-url=http://127.0.0.1:18080
-go run ./cmd/kubectl-memlens top containers -A --collector-url=http://127.0.0.1:18080
-go run ./cmd/kubectl-memlens top ns --collector-url=http://127.0.0.1:18080
-go run ./cmd/kubectl-memlens explain pod <pod-name> -n <namespace> --collector-url=http://127.0.0.1:18080
-```
+The binaries retain direct HTTP client and collector modes only for controlled rollback of pre-v1 installations. The production Helm chart does not render those listeners, plaintext Service ports or a direct collector `ServiceMonitor`. Use the authenticated aggregated API for every chart installation.
 
 ## Terminal Dashboard
 

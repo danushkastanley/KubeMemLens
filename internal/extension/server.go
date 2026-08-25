@@ -2,6 +2,7 @@ package extension
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -31,6 +32,8 @@ import (
 	certutil "k8s.io/client-go/util/cert"
 	basecompatibility "k8s.io/component-base/compatibility"
 )
+
+var errDelegatedAuthorisation = errors.New("delegated authorisation failed")
 
 type ServerOptions struct {
 	BindPort       int
@@ -132,6 +135,11 @@ func (a agentIdentityAuthorizer) Authorize(ctx context.Context, attributes autho
 		}
 	}
 	decision, reason, err := a.delegate.Authorize(ctx, attributes)
+	if err != nil {
+		decision = authorizer.DecisionNoOpinion
+		reason = errDelegatedAuthorisation.Error()
+		err = errDelegatedAuthorisation
+	}
 	a.record(ctx, attributes, decision, authorisationReason(decision, err))
 	return decision, reason, err
 }

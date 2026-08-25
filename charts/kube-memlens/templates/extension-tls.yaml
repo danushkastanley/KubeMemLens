@@ -1,4 +1,4 @@
-{{- if and .Values.collector.enabled (eq .Values.agent.ingestionMode "authenticated") }}
+{{- if .Values.collector.enabled }}
 {{- $secretName := .Values.extensionTLS.secretName -}}
 {{- $existing := lookup "v1" "Secret" .Values.namespace.name $secretName -}}
 {{- $caBundle := "" -}}

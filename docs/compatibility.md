@@ -58,7 +58,7 @@ The provider restrictions above are sourced and exercised by the [qualification 
 
 Shared multi-tenant clusters are a mandatory v1 threat environment. They are not supported by the current alpha.
 
-The published alpha separates read and ingestion ports but does not provide the complete boundary. Current `main` routes production reads and writes through the Kubernetes aggregated API, validates forwarded identity, delegates exact authorisation and filters namespace data before aggregation. The secure Service exposes only TLS port `443`; direct workload reads are available only in explicit legacy mode.
+The published alpha separates read and ingestion ports but does not provide the complete boundary. Current `main` routes production reads and writes through the Kubernetes aggregated API, validates forwarded identity, delegates exact authorisation and filters namespace data before aggregation. The production chart exposes only TLS port `443`; it has no legacy direct workload-read or collector-metrics Service path.
 
 Before v1 can claim shared-cluster support:
 

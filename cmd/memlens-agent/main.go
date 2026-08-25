@@ -37,7 +37,7 @@ func main() {
 	kubeEnabled := flag.Bool("kube", true, "use Kubernetes API for pod/container metadata")
 	scanTimeout := flag.Duration("scan-timeout", 10*time.Second, "per-scan timeout")
 	cacheSyncTimeout := flag.Duration("cache-sync-timeout", 15*time.Second, "maximum initial Kubernetes metadata cache sync wait")
-	metricsListenAddr := flag.String("metrics-listen", ":8082", "HTTP listen address for agent metrics and health; empty disables it")
+	metricsListenAddr := flag.String("metrics-listen", "127.0.0.1:8082", "HTTP listen address for agent metrics and health; empty disables it; use an explicit non-loopback address only in a reviewed local environment")
 	versionOnly := flag.Bool("version", false, "show build information and exit")
 	flag.Parse()
 	if *versionOnly {
@@ -96,7 +96,7 @@ func main() {
 		}
 		result, err := scanner.Scan(ctx, index)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "scan failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "scan failed: reason=%s\n", boundedScanFailureReason(err))
 			os.Exit(1)
 		}
 
@@ -185,13 +185,17 @@ func main() {
 				nodeContextErrorReported = false
 			}
 		}
-		result, err := scanner.Scan(scanCtx, index)
-		telemetry.RecordScan(time.Now().UTC(), time.Since(start), result, err, metadataCachePods)
+		result, scanErr := scanner.Scan(scanCtx, index)
+		telemetry.RecordScan(time.Now().UTC(), time.Since(start), result, scanErr, metadataCachePods)
+		failureReason := agentFailureReason("")
+		if scanErr != nil {
+			failureReason = boundedScanFailureReason(scanErr)
+		}
 		posted := false
-		if err == nil && (*collectorURL != "" || publisher != nil) {
+		if scanErr == nil && (*collectorURL != "" || publisher != nil) {
 			if postErr := publishSnapshot(scanCtx, *ingestionMode, *collectorURL, publisher, index.NodeContext.NodeUID, result.Snapshot); postErr != nil {
 				telemetry.RecordPost(postErr)
-				err = postErr
+				failureReason = agentFailureSnapshotPost
 			} else {
 				telemetry.RecordPost(nil)
 				posted = true
@@ -199,11 +203,11 @@ func main() {
 		}
 		cancel()
 
-		if err != nil {
-			fmt.Printf("scan failed node=%s error=%q duration=%s\n", *nodeName, err.Error(), time.Since(start).Round(time.Millisecond))
+		if failureReason != "" {
+			fmt.Print(formatAgentFailure(*nodeName, failureReason, time.Since(start)))
 		} else {
 			if result.WalkError != nil {
-				fmt.Printf("scan warning node=%s error=%q\n", *nodeName, result.WalkError.Error())
+				fmt.Print(formatCgroupReadWarning(*nodeName, result.Snapshot.Environment.CgroupReadErrors))
 			}
 			fmt.Printf(
 				"scan complete node=%s containers=%d mapped=%d unmapped=%d infrastructure=%d posted=%t duration=%s\n",

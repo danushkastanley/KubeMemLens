@@ -141,8 +141,8 @@ func captureResult(request actionRequest) (actionResult, error) {
 		Redacted:      true,
 		Partial:       request.partial,
 		Pods:          []api.PodSnapshot{pod},
-		Nodes:         append([]api.NodeSnapshotStatus(nil), request.nodes...),
-		Histories:     append([]api.PodHistory(nil), request.histories...),
+		Nodes:         captureNodes(pod, request.nodes, request.partial),
+		Histories:     captureHistories(pod, request.histories),
 	}
 	if request.partial {
 		bundle.Caveats = []string{"Cluster node summaries are omitted from a namespace-scoped capture."}
@@ -168,6 +168,29 @@ func captureResult(request actionRequest) (actionResult, error) {
 			fmt.Sprintf("Partial: %t", bundle.Partial),
 		},
 	}, nil
+}
+
+func captureNodes(pod api.PodSnapshot, nodes []api.NodeSnapshotStatus, partial bool) []api.NodeSnapshotStatus {
+	if partial || pod.NodeName == "" {
+		return nil
+	}
+	for _, node := range nodes {
+		if node.NodeName == pod.NodeName {
+			return []api.NodeSnapshotStatus{node}
+		}
+	}
+	return nil
+}
+
+func captureHistories(pod api.PodSnapshot, histories []api.PodHistory) []api.PodHistory {
+	selected := make([]api.PodHistory, 0, len(histories))
+	for _, history := range histories {
+		if history.Namespace == pod.Namespace && history.PodName == pod.PodName &&
+			(history.PodUID == "" || pod.PodUID == "" || history.PodUID == pod.PodUID) {
+			selected = append(selected, history)
+		}
+	}
+	return selected
 }
 
 func findingForRef(ref entityRef, pods []api.PodSnapshot) (explain.Result, string, bool) {

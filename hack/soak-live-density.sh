@@ -138,7 +138,8 @@ write_summary() {
       workloadImage: {repository: "redacted", digest: $imageDigest},
       churn: {rollingRestartRecoverySeconds: $churnRecoverySeconds}, samples: $samples[0],
       privacy: {clusterIdentifiersIncluded: false, workloadIdentifiersIncluded: false},
-      caveats: ["Resource telemetry is reported only when the cluster Metrics API is available"]}' \
+      caveats: ["Resource telemetry is reported only when the cluster Metrics API is available",
+        "Agent operational metrics are loopback-only and are not collected by the cluster soak"]}' \
     > "${artifact_dir}/density-soak-summary.json"
   chmod 600 "${artifact_dir}/density-soak-summary.json"
 }
@@ -174,7 +175,6 @@ k get daemonset kube-memlens-agent -n "${collector_namespace}" >/dev/null || fai
 k auth can-i create namespaces | grep -Fxq yes || fail "identity cannot create namespaces"
 k auth can-i create deployments.apps -n "${namespace}" | grep -Fxq yes || fail "identity cannot create the workload"
 k auth can-i get services/proxy -n "${collector_namespace}" | grep -Fxq yes || fail "identity cannot use the collector service proxy"
-k auth can-i get pods/proxy -n "${collector_namespace}" | grep -Fxq yes || fail "identity cannot scrape agent metrics through the Pod proxy"
 
 nodes_json=${work_dir}/nodes.json
 pods_json=${work_dir}/pods.json
@@ -248,7 +248,7 @@ wait_for_mapping || fail "KubeMemLens did not map all ${containers} workload con
 
 sample_once() {
   local phase=$1 start_ns end_ns query_ms doctor_json count metrics_available=false
-  local resource_json='{"available":false}' agent_metrics_ok=true agent_metrics operational_json
+  local resource_json='{"available":false}' operational_json
   doctor_json=${work_dir}/doctor-sample.json
   start_ns=$(python3 -c 'import time; print(time.monotonic_ns())')
   "${cli}" "${cli_args[@]}" doctor --output json > "${doctor_json}"
@@ -297,19 +297,6 @@ print(json.dumps({"available": True, "components": components, "total": total}))
 PY
 )
   fi
-  agent_metrics=${work_dir}/agent-metrics.txt
-  : > "${agent_metrics}"
-  while IFS= read -r agent_pod; do
-    agent_pod=${agent_pod#pod/}
-    if ! k get --raw "/api/v1/namespaces/${collector_namespace}/pods/${agent_pod}:8082/proxy/metrics" >> "${agent_metrics}" 2>/dev/null; then
-      agent_metrics_ok=false
-    fi
-  done < <(k get pods -n "${collector_namespace}" -l app.kubernetes.io/name=kube-memlens-agent -o name)
-  agent_found=$(awk '$1 == "kubememlens_agent_last_scan_containers{kind=\"found\"}" {sum += $2} END {print sum + 0}' "${agent_metrics}")
-  agent_mapped=$(awk '$1 == "kubememlens_agent_last_scan_containers{kind=\"mapped\"}" {sum += $2} END {print sum + 0}' "${agent_metrics}")
-  agent_unmapped=$(awk '$1 == "kubememlens_agent_last_scan_containers{kind=\"unmapped\"}" {sum += $2} END {print sum + 0}' "${agent_metrics}")
-  agent_scan_max=$(awk '$1 == "kubememlens_agent_last_scan_duration_seconds" && $2 > max {max = $2} END {print max + 0}' "${agent_metrics}")
-  agent_post_failures=$(awk '$1 == "kubememlens_agent_snapshot_posts_total{result=\"failure\"}" {sum += $2} END {print sum + 0}' "${agent_metrics}")
   operational_json=$(k get pods -n "${collector_namespace}" -o json | jq '
     {pods: (.items | length), ready: ([.items[] | select(any(.status.conditions[]?; .type == "Ready" and .status == "True"))] | length),
      restarts: ([.items[].status.containerStatuses[]?.restartCount] | add // 0),
@@ -321,14 +308,10 @@ PY
     --argjson unmapped "$(jq '.mapping.unmapped' "${doctor_json}")" \
     --argjson coverage "$(jq '.mapping.coverage' "${doctor_json}")" \
     --argjson metricsAvailable "${metrics_available}" --argjson resources "${resource_json}" --argjson operational "${operational_json}" \
-    --argjson agentMetricsAvailable "${agent_metrics_ok}" --argjson agentFound "${agent_found}" \
-    --argjson agentMapped "${agent_mapped}" --argjson agentUnmapped "${agent_unmapped}" \
-    --argjson agentScanMaxSeconds "${agent_scan_max}" --argjson agentPostFailures "${agent_post_failures}" \
     '{at: $at, phase: $phase, queryMs: $queryMs, workloadContainers: $workloadContainers,
       clusterMapping: {reported: $reportedContainers, mapped: $mapped, unmapped: $unmapped, coverage: $coverage},
       metricsAPIAvailable: $metricsAvailable, kubeMemLensResources: $resources, kubeMemLensPods: $operational,
-      agents: {metricsAvailable: $agentMetricsAvailable, found: $agentFound, mapped: $agentMapped,
-        unmapped: $agentUnmapped, maxScanSeconds: $agentScanMaxSeconds, postFailures: $agentPostFailures}}' >> "${samples}"
+      agents: {metricsAvailable: false, reason: "loopback-only"}}' >> "${samples}"
 }
 
 sample_once steady

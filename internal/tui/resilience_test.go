@@ -43,6 +43,10 @@ func TestForbiddenRefreshClearsPreviouslyAuthorisedData(t *testing.T) {
 	if len(m.data.Pods) != 0 || len(m.data.Containers) != 0 || len(m.selectedHistory.series) != 0 || m.action.compareSource != nil {
 		t.Fatalf("forbidden refresh retained authorised state: data=%#v history=%#v action=%#v", m.data, m.selectedHistory, m.action)
 	}
+	frame := m.viewString()
+	if !strings.Contains(frame, "state: access revoked") || !strings.Contains(frame, "status: permission denied") || strings.Contains(frame, "connection error") {
+		t.Fatalf("forbidden refresh has misleading state:\n%s", frame)
+	}
 }
 
 func TestFilteredEmptyFrameNamesFilterAndReset(t *testing.T) {

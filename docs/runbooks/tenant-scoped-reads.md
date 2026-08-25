@@ -71,7 +71,7 @@ Do not grant either ClusterRole to all authenticated users, all ServiceAccounts 
 - A Kubernetes API or delegated-authorisation failure returns unavailable or forbidden and never opens the health-only listener.
 - Namespace capture omits cluster node records. Offline replay reads only the previously authorised local capture.
 
-Security decision logs contain a request identifier, principal type, operation, scope marker, decision, bounded reason, status and duration. They do not contain tokens, usernames, tenant names or denied object names.
+Read-authorisation logs contain a request identifier, principal type, operation, scope marker, decision and bounded reason. Ingestion completion events also contain bounded status and duration. Neither contains tokens, usernames, tenant names or denied object names.
 
 ## Policy and test matrix
 
@@ -81,7 +81,7 @@ Security decision logs contain a request identifier, principal type, operation, 
 | Cluster viewer ClusterRoleBinding | All namespaces | All namespaces | Node get/list and cluster-status get | Forbidden |
 | Metrics reader ClusterRoleBinding | No workload reads | No workload reads | No node or status reads | Metrics get |
 
-The automated check covers raw list, direct Pod, history, node, status and metrics routes; CLI namespace and cluster views; comparison; recommendation; capture; polling revocation and re-grant; error-class preservation; and collector-log redaction. Unit and race tests cover trusted request metadata, authorisation-before-store ordering, scope-bound continuations, bounded page construction, response encoding, immutable read shards, forbidden-state clearing and unavailable-state retention.
+The tenant-read check covers raw list, direct Pod, history, node, status and metrics routes; CLI namespace and cluster views; comparison; recommendation; capture; polling revocation and re-grant; error-class preservation; and collector-log redaction. The separate [tenant isolation validation](../security/tenant-isolation-validation.md) adds a compromised in-cluster workload, direct Service and Pod listeners, NetworkPolicy removal, delegated-authorisation failure, denial timing, bounded abuse, live RBAC and full retained-evidence scanning. Unit and race tests cover trusted request metadata, authorisation-before-store ordering, scope-bound continuations, bounded page construction, response encoding, immutable read shards, capture scope, forbidden-state clearing and unavailable-state retention.
 
 ### Reference result
 

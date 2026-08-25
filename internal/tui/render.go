@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/danushkastanley/kube-memlens/internal/client"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	memmodel "github.com/danushkastanley/kube-memlens/internal/model"
 )
@@ -106,7 +107,11 @@ func (m appModel) renderHeader(width int) string {
 		states = append(states, "paused")
 	}
 	if m.statusErr != nil {
-		states = append(states, "degraded")
+		if client.IsForbidden(m.statusErr) {
+			states = append(states, "access revoked")
+		} else {
+			states = append(states, "degraded")
+		}
 	} else if len(states) == 0 {
 		if m.lastRefresh.IsZero() && m.loading {
 			states = append(states, "connecting")
@@ -126,7 +131,11 @@ func (m appModel) renderHeader(width int) string {
 		parts = append(parts, "last update: "+lastUpdate)
 	}
 	if m.statusErr != nil {
-		parts = append(parts, errorStyle.Render("status: connection error"))
+		status := "connection error"
+		if client.IsForbidden(m.statusErr) {
+			status = "permission denied"
+		}
+		parts = append(parts, errorStyle.Render("status: "+status))
 	}
 	if m.layout().splitDetail {
 		focus := "table"

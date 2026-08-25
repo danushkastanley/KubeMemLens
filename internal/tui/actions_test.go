@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -88,6 +89,57 @@ func TestCaptureActionWritesPrivateRedactedFileAndRequiresOverwrite(t *testing.T
 	var exists incident.ExistsError
 	if !errors.As(err, &exists) || !result.overwriteRequired {
 		t.Fatalf("second capture result=%#v err=%v", result, err)
+	}
+}
+
+func TestCaptureActionFiltersInjectedHistoryAndNodeDataToSelectedPod(t *testing.T) {
+	pod := actionFixturePod()
+	pod.NodeName = "node-a"
+	path := filepath.Join(t.TempDir(), "incident.json")
+	request := actionRequest{
+		kind: actionCapture,
+		ref:  entityRef{kind: entityPod, namespace: pod.Namespace, podName: pod.PodName},
+		pods: []api.PodSnapshot{pod},
+		nodes: []api.NodeSnapshotStatus{
+			{NodeName: "node-a"},
+			{NodeName: "node-b"},
+		},
+		histories: []api.PodHistory{
+			{Namespace: pod.Namespace, PodName: pod.PodName, PodUID: pod.PodUID},
+			{Namespace: "other-tenant", PodName: pod.PodName, PodUID: pod.PodUID},
+			{Namespace: pod.Namespace, PodName: "other-pod", PodUID: "other-uid"},
+		},
+		outputPath: path,
+	}
+	if _, err := (localActionExecutor{}).Run(context.Background(), request); err != nil {
+		t.Fatalf("capture action: %v", err)
+	}
+	var bundle api.IncidentBundle
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read capture: %v", err)
+	}
+	if err := json.Unmarshal(body, &bundle); err != nil {
+		t.Fatalf("decode capture: %v", err)
+	}
+	if len(bundle.Nodes) != 1 || bundle.Nodes[0].NodeName != "node-a" || len(bundle.Histories) != 1 {
+		t.Fatalf("capture widened scope: nodes=%#v histories=%#v", bundle.Nodes, bundle.Histories)
+	}
+
+	request.outputPath = filepath.Join(t.TempDir(), "partial.json")
+	request.partial = true
+	if _, err := (localActionExecutor{}).Run(context.Background(), request); err != nil {
+		t.Fatalf("partial capture action: %v", err)
+	}
+	body, err = os.ReadFile(request.outputPath)
+	if err != nil {
+		t.Fatalf("read partial capture: %v", err)
+	}
+	if err := json.Unmarshal(body, &bundle); err != nil {
+		t.Fatalf("decode partial capture: %v", err)
+	}
+	if len(bundle.Nodes) != 0 {
+		t.Fatalf("partial capture contains cluster nodes: %#v", bundle.Nodes)
 	}
 }
 

@@ -10,6 +10,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Accepted a Kubernetes aggregated-API design for authenticated operator reads, tenant-scoped authorisation, node-bound agent writes and replay protection.
 - Moved agent writes to `memory.kubememlens.io/v1alpha1` with Pod-bound identity, node binding, collector epochs, idempotent sequences, bounded abuse controls and serving-certificate rotation.
 - Moved production CLI, TUI and metrics reads to tenant-scoped aggregated resources; the secure Service now exposes only TLS port `443` and keeps port `8080` health-only inside the collector Pod.
+- Removed legacy direct ingestion, collector reads and ServiceMonitor rendering from the production Helm chart while retaining binary/client rollback code for pre-v1 installations.
 
 ### Security
 

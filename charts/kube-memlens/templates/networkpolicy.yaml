@@ -17,20 +17,9 @@ spec:
     - ports:
         - port: http
           protocol: TCP
-{{- if eq .Values.agent.ingestionMode "authenticated" }}
     # Managed control-plane source ranges are not portable. The aggregation
     # proxy certificate and delegated authorisation protect this TLS port.
     - ports:
         - port: extension
           protocol: TCP
-{{- else }}
-    # Legacy alpha ingestion remains limited to agents in this namespace.
-    - from:
-        - podSelector:
-            matchLabels:
-              app.kubernetes.io/name: kube-memlens-agent
-      ports:
-        - port: ingest
-          protocol: TCP
-{{- end }}
 {{- end }}
