@@ -94,7 +94,10 @@ assert_authenticated_ingestion_healthy() {
   local ports
   ports=$(KUBECONFIG="${kubeconfig}" kubectl get service kube-memlens-collector -n "${namespace}" \
     -o jsonpath='{range .spec.ports[*]}{.port}{"\n"}{end}')
-  ! grep -Fxq 8081 <<<"${ports}"
+  if grep -Fxq 8081 <<<"${ports}"; then
+    echo "plaintext ingestion port remains exposed" >&2
+    return 1
+  fi
   for _ in $(seq 1 30); do
     if KUBECONFIG="${kubeconfig}" kubectl logs daemonset/kube-memlens-agent -n "${namespace}" --tail=20 2>/dev/null |
       grep -q 'posted=true'; then

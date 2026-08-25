@@ -72,7 +72,10 @@ jq -e '
   ]
 ' "${work_dir}/discovery.json" >/dev/null
 ports=$(kctl get service kube-memlens-collector -n "${namespace}" -o jsonpath='{range .spec.ports[*]}{.port}{"\n"}{end}')
-! grep -Fxq 8081 <<<"${ports}"
+if grep -Fxq 8081 <<<"${ports}"; then
+  echo "plaintext ingestion port remains exposed" >&2
+  exit 1
+fi
 
 kctl create -f - >/dev/null <<YAML
 apiVersion: v1
@@ -190,6 +193,9 @@ sleep 10
 kctl logs daemonset/kube-memlens-agent -n "${namespace}" --tail=8 > "${work_dir}/agent.log"
 grep -q 'posted=true' "${work_dir}/agent.log"
 kctl logs deployment/kube-memlens-collector -n "${namespace}" > "${work_dir}/collector.log"
-! grep -q 'credential-sentinel' "${work_dir}/collector.log"
+if grep -q 'credential-sentinel' "${work_dir}/collector.log"; then
+  echo "credential sentinel appeared in collector logs" >&2
+  exit 1
+fi
 
 echo "authenticated ingestion kind verification passed"
