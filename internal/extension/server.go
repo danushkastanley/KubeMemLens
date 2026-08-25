@@ -1,0 +1,215 @@
+package extension
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
+	"github.com/danushkastanley/kube-memlens/internal/kube"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
+	apiserverconfig "k8s.io/apiserver/pkg/apis/apiserver"
+	"k8s.io/apiserver/pkg/authentication/authenticatorfactory"
+	"k8s.io/apiserver/pkg/authentication/request/headerrequest"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
+	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/dynamiccertificates"
+	"k8s.io/apiserver/pkg/server/healthz"
+	genericoptions "k8s.io/apiserver/pkg/server/options"
+	utilfeature "k8s.io/apiserver/pkg/util/feature"
+	"k8s.io/client-go/kubernetes"
+	certutil "k8s.io/client-go/util/cert"
+	basecompatibility "k8s.io/component-base/compatibility"
+)
+
+type ServerOptions struct {
+	BindPort       int
+	CertFile       string
+	KeyFile        string
+	KubeconfigFile string
+	MaxBodyBytes   int64
+	MaxRead        int
+	MaxMutating    int
+	RequestTimeout time.Duration
+	Handler        *Handler
+}
+
+func (o ServerOptions) Run(ctx context.Context) error {
+	if o.Handler == nil {
+		return fmt.Errorf("extension handler is required")
+	}
+	if o.BindPort <= 0 || o.CertFile == "" || o.KeyFile == "" {
+		return fmt.Errorf("extension TLS port, certificate and key are required")
+	}
+	if o.MaxBodyBytes <= 0 || o.MaxRead <= 0 || o.MaxMutating <= 0 || o.RequestTimeout <= 0 {
+		return fmt.Errorf("extension request limits must be greater than zero")
+	}
+
+	scheme := runtime.NewScheme()
+	metav1.AddToGroupVersion(scheme, schema.GroupVersion{Version: "v1"})
+	scheme.AddUnversionedTypes(schema.GroupVersion{Group: "", Version: "v1"},
+		&metav1.Status{}, &metav1.APIVersions{}, &metav1.APIGroupList{}, &metav1.APIGroup{}, &metav1.APIResourceList{})
+	codecs := serializer.NewCodecFactory(scheme)
+	config := genericapiserver.NewConfig(codecs)
+	config.EnableProfiling = false
+	config.EnableMetrics = false
+	config.MaxRequestBodyBytes = o.MaxBodyBytes
+	config.MaxRequestsInFlight = o.MaxRead
+	config.MaxMutatingRequestsInFlight = o.MaxMutating
+	config.RequestTimeout = o.RequestTimeout
+	config.FeatureGate = utilfeature.DefaultFeatureGate
+	config.EffectiveVersion = basecompatibility.NewEffectiveVersionFromString("1.33", "", "")
+
+	secure := genericoptions.NewSecureServingOptions().WithLoopback()
+	secure.BindPort = o.BindPort
+	secure.ServerCert.CertKey.CertFile = o.CertFile
+	secure.ServerCert.CertKey.KeyFile = o.KeyFile
+	if err := secure.ApplyTo(&config.SecureServing, &config.LoopbackClientConfig); err != nil {
+		return fmt.Errorf("configure extension TLS: %w", err)
+	}
+
+	requestHeaders, err := configureRequestHeaderAuthentication(ctx, o.KubeconfigFile, config)
+	if err != nil {
+		return fmt.Errorf("configure delegated authentication: %w", err)
+	}
+	config.AddReadyzChecks(requestHeaderReady(requestHeaders))
+
+	authorization := genericoptions.NewDelegatingAuthorizationOptions()
+	authorization.RemoteKubeConfigFile = o.KubeconfigFile
+	authorization.AlwaysAllowGroups = nil
+	authorization.AlwaysAllowPaths = nil
+	authorization.AllowCacheTTL = 0
+	authorization.DenyCacheTTL = 0
+	authorization.WithClientTimeout(5 * time.Second)
+	if err := authorization.ApplyTo(&config.Authorization); err != nil {
+		return fmt.Errorf("configure delegated authorisation: %w", err)
+	}
+	config.Authorization.Authorizer = agentIdentityAuthorizer{
+		expectedUsername: o.Handler.opts.AgentUsername,
+		delegate:         config.Authorization.Authorizer,
+	}
+
+	server, err := config.Complete(nil).New("kube-memlens-extension", genericapiserver.NewEmptyDelegate())
+	if err != nil {
+		return fmt.Errorf("create extension server: %w", err)
+	}
+	o.Handler.Register(server.Handler.NonGoRestfulMux)
+	return server.PrepareRun().RunWithContext(ctx)
+}
+
+type agentIdentityAuthorizer struct {
+	expectedUsername string
+	delegate         authorizer.Authorizer
+}
+
+func (a agentIdentityAuthorizer) Authorize(ctx context.Context, attributes authorizer.Attributes) (authorizer.Decision, string, error) {
+	resource := attributes.GetResource()
+	if attributes.GetAPIGroup() == api.MemoryAPIGroup && (resource == "ingestionepochs" || resource == "nodesnapshots") {
+		if _, err := claimsFromUser(attributes.GetUser(), a.expectedUsername); err != nil {
+			return authorizer.DecisionDeny, "agent identity is invalid", nil
+		}
+	}
+	return a.delegate.Authorize(ctx, attributes)
+}
+
+func configureRequestHeaderAuthentication(ctx context.Context, kubeconfigFile string, config *genericapiserver.Config) (*genericoptions.DynamicRequestHeaderController, error) {
+	restConfig, err := kube.BuildConfig(kubeconfigFile, "")
+	if err != nil {
+		return nil, err
+	}
+	restConfig.UserAgent = "kube-memlens-extension/" + buildinfo.Version
+	client, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("create Kubernetes authentication client: %w", err)
+	}
+	return configureRequestHeaderAuthenticationWithClient(ctx, client, config)
+}
+
+func configureRequestHeaderAuthenticationWithClient(ctx context.Context, client kubernetes.Interface, config *genericapiserver.Config) (*genericoptions.DynamicRequestHeaderController, error) {
+	if err := validateRequestHeaderConfigMap(ctx, client); err != nil {
+		return nil, err
+	}
+	ca, err := dynamiccertificates.NewDynamicCAFromConfigMapController(
+		"kube-memlens-request-header", metav1.NamespaceSystem, "extension-apiserver-authentication", "requestheader-client-ca-file", client)
+	if err != nil {
+		return nil, err
+	}
+	headers := headerrequest.NewRequestHeaderAuthRequestController(
+		"extension-apiserver-authentication", metav1.NamespaceSystem, client,
+		"requestheader-username-headers", "requestheader-uid-headers", "requestheader-group-headers",
+		"requestheader-extra-headers-prefix", "requestheader-allowed-names")
+	controller := &genericoptions.DynamicRequestHeaderController{
+		ConfigMapCAController: ca, RequestHeaderAuthRequestController: headers,
+	}
+	if err := controller.RunOnce(ctx); err != nil {
+		return nil, fmt.Errorf("load request-header authentication configuration: %w", err)
+	}
+	requestHeaderConfig := &authenticatorfactory.RequestHeaderConfig{
+		CAContentProvider:   controller,
+		UsernameHeaders:     headerrequest.StringSliceProviderFunc(controller.UsernameHeaders),
+		UIDHeaders:          headerrequest.StringSliceProviderFunc(controller.UIDHeaders),
+		GroupHeaders:        headerrequest.StringSliceProviderFunc(controller.GroupHeaders),
+		ExtraHeaderPrefixes: headerrequest.StringSliceProviderFunc(controller.ExtraHeaderPrefixes),
+		AllowedClientNames:  headerrequest.StringSliceProviderFunc(requiredAllowedNames(controller.AllowedClientNames)),
+	}
+	authenticator, _, err := (authenticatorfactory.DelegatingAuthenticatorConfig{
+		Anonymous: &apiserverconfig.AnonymousAuthConfig{Enabled: true, Conditions: []apiserverconfig.AnonymousAuthCondition{
+			{Path: "/healthz"}, {Path: "/livez"}, {Path: "/readyz"},
+		}},
+		RequestHeaderConfig: requestHeaderConfig,
+	}).New()
+	if err != nil {
+		return nil, err
+	}
+	config.Authentication.Authenticator = authenticator
+	config.Authentication.RequestHeaderConfig = requestHeaderConfig
+	if err := config.Authentication.ApplyClientCert(controller, config.SecureServing); err != nil {
+		return nil, err
+	}
+	return controller, nil
+}
+
+func validateRequestHeaderConfigMap(ctx context.Context, client kubernetes.Interface) error {
+	configMap, err := client.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(ctx, "extension-apiserver-authentication", metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("read extension authentication ConfigMap: %w", err)
+	}
+	if certs, err := certutil.ParseCertsPEM([]byte(configMap.Data["requestheader-client-ca-file"])); err != nil || len(certs) == 0 {
+		return fmt.Errorf("request-header client CA is missing or invalid")
+	}
+	for _, key := range []string{
+		"requestheader-username-headers", "requestheader-group-headers",
+		"requestheader-extra-headers-prefix", "requestheader-allowed-names",
+	} {
+		if strings.TrimSpace(configMap.Data[key]) == "" {
+			return fmt.Errorf("request-header configuration %s is missing", key)
+		}
+	}
+	return nil
+}
+
+func requiredAllowedNames(source func() []string) func() []string {
+	return func() []string {
+		names := source()
+		if len(names) == 0 {
+			return []string{"\x00invalid-empty-proxy-cn"}
+		}
+		return names
+	}
+}
+
+func requestHeaderReady(controller *genericoptions.DynamicRequestHeaderController) healthz.HealthChecker {
+	return healthz.NamedCheck("request-header-config", func(_ *http.Request) error {
+		if len(controller.CurrentCABundleContent()) == 0 || len(controller.UsernameHeaders()) == 0 ||
+			len(controller.GroupHeaders()) == 0 || len(controller.ExtraHeaderPrefixes()) == 0 || len(controller.AllowedClientNames()) == 0 {
+			return fmt.Errorf("request-header authentication configuration is unavailable")
+		}
+		return nil
+	})
+}

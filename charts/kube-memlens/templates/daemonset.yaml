@@ -1,4 +1,7 @@
 {{- if .Values.agent.enabled }}
+{{- if not (has .Values.agent.ingestionMode (list "authenticated" "legacy")) }}
+{{- fail "agent.ingestionMode must be authenticated or legacy" }}
+{{- end }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -20,6 +23,8 @@ spec:
 {{- end }}
     spec:
       serviceAccountName: kube-memlens-agent
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
       nodeSelector:
 {{ toYaml .Values.agent.nodeSelector | nindent 8 }}
 {{- with .Values.agent.tolerations }}
@@ -28,6 +33,9 @@ spec:
 {{- end }}
       securityContext:
         runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -38,7 +46,12 @@ spec:
           args:
             - "--cgroup-root=/host/sys/fs/cgroup"
             - "--interval={{ .Values.agent.interval }}"
+{{- if eq .Values.agent.ingestionMode "authenticated" }}
+            - "--ingestion-mode=authenticated"
+{{- else }}
+            - "--ingestion-mode=legacy"
             - "--collector-url={{ .Values.agent.collectorURL }}"
+{{- end }}
             - "--node-name=$(NODE_NAME)"
 {{- if .Values.agent.metrics.enabled }}
             - "--metrics-listen=:{{ .Values.agent.metrics.port }}"
@@ -67,9 +80,29 @@ spec:
             - name: cgroup
               mountPath: /host/sys/fs/cgroup
               readOnly: true
+            - name: kubernetes-api-access
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
       volumes:
         - name: cgroup
           hostPath:
             path: {{ .Values.agent.cgroupRootHostPath | quote }}
             type: Directory
+        - name: kubernetes-api-access
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: {{ .Values.agent.tokenExpirationSeconds }}
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        fieldPath: metadata.namespace
 {{- end }}

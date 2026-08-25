@@ -21,14 +21,14 @@ helm upgrade --install kube-memlens \
 
 The digest must be 64 lowercase hexadecimal characters. It takes precedence over `image.tag`.
 
-The current alpha is not supported as a shared multi-tenant service because collector reads and agent writes do not yet have application-level authentication and authorisation. Run the qualification procedure before evaluating the chart on a managed cluster. The chart targets compatible Linux cgroup v2 nodes; provider-restricted, serverless, Windows, and cgroup v1 nodes are not silently treated as supported.
+The current alpha is not supported as a shared multi-tenant service because tenant-scoped reads are not finished. Agent writes on `main` use Kubernetes request-header authentication, delegated authorisation and Pod/node binding. Run the qualification procedure before evaluating the chart on a managed cluster. The chart targets compatible Linux cgroup v2 nodes; provider-restricted, serverless, Windows, and cgroup v1 nodes are not silently treated as supported.
 
 ## Components
 
 - One agent Pod per selected Linux node reads `/sys/fs/cgroup` read-only and maps container cgroups to Kubernetes Pods.
 - One collector replica retains bounded current snapshots and short Pod history in memory.
-- Read/metrics traffic uses port `8080`; agent ingestion uses port `8081`; agent health/metrics uses port `8082`.
-- A default NetworkPolicy permits ingestion only from labelled KubeMemLens agents and keeps the collector cluster-internal.
+- Read/metrics traffic uses port `8080`; the aggregated ingestion API uses TLS Service port `443`; agent health/metrics uses port `8082`.
+- The agent sends snapshots through the Kubernetes API server. The default Service does not expose plaintext ingestion port `8081`.
 
 The collector must remain at one replica because replicas do not share state. The chart rejects other replica counts.
 
@@ -41,8 +41,14 @@ The collector must remain at one replica because replicas do not share state. Th
 | `image.digest` | empty | Preferred immutable image identity |
 | `agent.nodeSelector` | `kubernetes.io/os: linux` | Linux-node targeting |
 | `agent.tolerations` | empty | Operator-reviewed node-pool tolerations |
+| `agent.ingestionMode` | `authenticated` | Kubernetes aggregated ingestion; `legacy` is for controlled pre-v1 rollback only |
+| `agent.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime |
 | `collector.replicas` | `1` | Required single in-memory collector |
-| `networkPolicy.enabled` | `true` | Ingestion isolation |
+| `collector.ingestion.maxConcurrentRequests` | `4` | Concurrent snapshot decode ceiling |
+| `collector.ingestion.requestsPerSecondPerAgent` | `1` | Per-agent sustained ingestion rate |
+| `collector.ingestion.burstPerAgent` | `2` | Per-agent ingestion burst |
+| `extensionTLS.rotateBefore` | `720h` | Serving-certificate rotation window |
+| `networkPolicy.enabled` | `true` | Cluster-local read and APIService ingress policy |
 | `metrics.includeContainers` | `false` | High-cardinality container metrics opt-in |
 | `metrics.serviceMonitor.enabled` | `false` | Optional Prometheus Operator integration |
 | `metrics.prometheusRule.enabled` | `false` | Optional recording and alert rules |

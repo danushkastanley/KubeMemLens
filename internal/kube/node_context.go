@@ -46,7 +46,11 @@ func (c *NodeContextCache) Context(ctx context.Context, now time.Time) (api.Node
 }
 
 func nodeContext(node corev1.Node) api.NodeContext {
-	context := api.NodeContext{Available: true, MemoryPressureStatus: "Unknown"}
+	context := api.NodeContext{
+		Available:            true,
+		NodeUID:              string(node.UID),
+		MemoryPressureStatus: "Unknown",
+	}
 	if allocatable, exists := node.Status.Allocatable[corev1.ResourceMemory]; exists {
 		context.MemoryAllocatableKnown = true
 		context.MemoryAllocatableBytes = quantityBytes(allocatable)

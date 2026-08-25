@@ -14,12 +14,27 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
 	"github.com/danushkastanley/kube-memlens/internal/collector"
+	"github.com/danushkastanley/kube-memlens/internal/extension"
 	"github.com/danushkastanley/kube-memlens/internal/metrics"
+)
+
+const (
+	ingestionLegacy        = "legacy"
+	ingestionAuthenticated = "authenticated"
 )
 
 func main() {
 	listenAddr := flag.String("listen", ":8080", "HTTP listen address for collector reads, metrics, and health checks")
 	ingestListenAddr := flag.String("ingest-listen", ":8081", "HTTP listen address for agent snapshot ingestion")
+	ingestionMode := flag.String("ingestion-mode", ingestionLegacy, "snapshot ingestion mode: legacy or authenticated")
+	extensionPort := flag.Int("extension-port", 8443, "HTTPS port for the aggregated ingestion API")
+	extensionCertFile := flag.String("extension-tls-cert-file", "", "aggregated API serving certificate")
+	extensionKeyFile := flag.String("extension-tls-key-file", "", "aggregated API serving private key")
+	extensionKubeconfig := flag.String("extension-kubeconfig", "", "optional kubeconfig for delegated authentication and authorisation")
+	agentUsername := flag.String("agent-username", "system:serviceaccount:kube-memlens:kube-memlens-agent", "exact Kubernetes agent ServiceAccount username")
+	ingestionMaxConcurrent := flag.Int("ingestion-max-concurrent", 4, "maximum snapshot bodies decoded concurrently")
+	ingestionRequestsPerSecond := flag.Float64("ingestion-requests-per-second-per-agent", 1, "accepted request rate per authenticated agent Pod")
+	ingestionBurst := flag.Int("ingestion-burst-per-agent", 2, "authenticated ingestion burst per agent Pod")
 	handlerOpts := collector.DefaultHandlerOptions(30 * time.Second)
 	historyOpts := collector.DefaultHistoryOptions()
 	storeLimits := collector.DefaultStoreLimits()
@@ -50,6 +65,10 @@ func main() {
 		fmt.Println(buildinfo.Current(runtime.Version(), runtime.GOOS, runtime.GOARCH).String())
 		return
 	}
+	if *ingestionMode != ingestionLegacy && *ingestionMode != ingestionAuthenticated {
+		fmt.Fprintln(os.Stderr, "ingestion mode must be legacy or authenticated")
+		os.Exit(2)
+	}
 	if historyOpts.Duration <= 0 || historyOpts.MaxSeries <= 0 || historyOpts.MaxPoints <= 0 || historyOpts.MaxResponseSeries <= 0 || storeLimits.MaxNodes <= 0 || storeLimits.MaxContainers <= 0 || handlerOpts.MaxResponseBytes <= 0 {
 		fmt.Fprintln(os.Stderr, "history, store, and response limits must be greater than zero")
 		os.Exit(2)
@@ -61,17 +80,54 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	serverFailures := make(chan error, 3)
 
 	readServer := newHTTPServer(*listenAddr, collector.NewReadHandlerWithOptions(store, handlerOpts))
-	ingestServer := newHTTPServer(*ingestListenAddr, collector.NewIngestHandlerWithOptions(store, handlerOpts, func(format string, args ...any) {
-		fmt.Printf(format+"\n", args...)
-	}))
 	servers := []struct {
 		name   string
 		server *http.Server
 	}{
 		{name: "read", server: readServer},
-		{name: "ingest", server: ingestServer},
+	}
+	if *ingestionMode == ingestionLegacy {
+		ingestServer := newHTTPServer(*ingestListenAddr, collector.NewIngestHandlerWithOptions(store, handlerOpts, func(format string, args ...any) {
+			fmt.Printf(format+"\n", args...)
+		}))
+		servers = append(servers, struct {
+			name   string
+			server *http.Server
+		}{name: "ingest", server: ingestServer})
+	} else {
+		coordinator, err := extension.NewCoordinator(store, extension.CoordinatorOptions{
+			Handler: handlerOpts, MaxAgents: storeLimits.MaxNodes, MaxRetired: storeLimits.MaxNodes * 4,
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "configure authenticated ingestion: %v\n", err)
+			os.Exit(1)
+		}
+		handler, err := extension.NewHandler(coordinator, extension.HandlerOptions{
+			AgentUsername: *agentUsername, MaxSnapshotBytes: handlerOpts.MaxSnapshotBytes,
+			MaxConcurrent: *ingestionMaxConcurrent, RequestsPerSec: *ingestionRequestsPerSecond,
+			Burst: *ingestionBurst, MaxIdentities: storeLimits.MaxNodes,
+			Logf: func(format string, args ...any) { fmt.Printf(format+"\n", args...) },
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "configure authenticated ingestion: %v\n", err)
+			os.Exit(1)
+		}
+		go func() {
+			fmt.Printf("memlens-collector authenticated extension listening on :%d\n", *extensionPort)
+			err := (extension.ServerOptions{
+				BindPort: *extensionPort, CertFile: *extensionCertFile, KeyFile: *extensionKeyFile,
+				KubeconfigFile: *extensionKubeconfig, MaxBodyBytes: handlerOpts.MaxSnapshotBytes,
+				MaxRead: 64, MaxMutating: 32, RequestTimeout: 10 * time.Second, Handler: handler,
+			}).Run(ctx)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				fmt.Printf("memlens-collector extension server failed: %v\n", err)
+				serverFailures <- err
+				stop()
+			}
+		}()
 	}
 
 	for _, item := range servers {
@@ -80,6 +136,7 @@ func main() {
 			fmt.Printf("memlens-collector %s endpoint listening on %s\n", item.name, item.server.Addr)
 			if err := item.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				fmt.Printf("memlens-collector %s server failed: %v\n", item.name, err)
+				serverFailures <- err
 				stop()
 			}
 		}()
@@ -94,6 +151,11 @@ func main() {
 		}
 	}
 	fmt.Println("memlens-collector shutting down")
+	select {
+	case <-serverFailures:
+		os.Exit(1)
+	default:
+	}
 }
 
 func newHTTPServer(addr string, handler http.Handler) *http.Server {

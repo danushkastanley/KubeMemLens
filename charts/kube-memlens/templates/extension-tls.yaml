@@ -1,0 +1,49 @@
+{{- if and .Values.collector.enabled (eq .Values.agent.ingestionMode "authenticated") }}
+{{- $secretName := .Values.extensionTLS.secretName -}}
+{{- $existing := lookup "v1" "Secret" .Values.namespace.name $secretName -}}
+{{- $caBundle := "" -}}
+{{- $certificate := "" -}}
+{{- $privateKey := "" -}}
+{{- if and $existing $existing.data (index $existing.data "ca.crt") (index $existing.data "tls.crt") (index $existing.data "tls.key") }}
+{{- $caBundle = index $existing.data "ca.crt" -}}
+{{- $certificate = index $existing.data "tls.crt" -}}
+{{- $privateKey = index $existing.data "tls.key" -}}
+{{- else }}
+{{- $ca := genCA "kube-memlens-extension" (int .Values.extensionTLS.validityDays) -}}
+{{- $dnsNames := list
+      "kube-memlens-collector"
+      (printf "kube-memlens-collector.%s" .Values.namespace.name)
+      (printf "kube-memlens-collector.%s.svc" .Values.namespace.name)
+      (printf "kube-memlens-collector.%s.svc.cluster.local" .Values.namespace.name) -}}
+{{- $cert := genSignedCert "kube-memlens-collector" nil $dnsNames (int .Values.extensionTLS.validityDays) $ca -}}
+{{- $caBundle = b64enc $ca.Cert -}}
+{{- $certificate = b64enc $cert.Cert -}}
+{{- $privateKey = b64enc $cert.Key -}}
+{{- end }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ $secretName | quote }}
+  namespace: {{ .Values.namespace.name | quote }}
+type: kubernetes.io/tls
+data:
+  ca.crt: {{ $caBundle | quote }}
+  tls.crt: {{ $certificate | quote }}
+  tls.key: {{ $privateKey | quote }}
+---
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  name: v1alpha1.memory.kubememlens.io
+spec:
+  group: memory.kubememlens.io
+  version: v1alpha1
+  groupPriorityMinimum: 1000
+  versionPriority: 15
+  insecureSkipTLSVerify: false
+  caBundle: {{ $caBundle | quote }}
+  service:
+    name: kube-memlens-collector
+    namespace: {{ .Values.namespace.name | quote }}
+    port: 443
+{{- end }}

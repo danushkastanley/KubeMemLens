@@ -14,10 +14,17 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/agent"
+	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
 	"github.com/danushkastanley/kube-memlens/internal/kube"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+)
+
+const (
+	ingestionLegacy        = "legacy"
+	ingestionAuthenticated = "authenticated"
 )
 
 func main() {
@@ -25,6 +32,7 @@ func main() {
 	interval := flag.Duration("interval", 5*time.Second, "scan interval")
 	once := flag.Bool("once", false, "scan the configured cgroup root once")
 	collectorURL := flag.String("collector-url", "", "collector base URL")
+	ingestionMode := flag.String("ingestion-mode", ingestionLegacy, "snapshot ingestion mode: legacy or authenticated")
 	nodeName := flag.String("node-name", defaultNodeName(), "Kubernetes node name")
 	kubeEnabled := flag.Bool("kube", true, "use Kubernetes API for pod/container metadata")
 	scanTimeout := flag.Duration("scan-timeout", 10*time.Second, "per-scan timeout")
@@ -36,14 +44,39 @@ func main() {
 		fmt.Println(buildinfo.Current(runtime.Version(), runtime.GOOS, runtime.GOARCH).String())
 		return
 	}
+	if *ingestionMode != ingestionLegacy && *ingestionMode != ingestionAuthenticated {
+		fmt.Fprintln(os.Stderr, "ingestion mode must be legacy or authenticated")
+		os.Exit(2)
+	}
 
 	var kubeClient kubernetes.Interface
+	var kubeConfig *rest.Config
 	if *kubeEnabled {
-		client, err := kube.NewClient()
+		config, err := kube.BuildConfig("", "")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "kubernetes metadata mapping unavailable: %v\n", err)
 		} else {
-			kubeClient = client
+			config.UserAgent = "kube-memlens-agent/" + buildinfo.Version
+			client, clientErr := kube.NewClientForConfig(config)
+			if clientErr != nil {
+				fmt.Fprintf(os.Stderr, "kubernetes metadata mapping unavailable: %v\n", clientErr)
+			} else {
+				kubeConfig = config
+				kubeClient = client
+			}
+		}
+	}
+	var publisher *agent.SnapshotPublisher
+	if *ingestionMode == ingestionAuthenticated {
+		if kubeConfig == nil {
+			fmt.Fprintln(os.Stderr, "authenticated ingestion requires a working Kubernetes client")
+			os.Exit(1)
+		}
+		var err error
+		publisher, err = agent.NewSnapshotPublisher(kubeConfig)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "authenticated ingestion unavailable: %v\n", err)
+			os.Exit(1)
 		}
 	}
 
@@ -76,8 +109,8 @@ func main() {
 		if result.RootFallback {
 			fmt.Println("Used direct root cgroup scan because no container cgroups were found.")
 		}
-		if *collectorURL != "" {
-			if err := agent.PostSnapshot(ctx, *collectorURL, result.Snapshot); err != nil {
+		if *collectorURL != "" || publisher != nil {
+			if err := publishSnapshot(ctx, *ingestionMode, *collectorURL, publisher, index.NodeContext.NodeUID, result.Snapshot); err != nil {
 				fmt.Fprintf(os.Stderr, "collector POST failed: %v\n", err)
 				os.Exit(1)
 			}
@@ -155,8 +188,8 @@ func main() {
 		result, err := scanner.Scan(scanCtx, index)
 		telemetry.RecordScan(time.Now().UTC(), time.Since(start), result, err, metadataCachePods)
 		posted := false
-		if err == nil && *collectorURL != "" {
-			if postErr := agent.PostSnapshot(scanCtx, *collectorURL, result.Snapshot); postErr != nil {
+		if err == nil && (*collectorURL != "" || publisher != nil) {
+			if postErr := publishSnapshot(scanCtx, *ingestionMode, *collectorURL, publisher, index.NodeContext.NodeUID, result.Snapshot); postErr != nil {
 				telemetry.RecordPost(postErr)
 				err = postErr
 			} else {
@@ -191,6 +224,13 @@ func main() {
 		case <-ticker.C:
 		}
 	}
+}
+
+func publishSnapshot(ctx context.Context, mode, collectorURL string, publisher *agent.SnapshotPublisher, nodeUID string, snapshot api.AgentSnapshot) error {
+	if mode == ingestionAuthenticated {
+		return publisher.Publish(ctx, nodeUID, snapshot)
+	}
+	return agent.PostSnapshot(ctx, collectorURL, snapshot)
 }
 
 func newMetricsServer(addr string, handler http.Handler) *http.Server {

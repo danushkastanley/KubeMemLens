@@ -10,7 +10,7 @@ KubeMemLens is designed as a terminal-first tool that can start locally and grow
 - `internal/explain`: diagnosis heuristics and incident-friendly explanations.
 - `examples/cgroup-v2`: local sample data for development and tests.
 - `memlens-agent`: DaemonSet binary that scans node cgroups and posts snapshots.
-- `memlens-collector`: in-memory HTTP collector for latest container snapshots and bounded Pod trends.
+- `memlens-collector`: in-memory collector plus authenticated extension server for latest container snapshots and bounded Pod trends.
 - `internal/client`: collector readers for direct HTTP and Kubernetes API service proxy modes.
 - `internal/tui`: Bubble Tea dashboard for risk-oriented node, namespace, workload, Pod and container investigation.
 - `internal/incident`: shared redacted incident-bundle writing used by the CLI and TUI.
@@ -22,7 +22,7 @@ KubeMemLens is designed as a terminal-first tool that can start locally and grow
 2. The agent walks `/host/sys/fs/cgroup`, parses composition, peak, boundaries, PSI, swap, local events, and reclaim signals, and returns only container-looking cgroups.
 3. The agent performs one node-filtered Pod list, follows changes through a Kubernetes watch, and builds a local pod/container index.
 4. The agent maps container cgroup IDs to namespace, Pod, container, node, resource request/limit, QoS, restart/termination, phase, creation-time, runtime class, memory-backed `emptyDir` counts/limits, direct owner, and top-level workload metadata. Its cached own-node GET adds MemoryPressure and allocatable memory. ReplicaSet and Job owner GETs are cached and bounded.
-5. The agent posts versioned `AgentSnapshot` JSON, including cgroup/runtime diagnostics, to the ingestion listener on port `8081` at `/api/v1/snapshots`.
+5. The agent uses its rotating, Pod-bound ServiceAccount token to read the collector epoch and create a node snapshot through the Kubernetes aggregated API.
 6. The collector stores the latest container snapshots plus a bounded rolling Pod history in memory, deriving event and scan/steal/refault/major-fault deltas from consecutive container instances. It defaults to 5,000 node records, 100,000 current containers, and 16 MiB per encoded read response. Current clients request at most 500 records per keyset page; the server reduces a page further when its encoded body would reach the byte ceiling. Clients deterministically rebuild Pod, namespace and workload views, while legacy array endpoints remain during the pre-1.0 compatibility window. History defaults to 15 minutes, 180 points per Pod instance, 1,000 total series, and 20 returned instances per request.
 7. The CLI and TUI query the read-only collector listener on port `8080` through one of two connection modes:
    - HTTP direct mode, usually via a user-managed port-forward.
@@ -34,7 +34,8 @@ Pod and namespace totals are sums of mapped container cgroups only. Parent pod c
 The default data flow keeps the collector cluster-internal:
 
 ```text
-agent -> collector service -> Kubernetes API service proxy -> CLI/TUI
+agent -> Kubernetes API server -> authenticated APIService -> collector
+CLI/TUI -> Kubernetes API service proxy -> collector read API
 ```
 
 HTTP fallback mode still uses:
@@ -51,9 +52,9 @@ agent -> collector store -> /metrics -> Prometheus
 
 ## Future Components
 
-### Authenticated Kubernetes API
+### Authenticated Kubernetes API migration
 
-The v1 production path replaces the service proxy and direct ingestion listeners with an aggregated Kubernetes API at `memory.kubememlens.io/v1alpha1`. Kubernetes authenticates the existing kubeconfig or Pod-bound ServiceAccount token and applies RBAC. The extension server validates the aggregation proxy and delegates the exact resource request through `SubjectAccessReview` before reading or mutating the store.
+Agent ingestion now uses the aggregated Kubernetes API at `memory.kubememlens.io/v1alpha1`. Kubernetes authenticates the Pod-bound ServiceAccount token and applies RBAC. The extension server accepts request-header identity only from the validated aggregation proxy and delegates the exact resource request through `SubjectAccessReview` before mutating the store. PROD-004 moves reads to the same boundary.
 
 Namespace Roles cover Pod, container, workload and history resources. Cluster views, workload-labelled metrics and agent writes use separate least-privilege bindings. Agent writes must match authenticated Pod UID, node name and node UID claims plus the current collector epoch and a strictly increasing sequence. Secure-profile charts disable legacy direct workload routes. See [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md) and the [endpoint policy](security/authentication-and-authorisation.md).
 

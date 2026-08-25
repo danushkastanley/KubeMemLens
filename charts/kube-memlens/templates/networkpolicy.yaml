@@ -16,8 +16,14 @@ spec:
     - ports:
         - port: http
           protocol: TCP
-    # Snapshot ingestion is writable and is limited to KubeMemLens agents in
-    # this namespace. Enforcement requires a NetworkPolicy-capable CNI.
+{{- if eq .Values.agent.ingestionMode "authenticated" }}
+    # Managed control-plane source ranges are not portable. The aggregation
+    # proxy certificate and delegated authorisation protect this TLS port.
+    - ports:
+        - port: extension
+          protocol: TCP
+{{- else }}
+    # Legacy alpha ingestion remains limited to agents in this namespace.
     - from:
         - podSelector:
             matchLabels:
@@ -25,4 +31,5 @@ spec:
       ports:
         - port: ingest
           protocol: TCP
+{{- end }}
 {{- end }}

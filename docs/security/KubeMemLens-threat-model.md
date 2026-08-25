@@ -122,7 +122,7 @@ Non-capabilities at the start of an abuse path:
 | Entry point | Untrusted input | Boundary and owner |
 | --- | --- | --- |
 | Aggregated read resources | Verb, namespace, resource, name, selectors and pagination | Kubernetes authentication plus extension delegated authorisation; future PROD-004 handlers |
-| `nodesnapshots` create | Identity extras, epoch, sequence, time and bounded snapshot JSON | Kubernetes authentication plus extension node binding; future PROD-003 handler and `internal/collector` validation |
+| `nodesnapshots` create | Identity extras, epoch, sequence, time and bounded snapshot JSON | Kubernetes authentication plus the PROD-003 extension node binding and `internal/collector` validation |
 | `ingestionepochs` get | Agent identity | Exact agent RBAC and extension identity check |
 | Aggregation listener | TLS client certificate and forwarded identity headers | Request-header authenticator configured from `extension-apiserver-authentication` |
 | Serving certificate bootstrap | Secret and `APIService` names, CA bundle and expiry | Proposed name-scoped update permissions for Helm-created objects |

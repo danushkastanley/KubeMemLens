@@ -1,6 +1,6 @@
 # Authentication and authorisation architecture
 
-Status: accepted design, not implemented
+Status: accepted design; PROD-003 agent ingestion implemented, tenant reads pending
 Decision: [ADR 0004](../adr/0004-use-kubernetes-aggregation-for-authentication.md)
 Implementation owners: PROD-003, PROD-004 and PROD-005
 
@@ -91,7 +91,7 @@ The agent cannot get, list, watch, update, patch or delete snapshots. It retains
 
 ### Certificate bootstrap permissions
 
-Helm creates the serving Secret and APIService objects. The hook job may get, patch and update only those exact resource names. It does not receive `create`, because Kubernetes RBAC cannot constrain that verb by `resourceNames`. Helm removes the hook Pod, ServiceAccount, Role, ClusterRole and bindings after success.
+Helm creates the serving Secret and APIService objects. The hook job may get and update only those exact resource names. It does not receive `create`, because Kubernetes RBAC cannot constrain that verb by `resourceNames`. Helm removes the hook Pod, ServiceAccount, Role, ClusterRole and bindings after success.
 
 ## Request authentication
 
@@ -117,7 +117,7 @@ The response for missing and out-of-scope objects uses the same public status an
 
 ## Agent binding and replay protection
 
-The extension server checks all of the following before decoding a snapshot body:
+The extension server authenticates the request, checks the agent identity, and applies body-size, rate and concurrency limits before decoding a snapshot body. It then checks all of the following before storing the snapshot:
 
 1. The principal username is the exact release namespace `kube-memlens-agent` ServiceAccount.
 2. The authenticated extras contain one Pod UID, one node name and one node UID.
@@ -128,7 +128,7 @@ The extension server checks all of the following before decoding a snapshot body
 7. Capture time is within the configured age and future-skew bounds.
 8. Existing schema, entity-count, identifier and encoded-byte checks pass.
 
-The collector records accepted sequence state by authenticated Pod UID. A new agent Pod receives a new UID and starts a new sequence. A collector restart creates a new random epoch, so stored requests from the previous process fail before sequence evaluation.
+The collector records accepted sequence state by authenticated Pod UID. A new agent Pod receives a new UID and starts a new sequence. Recently replaced Pod UIDs remain denied for two minutes, covering the documented deletion and termination revocation window, then expire from bounded state. Per-node rate-limit state survives Pod replacement and evicts the least recently seen node at capacity rather than blocking a cluster rollout. A collector restart creates a new random epoch, so stored requests from the previous process fail before sequence evaluation.
 
 A stolen live agent token can act only as that ServiceAccount while the bound Pod exists and the token remains valid. It cannot claim another node because the signed node extra must match the payload. Deleting the Pod or ServiceAccount revokes the bound token through Kubernetes. The remaining revocation delay and token lifetime are recorded in the runbook.
 
@@ -138,7 +138,7 @@ A stolen live agent token can act only as that ServiceAccount while the bound Po
 - Agent and collector tokens use projected volumes. Kubelet refreshes them before expiry, and clients reopen the token file rather than caching its first contents.
 - Agent tokens are bound to the agent Pod. Agent replacement changes Pod UID and credential ID.
 - RoleBinding or ClusterRoleBinding removal revokes new API access through Kubernetes RBAC.
-- Certificate rotation updates the serving Secret and APIService CA bundle together, then restarts the extension server.
+- Certificate rotation updates the serving Secret and APIService CA bundle through a dual-CA transition; the extension server reloads the mounted certificate without enabling a plaintext fallback.
 - Compromise response deletes the affected Pod, removes its binding where applicable, rotates the serving certificate if proxy trust is in doubt and restarts the collector to change its ingestion epoch.
 
 No long-lived token Secret is created.
@@ -188,6 +188,14 @@ Each provider qualification must verify:
 
 Failure of any item keeps that provider profile unqualified. There is no cloud-specific authentication bypass.
 
+## Implementation dependency
+
+The extension server imports `k8s.io/apiserver` and `k8s.io/component-base` at the same `v0.33.12` level as the existing Kubernetes client modules. This is a deliberate exception to the usual no-new-dependency default. The upstream request-header authenticator, certificate controllers, request-info filter and delegated authoriser implement the trust boundary that KubeMemLens must not reproduce by hand.
+
+This adds the Kubernetes API-server transitive graph to the collector build even though KubeMemLens does not use etcd or admission storage. The repository keeps the modules version-aligned, scans reachable vulnerabilities, scans the built image, and tests the real aggregation path. The packages are Apache-2.0 licensed and maintained with Kubernetes. Removing them would require another supported Kubernetes extension-server library that preserves request-header rotation and exact delegated `SubjectAccessReview` behaviour.
+
+Operational response, rotation and rollback steps are in the [authenticated ingestion runbook](../runbooks/authenticated-agent-ingestion.md).
+
 ## Feasibility evidence
 
 Run the local check against a disposable or authorised kind cluster:
@@ -212,4 +220,4 @@ On 25 August 2026, Kubernetes 1.35.5 kind verification passed:
 - the agent could get the ingestion epoch and create, but not list, node snapshots; and
 - the metrics scraper could get metrics but could not list Pods.
 
-The custom token audience in this check isolates TokenReview claim and audience behaviour. The production aggregated path uses the Kubernetes API server audience and never forwards the token to the extension server. This check proves only the Kubernetes identity and RBAC inputs. PROD-003 and PROD-004 must still test the aggregated TLS request path, serving-certificate lifecycle and extension-server implementation.
+The custom token audience in this check isolates TokenReview claim and audience behaviour. The production aggregated path uses the Kubernetes API server audience and never forwards the token to the extension server. This check proves only the Kubernetes identity and RBAC inputs. PROD-003 separately verifies the aggregated TLS write path and serving-certificate lifecycle. PROD-004 still owns the read-resource implementation.
