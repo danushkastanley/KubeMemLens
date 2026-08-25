@@ -4,11 +4,12 @@
   "schemaVersion": 1,
   "profile": {
     "id": "development-smoke",
-    "digest": "sha256:ffff317162ef41a77b5e22bdf20e30e5d38fe3020c7f7fe533420b2396de9651"
+    "digest": "sha256:86ab7c8e07dc56237c3dcb84c58e819c24610a402b7aa68e6110ebcd907b55f9"
   },
   "workload": {
     "containers": 20,
     "containersPerPod": 10,
+    "creationBatchPods": 2,
     "steadyStateSeconds": 30,
     "sampleIntervalSeconds": 5,
     "agentInterval": "5s",

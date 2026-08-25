@@ -87,6 +87,7 @@ class ScaleEvaluatorTests(unittest.TestCase):
         for field, value, message in (
             ("containersPerPod", 100, "between 1 and 50"),
             ("sampleIntervalSeconds", 1, "between 5 and 300"),
+            ("creationBatchPods", 101, "cannot exceed"),
         ):
             with self.subTest(field=field):
                 changed = copy.deepcopy(self.qualification)

@@ -3,6 +3,77 @@
 # This library is sourced by soak-live-density.sh, which owns these variables.
 # shellcheck disable=SC2034,SC2154
 
+density_create_staged_workload() {
+  local containers_json=${work_dir}/containers.json created_pods=0
+  jq -n --arg image "${image}" --argjson count "${containers_per_pod}" '
+    [range(0; $count) | {
+      name: ("worker-" + tostring), image: $image, imagePullPolicy: "IfNotPresent",
+      command: ["/bin/sh", "-c", "exec sleep 86400"],
+      resources: {requests: {cpu: "1m", memory: "1Mi"}},
+      securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true,
+        runAsNonRoot: true, runAsUser: 65532, capabilities: {drop: ["ALL"]}}
+    }]' > "${containers_json}"
+  jq -n --arg namespace "${namespace}" --slurpfile containers "${containers_json}" '
+    {apiVersion: "apps/v1", kind: "Deployment", metadata: {name: "density-workers", namespace: $namespace,
+      labels: {"app.kubernetes.io/name": "density-workers", "app.kubernetes.io/managed-by": "kube-memlens-density-soak"}},
+     spec: {replicas: 0, progressDeadlineSeconds: 1800,
+      strategy: {type: "RollingUpdate", rollingUpdate: {maxSurge: 0, maxUnavailable: "10%"}},
+      selector: {matchLabels: {"app.kubernetes.io/name": "density-workers"}},
+      template: {metadata: {labels: {"app.kubernetes.io/name": "density-workers"}},
+        spec: {automountServiceAccountToken: false, terminationGracePeriodSeconds: 0,
+          securityContext: {seccompProfile: {type: "RuntimeDefault"}},
+          topologySpreadConstraints: [{maxSkew: 1, topologyKey: "kubernetes.io/hostname",
+            whenUnsatisfiable: "ScheduleAnyway",
+            labelSelector: {matchLabels: {"app.kubernetes.io/name": "density-workers"}}}],
+          containers: $containers[0]}}}}' | k apply -f - >/dev/null
+  while [ "${created_pods}" -lt "${pod_count}" ]; do
+    created_pods=$((created_pods + creation_batch_pods))
+    [ "${created_pods}" -le "${pod_count}" ] || created_pods=${pod_count}
+    k scale deployment/density-workers -n "${namespace}" --replicas="${created_pods}" >/dev/null
+    k rollout status deployment/density-workers -n "${namespace}" --timeout="${timeout}"
+    density_assert_startup_stable
+  done
+}
+
+density_capture_startup_baseline() {
+  local component_json
+  component_json=$(k get pods -n "${collector_namespace}" -o json)
+  startup_component_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' <<<"${component_json}")
+  startup_component_restarts=$(jq '[.items[].status.containerStatuses[]?.restartCount] | add // 0' \
+    <<<"${component_json}")
+  startup_component_oom_kills=$(jq '[.items[].status.containerStatuses[]? |
+    select(.lastState.terminated.reason == "OOMKilled")] | length' <<<"${component_json}")
+}
+
+density_assert_startup_stable() {
+  local component_json workload_json component_replaced workload_replaced restarts oom_kills node_pressure current_uids
+  component_json=$(k get pods -n "${collector_namespace}" -o json)
+  workload_json=$(k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json)
+  component_replaced=$(jq --argjson expected "${startup_component_pod_uids}" \
+    'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' <<<"${component_json}")
+  current_uids=$(jq -c '[.items[].metadata.uid] | sort' <<<"${workload_json}")
+  workload_replaced=$(jq -n --argjson expected "${startup_workload_pod_uids}" --argjson current "${current_uids}" \
+    'if ($expected - $current | length) == 0 then 0 else 1 end')
+  restarts=$(jq -n --argjson components "${component_json}" --argjson workload "${workload_json}" \
+    --argjson baseline "${startup_component_restarts}" \
+    --argjson componentReplaced "${component_replaced}" --argjson workloadReplaced "${workload_replaced}" '
+    ([(([$components.items[].status.containerStatuses[]?.restartCount] | add // 0)-$baseline),0]|max) +
+    ([$workload.items[].status.containerStatuses[]?.restartCount] | add // 0) +
+    $componentReplaced + $workloadReplaced')
+  oom_kills=$(jq -n --argjson components "${component_json}" --argjson workload "${workload_json}" \
+    --argjson baseline "${startup_component_oom_kills}" '
+    ([(([$components.items[].status.containerStatuses[]? |
+      select(.lastState.terminated.reason == "OOMKilled")] | length)-$baseline),0]|max) +
+    ([$workload.items[].status.containerStatuses[]? |
+      select(.lastState.terminated.reason == "OOMKilled")] | length)')
+  node_pressure=$(k get nodes -o json | jq '
+    [.items[].status.conditions[]? | select(.type == "MemoryPressure" and .status == "True")] | length')
+  [ "${restarts}" -eq 0 ] || fail "a workload or KubeMemLens container restarted during staged creation"
+  [ "${oom_kills}" -eq 0 ] || fail "a workload or KubeMemLens container was OOM-killed during staged creation"
+  [ "${node_pressure}" -eq 0 ] || fail "a Node reported MemoryPressure during staged creation"
+  startup_workload_pod_uids=${current_uids}
+}
+
 density_capture_operational_baseline() {
   local component_json workload_json component_baseline workload_baseline
   component_json=$(k get pods -n "${collector_namespace}" -o json)

@@ -40,6 +40,10 @@ component_pod_uids='[]'
 workload_pod_uids='[]'
 disruption_unexplained_restarts=0
 disruption_oom_kills=0
+startup_component_restarts=0
+startup_component_oom_kills=0
+startup_component_pod_uids='[]'
+startup_workload_pod_uids='[]'
 paused_kind_node=
 # shellcheck disable=SC2034 # consumed by the sourced summary library
 worker_node_recovery_seconds=0
@@ -95,6 +99,7 @@ telemetry_required=$(jq -r '.telemetryRequired' "${profile_path}")
 image=$(jq -er '.workload.image' "${profile_path}")
 containers=$(jq -er '.workload.containers' "${profile_path}")
 containers_per_pod=$(jq -er '.workload.containersPerPod' "${profile_path}")
+creation_batch_pods=$(jq -er '.workload.creationBatchPods' "${profile_path}")
 duration=$(jq -er '.workload.steadyStateSeconds' "${profile_path}")
 sample_interval=$(jq -er '.workload.sampleIntervalSeconds' "${profile_path}")
 canary_mib=$(jq -er '.workload.canaryMiB' "${profile_path}")
@@ -105,6 +110,7 @@ canary_control_samples=$(jq -er '.evidence.canaryControlSamples' "${profile_path
 [[ "${image}" =~ @sha256:[a-f0-9]{64}$ ]] || fail "profile workload image must be digest-pinned"
 is_uint "${containers}" || fail "profile container count must be an integer"
 is_uint "${containers_per_pod}" || fail "profile containers per Pod must be an integer"
+is_uint "${creation_batch_pods}" || fail "profile creation batch Pods must be an integer"
 is_uint "${duration}" || fail "profile duration must be an integer"
 is_uint "${sample_interval}" || fail "profile sample interval must be an integer"
 is_uint "${canary_mib}" || fail "profile canary MiB must be an integer"
@@ -266,6 +272,7 @@ if [ "${profile_mode}" = qualification ]; then
     fail "qualification telemetry requires complete kind runtime observations"
   density_measure_tui_ms >/dev/null || fail "qualification telemetry requires a working TUI probe"
 fi
+density_capture_startup_baseline
 
 k create namespace "${namespace}" >/dev/null
 namespace_created=true
@@ -317,31 +324,7 @@ spec:
 EOF
 k rollout status deployment/density-canary -n "${namespace}" --timeout="${timeout}"
 
-containers_json=${work_dir}/containers.json
-jq -n --arg image "${image}" --argjson count "${containers_per_pod}" '
-  [range(0; $count) | {
-    name: ("worker-" + tostring), image: $image, imagePullPolicy: "IfNotPresent",
-    command: ["/bin/sh", "-c", "exec sleep 86400"],
-    resources: {requests: {cpu: "1m", memory: "1Mi"}},
-    securityContext: {allowPrivilegeEscalation: false, readOnlyRootFilesystem: true,
-      runAsNonRoot: true, runAsUser: 65532, capabilities: {drop: ["ALL"]}}
-  }]' > "${containers_json}"
-
-jq -n --arg namespace "${namespace}" --argjson replicas "${pod_count}" \
-  --slurpfile containers "${containers_json}" '
-  {apiVersion: "apps/v1", kind: "Deployment", metadata: {name: "density-workers", namespace: $namespace,
-    labels: {"app.kubernetes.io/name": "density-workers", "app.kubernetes.io/managed-by": "kube-memlens-density-soak"}},
-   spec: {replicas: $replicas, progressDeadlineSeconds: 1800,
-    strategy: {type: "RollingUpdate", rollingUpdate: {maxSurge: 0, maxUnavailable: "10%"}},
-    selector: {matchLabels: {"app.kubernetes.io/name": "density-workers"}},
-    template: {metadata: {labels: {"app.kubernetes.io/name": "density-workers"}},
-      spec: {automountServiceAccountToken: false, terminationGracePeriodSeconds: 0,
-        securityContext: {seccompProfile: {type: "RuntimeDefault"}},
-        topologySpreadConstraints: [{maxSkew: 1, topologyKey: "kubernetes.io/hostname",
-          whenUnsatisfiable: "ScheduleAnyway", labelSelector: {matchLabels: {"app.kubernetes.io/name": "density-workers"}}}],
-        containers: $containers[0]}}}}' | k apply -f - >/dev/null
-
-k rollout status deployment/density-workers -n "${namespace}" --timeout="${timeout}"
+density_create_staged_workload
 
 mapped_count() {
   "${cli}" "${cli_args[@]}" top containers --all-namespaces \
@@ -350,17 +333,20 @@ mapped_count() {
 }
 
 wait_for_mapping() {
-  local timeout_seconds=${1:-120} deadline count=0 status state complete
+  local timeout_seconds=${1:-120} deadline count=0 status doctor state complete unmapped
   deadline=$((SECONDS + timeout_seconds))
   while [ "${SECONDS}" -lt "${deadline}" ]; do
     count=$(mapped_count || true)
     status=$("${cli}" "${cli_args[@]}" status --output json 2>/dev/null || true)
+    doctor=$("${cli}" "${cli_args[@]}" doctor --output json 2>/dev/null || true)
     state=$(jq -r '.store.reliability.state // empty' <<<"${status}" 2>/dev/null || true)
     complete=$(jq -r '
       .store.reliability.expectedNodes == .store.reliability.freshNodes and
       .store.reliability.staleNodes == 0 and .store.reliability.missingNodes == 0
     ' <<<"${status}" 2>/dev/null || true)
-    if [ "${count:-0}" -eq "${containers}" ] && [ "${state}" = ready ] && [ "${complete}" = true ]; then
+    unmapped=$(jq -r '.mapping.unmapped // empty' <<<"${doctor}" 2>/dev/null || true)
+    if [ "${count:-0}" -eq "${containers}" ] && [ "${state}" = ready ] && [ "${complete}" = true ] &&
+      [ "${unmapped:-1}" -eq 0 ]; then
       return 0
     fi
     sleep 10

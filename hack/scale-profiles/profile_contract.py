@@ -84,12 +84,14 @@ def validate_profile(profile):
         raise EvaluationInputError("profileDigest does not match canonical profile content")
     workload = profile["workload"]
     workload_keys = {
-        "containers", "containersPerPod", "steadyStateSeconds", "sampleIntervalSeconds", "agentInterval", "image",
-        "canaryMiB",
+        "containers", "containersPerPod", "creationBatchPods", "steadyStateSeconds", "sampleIntervalSeconds",
+        "agentInterval", "image", "canaryMiB",
     }
     if not isinstance(workload, dict) or set(workload) != workload_keys:
         raise EvaluationInputError("profile workload fields do not match schema version 1")
-    for key in ("containers", "containersPerPod", "steadyStateSeconds", "sampleIntervalSeconds", "canaryMiB"):
+    for key in (
+        "containers", "containersPerPod", "creationBatchPods", "steadyStateSeconds", "sampleIntervalSeconds", "canaryMiB",
+    ):
         if isinstance(workload[key], bool) or not isinstance(workload[key], int) or workload[key] <= 0:
             raise EvaluationInputError(f"profile workload.{key} must be a positive integer")
     if not 1 <= workload["containersPerPod"] <= 50:
@@ -101,6 +103,9 @@ def validate_profile(profile):
         raise EvaluationInputError("profile workload.image must be digest-pinned")
     if workload["containers"] % workload["containersPerPod"] != 0:
         raise EvaluationInputError("profile container count must divide exactly by containersPerPod")
+    pod_count = workload["containers"] // workload["containersPerPod"]
+    if workload["creationBatchPods"] > pod_count:
+        raise EvaluationInputError("profile workload.creationBatchPods cannot exceed the workload Pod count")
     if workload["steadyStateSeconds"] % workload["sampleIntervalSeconds"] != 0:
         raise EvaluationInputError("profile steady-state duration must divide exactly by the sample interval")
     if profile["mode"] == "qualification" and (

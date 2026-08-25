@@ -17,6 +17,8 @@ Profiles live under `hack/scale-profiles`. Their canonical SHA-256 digest covers
 
 Both profiles use the digest-pinned BusyBox image recorded in the profile. The density containers request 1 MiB of memory and 1 millicore of CPU. They sleep, so they test collection density rather than application throughput. The separate canary provides the control and observed workload comparison.
 
+The runner creates the development workload in one two-Pod batch. The RC workload scales in ten-Pod batches until all 100 Pods are available. This bounds the container-start storm without changing the 5,000-container steady state or its budgets.
+
 ## Predeclared budgets
 
 The RC profile uses these release-claim budgets. The development smoke uses the same bounds except for a 10% canary regression limit, which reduces noise in the short 32 MiB probe and does not support a scale claim.
