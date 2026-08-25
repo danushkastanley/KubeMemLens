@@ -1,10 +1,10 @@
 # Existing-Cluster Qualification
 
-This runbook turns managed-provider and runtime compatibility into repeatable evidence. It does not create a GKE, EKS or AKS cluster, push an image, publish results, or declare support merely because a manifest rendered.
+This runbook turns managed-provider and runtime compatibility into repeatable evidence for the [support contract](compatibility.md). It does not create a GKE, EKS or AKS cluster, push an image, publish results, or declare support merely because a manifest rendered.
 
 This is maintainer-owned release qualification. Ordinary pull requests use proportionate local and CI checks described in [CONTRIBUTING.md](../CONTRIBUTING.md); contributors do not need managed-provider accounts unless their change makes a provider-specific claim.
 
-Use only a disposable cluster or a cluster whose owner has authorised installation of a read-only hostPath DaemonSet, cluster-scoped read RBAC, a NetworkPolicy and two short-lived probe Pods.
+Use only a disposable cluster or a cluster whose owner has authorised installation of a read-only hostPath DaemonSet, cluster-scoped read RBAC, a NetworkPolicy and two short-lived probe Pods. Do not treat an alpha qualification run as shared multi-tenant authorisation evidence.
 
 ## Scope
 
@@ -82,7 +82,7 @@ Before attaching evidence to an issue or pull request, inspect every file manual
 
 ## Acceptance record
 
-Add a row to [the compatibility matrix](compatibility.md) only after reviewing the evidence and recording:
+Add a row to [the support contract](compatibility.md) only after reviewing the evidence and recording:
 
 - Kubernetes, kernel, OS, architecture, container runtime and cgroup v2;
 - provider/node-pool type and CNI implementation;

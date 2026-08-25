@@ -6,6 +6,8 @@ KubeMemLens is privacy-first and local-first.
 
 The current alpha reads local cgroup sample files, node cgroup v2 memory files, Kubernetes pod/node metadata, and collector snapshots from the in-cluster collector. It does not send telemetry and does not include SaaS behaviour.
 
+The current alpha is not suitable for shared multi-tenant clusters. NetworkPolicy and Kubernetes service-proxy RBAC limit reachability, but the collector does not authenticate node agents or authorise reads by tenant or namespace. The [support and compatibility contract](compatibility.md#multi-tenant-security-boundary) defines the mandatory v1 boundary and the evidence required before that claim changes.
+
 ## Host Access
 
 DaemonSet mode uses a read-only hostPath mount for `/sys/fs/cgroup`. This path is sensitive because it exposes node-level cgroup and container metadata. The chart keeps the root filesystem read-only by default and does not mount host `/proc`.
@@ -45,6 +47,8 @@ There is no telemetry by default and the CLI does not make external network call
 ## Collector Storage
 
 The collector stores latest snapshots and bounded recent Pod history in memory only. It has no database or persistent long-term retention.
+
+The [data and metadata exposure contract](compatibility.md#data-and-metadata-exposure) lists the identifiers present in ingestion, reads, metrics, logs and captures. A default redacted capture still contains Kubernetes display names and is not anonymous.
 
 ## Build and supply chain
 

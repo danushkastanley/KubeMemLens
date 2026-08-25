@@ -4,6 +4,8 @@
 
 KubeMemLens is in alpha. Alpha versions and the `main` branch receive fixes on a best-effort basis but do not carry a production stability or support guarantee.
 
+The [support and compatibility contract](docs/compatibility.md) is the canonical source for environment, tenant, availability and data-exposure claims. The current alpha is not supported as a shared multi-tenant service.
+
 This table will be updated when the first supported release is published:
 
 | Version | Supported |

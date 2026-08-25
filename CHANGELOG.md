@@ -4,6 +4,10 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Changed
+
+- Defined one canonical v1 support and release contract covering exact target profiles, evidence owners, multi-tenant security, best-effort availability, bounded history, metadata exposure, unsupported environments and deprecation rules.
+
 ## 0.0.1-alpha.3 - 2026-08-22
 
 ### Added

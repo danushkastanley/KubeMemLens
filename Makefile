@@ -1,4 +1,4 @@
-.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check vet vuln check e2e-kind qualify-cluster soak-live-density
+.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract vet vuln check e2e-kind qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -36,10 +36,13 @@ fmt-check:
 vet:
 	go vet ./...
 
+check-support-contract:
+	hack/check-support-contract.sh
+
 vuln:
 	go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
-check: fmt-check test coverage test-race vet vuln build
+check: fmt-check check-support-contract test coverage test-race vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh

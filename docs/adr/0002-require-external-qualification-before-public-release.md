@@ -36,7 +36,7 @@ The current list APIs use deterministic ordering, hard store limits, a 16 MiB en
 ## Consequences
 
 - The source implementation may reach a locally verified release-candidate state while the public release remains blocked.
-- `docs/compatibility.md` distinguishes prepared, locally verified and externally qualified rows.
+- `docs/compatibility.md` distinguishes implemented, locally verified, qualification-required, unsupported and deferred rows.
 - The public scale ceiling must match the largest reviewed live soak. Higher synthetic results remain development evidence only.
 - Any final hand-off must list these gates plainly; no “production-ready” or provider-support claim is permitted before evidence exists.
 - The local rollback remains deletion of the optional release candidate/cluster. Published artefacts are immutable and require a new version to fix forward.

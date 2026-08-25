@@ -2,6 +2,8 @@
 
 KubeMemLens exposes Prometheus/OpenMetrics-compatible metrics from the collector at `/metrics`.
 
+The [support and compatibility contract](compatibility.md#data-and-metadata-exposure) is the canonical source for metric metadata visibility, retention ownership and tenant-boundary requirements.
+
 Each agent also exposes low-cardinality operational metrics at `/metrics` on port `8082` by default. These metrics contain scan and mapping counts only; they do not contain namespace, Pod, container, cgroup, or node identifiers.
 
 The endpoint renders latest in-memory snapshots. Memory event values are gauges, not counters, because snapshots can reset when pods restart, agents restart, or collector state expires.
