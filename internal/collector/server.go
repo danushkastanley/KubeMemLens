@@ -105,7 +105,7 @@ func registerIngestion(mux *http.ServeMux, store *Store, opts HandlerOptions, lo
 			writeError(w, http.StatusBadRequest, "invalid snapshot JSON")
 			return
 		}
-		if err := validateSnapshot(snapshot, time.Now().UTC(), opts); err != nil {
+		if err := ValidateSnapshot(snapshot, time.Now().UTC(), opts); err != nil {
 			result = "invalid_snapshot"
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
@@ -250,7 +250,7 @@ func method(allowed string, next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func validateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOptions) error {
+func ValidateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOptions) error {
 	if snapshot.SchemaVersion != api.CurrentSnapshotSchemaVersion {
 		return fmt.Errorf("unsupported schemaVersion %d; expected %d", snapshot.SchemaVersion, api.CurrentSnapshotSchemaVersion)
 	}

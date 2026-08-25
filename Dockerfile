@@ -17,7 +17,8 @@ ARG BUILD_DATE=unknown
 RUN LDFLAGS="-s -w -X github.com/danushkastanley/kube-memlens/internal/buildinfo.Version=${VERSION} -X github.com/danushkastanley/kube-memlens/internal/buildinfo.Commit=${COMMIT} -X github.com/danushkastanley/kube-memlens/internal/buildinfo.BuildDate=${BUILD_DATE}" && \
     CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="${LDFLAGS}" -o /out/kubectl-memlens ./cmd/kubectl-memlens && \
     CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="${LDFLAGS}" -o /out/memlens-agent ./cmd/memlens-agent && \
-    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="${LDFLAGS}" -o /out/memlens-collector ./cmd/memlens-collector
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="${LDFLAGS}" -o /out/memlens-collector ./cmd/memlens-collector && \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath -ldflags="${LDFLAGS}" -o /out/memlens-cert-bootstrap ./cmd/memlens-cert-bootstrap
 
 FROM scratch
 
@@ -37,6 +38,7 @@ LABEL org.opencontainers.image.title="KubeMemLens" \
 COPY --from=build /out/kubectl-memlens /kubectl-memlens
 COPY --from=build /out/memlens-agent /memlens-agent
 COPY --from=build /out/memlens-collector /memlens-collector
+COPY --from=build /out/memlens-cert-bootstrap /memlens-cert-bootstrap
 
 USER 65532:65532
 

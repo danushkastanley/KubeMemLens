@@ -15,7 +15,7 @@ func TestNodeContextCacheReadsMemoryPressureAndCachesGet(t *testing.T) {
 	now := time.Unix(1_700_000_000, 0).UTC()
 	transition := metav1.NewTime(now.Add(-time.Minute))
 	client := fake.NewSimpleClientset(&corev1.Node{
-		ObjectMeta: metav1.ObjectMeta{Name: "node-a"},
+		ObjectMeta: metav1.ObjectMeta{Name: "node-a", UID: "node-uid-a"},
 		Status: corev1.NodeStatus{Allocatable: corev1.ResourceList{
 			corev1.ResourceMemory: resource.MustParse("8Gi"),
 		}, Conditions: []corev1.NodeCondition{{
@@ -36,6 +36,9 @@ func TestNodeContextCacheReadsMemoryPressureAndCachesGet(t *testing.T) {
 	}
 	if !first.Available || first.MemoryPressureStatus != "False" || !first.MemoryPressureSince.Equal(transition.Time) {
 		t.Fatalf("unexpected node context: %#v", first)
+	}
+	if first.NodeUID != "node-uid-a" {
+		t.Fatalf("NodeUID = %q, want node-uid-a", first.NodeUID)
 	}
 	if !first.MemoryAllocatableKnown || first.MemoryAllocatableBytes != 8*1024*1024*1024 {
 		t.Fatalf("unexpected allocatable memory: %#v", first)

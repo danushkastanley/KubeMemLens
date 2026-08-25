@@ -17,3 +17,11 @@ rules:
   - apiGroups: ["batch"]
     resources: ["jobs"]
     verbs: ["get"]
+{{- if eq .Values.agent.ingestionMode "authenticated" }}
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["ingestionepochs"]
+    verbs: ["get"]
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["nodesnapshots"]
+    verbs: ["create"]
+{{- end }}

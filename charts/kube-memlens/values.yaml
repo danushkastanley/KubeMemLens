@@ -19,7 +19,11 @@ agent:
   tolerations: []
   cgroupRootHostPath: /sys/fs/cgroup
   interval: 5s
+  # The production path uses the Kubernetes aggregated API. Legacy direct HTTP
+  # remains only for controlled alpha rollback on a trusted evaluation cluster.
+  ingestionMode: authenticated
   collectorURL: http://kube-memlens-collector:8081
+  tokenExpirationSeconds: 3600
   metrics:
     enabled: true
     port: 8082
@@ -42,6 +46,10 @@ collector:
     maxResponseSeries: 20
   ingestion:
     port: 8081
+    extensionPort: 8443
+    maxConcurrentRequests: 4
+    requestsPerSecondPerAgent: 1
+    burstPerAgent: 2
     maxSnapshotBytes: 4194304
     maxContainers: 10000
     maxSnapshotAge: 2m
@@ -58,6 +66,12 @@ collector:
       memory: 128Mi
   service:
     port: 8080
+
+extensionTLS:
+  secretName: kube-memlens-extension-tls
+  validityDays: 365
+  rotateBefore: 720h
+  forceRotate: false
 
 metrics:
   enabled: true

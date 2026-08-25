@@ -4,11 +4,14 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const CurrentSnapshotSchemaVersion = 1
 const CurrentIncidentSchemaVersion = 1
 const CurrentExplanationSchemaVersion = 1
+const MemoryAPIGroup = "memory.kubememlens.io"
+const MemoryAPIVersion = "v1alpha1"
 
 type AgentSnapshot struct {
 	SchemaVersion int                 `json:"schemaVersion"`
@@ -121,6 +124,7 @@ type PodContext struct {
 
 type NodeContext struct {
 	Available              bool      `json:"available"`
+	NodeUID                string    `json:"-"`
 	MemoryPressureStatus   string    `json:"memoryPressureStatus"`
 	MemoryPressureSince    time.Time `json:"memoryPressureSince"`
 	MemoryAllocatableBytes uint64    `json:"memoryAllocatableBytes"`
@@ -207,6 +211,30 @@ type NodeSnapshotStatus struct {
 type SnapshotPostResponse struct {
 	OK         bool `json:"ok"`
 	Containers int  `json:"containers"`
+}
+
+type IngestionEpoch struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Epoch             string `json:"epoch"`
+	SchemaVersion     int    `json:"schemaVersion"`
+	LastSequence      uint64 `json:"lastSequence"`
+}
+
+type NodeSnapshotRequest struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	NodeUID           string        `json:"nodeUID"`
+	Epoch             string        `json:"epoch"`
+	Sequence          uint64        `json:"sequence"`
+	Snapshot          AgentSnapshot `json:"snapshot"`
+}
+
+type NodeSnapshotResponse struct {
+	metav1.TypeMeta `json:",inline"`
+	Accepted        bool `json:"accepted"`
+	Duplicate       bool `json:"duplicate"`
+	Containers      int  `json:"containers"`
 }
 
 type DebugStore struct {

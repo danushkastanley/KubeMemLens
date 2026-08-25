@@ -21,6 +21,9 @@ spec:
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -30,7 +33,19 @@ spec:
           command: ["/memlens-collector"]
           args:
             - "--listen=:{{ .Values.collector.service.port }}"
+{{- if eq .Values.agent.ingestionMode "authenticated" }}
+            - "--ingestion-mode=authenticated"
+            - "--extension-port={{ .Values.collector.ingestion.extensionPort }}"
+            - "--extension-tls-cert-file=/var/run/kube-memlens/tls/tls.crt"
+            - "--extension-tls-key-file=/var/run/kube-memlens/tls/tls.key"
+            - "--agent-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-agent"
+            - "--ingestion-max-concurrent={{ .Values.collector.ingestion.maxConcurrentRequests }}"
+            - "--ingestion-requests-per-second-per-agent={{ .Values.collector.ingestion.requestsPerSecondPerAgent }}"
+            - "--ingestion-burst-per-agent={{ .Values.collector.ingestion.burstPerAgent }}"
+{{- else }}
+            - "--ingestion-mode=legacy"
             - "--ingest-listen=:{{ .Values.collector.ingestion.port }}"
+{{- end }}
             - "--snapshot-ttl={{ .Values.collector.snapshotTTL }}"
             - "--history-duration={{ .Values.collector.history.duration }}"
             - "--history-max-series={{ .Values.collector.history.maxSeries }}"
@@ -54,8 +69,13 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.collector.service.port }}
+{{- if eq .Values.agent.ingestionMode "authenticated" }}
+            - name: extension
+              containerPort: {{ .Values.collector.ingestion.extensionPort }}
+{{- else }}
             - name: ingest
               containerPort: {{ .Values.collector.ingestion.port }}
+{{- end }}
           livenessProbe:
             httpGet:
               path: /healthz
@@ -72,4 +92,35 @@ spec:
               drop: ["ALL"]
           resources:
 {{ toYaml .Values.collector.resources | nindent 12 }}
+{{- if eq .Values.agent.ingestionMode "authenticated" }}
+          volumeMounts:
+            - name: extension-tls
+              mountPath: /var/run/kube-memlens/tls
+              readOnly: true
+            - name: kubernetes-api-access
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+      volumes:
+        - name: extension-tls
+          secret:
+            secretName: {{ .Values.extensionTLS.secretName | quote }}
+            defaultMode: 0440
+        - name: kubernetes-api-access
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  expirationSeconds: {{ .Values.agent.tokenExpirationSeconds }}
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        fieldPath: metadata.namespace
+{{- end }}
 {{- end }}

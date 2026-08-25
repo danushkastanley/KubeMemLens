@@ -1,7 +1,7 @@
 # ADR 0004: Use Kubernetes aggregation for authentication
 
 Date: 25 August 2026
-Status: accepted design; implementation belongs to PROD-003 through PROD-005
+Status: accepted; PROD-003 ingestion implemented, PROD-004 and PROD-005 pending
 
 ## Context
 
@@ -48,7 +48,7 @@ Liveness does not depend on Kubernetes. Readiness fails when the extension serve
 
 ### TLS and certificate lifecycle
 
-The APIService uses a dedicated serving CA bundle and a release-namespace TLS Secret. Helm creates both objects. A short-lived hook job generates or rotates the material and patches only those exact resource names. It receives `get`, `patch` and `update`, but not `create`, because Kubernetes RBAC cannot constrain `create` by `resourceNames`. Helm deletes the job and its temporary RBAC after success. The collector never receives Secret write permission.
+The APIService uses a dedicated serving CA bundle and a release-namespace TLS Secret. Helm creates both objects. A short-lived hook job generates or rotates the material and updates only those exact resource names. It receives `get` and `update`, but not `create`, because Kubernetes RBAC cannot constrain `create` by `resourceNames`. Helm deletes the job and its temporary RBAC after success. The collector never receives Secret write permission.
 
 Normal upgrades reuse a valid certificate. Rotation happens before expiry or through an explicit operator action. Install, upgrade, rollback and uninstall tests must prove that the APIService, Secret and hook RBAC do not leave stale resources.
 
@@ -109,7 +109,7 @@ Rejected. A separate user and agent PKI adds issuance, rotation and revocation w
 
 ## Migration
 
-PROD-003 adds the shared extension-server authentication layer, agent resource, node binding and replay contract. PROD-004 adds tenant-scoped read resources and moves the CLI to Kubernetes discovery. PROD-005 removes the legacy chart path and proves that direct reachability, forged headers and NetworkPolicy removal do not bypass policy.
+PROD-003 added the extension-server authentication layer, agent resource, node binding and replay contract. PROD-004 adds tenant-scoped read resources and moves the CLI to Kubernetes discovery. PROD-005 removes the remaining legacy read path and proves end-to-end tenant isolation with NetworkPolicy present and removed.
 
 During migration, the alpha HTTP API remains clearly marked insecure and is never presented as the v1 shared-cluster path. No persisted data migration exists.
 

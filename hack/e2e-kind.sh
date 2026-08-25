@@ -88,6 +88,27 @@ run_tui_smoke() {
     hack/e2e-tui-kind.sh
 }
 
+assert_authenticated_ingestion_healthy() {
+  KUBECONFIG="${kubeconfig}" kubectl wait \
+    --for=condition=Available apiservice/v1alpha1.memory.kubememlens.io --timeout=90s >/dev/null
+  local ports
+  ports=$(KUBECONFIG="${kubeconfig}" kubectl get service kube-memlens-collector -n "${namespace}" \
+    -o jsonpath='{range .spec.ports[*]}{.port}{"\n"}{end}')
+  if grep -Fxq 8081 <<<"${ports}"; then
+    echo "plaintext ingestion port remains exposed" >&2
+    return 1
+  fi
+  for _ in $(seq 1 30); do
+    if KUBECONFIG="${kubeconfig}" kubectl logs daemonset/kube-memlens-agent -n "${namespace}" --tail=20 2>/dev/null |
+      grep -q 'posted=true'; then
+      return
+    fi
+    sleep 1
+  done
+  echo "authenticated agent did not resume publishing" >&2
+  return 1
+}
+
 for command in docker go helm jq kind kubectl; do
   if ! command -v "${command}" >/dev/null 2>&1; then
     echo "required command not found: ${command}" >&2
@@ -159,6 +180,15 @@ helm upgrade --install kube-memlens ./charts/kube-memlens \
 
 KUBECONFIG="${kubeconfig}" kubectl rollout status daemonset/kube-memlens-agent -n "${namespace}" --timeout=2m
 KUBECONFIG="${kubeconfig}" kubectl rollout status deployment/kube-memlens-collector -n "${namespace}" --timeout=2m
+assert_authenticated_ingestion_healthy
+
+if [ "${E2E_RUN_AUTHENTICATED_INGESTION_SMOKE:-false}" = true ]; then
+  AUTH_INGEST_KUBECONFIG="${kubeconfig}" \
+    AUTH_INGEST_CONTEXT="kind-${cluster_name}" \
+    AUTH_INGEST_NAMESPACE="${namespace}" \
+    AUTH_INGEST_ACKNOWLEDGE=run-and-clean-authenticated-ingestion \
+    hack/verify-authenticated-ingestion-kind.sh
+fi
 
 cli_args=(
   --kubeconfig "${kubeconfig}"
@@ -280,6 +310,7 @@ helm upgrade kube-memlens ./charts/kube-memlens \
   --timeout 3m
 KUBECONFIG="${kubeconfig}" kubectl rollout status daemonset/kube-memlens-agent -n "${namespace}" --timeout=2m
 KUBECONFIG="${kubeconfig}" kubectl rollout status deployment/kube-memlens-collector -n "${namespace}" --timeout=2m
+assert_authenticated_ingestion_healthy
 
 helm rollback kube-memlens 1 \
   --kubeconfig "${kubeconfig}" \
@@ -288,6 +319,7 @@ helm rollback kube-memlens 1 \
   --timeout 3m
 KUBECONFIG="${kubeconfig}" kubectl rollout status daemonset/kube-memlens-agent -n "${namespace}" --timeout=2m
 KUBECONFIG="${kubeconfig}" kubectl rollout status deployment/kube-memlens-collector -n "${namespace}" --timeout=2m
+assert_authenticated_ingestion_healthy
 wait_for_doctor
 
 helm uninstall kube-memlens --kubeconfig "${kubeconfig}" --namespace "${namespace}" --wait
@@ -297,6 +329,24 @@ if KUBECONFIG="${kubeconfig}" kubectl get clusterrole kube-memlens-agent >/dev/n
 fi
 if KUBECONFIG="${kubeconfig}" kubectl get clusterrolebinding kube-memlens-agent >/dev/null 2>&1; then
   echo "cluster role binding remains after uninstall" >&2
+  exit 1
+fi
+for resource in \
+  apiservice/v1alpha1.memory.kubememlens.io \
+  clusterrolebinding/kube-memlens-auth-delegator \
+  clusterrole/kube-memlens-cert-bootstrap \
+  clusterrolebinding/kube-memlens-cert-bootstrap; do
+  if KUBECONFIG="${kubeconfig}" kubectl get "${resource}" >/dev/null 2>&1; then
+    echo "cluster-scoped authenticated-ingestion resource remains after uninstall: ${resource}" >&2
+    exit 1
+  fi
+done
+if KUBECONFIG="${kubeconfig}" kubectl get secret kube-memlens-extension-tls -n "${namespace}" >/dev/null 2>&1; then
+  echo "extension TLS Secret remains after uninstall" >&2
+  exit 1
+fi
+if KUBECONFIG="${kubeconfig}" kubectl get rolebinding kube-memlens-extension-authentication-reader -n kube-system >/dev/null 2>&1; then
+  echo "extension authentication reader binding remains after uninstall" >&2
   exit 1
 fi
 

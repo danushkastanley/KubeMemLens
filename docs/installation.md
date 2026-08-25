@@ -80,7 +80,7 @@ kubectl memlens top pods -A
 kubectl memlens history pod <pod-name> -n <namespace>
 ```
 
-The collector read port is `8080`; agent ingestion is isolated on `8081`; agent operational metrics use `8082` by default.
+The collector read port is `8080`; authenticated agent ingestion enters through the Kubernetes API server and TLS Service port `443`; agent operational metrics use `8082` by default. The default Service does not expose the legacy plaintext ingestion port `8081`.
 
 ## Upgrade
 

@@ -18,7 +18,13 @@ spec:
     - name: http
       port: {{ .Values.collector.service.port }}
       targetPort: http
+{{- if eq .Values.agent.ingestionMode "authenticated" }}
+    - name: https-extension
+      port: 443
+      targetPort: extension
+{{- else }}
     - name: ingest
       port: {{ .Values.collector.ingestion.port }}
       targetPort: ingest
+{{- end }}
 {{- end }}

@@ -8,7 +8,7 @@ The current alpha reads local cgroup sample files, node cgroup v2 memory files, 
 
 The current alpha is not suitable for shared multi-tenant clusters. NetworkPolicy and Kubernetes service-proxy RBAC limit reachability, but the collector does not authenticate node agents or authorise reads by tenant or namespace. The [support and compatibility contract](compatibility.md#multi-tenant-security-boundary) defines the mandatory v1 boundary and the evidence required before that claim changes.
 
-The accepted v1 design exposes reads and agent writes through a Kubernetes aggregated API, validates the aggregation proxy, delegates exact `SubjectAccessReview` decisions and binds writes to Pod and node identity. It is documented in [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md), the [authentication and authorisation architecture](security/authentication-and-authorisation.md) and the [threat model](security/KubeMemLens-threat-model.md). This design is not implemented in the alpha.
+The accepted v1 design exposes reads and agent writes through a Kubernetes aggregated API, validates the aggregation proxy, delegates exact `SubjectAccessReview` decisions and binds writes to Pod and node identity. It is documented in [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md), the [authentication and authorisation architecture](security/authentication-and-authorisation.md) and the [threat model](security/KubeMemLens-threat-model.md). Authenticated agent writes are implemented on `main`; tenant reads remain pending.
 
 ## Host Access
 
@@ -16,7 +16,7 @@ DaemonSet mode uses a read-only hostPath mount for `/sys/fs/cgroup`. This path i
 
 ## Permissions
 
-The alpha is intended to stay cgroup-read focused. It should not require privileged containers unless a specific environment requires different host access. The agent ServiceAccount needs `get`, `list`, and `watch` access for Pods across namespaces so it can map cgroups to Kubernetes metadata. It also has `get` on Nodes so each agent can read only its scheduled node's MemoryPressure condition; the client caches that GET for 30 seconds. Kubernetes RBAC cannot restrict a ClusterRole's `get` verb dynamically to the Pod's node name, so a compromised agent token could read another Node object. The code never lists or watches Nodes, and the collector has no API token.
+The alpha is intended to stay cgroup-read focused. It should not require privileged containers unless a specific environment requires different host access. The agent ServiceAccount needs `get`, `list`, and `watch` access for Pods across namespaces so it can map cgroups to Kubernetes metadata. It also has `get` on Nodes so each agent can read only its scheduled node's MemoryPressure condition; the client caches that GET for 30 seconds. Kubernetes RBAC cannot restrict a ClusterRole's `get` verb dynamically to the Pod's node name, so a compromised agent token could read another Node object. The code never lists or watches Nodes. The collector now receives a separate projected token that can read the aggregation authentication ConfigMap and create SubjectAccessReviews, but cannot read Pods, Nodes, Secrets or workload objects.
 
 Top-level workload resolution adds `get` only for ReplicaSets and Jobs. The agent follows only direct owner references from Pods already scheduled on its node: ReplicaSet to Deployment and Job to CronJob. Successful lookups are cached for five minutes in a bounded 2,000-entry cache. It does not list or watch these workload resources. Kubernetes RBAC cannot constrain these `get` permissions to only names referenced by local Pods, so this is an explicit metadata-read trade-off surfaced by `doctor`.
 
@@ -28,7 +28,7 @@ CLI kube-proxy mode uses the user's Kubernetes credentials to access the collect
 
 The collector remains cluster-internal. KubeMemLens does not expose the collector through an external load balancer, add collector auth, or create a port-forward automatically in the alpha release.
 
-Collector reads, metrics, and health checks listen on port `8080`. Snapshot ingestion listens separately on port `8081`. The default NetworkPolicy permits read-only port access for Kubernetes API service proxy, port-forwarding, and Prometheus, but permits writable ingestion only from KubeMemLens agent Pods in the release namespace. This restriction requires a CNI that enforces Kubernetes NetworkPolicy.
+Collector reads, metrics, and health checks still listen on port `8080` during the migration. Agent writes enter through the Kubernetes API server and the TLS APIService on Service port `443`. The default chart does not expose the plaintext port `8081`. NetworkPolicy permits control-plane traffic to the extension port because managed control-plane source ranges are not portable; request-header authentication, exact ServiceAccount claims, delegated authorisation, node binding and replay checks remain the write boundary if NetworkPolicy is absent.
 
 The collector defaults to at most 5,000 node records, 100,000 current container snapshots, 1,000 history series, and 16 MiB of encoded JSON per read response. A capacity breach is rejected and counted rather than silently dropping or growing state. `doctor` reports these bounds and warns near a storage ceiling. Operators should size them below the collector Pod's tested memory budget.
 
