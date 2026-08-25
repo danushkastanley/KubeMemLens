@@ -145,21 +145,50 @@ post_after_rate_limit() {
   local token=$1
   local body=$2
   local code=429
-  for _ in $(seq 1 8); do
+  for _ in $(seq 1 12); do
     code=$(post "${token}" "${body}")
     [ "${code}" = 429 ] || break
-    sleep 2
+    sleep 1.25
   done
   echo "${code}"
 }
 
-[ "$(post "${token_one}" "${work_dir}/wrong-node.json")" = 403 ]
+require_status() {
+  local expected=$1
+  local actual=$2
+  local check=$3
+  local reason
+  if [ "${actual}" = "${expected}" ]; then
+    return
+  fi
+  reason=$(jq -r '.reason // "unknown"' "${work_dir}/response.json")
+  echo "${check} returned ${actual}, want ${expected}, reason=${reason}" >&2
+  return 1
+}
+
+require_status 403 "$(post_after_rate_limit "${token_one}" "${work_dir}/wrong-node.json")" "node claim mismatch"
 jq -e '.reason == "node_claim_mismatch"' "${work_dir}/response.json" >/dev/null
-[ "$(post_after_rate_limit "${token_one}" "${work_dir}/request.json")" = 200 ]
+captured_epoch=$(date +%s)
+captured_epoch=$((captured_epoch + 20))
+captured_at=$(jq -nr --argjson captured_epoch "${captured_epoch}" '$captured_epoch | todateiso8601')
+jq --arg captured "${captured_at}" '.snapshot.capturedAt = $captured' \
+  "${work_dir}/request.json" > "${work_dir}/fresh-request.json"
+mv "${work_dir}/fresh-request.json" "${work_dir}/request.json"
+require_status 200 "$(post_after_rate_limit "${token_one}" "${work_dir}/request.json")" "initial accepted snapshot"
 owner_changed=true
 jq -e '.accepted == true and .duplicate == false' "${work_dir}/response.json" >/dev/null
-[ "$(post "${token_two}" "${work_dir}/request.json")" = 429 ]
-[ "$(post_after_rate_limit "${token_two}" "${work_dir}/request.json")" = 200 ]
+rate_limited=false
+for _ in $(seq 1 6); do
+  code=$(post "${token_one}" "${work_dir}/request.json")
+  if [ "${code}" = 429 ]; then
+    rate_limited=true
+    break
+  fi
+  [ "${code}" = 200 ]
+done
+[ "${rate_limited}" = true ]
+require_status 429 "$(post "${token_two}" "${work_dir}/request.json")" "rotated credential rate limit"
+require_status 200 "$(post_after_rate_limit "${token_two}" "${work_dir}/request.json")" "rotated credential duplicate"
 jq -e '.accepted == true and .duplicate == true' "${work_dir}/response.json" >/dev/null
 
 jq '.snapshot.environment.cgroupDriver = "changed"' "${work_dir}/request.json" > "${work_dir}/changed.json"
