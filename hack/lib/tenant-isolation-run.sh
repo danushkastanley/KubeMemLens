@@ -153,10 +153,14 @@ tenant_isolation_verify_metrics_and_capture() {
   container_id=${container_id#*://}
   for file in "${work_dir}/isolation-authorised-metrics.json" "${work_dir}/incident.json"; do
     [ -f "${file}" ] || fail "privacy evidence file is missing"
-    for sentinel in "${pod_uid}" "${container_id}" /kubepods '"labels"' cgroupPath containerID podUID; do
-      [ -z "${sentinel}" ] || ! grep -Fq "${sentinel}" "${file}" || fail "privacy evidence contains a prohibited identifier"
+    for sentinel in "${pod_uid}" "${container_id}" /kubepods; do
+      [ -z "${sentinel}" ] || ! grep -Fq "${sentinel}" "${file}" || fail "privacy evidence contains a prohibited runtime value"
     done
   done
+  jq -e '[.. | objects | .podUID?, .containerID?, .cgroupPath? | select(. != null and . != "")] | length == 0' \
+    "${work_dir}/incident.json" >/dev/null || fail "redacted capture retains a runtime identifier"
+  jq -e '[.. | objects | .labels? | select(. != null and length > 0)] | length == 0' \
+    "${work_dir}/incident.json" >/dev/null || fail "redacted capture retains a label map"
 }
 
 tenant_isolation_scan_retained_evidence() {
