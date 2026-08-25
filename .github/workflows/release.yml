@@ -41,6 +41,7 @@ jobs:
 
       - name: Check release documentation
         run: |
+          hack/check-support-contract.sh
           chart_version=$(awk '$1 == "version:" {print $2; exit}' charts/kube-memlens/Chart.yaml)
           app_version=$(awk '$1 == "appVersion:" {gsub(/"/, "", $2); print $2; exit}' charts/kube-memlens/Chart.yaml)
           test "$chart_version" = "$CHART_VERSION"

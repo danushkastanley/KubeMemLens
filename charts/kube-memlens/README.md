@@ -21,7 +21,7 @@ helm upgrade --install kube-memlens \
 
 The digest must be 64 lowercase hexadecimal characters. It takes precedence over `image.tag`.
 
-Run the qualification procedure before installing into a shared or managed production cluster. The chart targets compatible Linux cgroup v2 nodes; provider-restricted, serverless, Windows, and cgroup v1 nodes are not silently treated as supported.
+The current alpha is not supported as a shared multi-tenant service because collector reads and agent writes do not yet have application-level authentication and authorisation. Run the qualification procedure before evaluating the chart on a managed cluster. The chart targets compatible Linux cgroup v2 nodes; provider-restricted, serverless, Windows, and cgroup v1 nodes are not silently treated as supported.
 
 ## Components
 
@@ -48,7 +48,7 @@ The collector must remain at one replica because replicas do not share state. Th
 | `metrics.prometheusRule.enabled` | `false` | Optional recording and alert rules |
 | `metrics.grafanaDashboard.enabled` | `false` | Optional dashboard ConfigMap |
 
-See the repository [installation guide](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/installation.md), [security model](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/security-model.md), and [qualification runbook](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/qualification.md) for the complete contract.
+See the repository [support and compatibility contract](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/compatibility.md), [installation guide](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/installation.md), [security model](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/security-model.md), and [qualification runbook](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/qualification.md) for the complete contract.
 
 ## Uninstall
 

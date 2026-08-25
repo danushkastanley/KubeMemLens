@@ -1,6 +1,8 @@
 # Installation, Upgrade, and Uninstall
 
-KubeMemLens is in alpha and has no supported production release. Alpha artefacts are for evaluation on disposable or explicitly authorised clusters. Use exact versions and review the compatibility matrix and release assets before installation.
+KubeMemLens is in alpha and has no supported production release. Alpha artefacts are for evaluation on disposable or explicitly authorised clusters. Use exact versions and review the [support and compatibility contract](compatibility.md) and release assets before installation.
+
+Do not install the current alpha as a shared multi-tenant service. NetworkPolicy and Kubernetes service-proxy RBAC restrict reachability, but the collector does not yet authenticate agents or authorise reads by tenant or namespace.
 
 ## Requirements
 
@@ -62,7 +64,7 @@ helm upgrade --install kube-memlens ./charts/kube-memlens \
   --set-string image.digest=sha256:<64-lowercase-hex-characters>
 ```
 
-`image.digest` takes precedence over `image.tag` and rejects anything other than an exact SHA-256 value. Use [the existing-cluster qualification runbook](qualification.md) before adding a provider/runtime combination to the compatibility matrix.
+`image.digest` takes precedence over `image.tag` and rejects anything other than an exact SHA-256 value. Use [the existing-cluster qualification runbook](qualification.md) before adding a provider/runtime combination to the support contract.
 
 ## Verify an install
 
@@ -93,7 +95,7 @@ The collector read port is `8080`; agent ingestion is isolated on `8081`; agent 
 4. Run `helm upgrade` with an exact chart version.
 5. Wait for both rollouts and exercise `status`, `top`, `explain`, and metrics.
 
-The collector is in-memory. Restarting or upgrading it discards its latest snapshots, bounded history, and event-delta baselines; agents repopulate current state on their next interval. No persisted user data or CRD migration exists.
+The collector is single-replica and in-memory. Restarting or upgrading it discards its latest snapshots, bounded history, and event-delta baselines; agents repopulate current state on their next interval. It is not highly available and has no persisted user data or CRD migration. The [support contract](compatibility.md#availability-and-history) defines the v1 availability and history boundary.
 
 Current state defaults to at most 5,000 node records and 100,000 container snapshots, with a 16 MiB encoded JSON response ceiling. History defaults to 15 minutes, at most 180 points per Pod instance, 1,000 series in total, and 20 returned instances for one Pod lookup. Tune `collector.store`, `collector.maxResponseBytes`, and `collector.history` only from measured cluster density and within the collector Pod's memory limit. Capacity breaches fail explicitly; they do not silently evict current nodes or truncate API results.
 

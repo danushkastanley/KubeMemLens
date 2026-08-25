@@ -5,13 +5,15 @@ KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer 
 ## Pre-release gate
 
 1. Start from a clean, reviewed commit on `main`.
-2. Read `README.md`, then confirm the target version and maturity label across `CHANGELOG.md`, chart metadata, installation, compatibility, security, roadmap, and release notes.
+2. Read `README.md` and the canonical support contract, then confirm the target version, maturity label, support rows and evidence owners across `CHANGELOG.md`, chart metadata, installation, security and release notes.
 3. Run `make check`; inspect the reported statement coverage rather than treating a percentage as a substitute for behaviour-focused tests.
 4. Run Helm lint, rendering, strict schema validation, and the unsafe-replica rejection check.
-5. Complete the declared live-cluster compatibility matrix, including upgrade and uninstall.
+5. Complete every support-contract row claimed by the release, including install, upgrade, rollback and uninstall with the exact candidate artefacts.
 6. Review `govulncheck`, the pinned Trivy configuration/secret/runtime-image scans, licences, RBAC, NetworkPolicy, host mounts, image user, and sensitive metric labels.
 7. Check the [current upstream Kubernetes support window](https://kubernetes.io/releases/), move the kind matrix to all three supported minors, and keep each checksum-pinned kubectl on the same minor as its node image.
 8. Confirm the rollback path and known limitations.
+
+A support-contract change is a release decision. The change must name the exact profile, link reviewed evidence, update the changelog and pass the release documentation gate before a tag is created.
 
 Configure a GitHub environment named `release` before the first tag. Restrict it to protected release tags and require maintainer approval. The workflow references this environment so its publication job cannot start until the configured protection rules pass.
 

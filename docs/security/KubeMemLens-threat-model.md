@@ -27,7 +27,7 @@ Out of scope:
 Confirmed product decisions:
 
 - Linux worker nodes on GKE, EKS and AKS are target environments alongside self-managed clusters.
-- Shared multi-tenant clusters are supported and cross-tenant data isolation is required.
+- Shared multi-tenant clusters are a required v1 threat environment and cross-tenant data isolation is mandatory. The current alpha does not claim this support.
 - Raw process and file paths may be shown for an explicitly requested trace after a warning. They must not enter default captures, metrics, logs, or persistent storage.
 
 Assumptions requiring implementation-time validation:

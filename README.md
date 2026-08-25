@@ -12,13 +12,13 @@ The goal is to make incidents like "kubectl top says memory is high, but the app
 
 ## Status
 
-KubeMemLens is in alpha. `v0.0.1-alpha.3` is intended for evaluation on disposable or explicitly authorised clusters and does not carry a production stability or support guarantee. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI queries the collector through the Kubernetes API service proxy by default, with HTTP/port-forward mode as a fallback. The collector also exposes conservative Prometheus/OpenMetrics metrics at `/metrics`.
+KubeMemLens is in alpha. `v0.0.1-alpha.3` is intended for evaluation on disposable or explicitly authorised clusters and does not carry a production stability or support guarantee. The current alpha is not suitable for shared multi-tenant clusters because collector reads and agent writes do not yet have the required application-level authentication and authorisation boundary. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI queries the collector through the Kubernetes API service proxy by default, with HTTP/port-forward mode as a fallback. The collector also exposes conservative Prometheus/OpenMetrics metrics at `/metrics`.
 
 The full lifecycle path has passed locally on the current upstream-supported Kubernetes 1.34, 1.35 and 1.36 minors. Managed-provider qualification is still in progress. GKE, EKS, AKS, CRI-O and other provider/runtime profiles remain unclaimed until the planned matrix completes and its reviewed evidence is published.
 
 ## Install the alpha
 
-Use the exact alpha version. Review the [installation guide](docs/installation.md), [compatibility matrix](docs/compatibility.md), and [release assets](https://github.com/danushkastanley/KubeMemLens/releases) before installing it.
+Use the exact alpha version. Review the [installation guide](docs/installation.md), [support and compatibility contract](docs/compatibility.md), and [release assets](https://github.com/danushkastanley/KubeMemLens/releases) before installing it.
 
 ```sh
 helm upgrade --install kube-memlens \
@@ -259,7 +259,7 @@ q quit · space pause · r refresh · / filter · N/n/w/p/c views · enter drill
 
 At 150 columns and 30 rows or larger, the Pod view becomes a dense master-detail dashboard. It adds an observed-Pod-charge summary strip, namespace context, the risk-ordered Pod table, selected Pod evidence, node memory context and current sampled cgroup signals. “Observed Pod charge” is the sum of mapped Pod cgroups; it is not total cluster or node memory usage. Node allocatable memory is context, and the displayed charge/allocatable percentage is explicitly partial-scope.
 
-The primary `A/F/S/O` bar partitions charged memory into anonymous, filesystem cache excluding shmem, shmem/tmpfs and residual/other. Limit gauges say `unknown` or `unlimited` when a percentage would be misleading. OOM, `memory.high`, `memory.max` and PSI labels describe the current cgroup sample or counter-delta window; they are not Kubernetes eviction events. Colours reinforce text labels but are not required—set `NO_COLOR=1` for monochrome output.
+The primary `A/F/S/O` bar partitions charged memory into anonymous, filesystem cache excluding shmem, shmem/tmpfs and residual/other. Limit gauges say `unknown` or `unlimited` when a percentage would be misleading. OOM, `memory.high`, `memory.max` and PSI labels describe the current cgroup sample or counter-delta window; they are not Kubernetes eviction events. Colours reinforce text labels but are not required. Set `NO_COLOR=1` for monochrome output.
 
 Key controls:
 
@@ -338,7 +338,7 @@ kubememlens_pod_diagnosis{diagnosis="oom-risk"} == 1
 
 See `docs/metrics.md` for the metric list, labels, guardrails, Helm values, and PromQL examples.
 
-See [installation and upgrade](docs/installation.md), [compatibility](docs/compatibility.md), and [release process](docs/release-process.md) for the current distribution contract and unverified environments.
+See [installation and upgrade](docs/installation.md), the [support and compatibility contract](docs/compatibility.md), and the [release process](docs/release-process.md) for the current distribution contract and unverified environments.
 
 ## RBAC For Kube-Proxy Mode
 
@@ -382,7 +382,7 @@ See `examples/rbac/kube-memlens-viewer.yaml` for a minimal Role that an admin ca
 
 ## Security Posture
 
-The alpha release reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. CLI kube-proxy mode uses the user's Kubernetes credentials and is governed by RBAC. Metrics are exposed only by the in-cluster collector service by default. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
+The alpha release reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. CLI kube-proxy mode uses the user's Kubernetes credentials and is governed by RBAC, but permission to proxy the collector does not provide namespace-scoped authorisation inside the collector. Metrics are exposed only by the in-cluster collector service by default. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. The [support contract](docs/compatibility.md) records the v1 tenant boundary, exposed metadata and unsupported environments. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
 
 ## Contributing
 
