@@ -27,6 +27,8 @@ type MetricsView struct {
 	containerCount int
 	podCount       int
 	namespaceCount int
+	mappedCount    int
+	unmappedCount  int
 }
 
 func (s *Store) BuildMetricsView(now time.Time, ttl time.Duration, opts metrics.Options, maxResponseBytes int) (*MetricsView, metrics.Options) {
@@ -46,9 +48,20 @@ func (s *Store) BuildMetricsView(now time.Time, ttl time.Duration, opts metrics.
 	namespacesExceeded := !effective.IncludeNamespaceMetrics
 	containersExceeded := !effective.IncludeContainerMetrics
 	totalContainers := 0
+	staleContainers := 0
+	viewMapped := 0
+	viewUnmapped := 0
 
 	visitScopedShards(shards, ReadScope{}, func(container api.ContainerSnapshot) {
 		totalContainers++
+		if container.Namespace != "" && container.PodName != "" && container.ContainerName != "" {
+			viewMapped++
+		} else {
+			viewUnmapped++
+		}
+		if container.Freshness == api.EvidenceFreshnessStale {
+			staleContainers++
+		}
 		if !containersExceeded {
 			if totalContainers > effective.MaxContainers {
 				containers = nil
@@ -113,9 +126,10 @@ func (s *Store) BuildMetricsView(now time.Time, ttl time.Duration, opts metrics.
 
 	view := &MetricsView{
 		containers: containers, pods: sortedMetricPods(podItems), namespaces: sortedMetricNamespaces(namespaceItems),
-		debug:  s.debugWithCounts(now, totalContainers, len(podSeen), len(namespaceSeen)),
+		debug:  s.debugWithCounts(now, ttl, totalContainers, staleContainers, len(podSeen), len(namespaceSeen)),
 		latest: s.LatestByNode(now), ingestion: s.IngestionStats(),
 		containerCount: totalContainers, podCount: len(podSeen), namespaceCount: len(namespaceSeen),
+		mappedCount: viewMapped, unmappedCount: viewUnmapped,
 	}
 	return view, effective
 }
@@ -184,4 +198,8 @@ func (v *MetricsView) IngestionStats() api.CollectorIngestionStats {
 
 func (v *MetricsView) MetricsEntityCounts() (int, int, int) {
 	return v.namespaceCount, v.podCount, v.containerCount
+}
+
+func (v *MetricsView) MetricsMappingCounts() (int, int) {
+	return v.mappedCount, v.unmappedCount
 }

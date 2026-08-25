@@ -13,6 +13,28 @@ subjects:
     namespace: {{ .Values.namespace.name | quote }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-collector-node-reader
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-memlens-collector-node-reader
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-memlens-collector-node-reader
+subjects:
+  - kind: ServiceAccount
+    name: kube-memlens-collector
+    namespace: {{ .Values.namespace.name | quote }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: kube-memlens-extension-authentication-reader

@@ -40,6 +40,10 @@ func (c *PodCache) WaitForSync(ctx context.Context) bool {
 	return cache.WaitForCacheSync(ctx.Done(), c.informer.HasSynced)
 }
 
+func (c *PodCache) Synced() bool {
+	return c.informer.HasSynced()
+}
+
 func (c *PodCache) Index() PodIndex {
 	objects := c.informer.GetStore().List()
 	pods := make([]corev1.Pod, 0, len(objects))

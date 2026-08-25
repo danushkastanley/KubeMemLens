@@ -57,16 +57,16 @@ func (spec filterSpec) matchesPod(pod api.PodSnapshot, now time.Time, staleAfter
 	if spec.owner != "" && !containsAny([]string{pod.Context.OwnerKind, pod.Context.OwnerName, pod.Context.WorkloadKind, pod.Context.WorkloadName}, spec.owner) {
 		return false
 	}
-	stale := isStale(pod.CapturedAt, now, staleAfter)
+	stale := podEvidenceStale(pod, now, staleAfter)
 	switch spec.state {
 	case "stale":
 		return stale
 	case "fresh":
 		return !stale
 	case "incomplete":
-		return !result.EvidenceWindow.DeltaKnown || !result.EvidenceWindow.DeltaComplete
+		return pod.Completeness == api.EvidencePartial || !result.EvidenceWindow.DeltaKnown || !result.EvidenceWindow.DeltaComplete
 	case "complete":
-		return result.EvidenceWindow.DeltaKnown && result.EvidenceWindow.DeltaComplete
+		return pod.Completeness != api.EvidencePartial && result.EvidenceWindow.DeltaKnown && result.EvidenceWindow.DeltaComplete
 	default:
 		return true
 	}

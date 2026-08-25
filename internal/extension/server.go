@@ -12,6 +12,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
 	"github.com/danushkastanley/kube-memlens/internal/kube"
 	apidiscoveryv2 "k8s.io/api/apidiscovery/v2"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -35,16 +36,21 @@ import (
 
 var errDelegatedAuthorisation = errors.New("delegated authorisation failed")
 
+const defaultShutdownDelay = 3 * time.Second
+
 type ServerOptions struct {
-	BindPort       int
-	CertFile       string
-	KeyFile        string
-	KubeconfigFile string
-	MaxBodyBytes   int64
-	MaxRead        int
-	MaxMutating    int
-	RequestTimeout time.Duration
-	Handler        *Handler
+	BindPort        int
+	CertFile        string
+	KeyFile         string
+	KubeconfigFile  string
+	MaxBodyBytes    int64
+	MaxRead         int
+	MaxMutating     int
+	RequestTimeout  time.Duration
+	ShutdownDelay   time.Duration
+	NodeSelector    string
+	NodeTolerations []corev1.Toleration
+	Handler         *Handler
 }
 
 func (o ServerOptions) Run(ctx context.Context) error {
@@ -56,6 +62,13 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	}
 	if o.MaxBodyBytes <= 0 || o.MaxRead <= 0 || o.MaxMutating <= 0 || o.RequestTimeout <= 0 {
 		return fmt.Errorf("extension request limits must be greater than zero")
+	}
+	if o.ShutdownDelay < 0 {
+		return fmt.Errorf("extension shutdown delay cannot be negative")
+	}
+	shutdownDelay := o.ShutdownDelay
+	if shutdownDelay == 0 {
+		shutdownDelay = defaultShutdownDelay
 	}
 
 	scheme := runtime.NewScheme()
@@ -70,6 +83,7 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	config.MaxRequestsInFlight = o.MaxRead
 	config.MaxMutatingRequestsInFlight = o.MaxMutating
 	config.RequestTimeout = o.RequestTimeout
+	config.ShutdownDelayDuration = shutdownDelay
 	config.FeatureGate = utilfeature.DefaultFeatureGate
 	config.EffectiveVersion = basecompatibility.NewEffectiveVersionFromString("1.33", "", "")
 
@@ -81,16 +95,26 @@ func (o ServerOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("configure extension TLS: %w", err)
 	}
 
-	requestHeaders, err := configureRequestHeaderAuthentication(ctx, o.KubeconfigFile, config)
+	requestHeaders, client, err := configureRequestHeaderAuthentication(ctx, o.KubeconfigFile, config)
 	if err != nil {
 		return fmt.Errorf("configure delegated authentication: %w", err)
 	}
-	config.AddReadyzChecks(requestHeaderReady(requestHeaders))
+	delegatedReadiness := newDelegatedSARReadiness(client.AuthorizationV1().SubjectAccessReviews())
+	nodeCoverage := newNodeCoverageReadiness(
+		client.CoreV1().Nodes(), o.Handler.coordinator.store, o.Handler.coordinator.store.MaxNodes(), o.NodeSelector, o.NodeTolerations,
+	)
+	probeCtx, stopProbe := context.WithCancel(ctx)
+	defer stopProbe()
+	go delegatedReadiness.Run(probeCtx)
+	go nodeCoverage.Run(probeCtx)
+	config.AddReadyzChecks(requestHeaderReady(requestHeaders), delegatedReadiness, nodeCoverage)
 
 	authorization := genericoptions.NewDelegatingAuthorizationOptions()
 	authorization.RemoteKubeConfigFile = o.KubeconfigFile
 	authorization.AlwaysAllowGroups = nil
-	authorization.AlwaysAllowPaths = nil
+	// Health responses contain no collector data. Authorise these exact paths
+	// locally so kubelet traffic cannot create a SubjectAccessReview per probe.
+	authorization.AlwaysAllowPaths = delegatedAlwaysAllowPaths()
 	authorization.AllowCacheTTL = 0
 	authorization.DenyCacheTTL = 0
 	authorization.WithClientTimeout(5 * time.Second)
@@ -118,6 +142,10 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	server.AggregatedDiscoveryGroupManager.SetGroupVersionPriority(groupVersion, 1000, 15)
 	o.Handler.Register(server.Handler.NonGoRestfulMux)
 	return server.PrepareRun().RunWithContext(ctx)
+}
+
+func delegatedAlwaysAllowPaths() []string {
+	return []string{"/healthz", "/livez", "/readyz"}
 }
 
 type agentIdentityAuthorizer struct {
@@ -213,17 +241,18 @@ func boundedDecision(decision authorizer.Decision) string {
 	}
 }
 
-func configureRequestHeaderAuthentication(ctx context.Context, kubeconfigFile string, config *genericapiserver.Config) (*genericoptions.DynamicRequestHeaderController, error) {
+func configureRequestHeaderAuthentication(ctx context.Context, kubeconfigFile string, config *genericapiserver.Config) (*genericoptions.DynamicRequestHeaderController, kubernetes.Interface, error) {
 	restConfig, err := kube.BuildConfig(kubeconfigFile, "")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	restConfig.UserAgent = "kube-memlens-extension/" + buildinfo.Version
 	client, err := kubernetes.NewForConfig(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("create Kubernetes authentication client: %w", err)
+		return nil, nil, fmt.Errorf("create Kubernetes authentication client: %w", err)
 	}
-	return configureRequestHeaderAuthenticationWithClient(ctx, client, config)
+	controller, err := configureRequestHeaderAuthenticationWithClient(ctx, client, config)
+	return controller, client, err
 }
 
 func configureRequestHeaderAuthenticationWithClient(ctx context.Context, client kubernetes.Interface, config *genericapiserver.Config) (*genericoptions.DynamicRequestHeaderController, error) {

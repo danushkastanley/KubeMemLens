@@ -36,6 +36,7 @@ func main() {
 	nodeName := flag.String("node-name", defaultNodeName(), "Kubernetes node name")
 	kubeEnabled := flag.Bool("kube", true, "use Kubernetes API for pod/container metadata")
 	scanTimeout := flag.Duration("scan-timeout", 10*time.Second, "per-scan timeout")
+	publishTimeout := flag.Duration("publish-timeout", 10*time.Second, "maximum time for one authenticated snapshot publish including bounded retries")
 	cacheSyncTimeout := flag.Duration("cache-sync-timeout", 15*time.Second, "maximum initial Kubernetes metadata cache sync wait")
 	metricsListenAddr := flag.String("metrics-listen", "127.0.0.1:8082", "HTTP listen address for agent metrics and health; empty disables it; use an explicit non-loopback address only in a reviewed local environment")
 	versionOnly := flag.Bool("version", false, "show build information and exit")
@@ -46,6 +47,10 @@ func main() {
 	}
 	if *ingestionMode != ingestionLegacy && *ingestionMode != ingestionAuthenticated {
 		fmt.Fprintln(os.Stderr, "ingestion mode must be legacy or authenticated")
+		os.Exit(2)
+	}
+	if *interval <= 0 || *scanTimeout <= 0 || *publishTimeout <= 0 || *cacheSyncTimeout <= 0 {
+		fmt.Fprintln(os.Stderr, "interval and operation timeouts must be greater than zero")
 		os.Exit(2)
 	}
 
@@ -87,7 +92,6 @@ func main() {
 	}
 	if *once {
 		ctx, cancel := context.WithTimeout(context.Background(), *scanTimeout)
-		defer cancel()
 
 		index, err := loadPodIndex(ctx, kubeClient, *nodeName, *kubeEnabled)
 		if err != nil {
@@ -95,6 +99,7 @@ func main() {
 			os.Exit(1)
 		}
 		result, err := scanner.Scan(ctx, index)
+		cancel()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "scan failed: reason=%s\n", boundedScanFailureReason(err))
 			os.Exit(1)
@@ -110,7 +115,14 @@ func main() {
 			fmt.Println("Used direct root cgroup scan because no container cgroups were found.")
 		}
 		if *collectorURL != "" || publisher != nil {
-			if err := publishSnapshot(ctx, *ingestionMode, *collectorURL, publisher, index.NodeContext.NodeUID, result.Snapshot); err != nil {
+			if reason := snapshotPublishBlockReason(true, result); reason != "" {
+				fmt.Fprintf(os.Stderr, "collector POST skipped: reason=%s\n", reason)
+				os.Exit(1)
+			}
+			publishCtx, publishCancel := context.WithTimeout(context.Background(), *publishTimeout)
+			err := publishSnapshot(publishCtx, *ingestionMode, *collectorURL, publisher, index.NodeContext.NodeUID, result.Snapshot)
+			publishCancel()
+			if err != nil {
 				fmt.Fprintf(os.Stderr, "collector POST failed: %v\n", err)
 				os.Exit(1)
 			}
@@ -161,7 +173,8 @@ func main() {
 		scanCtx, cancel := context.WithTimeout(ctx, *scanTimeout)
 		index := kube.EmptyPodIndex()
 		metadataCachePods := 0
-		if podCache != nil {
+		metadataSynced := podCache == nil || podCache.Synced()
+		if podCache != nil && metadataSynced {
 			index = podCache.Index()
 			metadataCachePods = podCache.PodCount()
 		}
@@ -186,6 +199,7 @@ func main() {
 			}
 		}
 		result, scanErr := scanner.Scan(scanCtx, index)
+		cancel()
 		telemetry.RecordScan(time.Now().UTC(), time.Since(start), result, scanErr, metadataCachePods)
 		failureReason := agentFailureReason("")
 		if scanErr != nil {
@@ -193,15 +207,21 @@ func main() {
 		}
 		posted := false
 		if scanErr == nil && (*collectorURL != "" || publisher != nil) {
-			if postErr := publishSnapshot(scanCtx, *ingestionMode, *collectorURL, publisher, index.NodeContext.NodeUID, result.Snapshot); postErr != nil {
-				telemetry.RecordPost(postErr)
-				failureReason = agentFailureSnapshotPost
+			if blockReason := snapshotPublishBlockReason(metadataSynced, result); blockReason != "" {
+				failureReason = blockReason
 			} else {
-				telemetry.RecordPost(nil)
-				posted = true
+				publishCtx, publishCancel := context.WithTimeout(ctx, *publishTimeout)
+				postErr := publishSnapshot(publishCtx, *ingestionMode, *collectorURL, publisher, index.NodeContext.NodeUID, result.Snapshot)
+				publishCancel()
+				if postErr != nil {
+					telemetry.RecordPost(postErr)
+					failureReason = agentFailureSnapshotPost
+				} else {
+					telemetry.RecordPost(nil)
+					posted = true
+				}
 			}
 		}
-		cancel()
 
 		if failureReason != "" {
 			fmt.Print(formatAgentFailure(*nodeName, failureReason, time.Since(start)))

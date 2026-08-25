@@ -330,12 +330,14 @@ See the [tenant-scoped read runbook](docs/runbooks/tenant-scoped-reads.md) for e
 - `status` command for collector connectivity and latest snapshot counts
 - `doctor` checks for node freshness, cgroup v2, runtime layout, cgroup read errors, mapping, and store consistency
 - separately authorised Prometheus/OpenMetrics resource with cardinality guardrails
+- explicit [reliability states](docs/reliability.md), separate liveness and readiness, bounded retry, graceful shutdown and an [operator runbook](docs/runbooks/reliability.md)
 
 ## Non-Goals
 
 - No web dashboard
 - No eBPF attribution yet
 - No persistent or long-term storage
+- No highly available collector or durable history
 - No SaaS or external telemetry
 - No auto-remediation
 - No CRDs

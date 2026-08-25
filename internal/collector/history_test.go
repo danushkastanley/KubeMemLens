@@ -47,6 +47,52 @@ func TestHistoryPrunesExpiredSeries(t *testing.T) {
 	if got := store.ListPodHistory("default", "api", "", now.Add(2*time.Minute)); len(got) != 0 {
 		t.Fatalf("expired history remains: %#v", got)
 	}
+	reliability := store.HistoryReliability(now.Add(2 * time.Minute))
+	if reliability.Completeness != api.EvidencePartial || !reliability.AvailableFrom.IsZero() {
+		t.Fatalf("empty history was presented as complete: %#v", reliability)
+	}
+	_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: now.Add(2 * time.Minute), Containers: []api.ContainerSnapshot{snapshot}})
+	if got := store.HistoryReliability(now.Add(2 * time.Minute)); got.Completeness != api.EvidencePartial {
+		t.Fatalf("one point after a gap was presented as complete: %#v", got)
+	}
+}
+
+func TestScopedHistoryReliabilityDoesNotExposeOtherNamespaceLoss(t *testing.T) {
+	base := time.Unix(1_700_000_000, 0).UTC()
+	store := NewStoreWithHistory(HistoryOptions{Duration: time.Hour, MaxSeries: 10, MaxPoints: 2})
+	for index := range 3 {
+		teamA := api.ContainerSnapshot{Namespace: "team-a", PodName: "api", PodUID: "uid-a", ContainerName: "app", ContainerID: "id-a", NodeName: "node-a"}
+		containers := []api.ContainerSnapshot{teamA}
+		if index == 2 {
+			containers = append(containers, api.ContainerSnapshot{Namespace: "team-b", PodName: "api", PodUID: "uid-b", ContainerName: "app", ContainerID: "id-b", NodeName: "node-a"})
+		}
+		_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: base.Add(time.Duration(index) * time.Second), Containers: containers})
+	}
+	_, teamB := store.ListPodHistoryWithReliability("team-b", "api", "", base.Add(2*time.Second))
+	if teamB.DroppedSeries != 0 || teamB.EvictedPoints != 0 || !teamB.LastLossAt.IsZero() {
+		t.Fatalf("unexpected team-b history reliability: %#v", teamB)
+	}
+	_, teamA := store.ListPodHistoryWithReliability("team-a", "api", "", base.Add(2*time.Second))
+	if teamA.EvictedPoints != 1 {
+		t.Fatalf("team-a scoped loss missing: %#v", teamA)
+	}
+}
+
+func TestScopedHistoryReportsBoundedSeriesRejection(t *testing.T) {
+	base := time.Unix(1_700_000_000, 0).UTC()
+	store := NewStoreWithHistory(HistoryOptions{Duration: time.Hour, MaxSeries: 1, MaxPoints: 10})
+	teamA := api.ContainerSnapshot{Namespace: "team-a", PodName: "api", PodUID: "uid-a", ContainerName: "app", ContainerID: "id-a", NodeName: "node-a"}
+	teamB := api.ContainerSnapshot{Namespace: "team-b", PodName: "api", PodUID: "uid-b", ContainerName: "app", ContainerID: "id-b", NodeName: "node-a"}
+	_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: base, Containers: []api.ContainerSnapshot{teamA}})
+	_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: base.Add(time.Second), Containers: []api.ContainerSnapshot{teamA, teamB}})
+	series, reliability := store.ListPodHistoryWithReliability("team-b", "api", "", base.Add(time.Second))
+	if len(series) != 0 || reliability.DroppedSeries != 1 || !reliability.LastLossAt.Equal(base.Add(time.Second)) {
+		t.Fatalf("scoped series rejection = series=%#v reliability=%#v", series, reliability)
+	}
+	_, teamAStatus := store.ListPodHistoryWithReliability("team-a", "api", "", base.Add(time.Second))
+	if teamAStatus.DroppedSeries != 0 || !teamAStatus.LastLossAt.IsZero() {
+		t.Fatalf("team-a saw team-b loss: %#v", teamAStatus)
+	}
 }
 
 func TestHistoryResponseKeepsNewestSeriesWithinLimit(t *testing.T) {
@@ -62,5 +108,54 @@ func TestHistoryResponseKeepsNewestSeriesWithinLimit(t *testing.T) {
 	}
 	if history[0].PodUID != "uid-new" || history[1].PodUID != "uid-middle" {
 		t.Fatalf("unexpected response order: %#v", history)
+	}
+}
+
+func TestHistoryReliabilityRecoversAfterCapacityLossLeavesWindow(t *testing.T) {
+	base := time.Unix(1_700_000_000, 0).UTC()
+	store := NewStoreWithHistory(HistoryOptions{Duration: 2 * time.Second, MaxSeries: 10, MaxPoints: 2})
+	snapshot := api.ContainerSnapshot{Namespace: "default", PodName: "api", PodUID: "uid-a", ContainerName: "app", ContainerID: "id-a", NodeName: "node-a"}
+	for _, offset := range []time.Duration{0, time.Second, 2 * time.Second} {
+		_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: base.Add(offset), Containers: []api.ContainerSnapshot{snapshot}})
+	}
+	loss := store.HistoryReliability(base.Add(2 * time.Second))
+	if loss.Completeness != api.EvidencePartial || loss.EvictedPoints != 1 || !loss.LastLossAt.Equal(base.Add(2*time.Second)) {
+		t.Fatalf("history loss was not explicit: %#v", loss)
+	}
+
+	_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: base.Add(4 * time.Second), Containers: []api.ContainerSnapshot{snapshot}})
+	recovered := store.HistoryReliability(base.Add(4 * time.Second))
+	if recovered.Completeness != api.EvidenceComplete || recovered.EvictedPoints != 1 {
+		t.Fatalf("history completeness did not recover after loss aged out: %#v", recovered)
+	}
+}
+
+func TestDefaultHistoryCapacityCoversInclusiveFiveSecondWindow(t *testing.T) {
+	options := DefaultHistoryOptions()
+	if options.Duration != 15*time.Minute || options.MaxPoints != 181 {
+		t.Fatalf("default history options do not cover inclusive five-second endpoints: %#v", options)
+	}
+}
+
+func TestHistoryGapResetsScopedCompleteness(t *testing.T) {
+	base := time.Unix(1_700_000_000, 0).UTC()
+	store := NewStoreWithHistory(HistoryOptions{Duration: time.Minute, MaxSeries: 10, MaxPoints: 100, ContinuityGap: 10 * time.Second})
+	snapshot := api.ContainerSnapshot{Namespace: "default", PodName: "api", PodUID: "uid-a", ContainerName: "app", ContainerID: "id-a", NodeName: "node-a"}
+	_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: base, Containers: []api.ContainerSnapshot{snapshot}})
+	_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: base.Add(time.Minute), Containers: []api.ContainerSnapshot{snapshot}})
+	_, reliability := store.ListPodHistoryWithReliability("default", "api", "", base.Add(time.Minute))
+	if reliability.Completeness != api.EvidencePartial {
+		t.Fatalf("history gap was presented as complete: %#v", reliability)
+	}
+}
+
+func TestHistoryWithoutCurrentTailNeverBecomesComplete(t *testing.T) {
+	base := time.Unix(1_700_000_000, 0).UTC()
+	store := NewStoreWithHistory(HistoryOptions{Duration: time.Minute, MaxSeries: 10, MaxPoints: 100, ContinuityGap: 10 * time.Second})
+	snapshot := api.ContainerSnapshot{Namespace: "default", PodName: "api", PodUID: "uid-a", ContainerName: "app", ContainerID: "id-a", NodeName: "node-a"}
+	_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: base, Containers: []api.ContainerSnapshot{snapshot}})
+	_, reliability := store.ListPodHistoryWithReliability("default", "api", "", base.Add(time.Minute))
+	if reliability.Completeness != api.EvidencePartial {
+		t.Fatalf("history without a current tail was presented as complete: %#v", reliability)
 	}
 }

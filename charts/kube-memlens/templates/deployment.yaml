@@ -9,6 +9,10 @@ metadata:
   namespace: {{ .Values.namespace.name | quote }}
 spec:
   replicas: {{ .Values.collector.replicas }}
+  # One in-memory generation may serve at a time. RollingUpdate would route
+  # reads and agent epochs across two independent stores during an upgrade.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: kube-memlens-collector
@@ -19,6 +23,7 @@ spec:
     spec:
       serviceAccountName: kube-memlens-collector
       automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -42,6 +47,8 @@ spec:
             - "--ingestion-requests-per-second-per-agent={{ .Values.collector.ingestion.requestsPerSecondPerAgent }}"
             - "--ingestion-burst-per-agent={{ .Values.collector.ingestion.burstPerAgent }}"
             - "--snapshot-ttl={{ .Values.collector.snapshotTTL }}"
+            - {{ printf "--expected-node-selector-json=%s" (toJson .Values.agent.nodeSelector) | quote }}
+            - {{ printf "--expected-node-tolerations-json=%s" (toJson .Values.agent.tolerations) | quote }}
             - "--read-max-concurrent={{ .Values.collector.read.maxConcurrentRequests }}"
             - "--history-duration={{ .Values.collector.history.duration }}"
             - "--history-max-series={{ .Values.collector.history.maxSeries }}"
@@ -69,12 +76,20 @@ spec:
               containerPort: {{ .Values.collector.ingestion.extensionPort }}
           livenessProbe:
             httpGet:
-              path: /healthz
+              path: /livez
               port: http
+              scheme: HTTP
+            periodSeconds: 10
+            timeoutSeconds: 1
+            failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /healthz
-              port: http
+              path: /readyz
+              port: extension
+              scheme: HTTPS
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 1
           securityContext:
             privileged: false
             readOnlyRootFilesystem: {{ .Values.security.readOnlyRootFilesystem }}

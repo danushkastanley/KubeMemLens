@@ -1,6 +1,8 @@
 package cgroup
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -82,6 +84,19 @@ func TestWalkerSkipsParentPodCgroup(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("entries = %d, want 0", len(entries))
+	}
+}
+
+func TestWalkerHonoursCancelledContext(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	entries, err := (Walker{Root: t.TempDir()}).WalkContext(ctx)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("WalkContext error = %v, want context cancellation", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("cancelled walk returned entries: %#v", entries)
 	}
 }
 

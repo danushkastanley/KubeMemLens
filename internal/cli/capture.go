@@ -40,11 +40,19 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				return fmt.Errorf("Pod %s/%s was not found in current collector snapshots", namespace, podName)
 			}
 			var nodes []api.NodeSnapshotStatus
+			var reliability api.CollectorReliability
 			if namespace == "" {
 				nodes, err = reader.Nodes(cmd.Context())
 				if err != nil {
 					return collectorUnavailableError(opts, description, err)
 				}
+				debug, debugErr := reader.DebugStore(cmd.Context())
+				if debugErr != nil {
+					return collectorUnavailableError(opts, description, debugErr)
+				}
+				reliability = debug.Reliability
+			} else {
+				reliability = captureReliabilityFromPods(pods)
 			}
 			bundle := api.IncidentBundle{
 				SchemaVersion: api.CurrentIncidentSchemaVersion,
@@ -53,10 +61,15 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				Redacted:      !includeSensitive,
 				Pods:          pods,
 				Nodes:         nodes,
+				Reliability:   &reliability,
 			}
 			if namespace != "" {
 				bundle.Partial = true
 				bundle.Caveats = []string{"Cluster node summaries are omitted from a namespace-scoped capture."}
+			}
+			if reliability.State != api.CollectorReady {
+				bundle.Partial = true
+				bundle.Caveats = append(bundle.Caveats, "Collector evidence state at capture: "+string(reliability.State)+".")
 			}
 			if includeHistory {
 				if len(pods) > maxCaptureHistoryPods {
@@ -98,6 +111,30 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 		return nil
 	}
 	return cmd
+}
+
+func captureReliabilityFromPods(pods []api.PodSnapshot) api.CollectorReliability {
+	result := api.CollectorReliability{State: api.CollectorRebuilding, Completeness: api.EvidencePartial}
+	fresh, stale := 0, 0
+	partial := false
+	for _, pod := range pods {
+		if pod.Freshness == api.EvidenceFreshnessStale {
+			stale++
+		} else {
+			fresh++
+		}
+		partial = partial || pod.Completeness == api.EvidencePartial
+	}
+	if fresh > 0 && stale == 0 && !partial {
+		result.State, result.Completeness = api.CollectorReady, api.EvidenceComplete
+	}
+	if fresh > 0 && (stale > 0 || partial) {
+		result.State = api.CollectorDegraded
+	}
+	if fresh == 0 && stale > 0 {
+		result.State = api.CollectorStale
+	}
+	return result
 }
 
 func selectCapturePods(pods []api.PodSnapshot, namespace, podName string) []api.PodSnapshot {

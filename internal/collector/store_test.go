@@ -163,19 +163,19 @@ func TestStoreEnforcesNodeAndContainerCapacity(t *testing.T) {
 	}
 }
 
-func TestStoreReleasesContainerCapacityWhenSnapshotExpires(t *testing.T) {
+func TestStoreRetainsStaleEvidenceWithinCapacity(t *testing.T) {
 	now := time.Now().UTC()
 	store := NewStoreWithHistoryAndLimits(DefaultHistoryOptions(), StoreLimits{MaxNodes: 2, MaxContainers: 1})
 	_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: now, Containers: []api.ContainerSnapshot{
 		container("default", "pod-a", "app", "id-a", now, 100),
 	}})
-	if got := store.ListContainers(now.Add(2*time.Minute), time.Minute); len(got) != 0 {
-		t.Fatalf("expired containers remain visible: %#v", got)
+	if got := store.ListContainers(now.Add(2*time.Minute), time.Minute); len(got) != 1 || got[0].Freshness != api.EvidenceFreshnessStale {
+		t.Fatalf("last-known evidence was not retained as stale: %#v", got)
 	}
 	if _, err := store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-b", CapturedAt: now.Add(2 * time.Minute), Containers: []api.ContainerSnapshot{
 		container("default", "pod-b", "app", "id-b", now.Add(2*time.Minute), 100),
-	}}); err != nil {
-		t.Fatalf("capacity was not released: %v", err)
+	}}); !errors.Is(err, ErrStoreCapacity) {
+		t.Fatalf("retained evidence must remain bounded, error=%v", err)
 	}
 }
 
@@ -218,7 +218,7 @@ func TestStoreAggregatesPodsAndNamespaces(t *testing.T) {
 	}
 }
 
-func TestStoreFiltersStaleSnapshots(t *testing.T) {
+func TestStoreLabelsStaleSnapshots(t *testing.T) {
 	now := time.Now().UTC()
 	store := NewStore()
 	store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: now.Add(-time.Minute), Containers: []api.ContainerSnapshot{
@@ -231,17 +231,17 @@ func TestStoreFiltersStaleSnapshots(t *testing.T) {
 	}})
 
 	items := store.ListContainers(now, 30*time.Second)
-	if len(items) != 1 || items[0].PodName != "new" {
-		t.Fatalf("unexpected non-stale containers: %#v", items)
+	if len(items) != 2 || items[0].PodName != "new" || items[0].Freshness != api.EvidenceFreshnessFresh || items[1].Freshness != api.EvidenceFreshnessStale {
+		t.Fatalf("unexpected freshness labels: %#v", items)
 	}
 
 	debug := store.Debug(now, 30*time.Second)
-	if debug.TotalContainers != 1 || debug.StaleContainers != 0 || debug.Pods != 1 || debug.Namespaces != 1 {
+	if debug.TotalContainers != 2 || debug.StaleContainers != 1 || debug.Pods != 2 || debug.Namespaces != 1 {
 		t.Fatalf("unexpected debug counts: %#v", debug)
 	}
 	latest := store.LatestByNode(now)
 	if len(latest) != 2 || !latest["node-a"].Equal(now.Add(-time.Minute)) {
-		t.Fatalf("latest snapshots should retain node freshness after container GC: %#v", latest)
+		t.Fatalf("latest snapshots should retain node freshness: %#v", latest)
 	}
 }
 

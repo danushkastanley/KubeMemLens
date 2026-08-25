@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -54,7 +55,10 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 	}
 
 	capturedAt := time.Now().UTC()
-	entries, walkErr := (cgroup.Walker{Root: s.CgroupRoot}).Walk()
+	entries, walkErr := (cgroup.Walker{Root: s.CgroupRoot}).WalkContext(ctx)
+	if errors.Is(walkErr, context.Canceled) || errors.Is(walkErr, context.DeadlineExceeded) {
+		return ScanResult{}, walkErr
+	}
 	if len(entries) == 0 {
 		breakdown, err := s.ScanOnce("local")
 		if err != nil {

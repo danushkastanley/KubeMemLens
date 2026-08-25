@@ -97,6 +97,30 @@ func TestContainerPageRejectsUntrustedPaginationInput(t *testing.T) {
 	}
 }
 
+func TestContainerPageRejectsPreviousCollectorGeneration(t *testing.T) {
+	now := time.Now().UTC()
+	newHandler := func(generation string) http.Handler {
+		store := NewStore()
+		store.generation = generation
+		_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: now, Containers: []api.ContainerSnapshot{
+			scaleContainer(0, now), scaleContainer(1, now),
+		}})
+		return NewReadHandlerWithOptions(store, DefaultHandlerOptions(time.Minute))
+	}
+	first := httptest.NewRecorder()
+	newHandler("first").ServeHTTP(first, httptest.NewRequest(http.MethodGet, "/api/v1/pages/containers?limit=1", nil))
+	var page api.ContainerPage
+	if err := json.Unmarshal(first.Body.Bytes(), &page); err != nil || page.Continue == "" {
+		t.Fatalf("first page token: page=%#v error=%v", page, err)
+	}
+
+	second := httptest.NewRecorder()
+	newHandler("second").ServeHTTP(second, httptest.NewRequest(http.MethodGet, "/api/v1/pages/containers?continue="+url.QueryEscape(page.Continue), nil))
+	if second.Code != http.StatusBadRequest {
+		t.Fatalf("previous-generation token status=%d body=%s", second.Code, second.Body.String())
+	}
+}
+
 func scaleContainer(index int, capturedAt time.Time) api.ContainerSnapshot {
 	pod := fmt.Sprintf("memory-worker-%05d", index)
 	return api.ContainerSnapshot{

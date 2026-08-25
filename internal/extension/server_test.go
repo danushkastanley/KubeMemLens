@@ -19,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
+	"k8s.io/apiserver/pkg/authorization/path"
+	"k8s.io/apiserver/pkg/authorization/union"
 	genericfilters "k8s.io/apiserver/pkg/endpoints/filters"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 	genericapiserver "k8s.io/apiserver/pkg/server"
@@ -65,6 +67,36 @@ func TestRequiredAllowedNamesFailsClosed(t *testing.T) {
 	names := provider()
 	if len(names) != 1 || names[0] != "\x00invalid-empty-proxy-cn" {
 		t.Fatalf("empty provider returned %#v", names)
+	}
+}
+
+func TestHealthProbePathsDoNotDelegateSubjectAccessReview(t *testing.T) {
+	probeAuthorizer, err := path.NewAuthorizer(delegatedAlwaysAllowPaths())
+	if err != nil {
+		t.Fatalf("create probe authorizer: %v", err)
+	}
+	delegated := 0
+	delegate := union.New(probeAuthorizer, authorizer.AuthorizerFunc(func(context.Context, authorizer.Attributes) (authorizer.Decision, string, error) {
+		delegated++
+		return authorizer.DecisionDeny, "unexpected delegation", nil
+	}))
+	gate := agentIdentityAuthorizer{delegate: delegate}
+	for _, probePath := range delegatedAlwaysAllowPaths() {
+		decision, _, err := gate.Authorize(context.Background(), authorizer.AttributesRecord{
+			Verb: "get", Path: probePath, ResourceRequest: false,
+		})
+		if err != nil || decision != authorizer.DecisionAllow {
+			t.Fatalf("%s decision=%v err=%v", probePath, decision, err)
+		}
+	}
+	if delegated != 0 {
+		t.Fatalf("health probes delegated %d SubjectAccessReviews", delegated)
+	}
+	decision, _, err := gate.Authorize(context.Background(), authorizer.AttributesRecord{
+		Verb: "get", Path: "/readyz/extra", ResourceRequest: false,
+	})
+	if err != nil || decision != authorizer.DecisionDeny || delegated != 1 {
+		t.Fatalf("non-health path decision=%v delegated=%d err=%v", decision, delegated, err)
 	}
 }
 

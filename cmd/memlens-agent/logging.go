@@ -14,6 +14,8 @@ const (
 	agentFailureScanCancelled agentFailureReason = "scan_cancelled"
 	agentFailureScanTimeout   agentFailureReason = "scan_timeout"
 	agentFailureSnapshotPost  agentFailureReason = "snapshot_post_failed"
+	agentFailureMetadataSync  agentFailureReason = "metadata_cache_unsynchronised"
+	agentFailurePartialScan   agentFailureReason = "partial_scan_not_published"
 )
 
 func boundedScanFailureReason(err error) agentFailureReason {

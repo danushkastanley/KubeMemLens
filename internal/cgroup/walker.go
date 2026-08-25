@@ -1,6 +1,7 @@
 package cgroup
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -25,8 +26,15 @@ type Walker struct {
 }
 
 func (w Walker) Walk() ([]Entry, error) {
+	return w.WalkContext(context.Background())
+}
+
+func (w Walker) WalkContext(ctx context.Context) ([]Entry, error) {
 	if strings.TrimSpace(w.Root) == "" {
 		return nil, errors.New("cgroup root is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	info, err := os.Stat(w.Root)
@@ -40,6 +48,9 @@ func (w Walker) Walk() ([]Entry, error) {
 	var entries []Entry
 	var errs []error
 	err = filepath.WalkDir(w.Root, func(path string, d fs.DirEntry, walkErr error) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if walkErr != nil {
 			errs = append(errs, fmt.Errorf("walk %s: %w", path, walkErr))
 			return nil
@@ -76,6 +87,9 @@ func (w Walker) Walk() ([]Entry, error) {
 		})
 		return nil
 	})
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return entries, err
+	}
 	if err != nil {
 		errs = append(errs, err)
 	}

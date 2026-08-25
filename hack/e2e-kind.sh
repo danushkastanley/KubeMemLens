@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -Eeuo pipefail
 
 cluster_name=${E2E_CLUSTER_NAME:-kube-memlens-e2e}
@@ -340,6 +339,7 @@ if KUBECONFIG="${kubeconfig}" kubectl get --raw \
 fi
 run_tui_smoke
 run_live_density_smoke
+[ "${E2E_RUN_RELIABILITY_SMOKE:-false}" != true ] || RELIABILITY_KUBECONFIG="${kubeconfig}" RELIABILITY_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/reliability" RELIABILITY_ACKNOWLEDGE=disrupt-and-restore-kube-memlens-components hack/verify-reliability-kind.sh
 
 helm upgrade kube-memlens ./charts/kube-memlens \
   --kubeconfig "${kubeconfig}" \
@@ -379,6 +379,7 @@ for resource in \
   clusterrole/kube-memlens-cluster-viewer \
   clusterrole/kube-memlens-metrics-reader \
   clusterrolebinding/kube-memlens-auth-delegator \
+  clusterrole/kube-memlens-collector-node-reader clusterrolebinding/kube-memlens-collector-node-reader \
   clusterrole/kube-memlens-cert-bootstrap \
   clusterrolebinding/kube-memlens-cert-bootstrap; do
   if KUBECONFIG="${kubeconfig}" kubectl get "${resource}" >/dev/null 2>&1; then

@@ -221,13 +221,15 @@ func printPodsTable(w interface{ Write([]byte) (int, error) }, pods []api.PodSna
 	})
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tAGE")
+	fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tPOD AGE\tSAMPLE\tSTATE")
 	for _, pod := range pods {
 		printMemoryRow(tw, []string{
 			pod.Namespace,
 			pod.PodName,
 			pod.NodeName,
+			formatAge(pod.Context.CreatedAt),
 			formatAge(pod.CapturedAt),
+			string(pod.Freshness),
 		}, pod.Memory)
 	}
 	_ = tw.Flush()
@@ -240,11 +242,11 @@ func printContainersTable(w interface{ Write([]byte) (int, error) }, containers 
 	})
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tAGE")
+	fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tSAMPLE\tSTATE")
 	for _, container := range containers {
 		fmt.Fprintf(
 			tw,
-			"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+			"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			container.Namespace,
 			container.PodName,
 			container.ContainerName,
@@ -257,6 +259,7 @@ func printContainersTable(w interface{ Write([]byte) (int, error) }, containers 
 			model.FormatCompactBytes(container.Memory.ResidualBytes()),
 			explain.Analyze(container.Memory).Diagnosis,
 			formatAge(container.CapturedAt),
+			container.Freshness,
 		)
 	}
 	_ = tw.Flush()
@@ -318,7 +321,7 @@ func printWorkloadsTable(w interface{ Write([]byte) (int, error) }, workloads []
 func printMemoryRow(tw *tabwriter.Writer, prefix []string, memory model.MemoryBreakdown) {
 	fmt.Fprintf(
 		tw,
-		"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
+		"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 		prefix[0],
 		prefix[1],
 		prefix[2],
@@ -330,5 +333,7 @@ func printMemoryRow(tw *tabwriter.Writer, prefix []string, memory model.MemoryBr
 		model.FormatCompactBytes(memory.ResidualBytes()),
 		explain.Analyze(memory).Diagnosis,
 		prefix[3],
+		prefix[4],
+		prefix[5],
 	)
 }

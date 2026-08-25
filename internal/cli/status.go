@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/client"
@@ -83,7 +84,7 @@ func buildStatusReport(ctx context.Context, opts client.Options) (statusReport, 
 			Collector:   description,
 			Description: description,
 		},
-		Data: statusData{Status: "failed"},
+		Data: statusData{Status: string(api.CollectorUnavailable)},
 	}
 	if modeErr != nil {
 		report.Error = modeErr.Error()
@@ -118,7 +119,7 @@ func buildStatusReport(ctx context.Context, opts client.Options) (statusReport, 
 		report.Metrics.Endpoint = "/apis/memory.kubememlens.io/v1alpha1/metrics/current"
 		report.Metrics.Hint = "read the separately authorised metrics resource through the Kubernetes API"
 	}
-	report.Data.Status = "ok"
+	report.Data.Status = string(store.Reliability.State)
 	return report, nil
 }
 
@@ -139,6 +140,19 @@ func renderStatusReport(report statusReport) string {
 			report.Store.StaleContainers,
 			report.Store.Pods,
 			report.Store.Namespaces,
+		)
+		reliability := report.Store.Reliability
+		text += fmt.Sprintf("\nReliability:\n  state: %s\n  completeness: %s\n  generation: %s\n  expected nodes: %d\n  fresh nodes: %d\n  stale nodes: %d\n  missing nodes: %d\n  inventory updated: %s\n  history reset: %s\n  history completeness: %s\n",
+			reliability.State,
+			reliability.Completeness,
+			reliability.Generation,
+			reliability.ExpectedNodes,
+			reliability.FreshNodes,
+			reliability.StaleNodes,
+			reliability.MissingNodes,
+			reliability.InventoryUpdatedAt.Format(time.RFC3339),
+			reliability.History.ResetAt.Format(time.RFC3339),
+			reliability.History.Completeness,
 		)
 		if report.Metrics != nil {
 			text += fmt.Sprintf("\nMetrics:\n  endpoint: %s\n  enabled: %s\n  hint: %s\n",

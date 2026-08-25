@@ -7,6 +7,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss"
 
+	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/client"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	memmodel "github.com/danushkastanley/kube-memlens/internal/model"
@@ -110,13 +111,13 @@ func (m appModel) renderHeader(width int) string {
 		if client.IsForbidden(m.statusErr) {
 			states = append(states, "access revoked")
 		} else {
-			states = append(states, "degraded")
+			states = append(states, string(api.CollectorUnavailable))
 		}
 	} else if len(states) == 0 {
 		if m.lastRefresh.IsZero() && m.loading {
 			states = append(states, "connecting")
 		} else {
-			states = append(states, "live")
+			states = append(states, string(m.currentEvidenceState()))
 		}
 	}
 	parts = append(parts, "state: "+strings.Join(states, "/"))
@@ -219,7 +220,7 @@ func (m appModel) renderWorkloads(width int) string {
 
 func (m appModel) renderEmpty(width int) string {
 	lines := []string{
-		"No collector snapshots yet.",
+		"No collector snapshots are available yet. Collector state: " + string(m.currentEvidenceState()) + ".",
 		"",
 		"Check that the agent is running and posting snapshots:",
 		"  kubectl logs -n kube-memlens ds/kube-memlens-agent",
