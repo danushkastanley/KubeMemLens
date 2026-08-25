@@ -5,10 +5,11 @@ This plan exercises the production Kubernetes aggregated API. It assumes a dispo
 Run the live suite with:
 
 ```bash
-ISOLATION_KUBECONFIG=<disposable-kind-kubeconfig> \
-ISOLATION_CONTEXT=kind-<name> \
-ISOLATION_CLI=<absolute-path-to-kubectl-memlens> \
-ISOLATION_ACKNOWLEDGE=remove-and-restore-kube-memlens-network-policy \
+TENANT_READ_KUBECONFIG=<disposable-kind-kubeconfig> \
+TENANT_READ_CONTEXT=kind-<name> \
+TENANT_READ_NAMESPACE=kube-memlens \
+TENANT_READ_CLI=<absolute-path-to-kubectl-memlens> \
+ISOLATION_ACKNOWLEDGE=remove-and-restore-kube-memlens-security-controls \
 make verify-tenant-isolation-kind
 ```
 

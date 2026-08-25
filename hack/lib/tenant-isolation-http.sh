@@ -32,7 +32,7 @@ tenant_isolation_curl() {
   local path=$1
   local output=$2
   curl --config "${isolation_curl_config}" --output "${output}" \
-    --write-out '%{http_code} %{time_total}' "${isolation_api_server}${path}"
+    --write-out '%{http_code} %{time_total}\n' "${isolation_api_server}${path}"
 }
 
 tenant_isolation_http_status() {
@@ -131,6 +131,7 @@ tenant_isolation_concurrent_reads() {
   local pid
   for pid in "${pids[@]}"; do wait "${pid}" || true; done
   cat "${work_dir}"/isolation-concurrent-*.result > "${results}"
+  [ "$(wc -l < "${results}" | tr -d ' ')" -eq 32 ] || fail "concurrent read result count was incomplete"
   awk '$1 != 200 && $1 != 429 && $1 != 503 {exit 1}' "${results}" || fail "concurrent read returned an unexpected status"
   local maximum ok limited
   maximum=$(awk '{print $2}' "${results}" | sort -n | tail -n 1)
