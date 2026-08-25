@@ -15,18 +15,9 @@ type ReadScope struct {
 }
 
 func (s *Store) ListContainersScoped(scope ReadScope, now time.Time, ttl time.Duration) []api.ContainerSnapshot {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
 	items := make([]api.ContainerSnapshot, 0)
-	for node, snapshot := range s.nodes {
-		if isStale(snapshot.capturedAt, now, ttl) {
-			s.containerCount -= len(snapshot.containers)
-			snapshot.containers = nil
-			s.nodes[node] = snapshot
-			continue
-		}
-		for _, container := range snapshot.containers {
+	for _, shard := range s.readShards(now, ttl) {
+		for _, container := range shard {
 			if scope.Namespace == "" || container.Namespace == scope.Namespace {
 				items = append(items, container)
 			}

@@ -13,6 +13,7 @@ type nodeView struct {
 	name           string
 	capturedAt     time.Time
 	stale          bool
+	freshness      api.EvidenceFreshness
 	podCount       int
 	containerCount int
 	memory         model.MemoryBreakdown
@@ -26,6 +27,7 @@ func buildNodeViews(nodes []api.NodeSnapshotStatus, pods []api.PodSnapshot, quer
 			name:           node.NodeName,
 			capturedAt:     node.CapturedAt,
 			stale:          node.Stale,
+			freshness:      node.Freshness,
 			containerCount: node.ContainerCount,
 			environment:    node.Environment,
 		}
@@ -63,6 +65,9 @@ func buildNodeViews(nodes []api.NodeSnapshotStatus, pods []api.PodSnapshot, quer
 }
 
 func nodePressureLabel(node nodeView) string {
+	if node.freshness == api.EvidenceFreshnessMissing {
+		return "missing"
+	}
 	if node.stale {
 		return "stale"
 	}

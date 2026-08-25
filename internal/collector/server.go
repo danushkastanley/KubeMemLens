@@ -75,10 +75,15 @@ func NewIngestHandlerWithOptions(store *Store, opts HandlerOptions, logf func(st
 }
 
 func registerHealth(mux *http.ServeMux) {
-	mux.HandleFunc("/healthz", method(http.MethodGet, func(w http.ResponseWriter, _ *http.Request) {
+	live := method(http.MethodGet, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok\n"))
-	}))
+	})
+	mux.HandleFunc("/livez", live)
+	// Keep /healthz as a data-free compatibility alias for pre-v1 binaries and
+	// local tooling. Production liveness uses /livez; readiness belongs to the
+	// authenticated extension server's /readyz contract.
+	mux.HandleFunc("/healthz", live)
 }
 
 func registerIngestion(mux *http.ServeMux, store *Store, opts HandlerOptions, logf func(string, ...any)) {

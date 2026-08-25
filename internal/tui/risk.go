@@ -28,7 +28,7 @@ func podRisk(pod api.PodSnapshot, now time.Time, staleAfter time.Duration) riskP
 		risk.score += 10
 		risk.reasons = append(risk.reasons, "a recent container termination is reported")
 	}
-	if isStale(pod.CapturedAt, now, staleAfter) {
+	if podEvidenceStale(pod, now, staleAfter) {
 		risk.stale = true
 		risk.label = "STALE"
 		risk.reasons = append(risk.reasons, "snapshot is stale")
@@ -37,6 +37,13 @@ func podRisk(pod api.PodSnapshot, now time.Time, staleAfter time.Duration) riskP
 		risk.reasons = append(risk.reasons, "counter delta window is unavailable")
 	}
 	return risk
+}
+
+func podEvidenceStale(pod api.PodSnapshot, now time.Time, staleAfter time.Duration) bool {
+	if pod.Freshness != "" {
+		return pod.Freshness == api.EvidenceFreshnessStale
+	}
+	return isStale(pod.CapturedAt, now, staleAfter)
 }
 
 func memoryRisk(memory model.MemoryBreakdown, severity explain.Severity) riskPresentation {

@@ -221,6 +221,8 @@ tenant_isolation_assert_least_privilege() {
   done
   [ "$(kctl auth can-i --as="${collector}" create subjectaccessreviews.authorization.k8s.io)" = yes ] ||
     fail "collector cannot perform delegated authorisation"
+  [ "$(kctl auth can-i --as="${collector}" list nodes)" = yes ] ||
+    fail "collector cannot refresh the documented Node inventory"
 }
 
 tenant_isolation_assert_agent_loopback() {

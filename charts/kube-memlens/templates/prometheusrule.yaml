@@ -30,14 +30,69 @@ spec:
     - name: kube-memlens.alerts
       rules:
         - alert: KubeMemLensAgentSnapshotStale
-          expr: max by (node) (kubememlens_collector_agent_snapshot_age_seconds) > 30
+          expr: |
+            max by (node) (kubememlens_collector_agent_snapshot_age_seconds)
+            > scalar(max(kubememlens_collector_snapshot_ttl_seconds))
           for: 2m
           labels:
             severity: warning
           annotations:
             summary: KubeMemLens agent snapshot is stale
-            description: The collector has not received a fresh snapshot from node {{ "{{ $labels.node }}" }} for more than 30 seconds.
+            description: The collector has not received a snapshot from node {{ "{{ $labels.node }}" }} within the configured freshness window.
             runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "agent-snapshot-stale.md" | quote }}
+        - alert: KubeMemLensCollectorUnavailable
+          expr: |
+            max_over_time(kubememlens_collector_user_visible_available[2m]) == 0
+            or absent_over_time(kubememlens_collector_user_visible_available[2m]) == 1
+          for: 0m
+          labels:
+            severity: critical
+          annotations:
+            summary: KubeMemLens evidence is unavailable
+            description: The collector has exposed no user-visible evidence for two minutes, or Prometheus cannot read its metrics endpoint.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "reliability.md" | quote }}
+        - alert: KubeMemLensCollectorRecoveryDelayed
+          expr: |
+            kubememlens_collector_state{state="rebuilding"} == 1
+            and on() (time() - kubememlens_collector_started_timestamp_seconds) > 120
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: KubeMemLens collector recovery is delayed
+            description: The collector has remained in rebuilding state for more than two minutes after starting.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "reliability.md" | quote }}
+        - alert: KubeMemLensCollectorEvidenceDegraded
+          expr: kubememlens_collector_state{state=~"degraded|stale"} == 1
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: KubeMemLens evidence is incomplete or stale
+            description: The collector has remained in {{ "{{ $labels.state }}" }} state for two minutes. Read results may contain partial or stale evidence.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "reliability.md" | quote }}
+        - alert: KubeMemLensIngestionRejectionsHigh
+          expr: |
+            sum(rate(kubememlens_collector_ingestion_requests_total{result!~"accepted|duplicate"}[5m]))
+            /
+            clamp_min(sum(rate(kubememlens_collector_ingestion_requests_total[5m])), 0.001)
+            > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: KubeMemLens collector is rejecting agent snapshots
+            description: More than 5 percent of collector ingestion requests have been rejected for five minutes.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "reliability.md" | quote }}
+        - alert: KubeMemLensHistoryLoss
+          expr: increase(kubememlens_collector_history_loss_total[5m]) > 0
+          for: 0m
+          labels:
+            severity: warning
+          annotations:
+            summary: KubeMemLens in-memory history lost data
+            description: The collector dropped a history series or evicted a history point within the last five minutes.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "reliability.md" | quote }}
         - alert: KubeMemLensPodMemoryPressure
           expr: kubememlens_pod_diagnosis{diagnosis="memory-pressure"} == 1
           for: 2m
@@ -67,15 +122,16 @@ spec:
             runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "pod-limit-risk.md" | quote }}
         - alert: KubeMemLensMappingCoverageLow
           expr: |
-            sum by (instance) (kubememlens_agent_last_scan_containers{kind="mapped"})
+            sum(kubememlens_collector_mapping_containers{result="mapped"})
             /
-            clamp_min(sum by (instance) (kubememlens_agent_last_scan_containers{kind="found"}), 1)
+            clamp_min(sum(kubememlens_collector_mapping_containers{result="found"}), 1)
             < 0.95
+            and sum(kubememlens_collector_mapping_containers{result="found"}) > 0
           for: 5m
           labels:
             severity: warning
           annotations:
             summary: KubeMemLens cgroup mapping coverage is low
-            description: One agent has mapped fewer than 95 percent of discovered workload container cgroups.
+            description: The collector has workload identity for fewer than 95 percent of retained container cgroups.
             runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "mapping-coverage-low.md" | quote }}
 {{- end }}

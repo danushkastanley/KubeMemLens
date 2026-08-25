@@ -101,6 +101,72 @@ func TestRenderDoesNotExposeHighCardinalityIdentifiers(t *testing.T) {
 	}
 }
 
+func TestRenderIncludesCollectorReliabilityContract(t *testing.T) {
+	now := fixedNow()
+	source := testSource{
+		containers: []api.ContainerSnapshot{
+			{Namespace: "default", PodName: "api", ContainerName: "app"},
+			{ContainerID: "unmapped"},
+		},
+		debug: api.DebugStore{Reliability: api.CollectorReliability{
+			State: api.CollectorDegraded, StartedAt: now.Add(-time.Minute),
+			TransitionedAt: now.Add(-30 * time.Second), FirstSnapshotAt: now.Add(-55 * time.Second),
+			LastSnapshotAt: now.Add(-5 * time.Second), LastReceivedAt: now.Add(-4 * time.Second),
+			FreshNodes: 2, StaleNodes: 1, MissingNodes: 1, ExpectedNodes: 4,
+			InventoryUpdatedAt: now.Add(-3 * time.Second), Completeness: api.EvidencePartial,
+			SnapshotTTLSeconds: 30,
+			History: api.HistoryReliability{
+				ResetAt: now.Add(-time.Minute), AvailableFrom: now.Add(-50 * time.Second),
+				Completeness: api.EvidencePartial, DroppedSeries: 2, EvictedPoints: 3,
+				LastLossAt: now.Add(-10 * time.Second),
+			},
+		}},
+	}
+	out, err := (Exporter{Source: source, TTL: time.Minute, Now: fixedNow, Opts: DefaultOptions()}).Render()
+	if err != nil {
+		t.Fatalf("Render returned error: %v", err)
+	}
+
+	for _, want := range []string{
+		`kubememlens_collector_state{state="degraded"} 1`,
+		`kubememlens_collector_state{state="ready"} 0`,
+		`kubememlens_collector_evidence_nodes{freshness="fresh"} 2`,
+		`kubememlens_collector_evidence_nodes{freshness="stale"} 1`,
+		`kubememlens_collector_evidence_nodes{freshness="missing"} 1`,
+		`kubememlens_collector_expected_nodes 4`,
+		`kubememlens_collector_evidence_completeness{completeness="partial"} 1`,
+		`kubememlens_collector_user_visible_available 1`,
+		`kubememlens_collector_snapshot_ttl_seconds 30`,
+		`kubememlens_collector_started_timestamp_seconds 1699999940`,
+		`kubememlens_collector_state_transition_timestamp_seconds 1699999970`,
+		`kubememlens_collector_ingestion_last_received_timestamp_seconds 1699999996`,
+		`kubememlens_collector_ingestion_last_received_age_seconds 4`,
+		`kubememlens_collector_node_inventory_updated_timestamp_seconds 1699999997`,
+		`kubememlens_collector_history_reset_timestamp_seconds 1699999940`,
+		`kubememlens_collector_history_available_from_timestamp_seconds 1699999950`,
+		`kubememlens_collector_history_last_loss_timestamp_seconds 1699999990`,
+		`kubememlens_collector_history_completeness{completeness="partial"} 1`,
+		`kubememlens_collector_history_loss_total{reason="dropped_series"} 2`,
+		`kubememlens_collector_history_loss_total{reason="evicted_points"} 3`,
+		`kubememlens_collector_mapping_containers{result="found"} 2`,
+		`kubememlens_collector_mapping_containers{result="mapped"} 1`,
+		`kubememlens_collector_mapping_containers{result="unmapped"} 1`,
+	} {
+		assertContains(t, out, want)
+	}
+}
+
+func TestRenderUsesZeroForUnknownReliabilityTimestamps(t *testing.T) {
+	out, err := (Exporter{Source: testSource{}, TTL: time.Minute, Now: fixedNow, Opts: DefaultOptions()}).Render()
+	if err != nil {
+		t.Fatalf("Render returned error: %v", err)
+	}
+
+	assertContains(t, out, `kubememlens_collector_started_timestamp_seconds 0`)
+	assertContains(t, out, `kubememlens_collector_ingestion_last_received_age_seconds 0`)
+	assertContains(t, out, `kubememlens_collector_user_visible_available 0`)
+}
+
 func TestRenderEscapesLabelValues(t *testing.T) {
 	source := testSource{
 		namespaces: []api.NamespaceSnapshot{{

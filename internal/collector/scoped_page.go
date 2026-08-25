@@ -149,24 +149,21 @@ func containersForSelection(shards [][]api.ContainerSnapshot, scope ReadScope, k
 	return containers, nil
 }
 
-func (s *Store) pruneStaleLocked(now time.Time, ttl time.Duration) {
-	for node, snapshot := range s.nodes {
-		if isStale(snapshot.capturedAt, now, ttl) {
-			s.containerCount -= len(snapshot.containers)
-			snapshot.containers = nil
-			s.nodes[node] = snapshot
-		}
-	}
-}
-
 func (s *Store) readShards(now time.Time, ttl time.Duration) [][]api.ContainerSnapshot {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.pruneStaleLocked(now, ttl)
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	shards := make([][]api.ContainerSnapshot, 0, len(s.nodes))
 	for _, snapshot := range s.nodes {
 		if len(snapshot.containers) > 0 {
-			shards = append(shards, snapshot.containers)
+			items := make([]api.ContainerSnapshot, len(snapshot.containers))
+			copy(items, snapshot.containers)
+			state := freshness(snapshot.capturedAt, now, ttl)
+			completeness := nodeCompleteness(snapshot)
+			for index := range items {
+				items[index].Freshness = state
+				items[index].Completeness = completeness
+			}
+			shards = append(shards, items)
 		}
 	}
 	return shards

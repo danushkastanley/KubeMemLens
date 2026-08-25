@@ -82,9 +82,13 @@ kubectl memlens history pod <pod-name> -n <namespace>
 
 `status`, strict `doctor` and `-A` examples require the explicit cluster-viewer binding. A namespace viewer should verify with `kubectl memlens top pods -n <tenant-namespace>` and a Pod/history action in that same namespace.
 
+`status` reports the collector evidence state, generation, expected, fresh, stale and missing node counts, and history reset state. A successful connection can still report `rebuilding`, `degraded` or `stale`. Treat the install as populated only after the intended nodes have fresh evidence. The [reliability contract](reliability.md) defines each state and the [reliability runbook](runbooks/reliability.md) covers recovery checks.
+
 Authenticated reads and agent ingestion enter through the Kubernetes API server and TLS Service port `443`. Agent operational metrics bind only to `127.0.0.1:8082` inside each agent Pod and are not advertised for remote scraping. The collector Pod keeps port `8080` for health probes only. The production Service exposes neither port `8080` nor a plaintext ingestion or collector-metrics port.
 
 The chart creates unbound namespace-viewer, cluster-viewer and metrics-reader ClusterRoles. It never chooses principals on the administrator's behalf. To grant one user access to one namespace:
+
+The collector ServiceAccount has `list` on core `nodes` so it can distinguish a missing agent from a Node Kubernetes has removed. It uses the same `agent.nodeSelector` and configured tolerations as the DaemonSet, and pages results within `collector.store.maxNodes`. It does not read Node proxies, logs, secrets or workload objects through this permission. The readiness contract fails closed if this bounded inventory cannot refresh.
 
 ```sh
 kubectl create rolebinding kube-memlens-namespace-viewer \
@@ -116,9 +120,9 @@ Workload-labelled metrics require a separate binding to `kube-memlens-metrics-re
 4. Run `helm upgrade` with an exact chart version.
 5. Wait for both rollouts and exercise `status`, `top`, `explain`, and metrics.
 
-The collector is single-replica and in-memory. Restarting or upgrading it discards its latest snapshots, bounded history, and event-delta baselines; agents repopulate current state on their next interval. It is not highly available and has no persisted user data or CRD migration. The [support contract](compatibility.md#availability-and-history) defines the v1 availability and history boundary.
+The collector is single-replica and in-memory. Its Deployment uses `Recreate`, so an upgrade drains and stops the old generation before starting the new one. The resulting availability gap prevents traffic from crossing independent stores and epochs. Restarting or upgrading discards latest snapshots, bounded history and event-delta baselines. The new generation reports `rebuilding` until agents post again. It is not highly available and has no persisted user data or CRD migration. The [support contract](compatibility.md#availability-and-history) and [reliability contract](reliability.md) define this boundary.
 
-Current state defaults to at most 5,000 node records and 100,000 container snapshots, with 500 items per keyset page, a 16 MiB encoded JSON response ceiling and four admitted authenticated reads. Pod and workload pages build only selected identities and reserve half of the response ceiling for nested container evidence; aggregate construction is serialised. History defaults to 15 minutes, at most 180 points per Pod instance, 1,000 series in total and 20 returned instances for one Pod lookup. Tune `collector.store`, `collector.read`, `collector.maxResponseBytes` and `collector.history` only from measured cluster density and within the collector Pod's memory limit. Capacity breaches fail explicitly; they do not silently evict current nodes or truncate API results.
+Current state defaults to at most 5,000 node records and 100,000 container snapshots, with 500 items per keyset page, a 16 MiB encoded JSON response ceiling and four admitted authenticated reads. Pod and workload pages build only selected identities and reserve half of the response ceiling for nested container evidence; aggregate construction is serialised. History defaults to 15 minutes, at most 181 points per Pod instance, 1,000 series in total and 20 returned instances for one Pod lookup. Tune `collector.store`, `collector.read`, `collector.maxResponseBytes` and `collector.history` only from measured cluster density and within the collector Pod's memory limit. Capacity breaches fail explicitly; they do not silently evict current nodes or truncate API results.
 
 Rollback uses the normal Helm revision path:
 
@@ -126,6 +130,8 @@ Rollback uses the normal Helm revision path:
 helm history kube-memlens -n kube-memlens
 helm rollback kube-memlens <revision> -n kube-memlens
 ```
+
+Rollback also resets collector history. Follow the [reliability runbook](runbooks/reliability.md#roll-back) and verify a new collection timestamp before treating the rollback as recovered.
 
 ## Uninstall
 

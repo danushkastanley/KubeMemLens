@@ -19,7 +19,7 @@ The collector rejects direct identity headers, unauthenticated HTTP and any requ
 | Automation reader | Kubernetes user or dedicated ServiceAccount through the Kubernetes API server | Same delegated identity path as a human operator | The Role or ClusterRole bound to that account |
 | Node agent | Kubelet-rotated, Pod-bound `kube-memlens-agent` ServiceAccount token | ServiceAccount username plus authenticated Pod UID, node name, node UID and credential ID extras | Get ingestion epoch and create one snapshot for its authenticated node |
 | Metrics scraper | Dedicated ServiceAccount through the Kubernetes API server | ServiceAccount username | Get the cluster-scoped metrics resource only |
-| Extension server | Explicit projected ServiceAccount token | KubeMemLens collector ServiceAccount | Read aggregation authentication ConfigMap and create SubjectAccessReviews |
+| Extension server | Explicit projected ServiceAccount token | KubeMemLens collector ServiceAccount | Read aggregation authentication ConfigMap, create SubjectAccessReviews and list core Nodes for coverage reconciliation |
 | Certificate bootstrap job | Short-lived projected ServiceAccount token | Bootstrap ServiceAccount | Reconcile one TLS Secret and one APIService, then terminate |
 
 KubeMemLens does not issue human credentials, store kubeconfig tokens or integrate directly with cloud identity providers. GKE, EKS, AKS and self-managed authentication continue to terminate at their Kubernetes API server.
@@ -104,7 +104,8 @@ The agent cannot get, list, watch, update, patch or delete snapshots. It retains
 
 - Bind `system:auth-delegator` to the collector ServiceAccount.
 - Bind `extension-apiserver-authentication-reader` in `kube-system` to the collector ServiceAccount.
-- Do not grant the collector `get`, `list` or `watch` on Pods, Nodes, Secrets or workload resources.
+- Grant `list` only on core `nodes` for the expected-agent inventory. Do not grant Node `get`, `watch`, `update` or proxy access.
+- Do not grant the collector access to Pods, Secrets or workload resources.
 - Mount only a short-lived projected API token. Keep normal automatic token mounting disabled.
 
 ### Certificate bootstrap permissions

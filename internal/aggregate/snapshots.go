@@ -43,6 +43,7 @@ func Pods(containers []api.ContainerSnapshot) []api.PodSnapshot {
 			addContainerContext(&pod.Context, container.Context)
 		}
 		pod.Memory = model.SumMemory(pod.Namespace+"/"+pod.PodName, memories)
+		pod.Freshness, pod.Completeness = containerEvidence(pod.Containers)
 		sortContainers(pod.Containers)
 		pods = append(pods, pod)
 	}
@@ -66,6 +67,7 @@ func Namespaces(pods []api.PodSnapshot) []api.NamespaceSnapshot {
 		}
 		ns.PodCount++
 		ns.Memory = model.AddMemory(ns.Memory, pod.Memory)
+		mergeEvidence(&ns.Freshness, &ns.Completeness, pod.Freshness, pod.Completeness)
 		ns.Memory.Name = pod.Namespace
 		if pod.CapturedAt.After(ns.CapturedAt) {
 			ns.CapturedAt = pod.CapturedAt
@@ -112,6 +114,9 @@ func Workloads(pods []api.PodSnapshot) []api.WorkloadSnapshot {
 			memories = append(memories, pod.Memory)
 		}
 		workload.Memory = model.SumMemory(workload.Namespace+"/"+workload.Kind+"/"+workload.Name, memories)
+		for _, pod := range workload.Pods {
+			mergeEvidence(&workload.Freshness, &workload.Completeness, pod.Freshness, pod.Completeness)
+		}
 		normaliseWorkloadBoundaries(&workload.Memory, workload.Pods)
 		sort.Slice(workload.Pods, func(i, j int) bool {
 			return workload.Pods[i].Memory.TotalBytes > workload.Pods[j].Memory.TotalBytes
@@ -119,6 +124,38 @@ func Workloads(pods []api.PodSnapshot) []api.WorkloadSnapshot {
 		items = append(items, workload)
 	}
 	return items
+}
+
+func containerEvidence(containers []api.ContainerSnapshot) (api.EvidenceFreshness, api.EvidenceCompleteness) {
+	fresh, stale, partial := false, false, false
+	for _, container := range containers {
+		fresh = fresh || container.Freshness != api.EvidenceFreshnessStale
+		stale = stale || container.Freshness == api.EvidenceFreshnessStale
+		partial = partial || container.Completeness == api.EvidencePartial
+	}
+	if stale && !fresh {
+		if partial {
+			return api.EvidenceFreshnessStale, api.EvidencePartial
+		}
+		return api.EvidenceFreshnessStale, api.EvidenceComplete
+	}
+	if stale || partial {
+		return api.EvidenceFreshnessFresh, api.EvidencePartial
+	}
+	return api.EvidenceFreshnessFresh, api.EvidenceComplete
+}
+
+func mergeEvidence(freshness *api.EvidenceFreshness, completeness *api.EvidenceCompleteness, nextFreshness api.EvidenceFreshness, nextCompleteness api.EvidenceCompleteness) {
+	if *freshness == "" {
+		*freshness, *completeness = nextFreshness, nextCompleteness
+		return
+	}
+	if *freshness != nextFreshness || nextCompleteness == api.EvidencePartial {
+		*completeness = api.EvidencePartial
+	}
+	if *freshness == api.EvidenceFreshnessStale && nextFreshness == api.EvidenceFreshnessFresh {
+		*freshness = api.EvidenceFreshnessFresh
+	}
 }
 
 func addContainerContext(pod *api.PodContext, container api.ContainerContext) {

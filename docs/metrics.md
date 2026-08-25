@@ -8,6 +8,8 @@ Each agent also exposes low-cardinality operational metrics at `/metrics` on loo
 
 The endpoint renders latest in-memory snapshots. Memory event values are gauges, not counters, because snapshots can reset when pods restart, agents restart, or collector state expires.
 
+Collector reliability metrics describe user-visible evidence state, freshness, ingestion rejection and history loss. They follow the [reliability contract](reliability.md). Alert response must verify a newer collection timestamp, not only a green Pod.
+
 ## Defaults
 
 - Namespace metrics: enabled.
@@ -74,6 +76,32 @@ KubeMemLens intentionally does not export pod UID, container ID, image, cgroup p
 
 - Type: gauge.
 - Duration of the latest snapshot ingestion request.
+
+## Reliability metrics
+
+| Metric | Type | Meaning |
+| --- | --- | --- |
+| `kubememlens_collector_state{state}` | gauge | One-hot state for `rebuilding`, `ready`, `degraded`, `stale` and `unavailable`. An unreachable metrics resource is absent rather than a reported unavailable sample. |
+| `kubememlens_collector_evidence_nodes{freshness}` | gauge | Selected Nodes split into `fresh`, `stale` and `missing`. |
+| `kubememlens_collector_expected_nodes` | gauge | Nodes matching the agent scheduling scope in the latest successful inventory. |
+| `kubememlens_collector_evidence_completeness{completeness}` | gauge | One-hot `complete` or `partial` current evidence. |
+| `kubememlens_collector_user_visible_available` | gauge | `1` when ready, degraded or stale evidence exists. `0` while rebuilding. |
+| `kubememlens_collector_snapshot_ttl_seconds` | gauge | Configured freshness TTL. |
+| `kubememlens_collector_started_timestamp_seconds` | gauge | Start of the current in-memory collector generation. |
+| `kubememlens_collector_state_transition_timestamp_seconds` | gauge | Latest reliability state transition. |
+| `kubememlens_collector_first_snapshot_timestamp_seconds` | gauge | Earliest source collection time accepted in this generation. |
+| `kubememlens_collector_last_snapshot_timestamp_seconds` | gauge | Newest source collection time accepted in this generation. |
+| `kubememlens_collector_ingestion_last_received_timestamp_seconds` | gauge | Collector receive time of the latest accepted snapshot. |
+| `kubememlens_collector_ingestion_last_received_age_seconds` | gauge | Age since that collector receive time. |
+| `kubememlens_collector_node_inventory_updated_timestamp_seconds` | gauge | Latest successful Linux Node inventory refresh. |
+| `kubememlens_collector_history_reset_timestamp_seconds` | gauge | History reset time for the current generation. |
+| `kubememlens_collector_history_available_from_timestamp_seconds` | gauge | Oldest retained history point. |
+| `kubememlens_collector_history_last_loss_timestamp_seconds` | gauge | Latest series rejection or per-series point eviction in this generation. |
+| `kubememlens_collector_history_completeness{completeness}` | gauge | One-hot `complete` or `partial` history state. |
+| `kubememlens_collector_history_loss_total{reason}` | counter | Cumulative loss in this generation. Reasons are `dropped_series` and `evicted_points`. |
+| `kubememlens_collector_mapping_containers{result}` | gauge | Current collector evidence counts for `found`, `mapped` and `unmapped` container cgroups. |
+
+Source collection time and collector receive time are separate. Use the source time to judge evidence age. Use receive time to diagnose the ingestion path.
 
 `kubememlens_metrics_dropped_entities`
 
@@ -243,7 +271,7 @@ metrics:
       grafana_dashboard: "1"
 ```
 
-The optional `PrometheusRule` includes recording rules plus alerts for stale agents, sustained Pod pressure, recent OOM evidence, sustained limit risk, and low mapping coverage. Each alert links to a focused runbook under `docs/runbooks`. The optional dashboard ConfigMap contains a small four-panel dashboard for top Pods, selected-Pod composition, diagnosis state, and agent freshness. Both resources require the operator's existing Prometheus/Grafana discovery setup and are disabled by default.
+The optional `PrometheusRule` includes `KubeMemLensCollectorUnavailable`, `KubeMemLensCollectorRecoveryDelayed`, `KubeMemLensCollectorEvidenceDegraded`, `KubeMemLensIngestionRejectionsHigh` and `KubeMemLensHistoryLoss`. It also retains stale-agent, mapping-coverage and Pod memory alerts. Reliability alerts link to the [collector reliability runbook](runbooks/reliability.md). The optional dashboard ConfigMap contains a small four-panel dashboard for top Pods, selected-Pod composition, diagnosis state, and agent freshness. Both resources require the operator's existing Prometheus/Grafana discovery setup and are disabled by default.
 
 `maxPods` and `maxContainers` are upper bounds. The collector also derives a conservative entity ceiling from `collector.maxResponseBytes`; a tighter response budget takes precedence. Namespace, Pod or container series that exceed these bounds are omitted and counted by `kubememlens_metrics_dropped_entities`. Store counts, agent freshness and ingestion outcomes remain available without materialising the full container view.
 

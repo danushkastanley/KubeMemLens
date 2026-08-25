@@ -16,7 +16,7 @@ func TestConnectionFailureRetainsLastGoodFrameAndRecoveryClearsError(t *testing.
 	updated, _ := m.Update(fetchMsg{err: errors.New("connection interrupted")})
 	m = updated.(appModel)
 	frame := m.viewString()
-	if len(m.data.Pods) != previousPods || !strings.Contains(frame, "api-0") || !strings.Contains(frame, "connection error") {
+	if len(m.data.Pods) != previousPods || !strings.Contains(frame, "api-0") || !strings.Contains(frame, "connection error") || !strings.Contains(frame, "state: unavailable") {
 		t.Fatalf("failure did not retain data and expose error:\n%s", frame)
 	}
 
@@ -28,6 +28,32 @@ func TestConnectionFailureRetainsLastGoodFrameAndRecoveryClearsError(t *testing.
 	m = updated.(appModel)
 	if m.statusErr != nil || !strings.Contains(m.viewString(), "api-0") {
 		t.Fatalf("recovery state err=%v frame:\n%s", m.statusErr, m.viewString())
+	}
+}
+
+func TestStaleAndPartialCollectorStatesRemainDistinct(t *testing.T) {
+	m := loadedFixtureModel(t, 160, 30)
+	m.data.Reliability = api.CollectorReliability{State: api.CollectorStale, Completeness: api.EvidencePartial}
+	if frame := m.viewString(); !strings.Contains(frame, "state: stale") {
+		t.Fatalf("stale frame:\n%s", frame)
+	}
+	if command := m.startRecommendation(); command != nil || m.action.err == nil || !strings.Contains(m.action.err.Error(), "collector state is stale") {
+		t.Fatalf("stale recommendation was not blocked: command=%v error=%v", command, m.action.err)
+	}
+
+	m.action = actionState{}
+	m.data.Reliability.State = api.CollectorDegraded
+	if frame := m.viewString(); !strings.Contains(frame, "state: degraded") {
+		t.Fatalf("degraded frame:\n%s", frame)
+	}
+}
+
+func TestNamespaceInferencePreservesPartialFreshEvidence(t *testing.T) {
+	reliability := inferReliability(snapshotData{Pods: []api.PodSnapshot{{
+		Freshness: api.EvidenceFreshnessFresh, Completeness: api.EvidencePartial,
+	}}})
+	if reliability.State != api.CollectorDegraded || reliability.Completeness != api.EvidencePartial {
+		t.Fatalf("partial namespace reliability = %#v", reliability)
 	}
 }
 

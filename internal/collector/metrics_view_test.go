@@ -54,6 +54,36 @@ func TestMetricsViewRendersWithinBudget(t *testing.T) {
 	}
 }
 
+func TestMetricsViewRetainsMappingCoverageWhenContainerSeriesAreDisabled(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	store := NewStore()
+	mapped := scopedContainer("team-a", "pod-a", "uid-a", "container-a", now)
+	unmapped := api.ContainerSnapshot{ContainerID: "container-b", CapturedAt: now}
+	if _, err := store.ReplaceNodeSnapshot(api.AgentSnapshot{
+		NodeName: "node-a", CapturedAt: now, Containers: []api.ContainerSnapshot{mapped, unmapped},
+	}); err != nil {
+		t.Fatalf("ReplaceNodeSnapshot: %v", err)
+	}
+
+	view, effective := store.BuildMetricsView(now, time.Minute, metrics.DefaultOptions(), 16<<20)
+	if len(view.containers) != 0 {
+		t.Fatalf("retained %d container series with container metrics disabled", len(view.containers))
+	}
+	content, err := (metrics.Exporter{Source: view, TTL: time.Minute, Now: func() time.Time { return now }, Opts: effective}).Render()
+	if err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	for _, want := range []string{
+		`kubememlens_collector_mapping_containers{result="found"} 2`,
+		`kubememlens_collector_mapping_containers{result="mapped"} 1`,
+		`kubememlens_collector_mapping_containers{result="unmapped"} 1`,
+	} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("metrics missing %q:\n%s", want, content)
+		}
+	}
+}
+
 func BenchmarkMetricsViewAtConfiguredCapacity(b *testing.B) {
 	now := time.Unix(1_800_000_000, 0).UTC()
 	containers := make([]api.ContainerSnapshot, DefaultStoreLimits().MaxContainers)

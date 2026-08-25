@@ -21,6 +21,7 @@ import (
 type SnapshotPublisher struct {
 	client  *http.Client
 	baseURL *url.URL
+	retry   retryPolicy
 
 	mu       sync.Mutex
 	epoch    string
@@ -48,7 +49,7 @@ func newSnapshotPublisher(client *http.Client, rawBaseURL string) (*SnapshotPubl
 	if err != nil || baseURL.Scheme == "" || baseURL.Host == "" {
 		return nil, fmt.Errorf("Kubernetes API URL is invalid")
 	}
-	return &SnapshotPublisher{client: client, baseURL: baseURL}, nil
+	return &SnapshotPublisher{client: client, baseURL: baseURL, retry: defaultRetryPolicy()}, nil
 }
 
 func (p *SnapshotPublisher) Publish(ctx context.Context, nodeUID string, snapshot api.AgentSnapshot) error {
@@ -74,10 +75,7 @@ func (p *SnapshotPublisher) Publish(ctx context.Context, nodeUID string, snapsho
 		Sequence: p.sequence,
 		Snapshot: snapshot,
 	}
-	response, apiErr, err := p.post(ctx, request)
-	if err != nil || apiErr != nil && apiErr.Status == http.StatusUnauthorized {
-		response, apiErr, err = p.post(ctx, request)
-	}
+	response, apiErr, err := p.postWithRetry(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -86,7 +84,7 @@ func (p *SnapshotPublisher) Publish(ctx context.Context, nodeUID string, snapsho
 			return err
 		}
 		request.Epoch = p.epoch
-		response, apiErr, err = p.post(ctx, request)
+		response, apiErr, err = p.postWithRetry(ctx, request)
 	}
 	if err != nil {
 		return err
@@ -101,27 +99,56 @@ func (p *SnapshotPublisher) Publish(ctx context.Context, nodeUID string, snapsho
 }
 
 func (p *SnapshotPublisher) refreshEpoch(ctx context.Context) error {
-	var epoch api.IngestionEpoch
-	status, err := p.requestJSON(ctx, http.MethodGet, ingestionPath("ingestionepochs/current"), nil, &epoch)
-	if err != nil {
-		return fmt.Errorf("get ingestion epoch: %w", err)
+	for attempt := 1; ; attempt++ {
+		var epoch api.IngestionEpoch
+		status, err := p.requestJSON(ctx, http.MethodGet, ingestionPath("ingestionepochs/current"), nil, &epoch)
+		if err == nil && status >= 200 && status <= 299 {
+			if epoch.APIVersion != api.MemoryAPIGroup+"/"+api.MemoryAPIVersion || epoch.Kind != "IngestionEpoch" || epoch.ObjectMeta.Name != "current" || epoch.Epoch == "" {
+				return fmt.Errorf("get ingestion epoch: response is invalid")
+			}
+			p.epoch = epoch.Epoch
+			if epoch.LastSequence > p.sequence {
+				p.sequence = epoch.LastSequence
+			}
+			return nil
+		}
+		if ctx.Err() != nil {
+			return fmt.Errorf("get ingestion epoch: %w", ctx.Err())
+		}
+		if !transientHTTPFailure(status, err) || !p.retry.canRetry(attempt) {
+			if err != nil {
+				return fmt.Errorf("get ingestion epoch: %w", err)
+			}
+			return fmt.Errorf("get ingestion epoch: status=%d", status)
+		}
+		if err := p.retry.waitBeforeRetry(ctx, attempt); err != nil {
+			return fmt.Errorf("get ingestion epoch: %w", err)
+		}
 	}
-	if status < 200 || status > 299 {
-		return fmt.Errorf("get ingestion epoch: status=%d", status)
-	}
-	if epoch.APIVersion != api.MemoryAPIGroup+"/"+api.MemoryAPIVersion || epoch.Kind != "IngestionEpoch" || epoch.ObjectMeta.Name != "current" || epoch.Epoch == "" {
-		return fmt.Errorf("get ingestion epoch: response is invalid")
-	}
-	p.epoch = epoch.Epoch
-	if epoch.LastSequence > p.sequence {
-		p.sequence = epoch.LastSequence
-	}
-	return nil
 }
 
 type responseError struct {
 	Status int
 	Code   string
+}
+
+func (p *SnapshotPublisher) postWithRetry(ctx context.Context, request api.NodeSnapshotRequest) (api.NodeSnapshotResponse, *responseError, error) {
+	for attempt := 1; ; attempt++ {
+		response, apiErr, err := p.post(ctx, request)
+		status := 0
+		if apiErr != nil {
+			status = apiErr.Status
+		}
+		if ctx.Err() != nil {
+			return response, apiErr, ctx.Err()
+		}
+		if !transientHTTPFailure(status, err) || !p.retry.canRetry(attempt) {
+			return response, apiErr, err
+		}
+		if err := p.retry.waitBeforeRetry(ctx, attempt); err != nil {
+			return response, apiErr, err
+		}
+	}
 }
 
 func (p *SnapshotPublisher) post(ctx context.Context, request api.NodeSnapshotRequest) (api.NodeSnapshotResponse, *responseError, error) {
@@ -177,12 +204,12 @@ func (p *SnapshotPublisher) doJSON(ctx context.Context, method, path string, req
 	}
 	response, err := p.client.Do(request)
 	if err != nil {
-		return 0, nil, err
+		return 0, nil, &requestTransportError{err: err}
 	}
 	defer response.Body.Close()
 	responseBody, err := io.ReadAll(io.LimitReader(response.Body, (64<<10)+1))
 	if err != nil {
-		return 0, nil, fmt.Errorf("read response: %w", err)
+		return 0, nil, &requestTransportError{err: fmt.Errorf("read response: %w", err)}
 	}
 	if len(responseBody) > 64<<10 {
 		return 0, nil, fmt.Errorf("response exceeds 65536 bytes")

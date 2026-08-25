@@ -21,7 +21,14 @@ import (
 const (
 	ingestionLegacy        = "legacy"
 	ingestionAuthenticated = "authenticated"
+	collectorShutdownLimit = 25 * time.Second
+	extensionShutdownDelay = 3 * time.Second
 )
+
+type serverResult struct {
+	name string
+	err  error
+}
 
 func main() {
 	listenAddr := flag.String("listen", ":8080", "HTTP listen address for collector reads, metrics, and health checks")
@@ -31,6 +38,8 @@ func main() {
 	extensionCertFile := flag.String("extension-tls-cert-file", "", "aggregated API serving certificate")
 	extensionKeyFile := flag.String("extension-tls-key-file", "", "aggregated API serving private key")
 	extensionKubeconfig := flag.String("extension-kubeconfig", "", "optional kubeconfig for delegated authentication and authorisation")
+	expectedNodeSelectorJSON := flag.String("expected-node-selector-json", `{"kubernetes.io/os":"linux"}`, "JSON Node selector matching the agent DaemonSet")
+	expectedNodeTolerationsJSON := flag.String("expected-node-tolerations-json", `[]`, "JSON Node tolerations matching the agent DaemonSet")
 	agentUsername := flag.String("agent-username", "system:serviceaccount:kube-memlens:kube-memlens-agent", "exact Kubernetes agent ServiceAccount username")
 	ingestionMaxConcurrent := flag.Int("ingestion-max-concurrent", 4, "maximum snapshot bodies decoded concurrently")
 	ingestionRequestsPerSecond := flag.Float64("ingestion-requests-per-second-per-agent", 1, "accepted request rate per authenticated agent Pod")
@@ -39,7 +48,7 @@ func main() {
 	handlerOpts := collector.DefaultHandlerOptions(30 * time.Second)
 	historyOpts := collector.DefaultHistoryOptions()
 	storeLimits := collector.DefaultStoreLimits()
-	flag.DurationVar(&handlerOpts.SnapshotTTL, "snapshot-ttl", handlerOpts.SnapshotTTL, "duration before snapshots are hidden from query responses")
+	flag.DurationVar(&handlerOpts.SnapshotTTL, "snapshot-ttl", handlerOpts.SnapshotTTL, "duration before last-known snapshots are marked stale")
 	flag.Int64Var(&handlerOpts.MaxSnapshotBytes, "max-snapshot-bytes", handlerOpts.MaxSnapshotBytes, "maximum snapshot request size in bytes")
 	flag.IntVar(&handlerOpts.MaxContainers, "max-snapshot-containers", handlerOpts.MaxContainers, "maximum containers accepted in one snapshot")
 	flag.DurationVar(&handlerOpts.MaxSnapshotAge, "max-snapshot-age", handlerOpts.MaxSnapshotAge, "maximum accepted age of an incoming snapshot")
@@ -75,13 +84,25 @@ func main() {
 		os.Exit(2)
 	}
 	handlerOpts.Metrics = metricsOpts
+	historyOpts.ContinuityGap = handlerOpts.SnapshotTTL
+	expectedNodeSelector, err := parseExpectedNodeSelector(*expectedNodeSelectorJSON)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	expectedNodeTolerations, err := parseExpectedNodeTolerations(*expectedNodeTolerationsJSON)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 
 	store := collector.NewStoreWithHistoryAndLimits(historyOpts, storeLimits)
 	fmt.Printf("memlens-collector started with bounded state maxNodes=%d maxContainers=%d maxResponseBytes=%d historyDuration=%s historyMaxSeries=%d historyMaxPoints=%d\n", storeLimits.MaxNodes, storeLimits.MaxContainers, handlerOpts.MaxResponseBytes, historyOpts.Duration, historyOpts.MaxSeries, historyOpts.MaxPoints)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	serverFailures := make(chan error, 3)
+	serverResults := make(chan serverResult, 3)
+	serverCount := 0
 
 	readHandler := collector.NewHealthHandler()
 	if *ingestionMode == ingestionLegacy {
@@ -120,47 +141,77 @@ func main() {
 			fmt.Fprintf(os.Stderr, "configure authenticated ingestion: %v\n", err)
 			os.Exit(1)
 		}
-		go func() {
-			fmt.Printf("memlens-collector authenticated extension listening on :%d\n", *extensionPort)
-			err := (extension.ServerOptions{
+		fmt.Printf("memlens-collector authenticated extension listening on :%d\n", *extensionPort)
+		serverCount++
+		startServer("extension", serverResults, stop, func() error {
+			return (extension.ServerOptions{
 				BindPort: *extensionPort, CertFile: *extensionCertFile, KeyFile: *extensionKeyFile,
 				KubeconfigFile: *extensionKubeconfig, MaxBodyBytes: handlerOpts.MaxSnapshotBytes,
-				MaxRead: *readMaxConcurrent, MaxMutating: 32, RequestTimeout: 10 * time.Second, Handler: handler,
+				MaxRead: *readMaxConcurrent, MaxMutating: 32, RequestTimeout: 10 * time.Second,
+				ShutdownDelay: extensionShutdownDelay, NodeSelector: expectedNodeSelector,
+				NodeTolerations: expectedNodeTolerations, Handler: handler,
 			}).Run(ctx)
-			if err != nil && !errors.Is(err, context.Canceled) {
-				fmt.Printf("memlens-collector extension server failed: %v\n", err)
-				serverFailures <- err
-				stop()
-			}
-		}()
+		})
 	}
 
 	for _, item := range servers {
 		item := item
-		go func() {
-			fmt.Printf("memlens-collector %s endpoint listening on %s\n", item.name, item.server.Addr)
-			if err := item.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				fmt.Printf("memlens-collector %s server failed: %v\n", item.name, err)
-				serverFailures <- err
-				stop()
-			}
-		}()
+		fmt.Printf("memlens-collector %s endpoint listening on %s\n", item.name, item.server.Addr)
+		serverCount++
+		startServer(item.name, serverResults, stop, item.server.ListenAndServe)
 	}
 
 	<-ctx.Done()
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), collectorShutdownLimit)
 	defer cancel()
+	var shutdownErrors []error
 	for _, item := range servers {
 		if err := item.server.Shutdown(shutdownCtx); err != nil {
-			fmt.Printf("memlens-collector %s shutdown failed: %v\n", item.name, err)
+			shutdownErrors = append(shutdownErrors, fmt.Errorf("%s shutdown: %w", item.name, err))
 		}
 	}
-	fmt.Println("memlens-collector shutting down")
-	select {
-	case <-serverFailures:
-		os.Exit(1)
-	default:
+	if err := waitForServerResults(shutdownCtx, serverResults, serverCount); err != nil {
+		shutdownErrors = append(shutdownErrors, err)
 	}
+	fmt.Println("memlens-collector shutting down")
+	if err := errors.Join(shutdownErrors...); err != nil {
+		fmt.Fprintf(os.Stderr, "memlens-collector shutdown failed: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func startServer(name string, results chan<- serverResult, stop context.CancelFunc, run func() error) {
+	go func() {
+		err := normaliseServerError(run())
+		results <- serverResult{name: name, err: err}
+		if err != nil {
+			fmt.Printf("memlens-collector %s server failed: %v\n", name, err)
+			stop()
+		}
+	}()
+}
+
+func normaliseServerError(err error) error {
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
+}
+
+func waitForServerResults(ctx context.Context, results <-chan serverResult, count int) error {
+	var failures []error
+	for range count {
+		select {
+		case result := <-results:
+			if result.err != nil {
+				failures = append(failures, fmt.Errorf("%s server: %w", result.name, result.err))
+			}
+		case <-ctx.Done():
+			failures = append(failures, fmt.Errorf("wait for server drain: %w", ctx.Err()))
+			return errors.Join(failures...)
+		}
+	}
+	return errors.Join(failures...)
 }
 
 func newHTTPServer(addr string, handler http.Handler) *http.Server {

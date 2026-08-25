@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 set -Eeuo pipefail
 
 cluster_name=${E2E_CLUSTER_NAME:-kube-memlens-e2e}
@@ -252,7 +251,7 @@ wait_for_doctor() {
 
 wait_for_doctor
 "${cli}" "${cli_args[@]}" status --output json > "${work_dir}/status.json"
-grep -q '"status": "ok"' "${work_dir}/status.json"
+jq -e '.data.status == "ready" and .store.reliability.state == "ready"' "${work_dir}/status.json" >/dev/null
 "${cli}" "${cli_args[@]}" top pods --all-namespaces > "${work_dir}/top.txt"
 grep -q '^NAMESPACE' "${work_dir}/top.txt"
 "${cli}" "${cli_args[@]}" top workloads --all-namespaces > "${work_dir}/workloads.txt"
@@ -340,6 +339,7 @@ if KUBECONFIG="${kubeconfig}" kubectl get --raw \
 fi
 run_tui_smoke
 run_live_density_smoke
+[ "${E2E_RUN_RELIABILITY_SMOKE:-false}" != true ] || RELIABILITY_KUBECONFIG="${kubeconfig}" RELIABILITY_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/reliability" RELIABILITY_ACKNOWLEDGE=disrupt-and-restore-kube-memlens-components hack/verify-reliability-kind.sh
 
 helm upgrade kube-memlens ./charts/kube-memlens \
   --kubeconfig "${kubeconfig}" \
@@ -379,6 +379,7 @@ for resource in \
   clusterrole/kube-memlens-cluster-viewer \
   clusterrole/kube-memlens-metrics-reader \
   clusterrolebinding/kube-memlens-auth-delegator \
+  clusterrole/kube-memlens-collector-node-reader clusterrolebinding/kube-memlens-collector-node-reader \
   clusterrole/kube-memlens-cert-bootstrap \
   clusterrolebinding/kube-memlens-cert-bootstrap; do
   if KUBECONFIG="${kubeconfig}" kubectl get "${resource}" >/dev/null 2>&1; then

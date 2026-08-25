@@ -18,13 +18,15 @@ func (m appModel) fetchCmd() tea.Cmd {
 		if reader, ok := m.client.(client.CurrentSnapshotReader); ok {
 			var current client.CurrentSnapshot
 			var nodes []api.NodeSnapshotStatus
-			var currentErr, nodesErr error
+			var reliability api.DebugStore
+			var currentErr, nodesErr, reliabilityErr error
 			var wait sync.WaitGroup
 			wait.Add(1)
 			go func() { defer wait.Done(); current, currentErr = reader.CurrentSnapshot(ctx) }()
 			if m.opts.AllNamespaces {
-				wait.Add(1)
+				wait.Add(2)
 				go func() { defer wait.Done(); nodes, nodesErr = m.client.Nodes(ctx) }()
+				go func() { defer wait.Done(); reliability, reliabilityErr = m.client.DebugStore(ctx) }()
 			}
 			wait.Wait()
 			if currentErr != nil {
@@ -33,35 +35,70 @@ func (m appModel) fetchCmd() tea.Cmd {
 			if nodesErr != nil {
 				return fetchMsg{generation: generation, err: nodesErr}
 			}
-			return fetchMsg{generation: generation, data: snapshotData{
+			if reliabilityErr != nil {
+				return fetchMsg{generation: generation, err: reliabilityErr}
+			}
+			data := snapshotData{
 				Nodes:      nodes,
 				Namespaces: current.Namespaces,
 				Workloads:  current.Workloads,
 				Pods:       current.Pods, Containers: current.Containers,
-				FetchedAt: time.Now().UTC(),
-			}}
+				FetchedAt: time.Now().UTC(), Reliability: reliability.Reliability,
+			}
+			data.Reliability = inferReliability(data)
+			return fetchMsg{generation: generation, data: data}
 		}
 		var data snapshotData
-		var namespaceErr, workloadErr, podErr, containerErr, nodeErr error
+		var namespaceErr, workloadErr, podErr, containerErr, nodeErr, reliabilityErr error
+		var debug api.DebugStore
 		var wait sync.WaitGroup
 		wait.Add(4)
 		if m.opts.AllNamespaces {
-			wait.Add(1)
+			wait.Add(2)
 			go func() { defer wait.Done(); data.Nodes, nodeErr = m.client.Nodes(ctx) }()
+			go func() { defer wait.Done(); debug, reliabilityErr = m.client.DebugStore(ctx) }()
 		}
 		go func() { defer wait.Done(); data.Namespaces, namespaceErr = m.client.Namespaces(ctx) }()
 		go func() { defer wait.Done(); data.Workloads, workloadErr = m.client.Workloads(ctx) }()
 		go func() { defer wait.Done(); data.Pods, podErr = m.client.Pods(ctx) }()
 		go func() { defer wait.Done(); data.Containers, containerErr = m.client.Containers(ctx) }()
 		wait.Wait()
-		for _, err := range []error{nodeErr, namespaceErr, workloadErr, podErr, containerErr} {
+		for _, err := range []error{nodeErr, reliabilityErr, namespaceErr, workloadErr, podErr, containerErr} {
 			if err != nil {
 				return fetchMsg{generation: generation, err: err}
 			}
 		}
 		data.FetchedAt = time.Now().UTC()
+		data.Reliability = debug.Reliability
+		data.Reliability = inferReliability(data)
 		return fetchMsg{generation: generation, data: data}
 	}
+}
+
+func inferReliability(data snapshotData) api.CollectorReliability {
+	if data.Reliability.State != "" {
+		return data.Reliability
+	}
+	result := api.CollectorReliability{State: api.CollectorRebuilding, Completeness: api.EvidencePartial}
+	fresh, stale := 0, 0
+	partial := false
+	for _, pod := range data.Pods {
+		if pod.Freshness == api.EvidenceFreshnessStale {
+			stale++
+		} else {
+			fresh++
+		}
+		partial = partial || pod.Completeness == api.EvidencePartial
+	}
+	switch {
+	case fresh > 0 && stale == 0 && !partial:
+		result.State, result.Completeness = api.CollectorReady, api.EvidenceComplete
+	case fresh > 0:
+		result.State = api.CollectorDegraded
+	case stale > 0:
+		result.State = api.CollectorStale
+	}
+	return result
 }
 
 func (m *appModel) beginFetch() tea.Cmd {

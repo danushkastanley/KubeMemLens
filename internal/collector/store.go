@@ -32,6 +32,17 @@ type Store struct {
 	history               *historyStore
 	limits                StoreLimits
 	containerCount        int
+	startedAt             time.Time
+	firstSnapshotAt       time.Time
+	lastSnapshotAt        time.Time
+	lastReceivedAt        time.Time
+	transitionedAt        time.Time
+	state                 api.CollectorState
+	generation            string
+	now                   func() time.Time
+	expectedNodes         map[string]struct{}
+	inventoryKnown        bool
+	inventoryUpdatedAt    time.Time
 }
 
 type nodeSnapshot struct {
@@ -52,17 +63,27 @@ func newStore(historyOpts HistoryOptions, limits StoreLimits) *Store {
 	if limits.MaxContainers <= 0 {
 		limits.MaxContainers = defaults.MaxContainers
 	}
+	startedAt := time.Now().UTC()
+	history := newHistoryStore(historyOpts)
+	history.resetAt = startedAt
 	return &Store{
 		nodes:            map[string]nodeSnapshot{},
 		ingestionResults: map[string]uint64{},
-		history:          newHistoryStore(historyOpts),
+		history:          history,
 		limits:           limits,
+		startedAt:        startedAt,
+		transitionedAt:   startedAt,
+		state:            api.CollectorRebuilding,
+		generation:       newGeneration(startedAt),
+		now:              func() time.Time { return time.Now().UTC() },
+		expectedNodes:    map[string]struct{}{},
 	}
 }
 
 // ReplaceNodeSnapshot atomically replaces everything previously reported by a
 // node. This prevents terminated containers and old container IDs from being
-// counted until TTL expiry. An empty snapshot deliberately clears the node.
+// carried into the next successful observation. An empty snapshot deliberately
+// clears the node; a missing observation retains the bounded last-known state.
 func (s *Store) ReplaceNodeSnapshot(snapshot api.AgentSnapshot) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -107,6 +128,13 @@ func (s *Store) ReplaceNodeSnapshot(snapshot api.AgentSnapshot) (int, error) {
 		containers:  containers,
 	}
 	s.containerCount = projectedContainers
+	if s.firstSnapshotAt.IsZero() || snapshot.CapturedAt.Before(s.firstSnapshotAt) {
+		s.firstSnapshotAt = snapshot.CapturedAt
+	}
+	if snapshot.CapturedAt.After(s.lastSnapshotAt) {
+		s.lastSnapshotAt = snapshot.CapturedAt
+	}
+	s.lastReceivedAt = s.now()
 	s.history.record(snapshot.CapturedAt, containers)
 	return len(containers), nil
 }
@@ -125,21 +153,17 @@ func (s *Store) ListPodHistory(namespace, podName, nodeName string, now time.Tim
 	return s.history.list(namespace, podName, nodeName, now)
 }
 
-func (s *Store) ListContainers(now time.Time, ttl time.Duration) []api.ContainerSnapshot {
+func (s *Store) ListPodHistoryWithReliability(namespace, podName, nodeName string, now time.Time) ([]api.PodHistory, api.HistoryReliability) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	series := s.history.list(namespace, podName, nodeName, now)
+	return series, s.history.scopedReliability(namespace, podName, nodeName, now)
+}
 
+func (s *Store) ListContainers(now time.Time, ttl time.Duration) []api.ContainerSnapshot {
 	items := []api.ContainerSnapshot{}
-	for node, snapshot := range s.nodes {
-		if isStale(snapshot.capturedAt, now, ttl) {
-			// Preserve the lightweight last-seen record for freshness metrics,
-			// but release stale per-container data.
-			s.containerCount -= len(snapshot.containers)
-			snapshot.containers = nil
-			s.nodes[node] = snapshot
-			continue
-		}
-		items = append(items, snapshot.containers...)
+	for _, shard := range s.readShards(now, ttl) {
+		items = append(items, shard...)
 	}
 	sortContainers(items)
 	return items
@@ -156,11 +180,15 @@ func (s *Store) ListNamespaces(now time.Time, ttl time.Duration) []api.Namespace
 func (s *Store) Debug(now time.Time, ttl time.Duration) api.StoreDebug {
 	shards := s.readShards(now, ttl)
 	totalContainers := 0
+	staleContainers := 0
 	pods := make(map[digestKey]struct{})
 	namespaces := make(map[string]struct{})
 	hasher := identityBuffer{}
 	visitScopedShards(shards, ReadScope{}, func(container api.ContainerSnapshot) {
 		totalContainers++
+		if container.Freshness == api.EvidenceFreshnessStale {
+			staleContainers++
+		}
 		if key, ok := hasher.pod(container); ok {
 			pods[key] = struct{}{}
 		}
@@ -169,18 +197,19 @@ func (s *Store) Debug(now time.Time, ttl time.Duration) api.StoreDebug {
 		}
 	})
 
-	return s.debugWithCounts(now, totalContainers, len(pods), len(namespaces))
+	return s.debugWithCounts(now, ttl, totalContainers, staleContainers, len(pods), len(namespaces))
 }
 
-func (s *Store) debugWithCounts(now time.Time, totalContainers, pods, namespaces int) api.StoreDebug {
+func (s *Store) debugWithCounts(now time.Time, ttl time.Duration, totalContainers, staleContainers, pods, namespaces int) api.StoreDebug {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.history.prune(now)
 	historySeries, historyPoints := s.history.stats()
 	return api.StoreDebug{
-		TotalContainers: totalContainers, StaleContainers: 0, NodeRecords: len(s.nodes),
+		TotalContainers: totalContainers, StaleContainers: staleContainers, NodeRecords: len(s.nodes),
 		MaxNodes: s.limits.MaxNodes, MaxContainers: s.limits.MaxContainers,
 		Pods: pods, Namespaces: namespaces, HistorySeries: historySeries, HistoryPoints: historyPoints,
+		Reliability: s.reliabilityLocked(now, ttl),
 	}
 }
 
@@ -201,7 +230,8 @@ func (s *Store) LatestByNode(_ time.Time) map[string]time.Time {
 func (s *Store) ListNodes(now time.Time, ttl time.Duration) []api.NodeSnapshotStatus {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	nodes := make([]api.NodeSnapshotStatus, 0, len(s.nodes))
+	nodes := make([]api.NodeSnapshotStatus, 0, max(len(s.nodes), len(s.expectedNodes)))
+	seen := make(map[string]struct{}, len(s.nodes))
 	for node, snapshot := range s.nodes {
 		if node == "" || snapshot.capturedAt.IsZero() {
 			continue
@@ -211,7 +241,18 @@ func (s *Store) ListNodes(now time.Time, ttl time.Duration) []api.NodeSnapshotSt
 			CapturedAt:     snapshot.capturedAt,
 			ContainerCount: len(snapshot.containers),
 			Stale:          isStale(snapshot.capturedAt, now, ttl),
+			Freshness:      freshness(snapshot.capturedAt, now, ttl),
+			Completeness:   nodeCompleteness(snapshot),
 			Environment:    snapshot.environment,
+		})
+		seen[node] = struct{}{}
+	}
+	for node := range s.expectedNodes {
+		if _, exists := seen[node]; exists {
+			continue
+		}
+		nodes = append(nodes, api.NodeSnapshotStatus{
+			NodeName: node, Freshness: api.EvidenceFreshnessMissing, Completeness: api.EvidencePartial,
 		})
 	}
 	sort.Slice(nodes, func(i, j int) bool {
@@ -238,6 +279,12 @@ func (s *Store) IngestionStats() api.CollectorIngestionStats {
 		Results:             results,
 		LastDurationSeconds: s.lastIngestionDuration.Seconds(),
 	}
+}
+
+func (s *Store) MaxNodes() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.limits.MaxNodes
 }
 
 func isStale(capturedAt time.Time, now time.Time, ttl time.Duration) bool {

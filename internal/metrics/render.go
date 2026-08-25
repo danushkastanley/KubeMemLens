@@ -92,6 +92,7 @@ func (r *renderer) render(source Source, now time.Time, ttl time.Duration, opts 
 	}
 
 	r.renderAgentFreshness(source, now)
+	r.renderCollectorReliability(source, debug, containers, now)
 	r.renderCollectorIngestion(source)
 	r.renderDroppedMetrics(namespaceCount, podCount, containerCount, len(namespaces), opts)
 	if opts.IncludeNamespaceMetrics && namespaceCount == len(namespaces) {

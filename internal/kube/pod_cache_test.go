@@ -18,6 +18,9 @@ func TestPodCacheFiltersNodeAndTracksWatchUpdates(t *testing.T) {
 		cachePod("pod-b", "uid-b", "node-b", "id-b"),
 	)
 	podCache := NewPodCache(client, "node-a")
+	if podCache.Synced() {
+		t.Fatal("new Pod cache reported synchronised before it started")
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go podCache.Run(ctx)
@@ -26,6 +29,9 @@ func TestPodCacheFiltersNodeAndTracksWatchUpdates(t *testing.T) {
 	defer syncCancel()
 	if !podCache.WaitForSync(syncCtx) {
 		t.Fatal("pod cache did not sync")
+	}
+	if !podCache.Synced() {
+		t.Fatal("Pod cache did not retain synchronised state")
 	}
 	if podCache.PodCount() != 1 {
 		t.Fatalf("PodCount = %d, want 1", podCache.PodCount())

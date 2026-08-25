@@ -17,7 +17,6 @@ import (
 const (
 	defaultContainerPageSize = 500
 	maxContainerPageSize     = 500
-	continueTokenBytes       = 67
 	scopedContinueTokenBytes = 84
 )
 
@@ -37,7 +36,8 @@ func writeContainerPage(w http.ResponseWriter, r *http.Request, store *Store, op
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	after, err := decodeContainerCursor(r.URL.Query().Get("continue"))
+	tokenScope := "direct:containers:" + store.Generation()
+	after, err := decodeScopedContainerCursor(r.URL.Query().Get("continue"), tokenScope)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
@@ -57,7 +57,7 @@ func writeContainerPage(w http.ResponseWriter, r *http.Request, store *Store, op
 	for {
 		page := api.ContainerPage{Items: pageItems}
 		if end < len(items) && len(pageItems) > 0 {
-			page.Continue = encodeContainerCursor(items[end-1].key)
+			page.Continue = encodeScopedContainerCursor(tokenScope, items[end-1].key)
 		}
 		body, encodeErr := encodeBoundedJSON(page, opts.MaxResponseBytes)
 		if encodeErr == nil {
@@ -83,24 +83,6 @@ func pageLimit(query url.Values) (int, error) {
 		return 0, fmt.Errorf("limit must be between 1 and %d", maxContainerPageSize)
 	}
 	return limit, nil
-}
-
-func encodeContainerCursor(key string) string {
-	return "v1." + key
-}
-
-func decodeContainerCursor(token string) (string, error) {
-	if token == "" {
-		return "", nil
-	}
-	if len(token) != continueTokenBytes || !strings.HasPrefix(token, "v1.") {
-		return "", fmt.Errorf("continue token is invalid")
-	}
-	key := strings.TrimPrefix(token, "v1.")
-	if _, err := hex.DecodeString(key); err != nil {
-		return "", fmt.Errorf("continue token is invalid")
-	}
-	return key, nil
 }
 
 func containerSortKey(item api.ContainerSnapshot) string {

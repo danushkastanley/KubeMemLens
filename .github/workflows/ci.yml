@@ -235,6 +235,15 @@ jobs:
           ! grep -q 'audience:' /tmp/kube-memlens.yaml
           grep -q 'name: system:auth-delegator' /tmp/kube-memlens.yaml
           grep -q 'name: extension-apiserver-authentication-reader' /tmp/kube-memlens.yaml
+          grep -q 'name: kube-memlens-collector-node-reader' /tmp/kube-memlens.yaml
+          grep -q 'resources: \["nodes"\]' /tmp/kube-memlens.yaml
+          grep -q 'verbs: \["list"\]' /tmp/kube-memlens.yaml
+          grep -q '^    type: Recreate$' /tmp/kube-memlens.yaml
+          grep -q '^              path: /livez$' /tmp/kube-memlens.yaml
+          grep -q '^              path: /readyz$' /tmp/kube-memlens.yaml
+          grep -q '^            failureThreshold: 1$' /tmp/kube-memlens.yaml
+          grep -Fq -- '--expected-node-selector-json={\"kubernetes.io/os\":\"linux\"}' /tmp/kube-memlens.yaml
+          grep -Fq -- '--expected-node-tolerations-json=[]' /tmp/kube-memlens.yaml
           grep -q 'resourceNames: \["v1alpha1.memory.kubememlens.io"\]' /tmp/kube-memlens.yaml
           grep -q 'resourceNames: \["kube-memlens-extension-tls"\]' /tmp/kube-memlens.yaml
 
@@ -276,6 +285,9 @@ jobs:
               end
               abort "unexpected rules in #{name}: #{actual.inspect}" unless actual == expected_rules.fetch(name)
             end
+            node_reader = roles.fetch("kube-memlens-collector-node-reader").fetch("rules")
+            expected_node_reader = [{"apiGroups" => [""], "resources" => ["nodes"], "verbs" => ["list"]}]
+            abort "unexpected collector Node inventory RBAC: #{node_reader.inspect}" unless node_reader == expected_node_reader
 
             bindings = Array(by_kind["RoleBinding"]) + Array(by_kind["ClusterRoleBinding"])
             bound = bindings.filter_map { |binding| binding.dig("roleRef", "name") }
@@ -453,4 +465,5 @@ jobs:
           E2E_RUN_AUTHENTICATED_INGESTION_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
           E2E_RUN_TENANT_SCOPED_READ_SMOKE: ${{ matrix.tenant_scoped_read_smoke }}
           E2E_RUN_TENANT_ISOLATION_SMOKE: ${{ matrix.tenant_isolation_smoke }}
+          E2E_RUN_RELIABILITY_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
         run: hack/e2e-kind.sh

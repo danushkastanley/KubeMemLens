@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,6 +59,16 @@ func TestScannerClassifiesUnmappedSiblingAsInfrastructure(t *testing.T) {
 	}
 	if !result.Snapshot.Environment.MemoryAllocatableKnown || result.Snapshot.Environment.MemoryAllocatableBytes != 8<<30 || !result.Snapshot.Containers[0].Context.NodeMemoryAllocatableKnown {
 		t.Fatalf("allocatable memory context was not propagated: %#v", result.Snapshot)
+	}
+}
+
+func TestScannerHonoursCancelledContextBeforeWalking(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := (Scanner{CgroupRoot: t.TempDir(), NodeName: "node-a"}).Scan(ctx, kube.EmptyPodIndex())
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("Scan error = %v, want context cancellation", err)
 	}
 }
 

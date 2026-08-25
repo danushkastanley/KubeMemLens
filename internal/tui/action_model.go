@@ -85,6 +85,10 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 }
 
 func (m *appModel) startRecommendation() tea.Cmd {
+	if !m.currentEvidenceReady() {
+		m.setActionError(fmt.Errorf("recommendations require ready, current evidence; collector state is %s", m.currentEvidenceState()))
+		return nil
+	}
 	ref, ok := m.currentActionRef()
 	if !ok {
 		m.setActionError(fmt.Errorf("select a Pod, container, or workload first"))
@@ -94,6 +98,10 @@ func (m *appModel) startRecommendation() tea.Cmd {
 }
 
 func (m *appModel) startCompare() tea.Cmd {
+	if !m.currentEvidenceReady() {
+		m.setActionError(fmt.Errorf("comparison requires ready, current evidence; collector state is %s", m.currentEvidenceState()))
+		return nil
+	}
 	pod, ok := m.currentActionPod()
 	if !ok {
 		m.setActionError(fmt.Errorf("live comparison requires a selected Pod or container"))
@@ -117,6 +125,10 @@ func (m *appModel) startCompare() tea.Cmd {
 }
 
 func (m *appModel) startCapture(overwrite bool) tea.Cmd {
+	if m.statusErr != nil {
+		m.setActionError(fmt.Errorf("capture is unavailable while the collector cannot be reached"))
+		return nil
+	}
 	ref, ok := m.currentActionRef()
 	if !ok || (ref.kind != entityPod && ref.kind != entityContainer) {
 		m.setActionError(fmt.Errorf("capture requires a selected Pod or container"))
@@ -130,9 +142,37 @@ func (m *appModel) startCapture(overwrite bool) tea.Cmd {
 		histories:  append([]api.PodHistory(nil), m.selectedHistory.series...),
 		outputPath: strings.TrimSpace(m.action.input),
 		overwrite:  overwrite,
-		partial:    !m.opts.AllNamespaces,
+		partial:    !m.opts.AllNamespaces || m.data.Reliability.State != api.CollectorReady,
 	}
+	reliability := m.data.Reliability
+	request.reliability = &reliability
+	request.caveats = m.captureCaveats()
 	return m.startAction(request)
+}
+
+func (m *appModel) currentEvidenceReady() bool {
+	return m.statusErr == nil && m.currentEvidenceState() == api.CollectorReady
+}
+
+func (m *appModel) currentEvidenceState() api.CollectorState {
+	if m.statusErr != nil {
+		return api.CollectorUnavailable
+	}
+	if m.data.Reliability.State == "" {
+		return api.CollectorRebuilding
+	}
+	return m.data.Reliability.State
+}
+
+func (m *appModel) captureCaveats() []string {
+	var caveats []string
+	if !m.opts.AllNamespaces {
+		caveats = append(caveats, "Cluster node summaries are omitted from a namespace-scoped capture.")
+	}
+	if m.data.Reliability.State != api.CollectorReady {
+		caveats = append(caveats, "Collector evidence state at capture: "+string(m.data.Reliability.State)+".")
+	}
+	return caveats
 }
 
 func (m *appModel) startAction(request actionRequest) tea.Cmd {
@@ -169,7 +209,9 @@ func (m *appModel) completeAction(message actionMsg) {
 				kind: actionCapture, ref: ref,
 				pods: append([]api.PodSnapshot(nil), m.data.Pods...), nodes: append([]api.NodeSnapshotStatus(nil), m.data.Nodes...),
 				histories: append([]api.PodHistory(nil), m.selectedHistory.series...), outputPath: message.result.outputPath,
-				partial: !m.opts.AllNamespaces,
+				partial:     !m.opts.AllNamespaces || m.data.Reliability.State != api.CollectorReady,
+				caveats:     m.captureCaveats(),
+				reliability: &m.data.Reliability,
 			}
 		}
 	}

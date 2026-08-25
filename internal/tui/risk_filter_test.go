@@ -76,6 +76,21 @@ func TestStaleFilterDoesNotTreatZeroAsFreshEvidence(t *testing.T) {
 	}
 }
 
+func TestServerFreshnessOverridesLocalRefreshHeuristic(t *testing.T) {
+	now := time.Now()
+	pods := []api.PodSnapshot{
+		{Namespace: "default", PodName: "authoritative-fresh", CapturedAt: now.Add(-time.Minute), Freshness: api.EvidenceFreshnessFresh},
+		{Namespace: "default", PodName: "authoritative-stale", CapturedAt: now, Freshness: api.EvidenceFreshnessStale},
+	}
+	stale := FilterPodsAt(pods, "", true, "state:stale", now, 15*time.Second)
+	if len(stale) != 1 || stale[0].PodName != "authoritative-stale" {
+		t.Fatalf("authoritative stale filter = %#v", stale)
+	}
+	if risk := podRisk(pods[0], now, 15*time.Second); risk.stale {
+		t.Fatalf("fresh server evidence was relabelled stale: %#v", risk)
+	}
+}
+
 func BenchmarkRiskSortAndFilterTenThousandPods(b *testing.B) {
 	now := time.Now()
 	base := make([]api.PodSnapshot, 10_000)

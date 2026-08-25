@@ -26,7 +26,7 @@ KubeMemLens is currently alpha software. The published alpha is for evaluation o
 | Self-managed containerd | Linux cgroup v2 on amd64 or arm64 with containerd and the documented mount, scheduling and NetworkPolicy prerequisites. The exact distribution, kernel and runtime are frozen by qualification. | containerd 2.x on local kind. | PROD-008 | Qualification required |
 | Self-managed CRI-O | One real amd64 Linux cgroup v2 CRI-O distribution. Recognising a CRI-O cgroup path in a fixture is not qualification. | Synthetic fixtures only. | PROD-008 | Qualification required |
 | Shared multi-tenant clusters | Supported only when authenticated agent writes, tenant-scoped reads and adversarial isolation tests pass. | The authenticated boundary and PROD-005 adversarial suite passed on local kind `v1.35.5`, including NetworkPolicy removal. The published alpha does not have this boundary. | PROD-002 to PROD-005; PROD-008 qualifies exact providers and CNIs. | Locally verified |
-| Collector availability | One best-effort, single-replica, in-memory collector with visible restart, partial, stale and history-loss states. | The single-replica store exists. Full failure-state evidence is pending. | PROD-006 | Qualification required |
+| Collector availability | One best-effort, single-replica, in-memory collector with visible restart, partial, stale and history-loss states. | Automated state, retry, readiness and shutdown tests plus the local kind `v1.35.5` failure harness: API recovery 9s, stale transition 29s, agent recovery 7s, partial-rollout detection 4s, removed-Node recovery 15s and graceful shutdown 5s. Provider timing remains unqualified. | PROD-006 | Locally verified |
 | Live scale | Only the live container, node and refresh profile measured and published for the release candidate. Configured store ceilings are rejection bounds, not scale claims. | Small local clusters and synthetic benchmarks. | PROD-007 | Qualification required |
 | Terminal UI | Apple Terminal, Ghostty, iTerm2 and Warp on macOS; xterm and at least two recorded modern Linux terminals; SSH and tmux at 80x24, 120x30 and 180x50. | State, render, race and local PTY tests. | PROD-009 | Qualification required |
 | Release artefacts | Signed CLI archives, a non-root multi-architecture Linux image and an OCI Helm chart, all tied to one immutable release identity. | Alpha.3 consumer verification and CI supply-chain checks. | PROD-010 and PROD-012 | Qualification required |
@@ -82,7 +82,9 @@ The v1 collector contract is best effort:
 - the API and TUI must report rebuilding, partial, stale and unavailable states instead of presenting missing evidence as healthy; and
 - PROD-006 owns recovery timing, readiness and failure-state evidence.
 
-Default Pod history is retained in collector memory for at most 15 minutes, with at most 180 points per Pod instance and 1,000 series in total. One history lookup returns at most 20 Pod instances. Operators may configure lower limits. Higher limits require measured capacity evidence and remain bounded.
+The [reliability and availability contract](reliability.md) defines the probes, states, retry and shutdown bounds. Its [operator runbook](runbooks/reliability.md) covers agent, API, collector, node and partial-rollout failures. These contracts do not add collector replication or persistence.
+
+Default Pod history is retained in collector memory for at most 15 minutes, with at most 181 points per Pod instance and 1,000 series in total. One history lookup returns at most 20 Pod instances. Operators may configure lower limits. Higher limits require measured capacity evidence and remain bounded.
 
 An incident capture is a separate local file, not collector retention. KubeMemLens writes it with mode `0600`, refuses replacement without explicit confirmation and leaves retention and deletion to the operator.
 

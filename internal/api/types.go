@@ -44,6 +44,8 @@ type ContainerSnapshot struct {
 	NodeName         string                `json:"nodeName"`
 	CgroupPath       string                `json:"cgroupPath"`
 	CapturedAt       time.Time             `json:"capturedAt"`
+	Freshness        EvidenceFreshness     `json:"freshness"`
+	Completeness     EvidenceCompleteness  `json:"completeness"`
 	DeltaStartedAt   time.Time             `json:"deltaStartedAt,omitempty"`
 	DeltaWindowKnown bool                  `json:"deltaWindowKnown"`
 	Context          ContainerContext      `json:"context"`
@@ -85,14 +87,16 @@ type ContainerContext struct {
 }
 
 type PodSnapshot struct {
-	Namespace  string                `json:"namespace"`
-	PodName    string                `json:"podName"`
-	PodUID     string                `json:"podUID"`
-	NodeName   string                `json:"nodeName"`
-	CapturedAt time.Time             `json:"capturedAt"`
-	Containers []ContainerSnapshot   `json:"containers"`
-	Context    PodContext            `json:"context"`
-	Memory     model.MemoryBreakdown `json:"memory"`
+	Namespace    string                `json:"namespace"`
+	PodName      string                `json:"podName"`
+	PodUID       string                `json:"podUID"`
+	NodeName     string                `json:"nodeName"`
+	CapturedAt   time.Time             `json:"capturedAt"`
+	Freshness    EvidenceFreshness     `json:"freshness"`
+	Completeness EvidenceCompleteness  `json:"completeness"`
+	Containers   []ContainerSnapshot   `json:"containers"`
+	Context      PodContext            `json:"context"`
+	Memory       model.MemoryBreakdown `json:"memory"`
 }
 
 type PodContext struct {
@@ -132,10 +136,12 @@ type NodeContext struct {
 }
 
 type NamespaceSnapshot struct {
-	Namespace  string                `json:"namespace"`
-	CapturedAt time.Time             `json:"capturedAt"`
-	PodCount   int                   `json:"podCount"`
-	Memory     model.MemoryBreakdown `json:"memory"`
+	Namespace    string                `json:"namespace"`
+	CapturedAt   time.Time             `json:"capturedAt"`
+	Freshness    EvidenceFreshness     `json:"freshness"`
+	Completeness EvidenceCompleteness  `json:"completeness"`
+	PodCount     int                   `json:"podCount"`
+	Memory       model.MemoryBreakdown `json:"memory"`
 }
 
 type WorkloadSnapshot struct {
@@ -143,6 +149,8 @@ type WorkloadSnapshot struct {
 	Kind            string                `json:"kind"`
 	Name            string                `json:"name"`
 	CapturedAt      time.Time             `json:"capturedAt"`
+	Freshness       EvidenceFreshness     `json:"freshness"`
+	Completeness    EvidenceCompleteness  `json:"completeness"`
 	PodCount        int                   `json:"podCount"`
 	LargestPodName  string                `json:"largestPodName"`
 	LargestPodBytes uint64                `json:"largestPodBytes"`
@@ -191,23 +199,26 @@ type MemoryHistoryPoint struct {
 }
 
 type IncidentBundle struct {
-	SchemaVersion int                  `json:"schemaVersion"`
-	CapturedAt    time.Time            `json:"capturedAt"`
-	ToolVersion   string               `json:"toolVersion"`
-	Redacted      bool                 `json:"redacted"`
-	Partial       bool                 `json:"partial,omitempty"`
-	Caveats       []string             `json:"caveats,omitempty"`
-	Pods          []PodSnapshot        `json:"pods"`
-	Nodes         []NodeSnapshotStatus `json:"nodes"`
-	Histories     []PodHistory         `json:"histories,omitempty"`
+	SchemaVersion int                   `json:"schemaVersion"`
+	CapturedAt    time.Time             `json:"capturedAt"`
+	ToolVersion   string                `json:"toolVersion"`
+	Redacted      bool                  `json:"redacted"`
+	Partial       bool                  `json:"partial,omitempty"`
+	Caveats       []string              `json:"caveats,omitempty"`
+	Reliability   *CollectorReliability `json:"reliability,omitempty"`
+	Pods          []PodSnapshot         `json:"pods"`
+	Nodes         []NodeSnapshotStatus  `json:"nodes"`
+	Histories     []PodHistory          `json:"histories,omitempty"`
 }
 
 type NodeSnapshotStatus struct {
-	NodeName       string          `json:"nodeName"`
-	CapturedAt     time.Time       `json:"capturedAt"`
-	ContainerCount int             `json:"containerCount"`
-	Stale          bool            `json:"stale"`
-	Environment    NodeEnvironment `json:"environment"`
+	NodeName       string               `json:"nodeName"`
+	CapturedAt     time.Time            `json:"capturedAt"`
+	ContainerCount int                  `json:"containerCount"`
+	Stale          bool                 `json:"stale"`
+	Freshness      EvidenceFreshness    `json:"freshness"`
+	Completeness   EvidenceCompleteness `json:"completeness"`
+	Environment    NodeEnvironment      `json:"environment"`
 }
 
 type SnapshotPostResponse struct {
@@ -257,7 +268,8 @@ type PodMemoryList struct {
 type PodMemoryHistory struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata"`
-	Series            []PodHistory `json:"series"`
+	Series            []PodHistory       `json:"series"`
+	Reliability       HistoryReliability `json:"reliability"`
 }
 
 type ContainerMemory struct {
@@ -310,16 +322,69 @@ type Metrics struct {
 }
 
 type DebugStore struct {
-	TotalContainers  int `json:"totalContainers"`
-	StaleContainers  int `json:"staleContainers"`
-	NodeRecords      int `json:"nodeRecords"`
-	MaxNodes         int `json:"maxNodes"`
-	MaxContainers    int `json:"maxContainers"`
-	MaxResponseBytes int `json:"maxResponseBytes"`
-	Pods             int `json:"pods"`
-	Namespaces       int `json:"namespaces"`
-	HistorySeries    int `json:"historySeries"`
-	HistoryPoints    int `json:"historyPoints"`
+	TotalContainers  int                  `json:"totalContainers"`
+	StaleContainers  int                  `json:"staleContainers"`
+	NodeRecords      int                  `json:"nodeRecords"`
+	MaxNodes         int                  `json:"maxNodes"`
+	MaxContainers    int                  `json:"maxContainers"`
+	MaxResponseBytes int                  `json:"maxResponseBytes"`
+	Pods             int                  `json:"pods"`
+	Namespaces       int                  `json:"namespaces"`
+	HistorySeries    int                  `json:"historySeries"`
+	HistoryPoints    int                  `json:"historyPoints"`
+	Reliability      CollectorReliability `json:"reliability"`
+}
+
+type EvidenceFreshness string
+
+const (
+	EvidenceFreshnessFresh   EvidenceFreshness = "fresh"
+	EvidenceFreshnessStale   EvidenceFreshness = "stale"
+	EvidenceFreshnessMissing EvidenceFreshness = "missing"
+)
+
+type EvidenceCompleteness string
+
+const (
+	EvidenceComplete EvidenceCompleteness = "complete"
+	EvidencePartial  EvidenceCompleteness = "partial"
+)
+
+type CollectorState string
+
+const (
+	CollectorRebuilding  CollectorState = "rebuilding"
+	CollectorReady       CollectorState = "ready"
+	CollectorDegraded    CollectorState = "degraded"
+	CollectorStale       CollectorState = "stale"
+	CollectorUnavailable CollectorState = "unavailable"
+)
+
+type CollectorReliability struct {
+	State              CollectorState       `json:"state"`
+	Generation         string               `json:"generation"`
+	StartedAt          time.Time            `json:"startedAt"`
+	TransitionedAt     time.Time            `json:"transitionedAt"`
+	FirstSnapshotAt    time.Time            `json:"firstSnapshotAt,omitempty"`
+	LastSnapshotAt     time.Time            `json:"lastSnapshotAt,omitempty"`
+	LastReceivedAt     time.Time            `json:"lastReceivedAt,omitempty"`
+	FreshNodes         int                  `json:"freshNodes"`
+	StaleNodes         int                  `json:"staleNodes"`
+	MissingNodes       int                  `json:"missingNodes"`
+	ExpectedNodes      int                  `json:"expectedNodes"`
+	InventoryUpdatedAt time.Time            `json:"inventoryUpdatedAt,omitempty"`
+	Completeness       EvidenceCompleteness `json:"completeness"`
+	SnapshotTTLSeconds int64                `json:"snapshotTTLSeconds"`
+	History            HistoryReliability   `json:"history"`
+}
+
+type HistoryReliability struct {
+	ResetAt       time.Time            `json:"resetAt"`
+	AvailableFrom time.Time            `json:"availableFrom,omitempty"`
+	Completeness  EvidenceCompleteness `json:"completeness"`
+	DroppedSeries uint64               `json:"droppedSeries"`
+	EvictedPoints uint64               `json:"evictedPoints"`
+	LastLossAt    time.Time            `json:"lastLossAt,omitempty"`
 }
 
 type StoreDebug = DebugStore

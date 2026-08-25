@@ -62,9 +62,43 @@ func TestReadHandlerDirectPodAndHistoryStayInRouteNamespace(t *testing.T) {
 	if len(series.Series) != 1 || series.Series[0].Namespace != "team-a" || !series.Series[0].Points[0].CapturedAt.Equal(now) {
 		t.Fatalf("history = %#v", series)
 	}
+	if series.Reliability.ResetAt.IsZero() || series.Reliability.Completeness != api.EvidencePartial {
+		t.Fatalf("history reliability = %#v", series.Reliability)
+	}
 
 	missing := serveRead(t, handler, "/apis/memory.kubememlens.io/v1alpha1/namespaces/team-c/pods/api")
 	assertStatus(t, missing, http.StatusNotFound, metav1.StatusReasonNotFound)
+}
+
+func TestReadHandlerReportsScopedHistoryCapacityLoss(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	store := collector.NewStoreWithHistory(collector.HistoryOptions{Duration: time.Hour, MaxSeries: 1, MaxPoints: 10})
+	teamA := readContainer("team-a", "uid-a", "container-a", now)
+	teamB := readContainer("team-b", "uid-b", "container-b", now.Add(time.Second))
+	_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: now, Containers: []api.ContainerSnapshot{teamA}})
+	_, _ = store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: now.Add(time.Second), Containers: []api.ContainerSnapshot{teamA, teamB}})
+	handler := NewReadHandler(store, collector.DefaultHandlerOptions(time.Minute))
+	handler.now = func() time.Time { return now.Add(time.Second) }
+
+	response := serveRead(t, handler, "/apis/memory.kubememlens.io/v1alpha1/namespaces/team-b/pods/api/history")
+	var history api.PodMemoryHistory
+	decodeRead(t, response, &history)
+	if len(history.Series) != 0 || history.Reliability.DroppedSeries != 1 || history.Reliability.LastLossAt.IsZero() {
+		t.Fatalf("scoped history loss = %#v", history)
+	}
+}
+
+func TestReadHandlerRejectsContinuationFromPreviousCollectorGeneration(t *testing.T) {
+	firstHandler, _ := populatedReadHandler(t)
+	first := serveRead(t, firstHandler, "/apis/memory.kubememlens.io/v1alpha1/containers?limit=1")
+	var page api.ContainerMemoryList
+	decodeRead(t, first, &page)
+	if page.Continue == "" {
+		t.Fatal("expected continuation token")
+	}
+	secondHandler, _ := populatedReadHandler(t)
+	response := serveRead(t, secondHandler, "/apis/memory.kubememlens.io/v1alpha1/containers?continue="+page.Continue)
+	assertStatus(t, response, http.StatusBadRequest, metav1.StatusReasonBadRequest)
 }
 
 func TestReadHandlerScopeBindsContainerContinuation(t *testing.T) {
@@ -100,6 +134,9 @@ func TestReadHandlerClusterResources(t *testing.T) {
 	decodeRead(t, status, &clusterStatus)
 	if clusterStatus.Store.TotalContainers != 2 || clusterStatus.Store.Namespaces != 2 {
 		t.Fatalf("cluster status = %#v", clusterStatus)
+	}
+	if clusterStatus.Store.Reliability.State != api.CollectorReady || clusterStatus.Store.Reliability.Generation == "" {
+		t.Fatalf("cluster reliability = %#v", clusterStatus.Store.Reliability)
 	}
 
 	metrics := serveRead(t, handler, "/apis/memory.kubememlens.io/v1alpha1/metrics/current")
@@ -155,6 +192,7 @@ func populatedReadHandler(t *testing.T) (*ReadHandler, time.Time) {
 	store := collector.NewStore()
 	_, err := store.ReplaceNodeSnapshot(api.AgentSnapshot{
 		NodeName: "node-a", CapturedAt: now,
+		Environment: api.NodeEnvironment{NodeContextAvailable: true, WorkloadContextAvailable: true},
 		Containers: []api.ContainerSnapshot{
 			readContainer("team-a", "uid-a", "container-a", now),
 			readContainer("team-b", "uid-b", "container-b", now),

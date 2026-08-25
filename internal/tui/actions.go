@@ -27,16 +27,18 @@ const (
 )
 
 type actionRequest struct {
-	kind       actionKind
-	ref        entityRef
-	pods       []api.PodSnapshot
-	nodes      []api.NodeSnapshotStatus
-	histories  []api.PodHistory
-	before     *api.PodSnapshot
-	after      *api.PodSnapshot
-	outputPath string
-	overwrite  bool
-	partial    bool
+	kind        actionKind
+	ref         entityRef
+	pods        []api.PodSnapshot
+	nodes       []api.NodeSnapshotStatus
+	histories   []api.PodHistory
+	before      *api.PodSnapshot
+	after       *api.PodSnapshot
+	outputPath  string
+	overwrite   bool
+	partial     bool
+	caveats     []string
+	reliability *api.CollectorReliability
 }
 
 type actionResult struct {
@@ -140,12 +142,13 @@ func captureResult(request actionRequest) (actionResult, error) {
 		ToolVersion:   buildinfo.Current(runtime.Version(), runtime.GOOS, runtime.GOARCH).String(),
 		Redacted:      true,
 		Partial:       request.partial,
+		Reliability:   request.reliability,
 		Pods:          []api.PodSnapshot{pod},
 		Nodes:         captureNodes(pod, request.nodes, request.partial),
 		Histories:     captureHistories(pod, request.histories),
 	}
 	if request.partial {
-		bundle.Caveats = []string{"Cluster node summaries are omitted from a namespace-scoped capture."}
+		bundle.Caveats = append(bundle.Caveats, request.caveats...)
 	}
 	incident.Redact(&bundle)
 	err = incident.Write(io.Discard, absolute, request.overwrite, bundle)

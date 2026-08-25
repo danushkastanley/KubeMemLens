@@ -80,15 +80,19 @@ func (h *ReadHandler) servePods(w http.ResponseWriter, r *http.Request, info *ap
 			writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
 			return
 		}
-		series := h.store.ListPodHistory(info.Namespace, info.Name, "", h.now())
+		now := h.now()
+		series, reliability := h.store.ListPodHistoryWithReliability(info.Namespace, info.Name, "", now)
 		if len(series) == 0 {
-			writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
-			return
+			if _, found := h.store.GetPod(info.Namespace, info.Name, now, h.opts.SnapshotTTL); !found {
+				writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
+				return
+			}
 		}
 		writeBoundedReadJSON(w, api.PodMemoryHistory{
-			TypeMeta:   metav1.TypeMeta{APIVersion: readAPIVersion, Kind: "PodMemoryHistory"},
-			ObjectMeta: metav1.ObjectMeta{Name: info.Name, Namespace: info.Namespace},
-			Series:     series,
+			TypeMeta:    metav1.TypeMeta{APIVersion: readAPIVersion, Kind: "PodMemoryHistory"},
+			ObjectMeta:  metav1.ObjectMeta{Name: info.Name, Namespace: info.Namespace},
+			Series:      series,
+			Reliability: reliability,
 		}, h.opts.MaxResponseBytes)
 		return
 	}
@@ -98,7 +102,7 @@ func (h *ReadHandler) servePods(w http.ResponseWriter, r *http.Request, info *ap
 	}
 	scope := collector.ReadScope{Namespace: info.Namespace}
 	if info.Verb == "list" && info.Name == "" {
-		page, err := h.store.PagePodsScoped(scope, h.now(), h.opts.SnapshotTTL, r.URL.Query(), readScopeKey("pods", scope), h.nestedReadBudget())
+		page, err := h.store.PagePodsScoped(scope, h.now(), h.opts.SnapshotTTL, r.URL.Query(), h.generationScope(readScopeKey("pods", scope)), h.nestedReadBudget())
 		if writeReadPageError(w, err) {
 			return
 		}
@@ -132,7 +136,7 @@ func (h *ReadHandler) serveContainers(w http.ResponseWriter, r *http.Request, in
 		return
 	}
 	scope := collector.ReadScope{Namespace: info.Namespace}
-	page, err := h.store.PageContainersScoped(scope, h.now(), h.opts.SnapshotTTL, r.URL.Query(), readScopeKey("containers", scope))
+	page, err := h.store.PageContainersScoped(scope, h.now(), h.opts.SnapshotTTL, r.URL.Query(), h.generationScope(readScopeKey("containers", scope)))
 	if writeReadPageError(w, err) {
 		return
 	}
@@ -152,7 +156,7 @@ func (h *ReadHandler) serveWorkloads(w http.ResponseWriter, r *http.Request, inf
 		return
 	}
 	scope := collector.ReadScope{Namespace: info.Namespace}
-	page, err := h.store.PageWorkloadsScoped(scope, h.now(), h.opts.SnapshotTTL, r.URL.Query(), readScopeKey("workloads", scope), h.nestedReadBudget())
+	page, err := h.store.PageWorkloadsScoped(scope, h.now(), h.opts.SnapshotTTL, r.URL.Query(), h.generationScope(readScopeKey("workloads", scope)), h.nestedReadBudget())
 	if writeReadPageError(w, err) {
 		return
 	}
@@ -177,7 +181,7 @@ func (h *ReadHandler) serveNodes(w http.ResponseWriter, r *http.Request, info *a
 		for index, node := range nodes {
 			keys[index] = node.NodeName
 		}
-		page, err := collector.PaginateKeys(keys, r.URL.Query(), "nodes:cluster")
+		page, err := collector.PaginateKeys(keys, r.URL.Query(), h.generationScope("nodes:cluster"))
 		if err != nil {
 			writeReadError(w, http.StatusBadRequest, metav1.StatusReasonBadRequest, err.Error())
 			return
@@ -290,6 +294,10 @@ func readScopeKey(resource string, scope collector.ReadScope) string {
 		return resource + ":cluster"
 	}
 	return resource + ":namespace:" + scope.Namespace
+}
+
+func (h *ReadHandler) generationScope(scope string) string {
+	return scope + ":" + h.store.Generation()
 }
 
 func (h *ReadHandler) nestedReadBudget() int {

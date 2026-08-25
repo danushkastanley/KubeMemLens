@@ -100,12 +100,31 @@ func TestCompactHeaderKeepsMeaningfulStateVisible(t *testing.T) {
 	m.loading = true
 	m.paused = true
 	header := strings.Split(m.viewString(), "\n")[0]
-	for _, want := range []string{"state: paused", "last update:"} {
+	for _, want := range []string{"state: ready", "last update:"} {
 		if !strings.Contains(header, want) {
 			t.Fatalf("compact header hid %q: %q", want, header)
 		}
 	}
 	if strings.Contains(header, "refreshing") {
 		t.Fatalf("compact header exposed transient refresh state: %q", header)
+	}
+}
+
+func TestHeaderSeparatesEvidenceAndRefreshState(t *testing.T) {
+	m := loadedFixtureModel(t, 160, 35)
+	m.paused = true
+	header := m.renderHeader(160)
+	for _, want := range []string{"state: ready", "refresh: paused"} {
+		if !strings.Contains(header, want) {
+			t.Fatalf("paused header hid %q: %q", want, header)
+		}
+	}
+
+	m.paused = false
+	header = m.renderHeader(160)
+	for _, want := range []string{"state: ready", "refresh: automatic"} {
+		if !strings.Contains(header, want) {
+			t.Fatalf("automatic header hid %q: %q", want, header)
+		}
 	}
 }

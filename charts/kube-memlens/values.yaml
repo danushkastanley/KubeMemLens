@@ -44,7 +44,7 @@ collector:
   history:
     duration: 15m
     maxSeries: 1000
-    maxPoints: 180
+    maxPoints: 181
     maxResponseSeries: 20
   ingestion:
     extensionPort: 8443
