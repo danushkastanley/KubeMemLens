@@ -99,7 +99,7 @@ send -- "r"
 after 1000
 discard_pending_output
 send -- " "
-require_pattern {live} "refresh resumed after a manual paused refresh"
+require_pattern {state: ready} "refresh resumed after a manual paused refresh"
 
 send -- "R"
 require_pattern {Read-only recommendations} "recommendation action opened"
