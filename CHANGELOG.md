@@ -7,6 +7,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 ### Changed
 
 - Defined one canonical v1 support and release contract covering exact target profiles, evidence owners, multi-tenant security, best-effort availability, bounded history, metadata exposure, unsupported environments and deprecation rules.
+- Accepted a Kubernetes aggregated-API design for authenticated operator reads, tenant-scoped authorisation, node-bound agent writes and replay protection.
+
+### Security
+
+- Expanded the threat model to cover shared-cluster authentication, delegated authorisation, agent token theft, replay, confused-deputy paths, certificate lifecycle and collector compromise.
+- Added an opt-in kind feasibility check for aggregation configuration, Pod-bound identity claims and least-privilege namespace, cluster, agent and metrics RBAC.
 
 ## 0.0.1-alpha.3 - 2026-08-22
 

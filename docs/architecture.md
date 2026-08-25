@@ -51,6 +51,12 @@ agent -> collector store -> /metrics -> Prometheus
 
 ## Future Components
 
+### Authenticated Kubernetes API
+
+The v1 production path replaces the service proxy and direct ingestion listeners with an aggregated Kubernetes API at `memory.kubememlens.io/v1alpha1`. Kubernetes authenticates the existing kubeconfig or Pod-bound ServiceAccount token and applies RBAC. The extension server validates the aggregation proxy and delegates the exact resource request through `SubjectAccessReview` before reading or mutating the store.
+
+Namespace Roles cover Pod, container, workload and history resources. Cluster views, workload-labelled metrics and agent writes use separate least-privilege bindings. Agent writes must match authenticated Pod UID, node name and node UID claims plus the current collector epoch and a strictly increasing sequence. Secure-profile charts disable legacy direct workload routes. See [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md) and the [endpoint policy](security/authentication-and-authorisation.md).
+
 ### CLI / kubectl plugin
 
 The CLI remains the primary interface. Once installed as `kubectl-memlens`, users will be able to run it through kubectl as:
@@ -65,7 +71,7 @@ The Bubble Tea TUI provides node, namespace, top-level workload, Pod, container 
 
 Snapshot views refresh concurrently within one timeout. Selected-Pod history has its own generation-keyed state: only one request is in flight for the selection, late responses are discarded, the last good series survives a refresh error and pause stops automatic updates without disabling manual refresh. Pod detail combines a bounded trend with cgroup limit, PSI/event, Kubernetes context, confidence and safe next commands. Container detail explicitly labels parent-Pod history because container-level history is not retained.
 
-Incident actions call typed internal interfaces rather than spawning the CLI. Recommendations and comparisons are read-only; capture reuses `internal/incident` for redaction, atomic mode-`0600` writes and explicit overwrite confirmation. The TUI reads through the shared client layer, so HTTP and Kubernetes API service-proxy modes retain the same behaviour.
+Incident actions call typed internal interfaces rather than spawning the CLI. Recommendations and comparisons are read-only; capture reuses `internal/incident` for redaction, atomic mode-`0600` writes and explicit overwrite confirmation. The alpha TUI reads through the shared client layer, so HTTP and Kubernetes API service-proxy modes retain the same behaviour. The v1 client will use Kubernetes discovery and the aggregated resources without widening the selected principal's server-authorised scope.
 
 ### Node-local agent
 

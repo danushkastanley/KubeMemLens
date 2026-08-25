@@ -8,6 +8,8 @@ The current alpha reads local cgroup sample files, node cgroup v2 memory files, 
 
 The current alpha is not suitable for shared multi-tenant clusters. NetworkPolicy and Kubernetes service-proxy RBAC limit reachability, but the collector does not authenticate node agents or authorise reads by tenant or namespace. The [support and compatibility contract](compatibility.md#multi-tenant-security-boundary) defines the mandatory v1 boundary and the evidence required before that claim changes.
 
+The accepted v1 design exposes reads and agent writes through a Kubernetes aggregated API, validates the aggregation proxy, delegates exact `SubjectAccessReview` decisions and binds writes to Pod and node identity. It is documented in [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md), the [authentication and authorisation architecture](security/authentication-and-authorisation.md) and the [threat model](security/KubeMemLens-threat-model.md). This design is not implemented in the alpha.
+
 ## Host Access
 
 DaemonSet mode uses a read-only hostPath mount for `/sys/fs/cgroup`. This path is sensitive because it exposes node-level cgroup and container metadata. The chart keeps the root filesystem read-only by default and does not mount host `/proc`.

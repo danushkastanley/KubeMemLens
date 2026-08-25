@@ -69,6 +69,8 @@ Before v1 can claim shared-cluster support:
 
 TUI filters, namespace selection, Kubernetes service-proxy permission and NetworkPolicy reachability are not substitutes for application authorisation.
 
+The accepted but not yet implemented boundary is defined in the [authentication and authorisation architecture](security/authentication-and-authorisation.md) and [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md).
+
 ## Availability and history
 
 The v1 collector contract is best effort:
