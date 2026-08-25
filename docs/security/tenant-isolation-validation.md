@@ -10,6 +10,11 @@ TENANT_READ_CONTEXT=kind-<name> \
 TENANT_READ_NAMESPACE=kube-memlens \
 TENANT_READ_CLI=<absolute-path-to-kubectl-memlens> \
 ISOLATION_ACKNOWLEDGE=remove-and-restore-kube-memlens-security-controls \
+ISOLATION_EXPECTED_COMMIT=<full-source-commit> \
+ISOLATION_EXPECTED_IMAGE_REFERENCE=<installed-image-reference> \
+ISOLATION_EXPECTED_RUNTIME_IMAGE_ID=<resolved-Pod-image-ID> \
+ISOLATION_EXPECTED_LOCAL_IMAGE_ID=<local-OCI-image-ID> \
+ISOLATION_EXPECTED_CHART_SOURCE_SHA256=<tracked-chart-tree-hash> \
 make verify-tenant-isolation-kind
 ```
 
@@ -26,14 +31,23 @@ The acknowledgement permits the suite to remove and restore only the Helm-owned 
 | ISO-LIVE-005 | TM-015 | An agent repeats a sequence, changes a repeated payload, lowers the sequence and sends a mismatched epoch. | Exact duplicates are idempotent. Conflicting, lower and wrong-epoch requests are rejected without store mutation. |
 | ISO-LIVE-006 | TM-016 | The suite removes the collector's delegated-authorisation binding during an otherwise valid read. | The read returns no diagnostic data. Restoring the exact binding restores normal access. No direct fallback appears. |
 | ISO-LIVE-007 | TM-017 | The suite scans status bodies, captures, metrics, collector logs, agent logs and retained evidence for synthetic secrets and runtime identifiers. | No token, certificate, raw identity, Pod UID, container ID, cgroup path, label sentinel or data outside the principal's authorised scope appears. |
-| ISO-LIVE-008 | TM-018 | The collector ServiceAccount attempts to read Pods, Nodes, Secrets and workloads or mint credentials. | Kubernetes denies every operation outside the documented request-header ConfigMap read and SubjectAccessReview create permissions. |
+| ISO-LIVE-008 | TM-018 | The collector ServiceAccount attempts to read Pods, Nodes, Secrets, KubeMemLens tenant resources and metrics. | Kubernetes denies those reads while retaining the documented request-header ConfigMap read and SubjectAccessReview create permissions. |
 | ISO-LIVE-009 | TM-019 | A tenant changes namespace, object name, selector and continuation scope across read routes. | Route-derived SubjectAccessReview attributes remain exact. Cross-scope tokens and selectors return no foreign data. |
 | ISO-LIVE-010 | TM-020 | Install, certificate reuse or rotation, rollback and uninstall exercise the bootstrap resources. | Trust is not widened, temporary RBAC is removed and the APIService uses the expected CA bundle. |
 | ISO-LIVE-011 | TM-021 | A tenant requests metrics, calls Pod-local `/metrics` and tries a Service proxy path. A metrics-only principal requests the aggregated metrics resource. | Tenant and direct routes return no workload metrics. The metrics-only principal can read only the aggregated metrics resource. |
 | ISO-LIVE-012 | TM-012, TM-017 | Existing and missing out-of-scope Pod and history requests run in an interleaved timing sample. | Status, reason and normalised response hash match. Median and p95 deltas stay within the predeclared materiality budget. |
-| ISO-LIVE-013 | TM-016, TM-017 | Thirty-two concurrent authorised reads and malformed bounded requests target the API. | Results are bounded success or admission rejection, every request completes within the server timeout, the collector does not restart and a normal read recovers within two seconds. |
+| ISO-LIVE-013 | TM-016, TM-017 | Thirty-two concurrent authorised reads target the API. Separate unit and ingestion suites send malformed, oversized and rate-limited requests. | Results are bounded success or admission rejection, every request completes within the server timeout, the collector does not restart and a normal read recovers within two seconds. Malformed and oversized inputs fail closed. |
 
 The content test replaces only the caller-supplied object name before hashing. It requires the same HTTP status, Kubernetes reason, content type and normalised hash. For 30 interleaved samples per target, the median delta must not exceed 50 ms, the p95 delta must not exceed 250 ms and no request may exceed two seconds. These thresholds detect a material existence oracle without turning scheduler noise into a flaky gate.
+
+## Evidence sources
+
+- `make verify-tenant-isolation-kind` owns ISO-LIVE-001 to ISO-LIVE-003, ISO-LIVE-006 to ISO-LIVE-008, ISO-LIVE-011, ISO-LIVE-012 and the concurrent-read part of ISO-LIVE-013.
+- `make verify-authenticated-ingestion-kind` owns ISO-LIVE-004, ISO-LIVE-005 and the forged, replayed, rate-limited, compressed and oversized write cases.
+- Go tests own exact route-to-SubjectAccessReview parity, cross-scope continuation rejection, malformed read bounds, authoriser deny/no-opinion/error behaviour and zero store work on failure.
+- The complete `hack/e2e-kind.sh` lifecycle owns ISO-LIVE-010. CI runs all four evidence sources on the extended Kubernetes 1.36 job; install, upgrade and rollback keep the tenant-read contract active.
+
+The E2E runner calculates and supplies the build-identity values shown above. A manual run must do the same. The verifier rejects a dirty repository, a source-commit mismatch, a different image reference or runtime image ID, a binary without the embedded full commit, or a different tracked chart-source hash.
 
 ## Direct listener contract
 
@@ -75,14 +89,15 @@ The finding register is [PROD-005 findings](reviews/PROD-005-findings.md). Incid
 
 ## Reference result
 
-On 26 August 2026, the suite passed on kind Kubernetes `v1.35.5` at harness commit `41a6ca5`. The tested image digest was `sha256:0de9c86466a024a7397e711e646623d4d8a69d762aa882503f2eab12d7496322`.
+On 26 August 2026, the standalone isolation suite passed on kind Kubernetes `v1.35.5` at source and harness commit `afe018a`. The local OCI image ID was `sha256:0d91b897cb8dc08c5bdd6da0afbf5590f0ac76d12d0be04952d9a3a9544561fe`; both running binaries reported the same embedded commit.
 
 - Direct forged Service and Pod-IP requests returned `401`; the unbound snapshot write returned `403`.
 - The health listener returned `200`; legacy read, write and metrics paths returned `404`; port `8081` had no listener.
 - NetworkPolicy removal did not change any authentication result. Exact restoration matched spec hash `bb7fef59935af729426a793cde04c247fbed69061d2ad12dc6b072f87a2be3d3`.
 - Delegated-authoriser removal returned `500` without data and recovered after restoration.
-- Sixty existing/missing denial requests had one normalised body hash. Existing p95 was `8.699 ms`, missing p95 was `12.554 ms`, and maximum latency was `13.519 ms`.
-- Of 32 concurrent reads, 26 succeeded and six received bounded admission responses. Maximum latency was `15.483 ms`; recovery took `4.332 ms`.
-- Collector working set remained `32,268,288` bytes with zero restarts.
+- Sixty existing/missing Pod denials had one normalised body hash. Existing p95 was `8.604 ms`, missing p95 was `8.794 ms`, and maximum latency was `9.777 ms`.
+- Sixty existing/missing history denials had one normalised body hash. Existing p95 was `8.355 ms`, missing p95 was `9.881 ms`, and maximum latency was `10.895 ms`.
+- Of 32 concurrent reads, 29 succeeded and three received bounded admission responses. Maximum latency was `11.540 ms`; recovery took `3.980 ms`.
+- Collector working set remained `21,700,608` bytes with zero restarts.
 
-The retained JSON contains only these sanitised classes, hashes, timings and counts. The cleanup check confirmed that both Helm-owned controls were restored and both fixture namespaces were absent.
+The evidence also records runtime image ID `sha256:aea778a77bf1b990bd59e4699359a03bdec39e936b5fd174ddc00da0f1ce4f45`, tracked chart-source hash `8056db731bdd96978345538a65a4e93220e2fd330b5af5345efea1d963927147`, installed-manifest hash `87d1e32b57debd683756d9da894e14089678be3eb1773bf9751ecbfc26848666` and Helm revision 24. The retained JSON contains only sanitised classes, hashes, timings and counts. Cleanup confirmed that both Helm-owned controls were restored and both fixture namespaces were absent.
