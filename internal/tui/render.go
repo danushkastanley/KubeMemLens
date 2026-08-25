@@ -91,17 +91,7 @@ func (m appModel) renderContent(plan layoutPlan) string {
 func (m appModel) renderHeader(width int) string {
 	parts := []string{
 		"KubeMemLens",
-		"view: " + m.view.String(),
 		"sort: " + m.sort.String(),
-	}
-	if ns, all := m.activeNamespace(); !all && ns != "" {
-		parts = append(parts, "namespace: "+ns)
-	}
-	if m.currentWorkloadName != "" {
-		parts = append(parts, "workload: "+m.currentWorkloadKind+"/"+m.currentWorkloadName)
-	}
-	if m.currentNode != "" {
-		parts = append(parts, "node: "+m.currentNode)
 	}
 	states := make([]string, 0, 1)
 	if m.statusErr != nil {
@@ -118,16 +108,6 @@ func (m appModel) renderHeader(width int) string {
 		}
 	}
 	parts = append(parts, "state: "+strings.Join(states, "/"))
-	if m.query != "" || m.searching {
-		parts = append(parts, "filter: "+m.query)
-	}
-	if m.paused || m.statusErr != nil {
-		lastUpdate := "never"
-		if !m.lastRefresh.IsZero() {
-			lastUpdate = FormatAge(m.lastRefresh) + " ago"
-		}
-		parts = append(parts, "last update: "+lastUpdate)
-	}
 	if m.statusErr != nil {
 		status := "connection error"
 		if client.IsForbidden(m.statusErr) {
@@ -140,6 +120,26 @@ func (m appModel) renderHeader(width int) string {
 		refreshState = "paused"
 	}
 	parts = append(parts, "refresh: "+refreshState)
+	if m.paused || m.statusErr != nil {
+		lastUpdate := "never"
+		if !m.lastRefresh.IsZero() {
+			lastUpdate = FormatAge(m.lastRefresh) + " ago"
+		}
+		parts = append(parts, "last update: "+lastUpdate)
+	}
+	parts = append(parts, "view: "+m.view.String())
+	if ns, all := m.activeNamespace(); !all && ns != "" {
+		parts = append(parts, "namespace: "+ns)
+	}
+	if m.currentWorkloadName != "" {
+		parts = append(parts, "workload: "+m.currentWorkloadKind+"/"+m.currentWorkloadName)
+	}
+	if m.currentNode != "" {
+		parts = append(parts, "node: "+m.currentNode)
+	}
+	if m.query != "" || m.searching {
+		parts = append(parts, "filter: "+m.query)
+	}
 	if m.layout().splitDetail {
 		focus := "table"
 		if m.focus == focusDetail {

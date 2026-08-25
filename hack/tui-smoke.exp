@@ -13,6 +13,7 @@ set collector_namespace [lindex $argv 3]
 set columns [lindex $argv 4]
 set rows [lindex $argv 5]
 set mode [lindex $argv 6]
+set redraw_columns [expr {$columns + 1}]
 set send_slow {1 0.01}
 
 proc require_pattern {pattern description} {
@@ -93,13 +94,19 @@ send -- "\033"
 after 300
 
 send -- " "
-require_pattern {paused} "refresh paused"
+after 100
+stty columns $redraw_columns rows $rows < $child_tty
+require_pattern {refresh: paused} "refresh paused"
+stty columns $columns rows $rows < $child_tty
 after 2200
 send -- "r"
 after 1000
 discard_pending_output
 send -- " "
-require_pattern {automatic} "refresh resumed after a manual paused refresh"
+after 100
+stty columns $redraw_columns rows $rows < $child_tty
+require_pattern {refresh: automatic} "refresh resumed after a manual paused refresh"
+stty columns $columns rows $rows < $child_tty
 
 send -- "R"
 require_pattern {Read-only recommendations} "recommendation action opened"
