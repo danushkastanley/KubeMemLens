@@ -26,18 +26,18 @@ The milestone labels below describe capability sequencing. They are not publishe
 
 ## v0.4: Kubectl-Native Collector Connectivity
 
-- Add direct HTTP and Kubernetes API service proxy connection modes.
-- Use kube-proxy mode by default when no collector URL is provided.
+- Use the tenant-scoped Kubernetes aggregated API by default.
+- Retain direct HTTP and Service-proxy clients only for explicit legacy development mode.
 - Add collector discovery flags for namespace, service, port, kubeconfig, and context.
 - Add `status` for collector health and latest snapshot counts.
-- Keep manual port-forward HTTP mode as a reliable fallback.
+- Fail closed without a direct HTTP fallback when the authenticated API is unavailable.
 
 ## v0.5: Prometheus/OpenMetrics Export
 
-- Expose recent memory bucket metrics at `/metrics`.
+- Expose recent memory bucket metrics through a separately authorised aggregated resource.
 - Keep labels controlled to avoid cardinality surprises.
 - Add cardinality guardrails for pod and container metrics.
-- Add optional ServiceMonitor support without requiring the CRD by default.
+- Retain direct ServiceMonitor support only for explicit legacy mode until an authenticated scraper is configured.
 - Document metric names, labels, Helm values, and PromQL examples.
 
 ## v0.6: Cgroup Mapping Hardening And Informer Cache

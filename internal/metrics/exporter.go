@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -8,6 +9,8 @@ import (
 )
 
 const ContentType = "application/openmetrics-text; version=1.0.0; charset=utf-8"
+
+var ErrOutputTooLarge = errors.New("metrics output exceeds the configured maximum")
 
 type Source interface {
 	ListContainers(now time.Time, ttl time.Duration) []api.ContainerSnapshot
@@ -18,10 +21,11 @@ type Source interface {
 }
 
 type Exporter struct {
-	Source Source
-	TTL    time.Duration
-	Now    func() time.Time
-	Opts   Options
+	Source   Source
+	TTL      time.Duration
+	Now      func() time.Time
+	Opts     Options
+	MaxBytes int
 }
 
 func (e Exporter) Render() (string, error) {
@@ -37,7 +41,7 @@ func (e Exporter) Render() (string, error) {
 		opts = DefaultOptions()
 	}
 
-	renderer := newRenderer()
+	renderer := newRenderer(e.MaxBytes)
 	renderer.render(e.Source, now, e.TTL, opts)
-	return renderer.String(), nil
+	return renderer.String()
 }

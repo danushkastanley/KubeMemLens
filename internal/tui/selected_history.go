@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/client"
 )
 
 type selectedHistory struct {
@@ -55,6 +56,9 @@ func (state *selectedHistory) complete(message historyMsg, now time.Time) bool {
 	if message.err == nil {
 		state.series = message.series
 		state.updatedAt = now
+	} else if client.IsForbidden(message.err) {
+		state.series = nil
+		state.updatedAt = time.Time{}
 	}
 	return true
 }

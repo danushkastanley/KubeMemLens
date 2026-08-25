@@ -18,11 +18,17 @@ const (
 	defaultContainerPageSize = 500
 	maxContainerPageSize     = 500
 	continueTokenBytes       = 67
+	scopedContinueTokenBytes = 84
 )
 
 type keyedContainer struct {
 	key  string
 	item api.ContainerSnapshot
+}
+
+type PageSelection struct {
+	Indexes  []int
+	Continue string
 }
 
 func writeContainerPage(w http.ResponseWriter, r *http.Request, store *Store, opts HandlerOptions) {
@@ -109,4 +115,83 @@ func pageContainerItems(items []keyedContainer) []api.ContainerSnapshot {
 		page[index] = items[index].item
 	}
 	return page
+}
+
+// PaginateContainers returns one deterministic page and binds its continuation
+// token to the already-authorised resource scope. A token from a namespace or
+// cluster view cannot be replayed against another view.
+func PaginateContainers(items []api.ContainerSnapshot, query url.Values, scope string) (api.ContainerPage, error) {
+	keys := make([]string, len(items))
+	for index, item := range items {
+		keys[index] = strings.Join([]string{item.Namespace, item.PodUID, item.PodName, item.ContainerName, item.ContainerID, item.NodeName}, "\x00")
+	}
+	selection, err := PaginateKeys(keys, query, scope)
+	if err != nil {
+		return api.ContainerPage{}, err
+	}
+	page := api.ContainerPage{Items: make([]api.ContainerSnapshot, len(selection.Indexes)), Continue: selection.Continue}
+	for offset, index := range selection.Indexes {
+		page.Items[offset] = items[index]
+	}
+	return page, nil
+}
+
+// PaginateKeys selects at most 500 stable item identities. The returned indexes
+// are ordered by an opaque digest, so continuation tokens reveal neither names
+// nor namespaces and remain bound to the caller's authorised resource scope.
+func PaginateKeys(keys []string, query url.Values, scope string) (PageSelection, error) {
+	limit, err := pageLimit(query)
+	if err != nil {
+		return PageSelection{}, err
+	}
+	after, err := decodeScopedContainerCursor(query.Get("continue"), scope)
+	if err != nil {
+		return PageSelection{}, err
+	}
+	type keyedIndex struct {
+		key   string
+		index int
+	}
+	keyed := make([]keyedIndex, len(keys))
+	for index, identity := range keys {
+		digest := sha256.Sum256([]byte(identity))
+		keyed[index] = keyedIndex{key: hex.EncodeToString(digest[:]), index: index}
+	}
+	sort.Slice(keyed, func(i, j int) bool { return keyed[i].key < keyed[j].key })
+	start := sort.Search(len(keyed), func(index int) bool { return keyed[index].key > after })
+	end := min(start+limit, len(keyed))
+	selection := PageSelection{Indexes: make([]int, end-start)}
+	for offset, item := range keyed[start:end] {
+		selection.Indexes[offset] = item.index
+	}
+	if end < len(keyed) && end > start {
+		selection.Continue = encodeScopedContainerCursor(scope, keyed[end-1].key)
+	}
+	return selection, nil
+}
+
+func encodeScopedContainerCursor(scope, key string) string {
+	digest := sha256.Sum256([]byte(scope))
+	return "v2." + hex.EncodeToString(digest[:8]) + "." + key
+}
+
+func decodeScopedContainerCursor(token, scope string) (string, error) {
+	if token == "" {
+		return "", nil
+	}
+	if len(token) != scopedContinueTokenBytes || !strings.HasPrefix(token, "v2.") {
+		return "", fmt.Errorf("continue token is invalid")
+	}
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 || parts[1] == "" || parts[2] == "" {
+		return "", fmt.Errorf("continue token is invalid")
+	}
+	digest := sha256.Sum256([]byte(scope))
+	if parts[1] != hex.EncodeToString(digest[:8]) {
+		return "", fmt.Errorf("continue token is invalid")
+	}
+	if _, err := hex.DecodeString(parts[2]); err != nil || len(parts[2]) != sha256.Size*2 {
+		return "", fmt.Errorf("continue token is invalid")
+	}
+	return parts[2], nil
 }

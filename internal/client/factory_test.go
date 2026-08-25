@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestNewSnapshotReaderSelectsHTTPWhenCollectorURLIsPresent(t *testing.T) {
+func TestNewSnapshotReaderAutoPreservesExplicitCollectorURL(t *testing.T) {
 	reader, description, err := NewSnapshotReader(context.Background(), Options{
 		Mode:         ConnectionModeAuto,
 		CollectorURL: "http://127.0.0.1:18080",
@@ -23,11 +23,44 @@ func TestNewSnapshotReaderSelectsHTTPWhenCollectorURLIsPresent(t *testing.T) {
 	}
 }
 
-func TestNewSnapshotReaderSelectsKubeProxyWithoutCollectorURL(t *testing.T) {
+func TestNewSnapshotReaderAutoUsesAggregatedAPIWithoutCollectorURL(t *testing.T) {
+	kubeconfig := writeTestKubeconfig(t)
+	reader, description, err := NewSnapshotReader(context.Background(), Options{
+		Mode:       ConnectionModeAuto,
+		Kubeconfig: kubeconfig,
+	})
+	if err != nil {
+		t.Fatalf("NewSnapshotReader returned error: %v", err)
+	}
+	if _, ok := reader.(*KubernetesAPIClient); !ok {
+		t.Fatalf("reader = %T, want *KubernetesAPIClient", reader)
+	}
+	if description != "Kubernetes API memory.kubememlens.io/v1alpha1" {
+		t.Fatalf("description = %q", description)
+	}
+}
+
+func TestNewSnapshotReaderPreservesExplicitHTTPMode(t *testing.T) {
+	reader, description, err := NewSnapshotReader(context.Background(), Options{
+		Mode:         ConnectionModeHTTP,
+		CollectorURL: "http://127.0.0.1:18080",
+	})
+	if err != nil {
+		t.Fatalf("NewSnapshotReader returned error: %v", err)
+	}
+	if _, ok := reader.(*CollectorClient); !ok {
+		t.Fatalf("reader = %T, want *CollectorClient", reader)
+	}
+	if description != "http://127.0.0.1:18080" {
+		t.Fatalf("description = %q", description)
+	}
+}
+
+func TestNewSnapshotReaderPreservesExplicitKubeProxyMode(t *testing.T) {
 	kubeconfig := writeTestKubeconfig(t)
 
 	reader, description, err := NewSnapshotReader(context.Background(), Options{
-		Mode:               ConnectionModeAuto,
+		Mode:               ConnectionModeKubeProxy,
 		CollectorNamespace: "kube-memlens",
 		CollectorService:   "kube-memlens-collector",
 		CollectorPort:      8080,

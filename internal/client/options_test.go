@@ -1,6 +1,8 @@
 package client
 
 import (
+	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -29,8 +31,31 @@ func TestDefaultOptionsFromEnv(t *testing.T) {
 	}
 }
 
+func TestConnectionErrorPreservesReadFailureKinds(t *testing.T) {
+	opts := Options{Mode: ConnectionModeKubernetesAPI}
+	for _, test := range []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "forbidden", err: &ReadError{Kind: ReadErrorForbidden}, want: "do not have permission"},
+		{name: "not found", err: &ReadError{Kind: ReadErrorNotFound}, want: "not found in the authorised scope"},
+		{name: "unavailable", err: &ReadError{Kind: ReadErrorUnavailable, Cause: errors.New("tenant-secret")}, want: "kubectl get apiservice"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			err := ConnectionError(opts, "", test.err)
+			if !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %q, want %q", err, test.want)
+			}
+			if strings.Contains(err.Error(), "tenant-secret") {
+				t.Fatalf("error exposed wrapped cause: %v", err)
+			}
+		})
+	}
+}
+
 func TestParseConnectionMode(t *testing.T) {
-	for _, value := range []string{"", "auto", "http", "kube-proxy"} {
+	for _, value := range []string{"", "auto", "kubernetes-api", "http", "kube-proxy"} {
 		if _, err := ParseConnectionMode(value); err != nil {
 			t.Fatalf("ParseConnectionMode(%q) returned error: %v", value, err)
 		}
@@ -53,7 +78,7 @@ func TestResolveMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveMode returned error: %v", err)
 	}
-	if mode != ConnectionModeKubeProxy {
-		t.Fatalf("mode = %s, want kube-proxy", mode)
+	if mode != ConnectionModeKubernetesAPI {
+		t.Fatalf("mode = %s, want kubernetes-api", mode)
 	}
 }

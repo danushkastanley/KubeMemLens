@@ -24,6 +24,7 @@ type KubeProxyCollectorClient struct {
 
 	restClient rest.Interface
 	timeout    time.Duration
+	scope      ReadScope
 
 	mu                 sync.RWMutex
 	workingServiceName string
@@ -51,6 +52,7 @@ func NewKubeProxyCollectorClient(config *rest.Config, namespace string, service 
 		Port:       port,
 		restClient: kubeClient.CoreV1().RESTClient(),
 		timeout:    timeout,
+		scope:      AllNamespacesScope(),
 	}, nil
 }
 
@@ -82,6 +84,22 @@ func (c *KubeProxyCollectorClient) Pods(ctx context.Context) ([]api.PodSnapshot,
 	return snapshot.Pods, nil
 }
 
+func (c *KubeProxyCollectorClient) Pod(ctx context.Context, namespace, podName string) (api.PodSnapshot, error) {
+	if !c.scope.allowsNamespace(namespace) {
+		return api.PodSnapshot{}, &ReadError{Kind: ReadErrorForbidden, Operation: "get Pod"}
+	}
+	pods, err := c.Pods(ctx)
+	if err != nil {
+		return api.PodSnapshot{}, err
+	}
+	for _, pod := range pods {
+		if pod.Namespace == namespace && pod.PodName == podName {
+			return pod, nil
+		}
+	}
+	return api.PodSnapshot{}, &ReadError{Kind: ReadErrorNotFound, Operation: "get Pod"}
+}
+
 func (c *KubeProxyCollectorClient) Namespaces(ctx context.Context) ([]api.NamespaceSnapshot, error) {
 	snapshot, err := c.CurrentSnapshot(ctx)
 	if err != nil {
@@ -107,10 +125,13 @@ func (c *KubeProxyCollectorClient) Workloads(ctx context.Context) ([]api.Workloa
 }
 
 func (c *KubeProxyCollectorClient) CurrentSnapshot(ctx context.Context) (CurrentSnapshot, error) {
-	return loadCurrentSnapshot(ctx, c.getJSON)
+	return loadCurrentSnapshotForScope(ctx, c.getJSON, c.scope)
 }
 
 func (c *KubeProxyCollectorClient) PodHistory(ctx context.Context, namespace, podName string) ([]api.PodHistory, error) {
+	if !c.scope.allowsNamespace(namespace) {
+		return nil, &ReadError{Kind: ReadErrorForbidden, Operation: "get Pod history"}
+	}
 	var out []api.PodHistory
 	path := "/api/v1/history/pods/" + url.PathEscape(namespace) + "/" + url.PathEscape(podName)
 	if err := c.getJSON(ctx, path, &out); err != nil {

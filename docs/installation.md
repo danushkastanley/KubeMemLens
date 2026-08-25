@@ -2,13 +2,13 @@
 
 KubeMemLens is in alpha and has no supported production release. Alpha artefacts are for evaluation on disposable or explicitly authorised clusters. Use exact versions and review the [support and compatibility contract](compatibility.md) and release assets before installation.
 
-Do not install the current alpha as a shared multi-tenant service. NetworkPolicy and Kubernetes service-proxy RBAC restrict reachability, but the collector does not yet authenticate agents or authorise reads by tenant or namespace.
+Do not claim shared multi-tenant support for the current alpha until the separate adversarial isolation gate passes. The chart routes agent writes and operator reads through the authenticated Kubernetes aggregated API and denies direct workload reads in its secure profile.
 
 ## Requirements
 
 - A Linux Kubernetes node using cgroup v2 for deep agent mode.
 - Kubernetes RBAC permission to install the chart.
-- `get` on `services` and `services/proxy` in the KubeMemLens namespace for CLI service-proxy mode.
+- A namespace viewer RoleBinding in every namespace the operator may inspect, or an explicit cluster-viewer binding.
 - A NetworkPolicy-capable CNI to enforce the default ingestion restriction.
 
 The agent is not required for local sample commands.
@@ -80,7 +80,28 @@ kubectl memlens top pods -A
 kubectl memlens history pod <pod-name> -n <namespace>
 ```
 
-The collector read port is `8080`; authenticated agent ingestion enters through the Kubernetes API server and TLS Service port `443`; agent operational metrics use `8082` by default. The default Service does not expose the legacy plaintext ingestion port `8081`.
+`status`, strict `doctor` and `-A` examples require the explicit cluster-viewer binding. A namespace viewer should verify with `kubectl memlens top pods -n <tenant-namespace>` and a Pod/history action in that same namespace.
+
+Authenticated reads and agent ingestion enter through the Kubernetes API server and TLS Service port `443`; agent operational metrics use `8082` by default. The collector Pod keeps port `8080` for health probes only. The default Service exposes neither port `8080` nor the legacy plaintext ingestion port `8081`.
+
+The chart creates unbound namespace-viewer, cluster-viewer and metrics-reader ClusterRoles. It never chooses principals on the administrator's behalf. To grant one user access to one namespace:
+
+```sh
+kubectl create rolebinding kube-memlens-namespace-viewer \
+  --namespace <tenant-namespace> \
+  --clusterrole kube-memlens-namespace-viewer \
+  --user <authenticated-kubernetes-username>
+```
+
+Grant cluster-wide reads only after explicit review:
+
+```sh
+kubectl create clusterrolebinding kube-memlens-cluster-viewer \
+  --clusterrole kube-memlens-cluster-viewer \
+  --user <approved-cluster-operator>
+```
+
+Workload-labelled metrics require a separate binding to `kube-memlens-metrics-reader`. See the [tenant-scoped read runbook](runbooks/tenant-scoped-reads.md) for policy checks, revocation and verification.
 
 ## Upgrade
 
@@ -97,7 +118,7 @@ The collector read port is `8080`; authenticated agent ingestion enters through 
 
 The collector is single-replica and in-memory. Restarting or upgrading it discards its latest snapshots, bounded history, and event-delta baselines; agents repopulate current state on their next interval. It is not highly available and has no persisted user data or CRD migration. The [support contract](compatibility.md#availability-and-history) defines the v1 availability and history boundary.
 
-Current state defaults to at most 5,000 node records and 100,000 container snapshots, with a 16 MiB encoded JSON response ceiling. History defaults to 15 minutes, at most 180 points per Pod instance, 1,000 series in total, and 20 returned instances for one Pod lookup. Tune `collector.store`, `collector.maxResponseBytes`, and `collector.history` only from measured cluster density and within the collector Pod's memory limit. Capacity breaches fail explicitly; they do not silently evict current nodes or truncate API results.
+Current state defaults to at most 5,000 node records and 100,000 container snapshots, with 500 items per keyset page, a 16 MiB encoded JSON response ceiling and four admitted authenticated reads. Pod and workload pages build only selected identities and reserve half of the response ceiling for nested container evidence; aggregate construction is serialised. History defaults to 15 minutes, at most 180 points per Pod instance, 1,000 series in total and 20 returned instances for one Pod lookup. Tune `collector.store`, `collector.read`, `collector.maxResponseBytes` and `collector.history` only from measured cluster density and within the collector Pod's memory limit. Capacity breaches fail explicitly; they do not silently evict current nodes or truncate API results.
 
 Rollback uses the normal Helm revision path:
 
@@ -119,4 +140,4 @@ kubectl get all -n kube-memlens
 kubectl delete namespace kube-memlens
 ```
 
-The chart installs no CRDs or persistent volumes. Uninstall removes the workloads, Services, ServiceAccounts, RBAC binding, and NetworkPolicy managed by the release. The cluster-scoped agent ClusterRole and ClusterRoleBinding should be removed by Helm; verify them if an uninstall was interrupted.
+The chart installs no CRDs or persistent volumes. Uninstall removes the workloads, Services, ServiceAccounts, RBAC objects and NetworkPolicy managed by the release. RoleBindings or ClusterRoleBindings created separately by an administrator are not Helm-owned; remove them before uninstall. Verify that the agent, namespace-viewer, cluster-viewer and metrics-reader ClusterRoles are absent if an uninstall was interrupted.

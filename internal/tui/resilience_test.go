@@ -4,6 +4,9 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/client"
 )
 
 func TestConnectionFailureRetainsLastGoodFrameAndRecoveryClearsError(t *testing.T) {
@@ -25,6 +28,20 @@ func TestConnectionFailureRetainsLastGoodFrameAndRecoveryClearsError(t *testing.
 	m = updated.(appModel)
 	if m.statusErr != nil || !strings.Contains(m.viewString(), "api-0") {
 		t.Fatalf("recovery state err=%v frame:\n%s", m.statusErr, m.viewString())
+	}
+}
+
+func TestForbiddenRefreshClearsPreviouslyAuthorisedData(t *testing.T) {
+	m := loadedFixtureModel(t, 120, 30)
+	m.selectedHistory.selectPod("default", "api-0")
+	m.selectedHistory.series = []api.PodHistory{{Namespace: "default", PodName: "api-0"}}
+	pod := m.data.Pods[0]
+	m.action.compareSource = &pod
+
+	updated, _ := m.Update(fetchMsg{err: &client.ReadError{Kind: client.ReadErrorForbidden}})
+	m = updated.(appModel)
+	if len(m.data.Pods) != 0 || len(m.data.Containers) != 0 || len(m.selectedHistory.series) != 0 || m.action.compareSource != nil {
+		t.Fatalf("forbidden refresh retained authorised state: data=%#v history=%#v action=%#v", m.data, m.selectedHistory, m.action)
 	}
 }
 

@@ -64,7 +64,10 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				return nil
 			}
 
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), namespace, false)
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)

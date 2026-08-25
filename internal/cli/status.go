@@ -47,7 +47,11 @@ func newStatusCommand(collectorOptions collectorOptionsProvider) *cobra.Command 
 			if output != "text" && output != "json" {
 				return fmt.Errorf("invalid output %q, want text or json", output)
 			}
-			report, err := buildStatusReport(cmd.Context(), collectorOptions())
+			opts, err := withReadScope(collectorOptions(), "", true)
+			if err != nil {
+				return err
+			}
+			report, err := buildStatusReport(cmd.Context(), opts)
 			if output == "json" {
 				encoded, marshalErr := json.MarshalIndent(report, "", "  ")
 				if marshalErr != nil {
@@ -109,6 +113,10 @@ func buildStatusReport(ctx context.Context, opts client.Options) (statusReport, 
 		Endpoint: "/metrics",
 		Enabled:  "unknown",
 		Hint:     "scrape collector service port 8080 path /metrics",
+	}
+	if mode == client.ConnectionModeKubernetesAPI {
+		report.Metrics.Endpoint = "/apis/memory.kubememlens.io/v1alpha1/metrics/current"
+		report.Metrics.Hint = "read the separately authorised metrics resource through the Kubernetes API"
 	}
 	report.Data.Status = "ok"
 	return report, nil

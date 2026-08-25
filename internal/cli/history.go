@@ -24,7 +24,10 @@ func newHistoryCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			if since < 0 || since > 24*time.Hour {
 				return fmt.Errorf("--since must be between 0 and 24h")
 			}
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), namespace, false)
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)

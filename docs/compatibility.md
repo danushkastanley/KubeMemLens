@@ -25,7 +25,7 @@ KubeMemLens is currently alpha software. The published alpha is for evaluation o
 | AKS node pools | Ubuntu with containerd on amd64 Linux node pools. Azure Linux is not claimed unless a separate passing row is added before the release decision. | No reviewed provider record. | PROD-008 | Qualification required |
 | Self-managed containerd | Linux cgroup v2 on amd64 or arm64 with containerd and the documented mount, scheduling and NetworkPolicy prerequisites. The exact distribution, kernel and runtime are frozen by qualification. | containerd 2.x on local kind. | PROD-008 | Qualification required |
 | Self-managed CRI-O | One real amd64 Linux cgroup v2 CRI-O distribution. Recognising a CRI-O cgroup path in a fixture is not qualification. | Synthetic fixtures only. | PROD-008 | Qualification required |
-| Shared multi-tenant clusters | Supported only when authenticated agent writes, tenant-scoped reads and adversarial isolation tests pass. | Authenticated, node-bound writes are implemented on `main`; tenant reads and adversarial isolation remain pending. The published alpha does not have this boundary. | PROD-002 to PROD-005 | Qualification required |
+| Shared multi-tenant clusters | Supported only when authenticated agent writes, tenant-scoped reads and adversarial isolation tests pass. | Authenticated node-bound writes and tenant-scoped reads are implemented on `main`; PROD-005 adversarial isolation remains pending. The published alpha does not have this boundary. | PROD-002 to PROD-005 | Qualification required |
 | Collector availability | One best-effort, single-replica, in-memory collector with visible restart, partial, stale and history-loss states. | The single-replica store exists. Full failure-state evidence is pending. | PROD-006 | Qualification required |
 | Live scale | Only the live container, node and refresh profile measured and published for the release candidate. Configured store ceilings are rejection bounds, not scale claims. | Small local clusters and synthetic benchmarks. | PROD-007 | Qualification required |
 | Terminal UI | Apple Terminal, Ghostty, iTerm2 and Warp on macOS; xterm and at least two recorded modern Linux terminals; SSH and tmux at 80x24, 120x30 and 180x50. | State, render, race and local PTY tests. | PROD-009 | Qualification required |
@@ -58,7 +58,7 @@ The provider restrictions above are sourced and exercised by the [qualification 
 
 Shared multi-tenant clusters are a mandatory v1 threat environment. They are not supported by the current alpha.
 
-The alpha separates read and ingestion ports and limits ingestion reachability with NetworkPolicy. CLI service-proxy mode also requires Kubernetes RBAC. These controls do not authenticate a node agent to the collector, and they do not authorise collector results by tenant or namespace. A caller who can reach a read endpoint can currently request cluster-wide Pod, container, workload and history data.
+The published alpha separates read and ingestion ports but does not provide the complete boundary. Current `main` routes production reads and writes through the Kubernetes aggregated API, validates forwarded identity, delegates exact authorisation and filters namespace data before aggregation. The secure Service exposes only TLS port `443`; direct workload reads are available only in explicit legacy mode.
 
 Before v1 can claim shared-cluster support:
 
@@ -69,7 +69,7 @@ Before v1 can claim shared-cluster support:
 
 TUI filters, namespace selection, Kubernetes service-proxy permission and NetworkPolicy reachability are not substitutes for application authorisation.
 
-The accepted but not yet implemented boundary is defined in the [authentication and authorisation architecture](security/authentication-and-authorisation.md) and [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md).
+The implemented interface is defined in the [authentication and authorisation architecture](security/authentication-and-authorisation.md), [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md) and the [tenant read runbook](runbooks/tenant-scoped-reads.md). PROD-005 still owns the independent adversarial validation gate.
 
 ## Availability and history
 
@@ -93,9 +93,9 @@ Kubernetes names and runtime identifiers can reveal tenant and workload structur
 | Surface | Data present | Retention and visibility rules |
 | --- | --- | --- |
 | Agent ingestion | Node, namespace, Pod, Pod UID, container, container ID, cgroup path, bounded labels, resource and owner context, sample times, memory composition, boundaries, pressure and event counters. | Current state and selected Pod history stay in collector memory. The writable endpoint requires authenticated, node-bound ingestion before v1. |
-| Collector read API | Container, Pod, namespace, workload and node names; raw runtime identifiers and cgroup paths on container records; Kubernetes context; current memory evidence; bounded Pod history. | The alpha is cluster-wide for any caller that can reach it. v1 requires server-side tenant scope. |
+| Collector read API | Container, Pod, namespace, workload and node names; raw runtime identifiers and cgroup paths on container records; Kubernetes context; current memory evidence; bounded Pod history. | Current `main` requires namespaced or explicit cluster RBAC through the aggregated API. The published alpha remains cluster-wide for any caller that can reach it. |
 | CLI and TUI | Authorised API data needed for the selected view, including Kubernetes names and memory evidence. | Interactive views may show identifiable names. They must not broaden the caller's server-authorised scope. |
-| Collector metrics | Namespace, Pod and node names by default; container names only when container metrics are enabled. Memory, diagnosis, event and freshness values are exported. | No KubeMemLens persistence. The operator's metrics system controls retention. Pod UID, container ID, cgroup path, image, file path, owner reference and arbitrary labels are excluded. |
+| Collector metrics | Namespace, Pod and node names by default; container names only when container metrics are enabled. Memory, diagnosis, event and freshness values are exported. | The secure profile requires the separate metrics-reader role. No KubeMemLens persistence. The operator's metrics system controls retention. Pod UID, container ID, cgroup path, image, file path, owner reference and arbitrary labels are excluded. |
 | Agent metrics | Scan, post, mapping, duration and cache counts. | No namespace, Pod, container, cgroup or node labels. |
 | Logs | Node names, bounded counts, operational errors and configured limits may appear. | Current alpha error text requires review before sharing. Before v1, tests must prove that credentials, Pod UIDs, container IDs, raw label maps, cgroup paths and file paths stay out of logs. |
 | Default incident capture | Pod, namespace, node, container and workload display names; memory evidence; optional bounded history. | Pod UIDs, container IDs, cgroup paths and label maps are removed. The result is redacted, not anonymous. |

@@ -36,7 +36,10 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), namespace, allNamespaces)
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
@@ -73,7 +76,10 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), containerNamespace, containerAllNamespaces)
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
@@ -110,7 +116,10 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), workloadNamespace, workloadAllNamespaces)
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
@@ -132,6 +141,8 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	addTopFlags(workloadsCmd, &workloadTopOptions, true)
 	cmd.AddCommand(workloadsCmd)
 
+	var namespaceScope string
+	var namespaceAllNamespaces bool
 	var namespaceTopOptions topOptions
 	namespacesCmd := &cobra.Command{
 		Use:     "ns",
@@ -146,7 +157,10 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), namespaceScope, namespaceAllNamespaces)
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
@@ -160,6 +174,8 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 			})
 		},
 	}
+	namespacesCmd.Flags().BoolVarP(&namespaceAllNamespaces, "all-namespaces", "A", false, "show all namespaces; requires cluster-viewer access")
+	namespacesCmd.Flags().StringVarP(&namespaceScope, "namespace", "n", "default", "namespace to summarise")
 	addTopFlags(namespacesCmd, &namespaceTopOptions, false)
 	cmd.AddCommand(namespacesCmd)
 

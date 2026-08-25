@@ -36,6 +36,7 @@ type actionRequest struct {
 	after      *api.PodSnapshot
 	outputPath string
 	overwrite  bool
+	partial    bool
 }
 
 type actionResult struct {
@@ -138,9 +139,13 @@ func captureResult(request actionRequest) (actionResult, error) {
 		CapturedAt:    time.Now().UTC(),
 		ToolVersion:   buildinfo.Current(runtime.Version(), runtime.GOOS, runtime.GOARCH).String(),
 		Redacted:      true,
+		Partial:       request.partial,
 		Pods:          []api.PodSnapshot{pod},
 		Nodes:         append([]api.NodeSnapshotStatus(nil), request.nodes...),
 		Histories:     append([]api.PodHistory(nil), request.histories...),
+	}
+	if request.partial {
+		bundle.Caveats = []string{"Cluster node summaries are omitted from a namespace-scoped capture."}
 	}
 	incident.Redact(&bundle)
 	err = incident.Write(io.Discard, absolute, request.overwrite, bundle)
@@ -160,6 +165,7 @@ func captureResult(request actionRequest) (actionResult, error) {
 			"Pods: 1",
 			fmt.Sprintf("History series: %d", len(bundle.Histories)),
 			"Redacted: true",
+			fmt.Sprintf("Partial: %t", bundle.Partial),
 		},
 	}, nil
 }

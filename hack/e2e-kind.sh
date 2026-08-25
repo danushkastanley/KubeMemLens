@@ -88,14 +88,30 @@ run_tui_smoke() {
     hack/e2e-tui-kind.sh
 }
 
+run_tenant_scoped_read_smoke() {
+  if [ "${E2E_RUN_TENANT_SCOPED_READ_SMOKE:-false}" != true ]; then
+    return
+  fi
+  local phase=$1
+  local output_dir=${artifact_dir:-${work_dir}/artifacts}/tenant-scoped-reads/${phase}
+  TENANT_READ_KUBECONFIG="${kubeconfig}" \
+    TENANT_READ_CONTEXT="kind-${cluster_name}" \
+    TENANT_READ_NAMESPACE="${namespace}" \
+    TENANT_READ_CLI="${cli}" \
+    TENANT_READ_PHASE="${phase}" \
+    TENANT_READ_ARTIFACT_DIR="${output_dir}" \
+    TENANT_READ_ACKNOWLEDGE=run-and-clean-tenant-read-verification \
+    hack/verify-tenant-scoped-reads-kind.sh
+}
+
 assert_authenticated_ingestion_healthy() {
   KUBECONFIG="${kubeconfig}" kubectl wait \
     --for=condition=Available apiservice/v1alpha1.memory.kubememlens.io --timeout=90s >/dev/null
   local ports
   ports=$(KUBECONFIG="${kubeconfig}" kubectl get service kube-memlens-collector -n "${namespace}" \
     -o jsonpath='{range .spec.ports[*]}{.port}{"\n"}{end}')
-  if grep -Fxq 8081 <<<"${ports}"; then
-    echo "plaintext ingestion port remains exposed" >&2
+  if [ "${ports}" != 443 ]; then
+    echo "secure collector Service ports differ; got: ${ports}" >&2
     return 1
   fi
   for _ in $(seq 1 30); do
@@ -189,6 +205,7 @@ if [ "${E2E_RUN_AUTHENTICATED_INGESTION_SMOKE:-false}" = true ]; then
     AUTH_INGEST_ACKNOWLEDGE=run-and-clean-authenticated-ingestion \
     hack/verify-authenticated-ingestion-kind.sh
 fi
+run_tenant_scoped_read_smoke install
 
 cli_args=(
   --kubeconfig "${kubeconfig}"
@@ -290,8 +307,8 @@ grep -q '^Incident comparison:' "${work_dir}/compare-incidents.txt"
 grep -q '^Workload incident comparison:' "${work_dir}/compare-workload-incidents.txt"
 
 KUBECONFIG="${kubeconfig}" kubectl get --raw \
-  "/api/v1/namespaces/${namespace}/services/http:kube-memlens-collector:8080/proxy/metrics" \
-  > "${work_dir}/collector-metrics.txt"
+  "/apis/memory.kubememlens.io/v1alpha1/metrics/current" \
+  | jq -r '.content' > "${work_dir}/collector-metrics.txt"
 grep -q '^kubememlens_collector_ingestion_requests_total' "${work_dir}/collector-metrics.txt"
 grep -q 'kind="history_points"' "${work_dir}/collector-metrics.txt"
 KUBECONFIG="${kubeconfig}" kubectl get --raw \
@@ -311,6 +328,7 @@ helm upgrade kube-memlens ./charts/kube-memlens \
 KUBECONFIG="${kubeconfig}" kubectl rollout status daemonset/kube-memlens-agent -n "${namespace}" --timeout=2m
 KUBECONFIG="${kubeconfig}" kubectl rollout status deployment/kube-memlens-collector -n "${namespace}" --timeout=2m
 assert_authenticated_ingestion_healthy
+run_tenant_scoped_read_smoke upgrade
 
 helm rollback kube-memlens 1 \
   --kubeconfig "${kubeconfig}" \
@@ -321,6 +339,7 @@ KUBECONFIG="${kubeconfig}" kubectl rollout status daemonset/kube-memlens-agent -
 KUBECONFIG="${kubeconfig}" kubectl rollout status deployment/kube-memlens-collector -n "${namespace}" --timeout=2m
 assert_authenticated_ingestion_healthy
 wait_for_doctor
+run_tenant_scoped_read_smoke rollback
 
 helm uninstall kube-memlens --kubeconfig "${kubeconfig}" --namespace "${namespace}" --wait
 if KUBECONFIG="${kubeconfig}" kubectl get clusterrole kube-memlens-agent >/dev/null 2>&1; then
@@ -333,6 +352,9 @@ if KUBECONFIG="${kubeconfig}" kubectl get clusterrolebinding kube-memlens-agent 
 fi
 for resource in \
   apiservice/v1alpha1.memory.kubememlens.io \
+  clusterrole/kube-memlens-namespace-viewer \
+  clusterrole/kube-memlens-cluster-viewer \
+  clusterrole/kube-memlens-metrics-reader \
   clusterrolebinding/kube-memlens-auth-delegator \
   clusterrole/kube-memlens-cert-bootstrap \
   clusterrolebinding/kube-memlens-cert-bootstrap; do

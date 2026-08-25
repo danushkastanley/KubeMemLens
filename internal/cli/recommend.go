@@ -38,18 +38,17 @@ func newRecommendPodCommand(collectorOptions collectorOptionsProvider) *cobra.Co
 			if err := validateRecommendationOutput(output); err != nil {
 				return err
 			}
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), namespace, false)
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
 			}
-			pods, err := reader.Pods(cmd.Context())
+			pod, err := readPod(cmd.Context(), reader, namespace, args[0])
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
-			}
-			pod, ok := findPod(pods, namespace, args[0])
-			if !ok {
-				return fmt.Errorf("Pod %s/%s was not found in current collector snapshots", namespace, args[0])
 			}
 			finding := explain.AnalyzePod(pod)
 			document := recommendationOutput(explanationTarget{Kind: "Pod", Namespace: namespace, Name: args[0]}, finding)
@@ -73,7 +72,10 @@ func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cob
 			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 				return fmt.Errorf("workload must be written as <kind>/<name>")
 			}
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), namespace, false)
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)

@@ -19,7 +19,8 @@ cli=
 namespace_created=false
 release_installed=false
 qualification_complete=false
-network_policy_result=not-run
+network_policy_result=not-exercised
+plaintext_service_exposure_result=not-run
 install_started_seconds=0
 first_explanation_seconds=-1
 
@@ -116,10 +117,11 @@ write_summary() {
     --arg completedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     --arg imageDigest "${image_digest}" \
     --arg networkPolicy "${network_policy_result:-not-run}" \
+	--arg plaintextServiceExposure "${plaintext_service_exposure_result:-not-run}" \
 	--argjson installToExplanationSeconds "${first_explanation_seconds}" \
     '{schemaVersion: 1, outcome: $outcome, completedAt: $completedAt,
       image: {repository: "redacted", digest: $imageDigest},
-      checks: {networkPolicy: $networkPolicy},
+      checks: {networkPolicy: $networkPolicy, plaintextServiceExposure: $plaintextServiceExposure},
 	  measurements: {installToFirstValidExplanationSeconds: $installToExplanationSeconds},
       caveats: ["Cluster identifiers are deliberately omitted", "This is not a high-density soak"]}' \
     > "${artifact_dir}/qualification-summary.json"
@@ -269,8 +271,8 @@ jq -e '.kubernetes.node == "redacted"' "${artifact_dir}/explanation.json" >/dev/
 chmod 600 "${artifact_dir}/status.json" "${artifact_dir}/explanation.json"
 
 metrics_file=${work_dir}/collector-metrics.txt
-k get --raw "/api/v1/namespaces/${namespace}/services/http:kube-memlens-collector:8080/proxy/metrics" \
-  > "${metrics_file}"
+k get --raw "/apis/memory.kubememlens.io/v1alpha1/metrics/current" \
+  | jq -r '.content' > "${metrics_file}"
 grep -q '^kubememlens_collector_ingestion_requests_total' "${metrics_file}" || fail "collector metrics are unavailable"
 
 run_probe() {
@@ -294,10 +296,10 @@ run_probe() {
 }
 
 sleep 5
-network_policy_result=failed
-run_probe qualification-read-allowed 8080 Succeeded
+plaintext_service_exposure_result=failed
+run_probe qualification-read-denied 8080 Failed
 run_probe qualification-ingest-denied 8081 Failed
-network_policy_result=enforced
+plaintext_service_exposure_result=closed
 
 provider=$(jq -r '
   [.items[].spec.providerID // ""] |

@@ -195,6 +195,8 @@ type IncidentBundle struct {
 	CapturedAt    time.Time            `json:"capturedAt"`
 	ToolVersion   string               `json:"toolVersion"`
 	Redacted      bool                 `json:"redacted"`
+	Partial       bool                 `json:"partial,omitempty"`
+	Caveats       []string             `json:"caveats,omitempty"`
 	Pods          []PodSnapshot        `json:"pods"`
 	Nodes         []NodeSnapshotStatus `json:"nodes"`
 	Histories     []PodHistory         `json:"histories,omitempty"`
@@ -235,6 +237,76 @@ type NodeSnapshotResponse struct {
 	Accepted        bool `json:"accepted"`
 	Duplicate       bool `json:"duplicate"`
 	Containers      int  `json:"containers"`
+}
+
+// PodMemory is the Kubernetes API representation of one current Pod memory
+// observation. Snapshot retains the existing collector contract while metadata
+// supplies the namespace and name used for resource authorisation.
+type PodMemory struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Snapshot          PodSnapshot `json:"snapshot"`
+}
+
+type PodMemoryList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []PodMemory `json:"items"`
+}
+
+type PodMemoryHistory struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Series            []PodHistory `json:"series"`
+}
+
+type ContainerMemory struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Snapshot          ContainerSnapshot `json:"snapshot"`
+}
+
+type ContainerMemoryList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []ContainerMemory `json:"items"`
+}
+
+type WorkloadMemory struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Snapshot          WorkloadSnapshot `json:"snapshot"`
+}
+
+type WorkloadMemoryList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []WorkloadMemory `json:"items"`
+}
+
+type NodeMemory struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Snapshot          NodeSnapshotStatus `json:"snapshot"`
+}
+
+type NodeMemoryList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata"`
+	Items           []NodeMemory `json:"items"`
+}
+
+type ClusterStatus struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	Store             StoreDebug `json:"store"`
+}
+
+type Metrics struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata"`
+	ContentType       string `json:"contentType"`
+	Content           string `json:"content"`
 }
 
 type DebugStore struct {

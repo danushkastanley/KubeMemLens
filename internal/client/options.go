@@ -18,13 +18,15 @@ const (
 type ConnectionMode string
 
 const (
-	ConnectionModeAuto      ConnectionMode = "auto"
-	ConnectionModeHTTP      ConnectionMode = "http"
-	ConnectionModeKubeProxy ConnectionMode = "kube-proxy"
+	ConnectionModeAuto          ConnectionMode = "auto"
+	ConnectionModeKubernetesAPI ConnectionMode = "kubernetes-api"
+	ConnectionModeHTTP          ConnectionMode = "http"
+	ConnectionModeKubeProxy     ConnectionMode = "kube-proxy"
 )
 
 type Options struct {
-	Mode ConnectionMode
+	Mode      ConnectionMode
+	ReadScope ReadScope
 
 	CollectorURL string
 
@@ -46,8 +48,10 @@ func DefaultOptions() Options {
 		}
 	}
 
+	defaultScope, _ := NamespaceScope("default")
 	return Options{
 		Mode:               ConnectionModeAuto,
+		ReadScope:          defaultScope,
 		CollectorURL:       strings.TrimSpace(os.Getenv("MEMLENS_COLLECTOR_URL")),
 		CollectorNamespace: envOrDefault("MEMLENS_COLLECTOR_NAMESPACE", defaultCollectorNamespace),
 		CollectorService:   envOrDefault("MEMLENS_COLLECTOR_SERVICE", defaultCollectorService),
@@ -65,6 +69,12 @@ func (o Options) WithDefaults() (Options, error) {
 		return Options{}, err
 	}
 	o.Mode = mode
+	if o.ReadScope == (ReadScope{}) {
+		o.ReadScope, _ = NamespaceScope("default")
+	}
+	if err := o.ReadScope.validate(); err != nil {
+		return Options{}, err
+	}
 
 	o.CollectorURL = strings.TrimSpace(o.CollectorURL)
 	o.CollectorNamespace = strings.TrimSpace(o.CollectorNamespace)
@@ -92,10 +102,10 @@ func ParseConnectionMode(value string) (ConnectionMode, error) {
 	switch mode {
 	case "", ConnectionModeAuto:
 		return ConnectionModeAuto, nil
-	case ConnectionModeHTTP, ConnectionModeKubeProxy:
+	case ConnectionModeKubernetesAPI, ConnectionModeHTTP, ConnectionModeKubeProxy:
 		return mode, nil
 	default:
-		return "", fmt.Errorf("invalid connect mode %q, want auto, http, or kube-proxy", value)
+		return "", fmt.Errorf("invalid connect mode %q, want auto, kubernetes-api, http, or kube-proxy", value)
 	}
 }
 
@@ -108,7 +118,7 @@ func ResolveMode(opts Options) (ConnectionMode, error) {
 		if opts.CollectorURL != "" {
 			return ConnectionModeHTTP, nil
 		}
-		return ConnectionModeKubeProxy, nil
+		return ConnectionModeKubernetesAPI, nil
 	}
 	return opts.Mode, nil
 }
@@ -128,10 +138,19 @@ func Describe(opts Options) string {
 		}
 		return opts.CollectorURL
 	}
+	if mode == ConnectionModeKubernetesAPI {
+		return "Kubernetes API memory.kubememlens.io/v1alpha1"
+	}
 	return fmt.Sprintf("kube-proxy %s/%s:%d", opts.CollectorNamespace, opts.CollectorService, opts.CollectorPort)
 }
 
 func ConnectionError(opts Options, description string, err error) error {
+	if IsForbidden(err) {
+		return fmt.Errorf("You do not have permission to read KubeMemLens data in the requested scope")
+	}
+	if IsNotFound(err) {
+		return fmt.Errorf("The requested KubeMemLens object was not found in the authorised scope")
+	}
 	if description == "" {
 		description = Describe(opts)
 	}
@@ -156,6 +175,12 @@ func ConnectionError(opts Options, description string, err error) error {
 			opts.CollectorPort,
 			err,
 		)
+	}
+	if mode == ConnectionModeKubernetesAPI {
+		if !IsUnavailable(err) {
+			return fmt.Errorf("The KubeMemLens aggregated API returned an invalid response")
+		}
+		return fmt.Errorf("Could not reach the KubeMemLens aggregated API through Kubernetes.\n\nTry:\n  kubectl get apiservice v1alpha1.memory.kubememlens.io\n  kubectl get --raw /apis/memory.kubememlens.io/v1alpha1\n\nUnderlying error: %w", err)
 	}
 	return fmt.Errorf("Could not reach KubeMemLens collector at %s.\n\nTry:\n  kubectl -n kube-memlens port-forward svc/kube-memlens-collector 18080:8080\n\nUnderlying error: %w", description, err)
 }

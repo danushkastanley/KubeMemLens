@@ -179,6 +179,34 @@ func TestSnapshotEndpointRejectsUnsupportedSchema(t *testing.T) {
 	}
 }
 
+func TestValidateSnapshotBoundsKubernetesIdentityFields(t *testing.T) {
+	now := time.Now().UTC()
+	base := api.AgentSnapshot{
+		SchemaVersion: api.CurrentSnapshotSchemaVersion, NodeName: "node-a", CapturedAt: now,
+		Containers: []api.ContainerSnapshot{{ContainerID: "id-a"}},
+	}
+	tests := map[string]struct {
+		mutate func(*api.ContainerSnapshot)
+		field  string
+	}{
+		"namespace":      {mutate: func(item *api.ContainerSnapshot) { item.Namespace = strings.Repeat("n", 64) }, field: "namespace"},
+		"Pod name":       {mutate: func(item *api.ContainerSnapshot) { item.PodName = strings.Repeat("p", 254) }, field: "podName"},
+		"Pod UID":        {mutate: func(item *api.ContainerSnapshot) { item.PodUID = strings.Repeat("u", 129) }, field: "podUID"},
+		"container name": {mutate: func(item *api.ContainerSnapshot) { item.ContainerName = strings.Repeat("c", 64) }, field: "containerName"},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			snapshot := base
+			snapshot.Containers = append([]api.ContainerSnapshot(nil), base.Containers...)
+			test.mutate(&snapshot.Containers[0])
+			err := ValidateSnapshot(snapshot, now, DefaultHandlerOptions(time.Minute))
+			if err == nil || !strings.Contains(err.Error(), test.field) {
+				t.Fatalf("ValidateSnapshot error = %v", err)
+			}
+		})
+	}
+}
+
 func TestSnapshotEndpointRejectsOutOfOrderSnapshot(t *testing.T) {
 	now := time.Now().UTC()
 	store := NewStore()

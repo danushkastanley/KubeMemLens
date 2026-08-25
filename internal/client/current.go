@@ -28,7 +28,15 @@ type CurrentSnapshotReader interface {
 type pageGetter func(context.Context, string, any) error
 
 func loadCurrentSnapshot(ctx context.Context, get pageGetter) (CurrentSnapshot, error) {
+	return loadCurrentSnapshotForScope(ctx, get, AllNamespacesScope())
+}
+
+func loadCurrentSnapshotForScope(ctx context.Context, get pageGetter, scope ReadScope) (CurrentSnapshot, error) {
 	containers, err := loadContainerPages(ctx, get)
+	if err != nil {
+		return CurrentSnapshot{}, err
+	}
+	containers, err = filterContainersForScope(containers, scope)
 	if err != nil {
 		return CurrentSnapshot{}, err
 	}
@@ -39,6 +47,22 @@ func loadCurrentSnapshot(ctx context.Context, get pageGetter) (CurrentSnapshot, 
 		Namespaces: aggregate.Namespaces(pods),
 		Workloads:  aggregate.Workloads(pods),
 	}, nil
+}
+
+func filterContainersForScope(containers []api.ContainerSnapshot, scope ReadScope) ([]api.ContainerSnapshot, error) {
+	if err := scope.validate(); err != nil {
+		return nil, err
+	}
+	if scope.AllNamespaces {
+		return containers, nil
+	}
+	items := make([]api.ContainerSnapshot, 0, len(containers))
+	for _, container := range containers {
+		if container.Namespace == scope.Namespace {
+			items = append(items, container)
+		}
+	}
+	return items, nil
 }
 
 func loadContainerPages(ctx context.Context, get pageGetter) ([]api.ContainerSnapshot, error) {

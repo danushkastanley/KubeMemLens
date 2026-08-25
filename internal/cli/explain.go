@@ -29,25 +29,23 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			if podOutput != "text" && podOutput != "json" && podOutput != "yaml" {
 				return fmt.Errorf("invalid output %q, want text, json, or yaml", podOutput)
 			}
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), namespace, false)
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
 			}
-			pods, err := reader.Pods(cmd.Context())
+			pod, err := readPod(cmd.Context(), reader, namespace, args[0])
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
 			}
-			for _, pod := range pods {
-				if pod.Namespace == namespace && pod.PodName == args[0] {
-					if podOutput == "text" {
-						printPodExplanation(cmd.OutOrStdout(), pod)
-						return nil
-					}
-					return writeExplanationDocument(cmd.OutOrStdout(), podOutput, podExplanationDocument(pod))
-				}
+			if podOutput == "text" {
+				printPodExplanation(cmd.OutOrStdout(), pod)
+				return nil
 			}
-			return fmt.Errorf("pod not found in collector snapshots. Check that the collector is reachable, the agent is posting snapshots, and the pod is running on a scanned node")
+			return writeExplanationDocument(cmd.OutOrStdout(), podOutput, podExplanationDocument(pod))
 		},
 	}
 	podCmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
@@ -68,7 +66,10 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 				return fmt.Errorf("workload must be written as <kind>/<name>, for example deployment/api")
 			}
-			opts := collectorOptions()
+			opts, err := withReadScope(collectorOptions(), workloadNamespace, false)
+			if err != nil {
+				return err
+			}
 			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)

@@ -20,7 +20,7 @@ kubectl -n kube-memlens logs daemonset/kube-memlens-agent --tail=50
 kubectl -n kube-memlens logs deployment/kube-memlens-collector --tail=50
 ```
 
-`APIService` must report `Available=True`. Discovery must advertise only `ingestionepochs` with `get` and `nodesnapshots` with `create`.
+`APIService` must report `Available=True`. Discovery must advertise `ingestionepochs` with `get`, `nodesnapshots` with `create`, and only the read resources and verbs documented in the [tenant read runbook](tenant-scoped-reads.md).
 
 Collector ingestion metrics use fixed result labels. They do not contain usernames, node names, Pod UIDs, node UIDs or credential IDs.
 

@@ -6,9 +6,9 @@ KubeMemLens is privacy-first and local-first.
 
 The current alpha reads local cgroup sample files, node cgroup v2 memory files, Kubernetes pod/node metadata, and collector snapshots from the in-cluster collector. It does not send telemetry and does not include SaaS behaviour.
 
-The current alpha is not suitable for shared multi-tenant clusters. NetworkPolicy and Kubernetes service-proxy RBAC limit reachability, but the collector does not authenticate node agents or authorise reads by tenant or namespace. The [support and compatibility contract](compatibility.md#multi-tenant-security-boundary) defines the mandatory v1 boundary and the evidence required before that claim changes.
+The published alpha is not suitable for shared multi-tenant clusters. Current `main` authenticates node agents and operator reads through the Kubernetes aggregated API and enforces namespace or explicit cluster scope at the collector. The separate adversarial isolation gate still must pass before the [support and compatibility contract](compatibility.md#multi-tenant-security-boundary) changes that claim.
 
-The accepted v1 design exposes reads and agent writes through a Kubernetes aggregated API, validates the aggregation proxy, delegates exact `SubjectAccessReview` decisions and binds writes to Pod and node identity. It is documented in [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md), the [authentication and authorisation architecture](security/authentication-and-authorisation.md) and the [threat model](security/KubeMemLens-threat-model.md). Authenticated agent writes are implemented on `main`; tenant reads remain pending.
+The implemented v1 security interface validates the aggregation proxy, delegates an uncached exact `SubjectAccessReview`, filters namespace data before aggregation and binds writes to Pod and node identity. It is documented in [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md), the [authentication and authorisation architecture](security/authentication-and-authorisation.md), the [tenant read runbook](runbooks/tenant-scoped-reads.md) and the [threat model](security/KubeMemLens-threat-model.md).
 
 ## Host Access
 
@@ -20,31 +20,31 @@ The alpha is intended to stay cgroup-read focused. It should not require privile
 
 Top-level workload resolution adds `get` only for ReplicaSets and Jobs. The agent follows only direct owner references from Pods already scheduled on its node: ReplicaSet to Deployment and Job to CronJob. Successful lookups are cached for five minutes in a bounded 2,000-entry cache. It does not list or watch these workload resources. Kubernetes RBAC cannot constrain these `get` permissions to only names referenced by local Pods, so this is an explicit metadata-read trade-off surfaced by `doctor`.
 
-The agent and collector use separate ServiceAccounts. The collector token is not mounted because the collector does not call the Kubernetes API. Both workloads run as non-root with the runtime-default seccomp profile, privilege escalation disabled, all Linux capabilities dropped, a read-only root filesystem by default, and explicit memory limits.
+The agent and collector use separate ServiceAccounts and explicitly projected rotating tokens. The collector token can read only aggregation authentication configuration and submit SubjectAccessReviews; it cannot read workload resources or Secrets. Both workloads run as non-root with the runtime-default seccomp profile, privilege escalation disabled, all Linux capabilities dropped, a read-only root filesystem by default, and explicit memory limits.
 
 Pod watch data supplies requests, limits, QoS, restart/termination state, phase, creation time, runtime class, labels, memory-backed `emptyDir` counts/aggregate limits, and direct controller ownership to local explanations. Volume names are not collected. Label maps are capped at 64 entries and bounded again by snapshot request limits. They support local Kubernetes label selection but are not emitted as Prometheus labels or included in default redacted incident bundles. The cached own-node GET adds MemoryPressure and allocatable-memory context. Bounded owner GETs add the top-level workload, and `doctor` reports both Node and workload-owner permission failures.
 
-CLI kube-proxy mode uses the user's Kubernetes credentials to access the collector service through the Kubernetes API server. That access is governed by Kubernetes RBAC. Users need `get` on `services` and `services/proxy` in the collector namespace, which is `kube-memlens` by default.
+The CLI and TUI use the user's kubeconfig to access virtual `memory.kubememlens.io` resources through the Kubernetes API server. Namespace RoleBindings grant only that namespace. All-namespace, node and cluster-status reads require the separate cluster-viewer role. Metrics require another explicit role. Legacy direct HTTP and Service-proxy clients remain only for an explicit development mode.
 
-The collector remains cluster-internal. KubeMemLens does not expose the collector through an external load balancer, add collector auth, or create a port-forward automatically in the alpha release.
+The collector remains cluster-internal. KubeMemLens does not expose it through an external load balancer or create a port-forward automatically.
 
-Collector reads, metrics, and health checks still listen on port `8080` during the migration. Agent writes enter through the Kubernetes API server and the TLS APIService on Service port `443`. The default chart does not expose the plaintext port `8081`. NetworkPolicy permits control-plane traffic to the extension port because managed control-plane source ranges are not portable; request-header authentication, exact ServiceAccount claims, delegated authorisation, node binding and replay checks remain the write boundary if NetworkPolicy is absent.
+Authenticated reads, workload metrics and agent writes enter through the Kubernetes API server and TLS Service port `443`. The collector Pod retains a data-free health listener on port `8080`, but the secure Service exposes neither that port nor plaintext ingestion port `8081`. NetworkPolicy permits control-plane traffic to the extension port because managed control-plane source ranges are not portable; authentication and exact delegated authorisation remain the boundary if NetworkPolicy is absent.
 
-The collector defaults to at most 5,000 node records, 100,000 current container snapshots, 1,000 history series, and 16 MiB of encoded JSON per read response. A capacity breach is rejected and counted rather than silently dropping or growing state. `doctor` reports these bounds and warns near a storage ceiling. Operators should size them below the collector Pod's tested memory budget.
+The collector defaults to at most 5,000 node records, 100,000 current container snapshots, 1,000 history series, 500 identities per read page, 16 MiB of encoded JSON per response and four admitted authenticated reads. Keyset selection retains bounded identities instead of copying the full authorised view; Pod and workload nested evidence has a separate byte budget, and aggregate construction is serialised. Cluster status counts immutable shards without copying container records. The metrics view retains only aggregates permitted by both its entity limits and response budget, and reports dropped levels when the response budget is tighter. A capacity breach is rejected and counted rather than silently dropping or growing state. `doctor` reports storage bounds and warns near a ceiling. Operators should size them below the collector Pod's tested memory budget.
 
 ## Metrics Exposure
 
-The `/metrics` endpoint exposes namespace names, pod names, container names only when container metrics are enabled, node names, memory buckets, memory event counts, and KubeMemLens diagnoses.
+The aggregated metrics resource exposes namespace names, pod names, container names only when container metrics are enabled, node names, memory buckets, memory event counts, and KubeMemLens diagnoses.
 
 Agent metrics contain only scan outcome, duration, mapping totals, post outcomes, and metadata-cache size. They do not contain workload or node identifiers.
 
 The endpoint intentionally does not export pod UID, container ID, cgroup path, image, file path, owner references, or arbitrary Kubernetes labels in the alpha release. Container metrics are disabled by default to reduce metric cardinality.
 
-Metrics are served by the collector service inside the cluster. Access depends on Kubernetes network policy, service exposure, Prometheus scrape configuration, and RBAC when using the Kubernetes API service proxy.
+Metrics require `get` on the cluster-scoped KubeMemLens metrics resource. The cluster-viewer role does not include that permission. Direct `/metrics` and ServiceMonitor integration remain only in explicit legacy mode.
 
 ## Telemetry
 
-There is no telemetry by default and the CLI does not make external network calls. The alpha metrics endpoint is local to the user's cluster. Any future export path should remain explicit and local to the user's infrastructure unless the project intentionally adds a separate hosted product.
+There is no telemetry by default and the CLI does not make external network calls. The authenticated metrics resource is local to the user's cluster. Any future export path should remain explicit and local to the user's infrastructure unless the project intentionally adds a separate hosted product.
 
 ## Collector Storage
 

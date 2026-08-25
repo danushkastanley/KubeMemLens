@@ -9,12 +9,14 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Defined one canonical v1 support and release contract covering exact target profiles, evidence owners, multi-tenant security, best-effort availability, bounded history, metadata exposure, unsupported environments and deprecation rules.
 - Accepted a Kubernetes aggregated-API design for authenticated operator reads, tenant-scoped authorisation, node-bound agent writes and replay protection.
 - Moved agent writes to `memory.kubememlens.io/v1alpha1` with Pod-bound identity, node binding, collector epochs, idempotent sequences, bounded abuse controls and serving-certificate rotation.
+- Moved production CLI, TUI and metrics reads to tenant-scoped aggregated resources; the secure Service now exposes only TLS port `443` and keeps port `8080` health-only inside the collector Pod.
 
 ### Security
 
 - Expanded the threat model to cover shared-cluster authentication, delegated authorisation, agent token theft, replay, confused-deputy paths, certificate lifecycle and collector compromise.
 - Added an opt-in kind feasibility check for aggregation configuration, Pod-bound identity claims and least-privilege namespace, cluster, agent and metrics RBAC.
 - Removed the default plaintext ingestion Service port and added projected rotating tokens, exact delegated-auth RBAC and fail-closed ingestion diagnostics.
+- Added unbound namespace-viewer, cluster-viewer and metrics-reader roles, server-side scope filtering, direct-identifier denial, scope-bound pagination and multi-user revocation tests.
 
 ## 0.0.1-alpha.3 - 2026-08-22
 

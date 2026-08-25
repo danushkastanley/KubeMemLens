@@ -38,13 +38,13 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
-	cmd.PersistentFlags().StringVar(&flags.connectMode, "connect-mode", flags.connectMode, "collector connection mode: auto, http, or kube-proxy")
+	cmd.PersistentFlags().StringVar(&flags.connectMode, "connect-mode", flags.connectMode, "collector connection mode: auto, kubernetes-api, http, or kube-proxy")
 	cmd.PersistentFlags().StringVar(&flags.collectorURL, "collector-url", flags.collectorURL, "collector base URL for HTTP mode")
 	cmd.PersistentFlags().StringVar(&flags.collectorNamespace, "collector-namespace", flags.collectorNamespace, "collector service namespace for kube-proxy mode")
 	cmd.PersistentFlags().StringVar(&flags.collectorService, "collector-service", flags.collectorService, "collector service name for kube-proxy mode")
 	cmd.PersistentFlags().IntVar(&flags.collectorPort, "collector-port", flags.collectorPort, "collector service port for kube-proxy mode")
-	cmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "", "path to kubeconfig for kube-proxy mode")
-	cmd.PersistentFlags().StringVar(&flags.context, "context", "", "kubeconfig context for kube-proxy mode")
+	cmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "", "path to kubeconfig for Kubernetes API or kube-proxy mode")
+	cmd.PersistentFlags().StringVar(&flags.context, "context", "", "kubeconfig context for Kubernetes API or kube-proxy mode")
 
 	cmd.AddCommand(newSampleCommand())
 	cmd.AddCommand(newTopCommand(flags.options))

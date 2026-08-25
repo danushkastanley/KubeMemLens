@@ -130,6 +130,7 @@ func (m *appModel) startCapture(overwrite bool) tea.Cmd {
 		histories:  append([]api.PodHistory(nil), m.selectedHistory.series...),
 		outputPath: strings.TrimSpace(m.action.input),
 		overwrite:  overwrite,
+		partial:    !m.opts.AllNamespaces,
 	}
 	return m.startAction(request)
 }
@@ -168,6 +169,7 @@ func (m *appModel) completeAction(message actionMsg) {
 				kind: actionCapture, ref: ref,
 				pods: append([]api.PodSnapshot(nil), m.data.Pods...), nodes: append([]api.NodeSnapshotStatus(nil), m.data.Nodes...),
 				histories: append([]api.PodHistory(nil), m.selectedHistory.series...), outputPath: message.result.outputPath,
+				partial: !m.opts.AllNamespaces,
 			}
 		}
 	}

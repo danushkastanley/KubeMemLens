@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/client"
 )
 
 func TestSelectedHistoryRejectsLateResponseForPreviousPod(t *testing.T) {
@@ -31,6 +32,24 @@ func TestSelectedHistoryRejectsLateResponseForPreviousPod(t *testing.T) {
 	}
 	if len(state.series) != 1 || state.series[0].PodName != "pod-b" {
 		t.Fatalf("history = %#v", state.series)
+	}
+}
+
+func TestSelectedHistoryForbiddenClearsLastGoodData(t *testing.T) {
+	var state selectedHistory
+	state.selectPod("default", "api")
+	request, _ := state.start()
+	state.complete(historyMsg{
+		namespace: request.namespace, podName: request.podName, generation: request.generation,
+		series: []api.PodHistory{{Namespace: "default", PodName: "api"}},
+	}, time.Now())
+	retry, _ := state.start()
+	state.complete(historyMsg{
+		namespace: retry.namespace, podName: retry.podName, generation: retry.generation,
+		err: &client.ReadError{Kind: client.ReadErrorForbidden},
+	}, time.Now())
+	if len(state.series) != 0 || !state.updatedAt.IsZero() {
+		t.Fatalf("forbidden history retained last-good data: %#v", state)
 	}
 }
 

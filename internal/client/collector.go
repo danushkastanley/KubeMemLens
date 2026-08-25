@@ -16,6 +16,7 @@ import (
 type CollectorClient struct {
 	BaseURL    string
 	HTTPClient *http.Client
+	scope      ReadScope
 }
 
 var _ SnapshotReader = (*CollectorClient)(nil)
@@ -30,6 +31,7 @@ func NewCollectorClientWithTimeout(baseURL string, timeout time.Duration) *Colle
 	}
 	return &CollectorClient{
 		BaseURL: strings.TrimRight(baseURL, "/"),
+		scope:   AllNamespacesScope(),
 		HTTPClient: &http.Client{
 			Timeout: timeout,
 		},
@@ -54,6 +56,22 @@ func (c *CollectorClient) Pods(ctx context.Context) ([]api.PodSnapshot, error) {
 		return nil, err
 	}
 	return snapshot.Pods, nil
+}
+
+func (c *CollectorClient) Pod(ctx context.Context, namespace, podName string) (api.PodSnapshot, error) {
+	if !c.scope.allowsNamespace(namespace) {
+		return api.PodSnapshot{}, &ReadError{Kind: ReadErrorForbidden, Operation: "get Pod"}
+	}
+	pods, err := c.Pods(ctx)
+	if err != nil {
+		return api.PodSnapshot{}, err
+	}
+	for _, pod := range pods {
+		if pod.Namespace == namespace && pod.PodName == podName {
+			return pod, nil
+		}
+	}
+	return api.PodSnapshot{}, &ReadError{Kind: ReadErrorNotFound, Operation: "get Pod"}
 }
 
 func (c *CollectorClient) Namespaces(ctx context.Context) ([]api.NamespaceSnapshot, error) {
@@ -81,10 +99,13 @@ func (c *CollectorClient) Workloads(ctx context.Context) ([]api.WorkloadSnapshot
 }
 
 func (c *CollectorClient) CurrentSnapshot(ctx context.Context) (CurrentSnapshot, error) {
-	return loadCurrentSnapshot(ctx, c.get)
+	return loadCurrentSnapshotForScope(ctx, c.get, c.scope)
 }
 
 func (c *CollectorClient) PodHistory(ctx context.Context, namespace, podName string) ([]api.PodHistory, error) {
+	if !c.scope.allowsNamespace(namespace) {
+		return nil, &ReadError{Kind: ReadErrorForbidden, Operation: "get Pod history"}
+	}
 	var out []api.PodHistory
 	path := "/api/v1/history/pods/" + url.PathEscape(namespace) + "/" + url.PathEscape(podName)
 	if err := c.get(ctx, path, &out); err != nil {
