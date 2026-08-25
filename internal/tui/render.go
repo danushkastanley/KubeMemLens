@@ -103,17 +103,14 @@ func (m appModel) renderHeader(width int) string {
 	if m.currentNode != "" {
 		parts = append(parts, "node: "+m.currentNode)
 	}
-	states := make([]string, 0, 2)
-	if m.paused {
-		states = append(states, "paused")
-	}
+	states := make([]string, 0, 1)
 	if m.statusErr != nil {
 		if client.IsForbidden(m.statusErr) {
 			states = append(states, "access revoked")
 		} else {
 			states = append(states, string(api.CollectorUnavailable))
 		}
-	} else if len(states) == 0 {
+	} else {
 		if m.lastRefresh.IsZero() && m.loading {
 			states = append(states, "connecting")
 		} else {
@@ -138,6 +135,11 @@ func (m appModel) renderHeader(width int) string {
 		}
 		parts = append(parts, errorStyle.Render("status: "+status))
 	}
+	refreshState := "automatic"
+	if m.paused {
+		refreshState = "paused"
+	}
+	parts = append(parts, "refresh: "+refreshState)
 	if m.layout().splitDetail {
 		focus := "table"
 		if m.focus == focusDetail {
