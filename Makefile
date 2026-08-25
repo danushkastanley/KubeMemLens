@@ -1,4 +1,4 @@
-.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract vet vuln check e2e-kind qualify-cluster soak-live-density
+.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract vet vuln check e2e-kind verify-auth-architecture-kind qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -46,6 +46,9 @@ check: fmt-check check-support-contract test coverage test-race vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh
+
+verify-auth-architecture-kind:
+	hack/verify-auth-architecture-kind.sh
 
 qualify-cluster:
 	hack/qualify-cluster.sh
