@@ -49,6 +49,7 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `collector.ingestion.maxConcurrentRequests` | `4` | Concurrent snapshot decode ceiling |
 | `collector.ingestion.requestsPerSecondPerAgent` | `1` | Per-agent sustained ingestion rate |
 | `collector.ingestion.burstPerAgent` | `2` | Per-agent ingestion burst |
+| `collector.ingestion.maxSnapshotBytes` | `8388608` | Per-node snapshot request ceiling in bytes |
 | `extensionTLS.rotateBefore` | `720h` | Serving-certificate rotation window |
 | `networkPolicy.enabled` | `true` | Cluster-local read and APIService ingress policy |
 | `metrics.includeContainers` | `false` | High-cardinality container metrics opt-in |

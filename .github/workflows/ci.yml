@@ -215,7 +215,7 @@ jobs:
 
       - name: Check exact ingestion limit rendering
         run: |
-          grep -q -- '--max-snapshot-bytes=4194304' /tmp/kube-memlens.yaml
+          grep -q -- '--max-snapshot-bytes=8388608' /tmp/kube-memlens.yaml
           grep -q -- '--max-response-bytes=16777216' /tmp/kube-memlens.yaml
           grep -q -- '--read-max-concurrent=4' /tmp/kube-memlens.yaml
           grep -q 'kubernetes.io/os: linux' /tmp/kube-memlens.yaml

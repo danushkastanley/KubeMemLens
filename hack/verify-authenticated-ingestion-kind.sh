@@ -199,7 +199,8 @@ jq '.sequence = 999999' "${work_dir}/request.json" > "${work_dir}/lower.json"
 jq -e '.reason == "sequence_replayed"' "${work_dir}/response.json" >/dev/null
 sleep 2
 [ "$(post "${token_two}" "${work_dir}/request.json" -H 'Content-Encoding: gzip')" = 415 ]
-dd if=/dev/zero of="${work_dir}/oversized" bs=1048576 count=5 2>/dev/null
+# One MiB above the chart's default per-node snapshot ceiling.
+dd if=/dev/zero of="${work_dir}/oversized" bs=1048576 count=9 2>/dev/null
 sleep 2
 [ "$(post "${token_two}" "${work_dir}/oversized")" = 413 ]
 

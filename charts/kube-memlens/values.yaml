@@ -51,7 +51,7 @@ collector:
     maxConcurrentRequests: 4
     requestsPerSecondPerAgent: 1
     burstPerAgent: 2
-    maxSnapshotBytes: 4194304
+    maxSnapshotBytes: 8388608
     maxContainers: 10000
     maxSnapshotAge: 2m
     maxFutureSkew: 30s
