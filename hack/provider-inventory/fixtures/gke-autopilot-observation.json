@@ -26,9 +26,10 @@
     "canCreatePods": true,
     "baselineAccepted": true,
     "targetStatus": {
-      "reason": "Forbidden",
-      "code": 403,
-      "message": "autogke-disallow-hostpath denied /sys/fs/cgroup"
+      "status": "Failure",
+      "reason": "GKE Warden constraints violations",
+      "code": 400,
+      "message": "autogke-no-write-mode-hostpath denied /sys/fs/cgroup"
     }
   }
 }

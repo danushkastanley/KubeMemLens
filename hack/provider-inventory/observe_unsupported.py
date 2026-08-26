@@ -154,8 +154,13 @@ def parse_gke(source):
     admission = require_object(source["admission"], "GKE admission observation")
     status = require_object(admission.get("targetStatus"), "GKE target admission Status")
     message = status.get("message", "")
-    valid_denial = status.get("reason") == "Forbidden" and status.get("code") == 403
-    valid_denial = valid_denial and "autogke-disallow-hostpath" in message and "/sys/fs/cgroup" in message
+    denial = (status.get("reason"), status.get("code"))
+    constraint = {
+        ("Forbidden", 403): "autogke-disallow-hostpath",
+        ("GKE Warden constraints violations", 400): "autogke-no-write-mode-hostpath",
+    }.get(denial)
+    valid_denial = status.get("status") == "Failure" and constraint is not None \
+        and constraint in message and "/sys/fs/cgroup" in message
     if admission.get("canCreatePods") is not True or admission.get("baselineAccepted") is not True or not valid_denial:
         raise ReceiptError("GKE admission result is not an Autopilot cgroup hostPath denial")
     network = provider.get("networkConfig", {})

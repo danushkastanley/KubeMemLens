@@ -90,6 +90,17 @@ class UnsupportedObservationTests(unittest.TestCase):
         with self.assertRaisesRegex(observer.ReceiptError, "hostPath denial"):
             self.build(self.profile("gke-autopilot"), changed)
 
+    def test_gke_accepts_the_legacy_specific_hostpath_denial(self):
+        source = self.source("gke-autopilot")
+        source["admission"]["targetStatus"] = {
+            "status": "Failure",
+            "reason": "Forbidden",
+            "code": 403,
+            "message": "autogke-disallow-hostpath denied /sys/fs/cgroup",
+        }
+        receipt = self.build(self.profile("gke-autopilot"), source)
+        observer.validate_unsupported_receipt(self.profile("gke-autopilot"), receipt)
+
     def test_provider_modes_and_live_subjects_are_required(self):
         changed = self.source("eks-fargate")
         changed["provider"]["fargateProfile"]["status"] = "DELETING"

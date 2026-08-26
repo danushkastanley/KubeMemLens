@@ -130,7 +130,8 @@ def collect_gke(environment, probe, runner, dry_run):
     if baseline_code not in {200, 201} or baseline.get("kind") != "Pod":
         raise ReceiptError("GKE baseline server dry-run was not accepted")
     target_code, target = dry_run(base, namespace, probe["target"])
-    if target_code != 403 or target.get("kind") != "Status":
+    if target_code not in {400, 403} or target.get("kind") != "Status" \
+            or target.get("status") != "Failure" or target.get("code") != target_code:
         raise ReceiptError("GKE cgroup hostPath server dry-run did not return a forbidden Status")
     version, nodes = _live_kubernetes(base, runner, "kubernetes.io/os=linux")
     return {"schemaVersion": 1, "profileID": "gke-autopilot", "provider": provider,

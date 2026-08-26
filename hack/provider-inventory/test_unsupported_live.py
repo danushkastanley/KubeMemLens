@@ -41,7 +41,8 @@ class LiveRunner:
         self.dry_requests.append((base, namespace, manifest))
         if "volumes" not in manifest["spec"]:
             return 201, {"apiVersion": "v1", "kind": "Pod"}
-        return 403, self.source["admission"]["targetStatus"] | {
+        status = self.source["admission"]["targetStatus"]
+        return status["code"], status | {
             "apiVersion": "v1", "kind": "Status", "status": "Failure",
         }
 
