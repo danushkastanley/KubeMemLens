@@ -1,0 +1,12 @@
+{
+  "provisioningState": "Succeeded",
+  "powerState": {"code": "Running"},
+  "fqdn": "aks.private.example.test",
+  "kubernetesVersion": "1.36.1",
+  "currentKubernetesVersion": "1.36.1",
+  "networkProfile": {
+    "networkPlugin": "azure",
+    "networkPolicy": "cilium",
+    "networkDataplane": "cilium"
+  }
+}

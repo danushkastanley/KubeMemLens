@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "profileID": "cgroup-v1",
+  "providerProof": {
+    "provider": "self-managed",
+    "nodeImage": "Debian GNU/Linux 11",
+    "cniName": "Antrea v2.3.0",
+    "cniEnforced": true,
+    "controlPlaneVersion": "v1.36.1"
+  },
+  "version": {"serverVersion": {"gitVersion": "v1.36.1"}},
+  "nodes": {"items": [{
+    "metadata": {"uid": "private-linux-node-uid", "labels": {"kubernetes.io/os": "linux"}},
+    "status": {
+      "conditions": [{"type": "Ready", "status": "True"}],
+      "nodeInfo": {
+        "osImage": "Debian GNU/Linux 11",
+        "containerRuntimeVersion": "containerd://1.7.28",
+        "architecture": "amd64",
+        "kernelVersion": "6.1.0",
+        "kubeletVersion": "v1.36.1"
+      }
+    }
+  }]},
+  "hostObservations": [{
+    "nodeUID": "private-linux-node-uid",
+    "filesystem": "cgroup",
+    "controllersPresent": false
+  }],
+  "chart": {"daemonSet": {"spec": {"template": {"spec": {
+    "nodeSelector": {"kubernetes.io/os": "linux"},
+    "volumes": [{"hostPath": {"path": "/sys/fs/cgroup", "type": "Directory"}}]
+  }}}}}
+}

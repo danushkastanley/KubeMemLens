@@ -1,0 +1,8 @@
+{
+  "provisioningState": "Succeeded",
+  "osType": "Linux",
+  "osSku": "Ubuntu",
+  "type": "VirtualMachineScaleSets",
+  "mode": "User",
+  "nodeImageVersion": "AKSUbuntu-2404gen2containerd-2026.08.12"
+}

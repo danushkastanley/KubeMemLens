@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "aks-virtual-nodes",
+  "expectedOutcome": "unsupported",
+  "expectations": {
+    "providerPattern": "^aks-virtual-nodes$",
+    "osImagePattern": "^[A-Za-z0-9][-A-Za-z0-9 ._()+/]{1,159}$",
+    "runtimePattern": "^(containerd|virtual-kubelet)://[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?$",
+    "architecturePattern": "^amd64$",
+    "cgroupPattern": "^(v2|unreported)$",
+    "nodeImagePattern": "^AKS virtual-node ACI$",
+    "cniPattern": "^Azure CNI virtual nodes$",
+    "cniEnforcementRequired": true
+  },
+  "expectedUnsupportedReason": "virtual_nodes_not_supported",
+  "requalificationDays": 90,
+  "profileDigest": "sha256:d1b56a855441773318b18366810d725109b30d34973110741cf7b62af7d85624"
+}

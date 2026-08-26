@@ -1,4 +1,10 @@
 {{- if .Values.collector.enabled }}
+{{- if .Values.security.privileged }}
+{{- fail "security.privileged must remain false for the standard cgroup-read profile" }}
+{{- end }}
+{{- if not .Values.security.readOnlyRootFilesystem }}
+{{- fail "security.readOnlyRootFilesystem must remain true for the standard cgroup-read profile" }}
+{{- end }}
 {{- if ne (int .Values.collector.replicas) 1 }}
 {{- fail "collector.replicas must be 1 while the collector uses an in-memory per-instance store" }}
 {{- end }}
@@ -24,6 +30,8 @@ spec:
       serviceAccountName: kube-memlens-collector
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
+      nodeSelector:
+        kubernetes.io/os: linux
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532

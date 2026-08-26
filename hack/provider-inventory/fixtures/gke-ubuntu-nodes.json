@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "metadata": {
+        "name": "gke-node-1",
+        "labels": {
+          "kubernetes.io/os": "linux",
+          "cloud.google.com/gke-nodepool": "private-pool-name"
+        }
+      },
+      "status": {
+        "nodeInfo": {
+          "architecture": "amd64",
+          "containerRuntimeVersion": "containerd://2.0.5",
+          "osImage": "Ubuntu 24.04.2 LTS"
+        }
+      }
+    }
+  ]
+}

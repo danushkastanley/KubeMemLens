@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "profileID": "eks-fargate",
+  "provider": {
+    "cluster": {"name": "private-eks-cluster", "status": "ACTIVE", "version": "1.36"},
+    "fargateProfile": {
+      "fargateProfileName": "private-profile",
+      "status": "ACTIVE",
+      "selectors": [{"namespace": "private-observation-namespace"}]
+    }
+  },
+  "version": {"serverVersion": {"gitVersion": "v1.36.2-eks-build"}},
+  "nodes": {"items": [{
+    "metadata": {
+      "uid": "private-fargate-node-uid",
+      "labels": {"kubernetes.io/os": "linux", "eks.amazonaws.com/compute-type": "fargate"}
+    },
+    "status": {
+      "conditions": [{"type": "Ready", "status": "True"}],
+      "nodeInfo": {
+        "osImage": "Amazon Linux 2023.7",
+        "containerRuntimeVersion": "containerd://2.0.5",
+        "architecture": "amd64",
+        "kernelVersion": "6.1.145",
+        "kubeletVersion": "v1.36.2-eks-build"
+      }
+    }
+  }]}
+}

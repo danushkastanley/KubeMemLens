@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "profileID": "windows-deep-mode",
+  "providerProof": {
+    "provider": "self-managed",
+    "nodeImage": "Windows Server 2025 Datacenter",
+    "cniName": "Cilium v1.18.1",
+    "cniEnforced": true,
+    "controlPlaneVersion": "v1.36.1"
+  },
+  "version": {"serverVersion": {"gitVersion": "v1.36.1"}},
+  "nodes": {"items": [{
+    "metadata": {"uid": "private-windows-node-uid", "labels": {"kubernetes.io/os": "windows"}},
+    "spec": {"providerID": ""},
+    "status": {
+      "conditions": [{"type": "Ready", "status": "True"}],
+      "nodeInfo": {
+        "osImage": "Windows Server 2025 Datacenter",
+        "containerRuntimeVersion": "containerd://2.0.5",
+        "architecture": "amd64",
+        "kernelVersion": "10.0.26100.1",
+        "kubeletVersion": "v1.36.1"
+      }
+    }
+  }]},
+  "chart": {"daemonSet": {"spec": {"template": {"spec": {
+    "nodeSelector": {"kubernetes.io/os": "linux"},
+    "volumes": []
+  }}}}}
+}

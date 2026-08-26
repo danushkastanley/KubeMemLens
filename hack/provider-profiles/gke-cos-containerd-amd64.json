@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "gke-cos-containerd-amd64",
+  "expectedOutcome": "pass",
+  "expectations": {
+    "providerPattern": "^gke-standard$",
+    "osImagePattern": "^(Container-Optimized OS|COS)( [A-Za-z0-9._+-]+)*$",
+    "runtimePattern": "^containerd://[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?$",
+    "architecturePattern": "^amd64$",
+    "cgroupPattern": "^v2$",
+    "nodeImagePattern": "^COS_CONTAINERD$",
+    "cniPattern": "^(GKE Dataplane V2|GKE Calico)$",
+    "cniEnforcementRequired": true
+  },
+  "expectedUnsupportedReason": null,
+  "requalificationDays": 90,
+  "profileDigest": "sha256:0623092add08e0145dcb1a9c410c6bd9b8cfc65027fa968fae37c493ada2964c"
+}

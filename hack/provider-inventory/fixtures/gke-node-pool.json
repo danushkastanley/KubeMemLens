@@ -1,0 +1,4 @@
+{
+  "status": "RUNNING",
+  "config": {"imageType": "COS_CONTAINERD"}
+}

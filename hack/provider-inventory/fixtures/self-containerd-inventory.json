@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "version": {"serverVersion": {"gitVersion": "v1.36.1"}},
+  "nodes": {
+    "items": [{
+      "metadata": {"labels": {"kubernetes.io/os": "linux"}},
+      "status": {"nodeInfo": {
+        "architecture": "arm64",
+        "containerRuntimeVersion": "containerd://2.0.5",
+        "osImage": "Debian GNU/Linux 12 (bookworm)"
+      }}
+    }]
+  },
+  "daemonsets": {
+    "items": [{
+      "metadata": {"name": "cilium"},
+      "spec": {"template": {"spec": {"containers": [
+        {"image": "quay.io/cilium/cilium:v1.18.1"}
+      ]}}}
+    }]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "self-managed-containerd",
+  "expectedOutcome": "pass",
+  "expectations": {
+    "providerPattern": "^self-managed$",
+    "osImagePattern": "^[A-Za-z0-9][-A-Za-z0-9 ._()+/]{1,159}$",
+    "runtimePattern": "^containerd://[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?$",
+    "architecturePattern": "^amd64$",
+    "cgroupPattern": "^v2$",
+    "nodeImagePattern": "^[A-Za-z0-9][-A-Za-z0-9 ._()+/]{1,159}$",
+    "cniPattern": "^(Cilium|Calico|Antrea) v[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?$",
+    "cniEnforcementRequired": true
+  },
+  "expectedUnsupportedReason": null,
+  "requalificationDays": 90,
+  "profileDigest": "sha256:5a6dd07d5bf10a9f85b43a691762222f91bdfa18d93fc3fd320a6cab2502060e"
+}

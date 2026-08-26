@@ -38,5 +38,44 @@ require_text SECURITY.md 'docs/compatibility.md'
 require_text docs/installation.md 'compatibility.md'
 require_text docs/security-model.md 'compatibility.md'
 require_text charts/kube-memlens/README.md 'docs/compatibility.md'
+require_text docs/qualification.md 'provider-qualification.json'
+require_text docs/provider-qualification-sources.md 'Review date: 2026-08-26'
+require_text hack/provider-probe-image.json 'docker.io/library/busybox@sha256:'
+jq -e '.schemaVersion == 1 and .platform == "linux/amd64" and
+  (.image | test("^docker.io/library/busybox@sha256:[a-f0-9]{64}$")) and
+  .requiredCommands == ["/bin/sh","httpd","wget"]' hack/provider-probe-image.json >/dev/null ||
+  { echo 'support contract check failed: provider probe image contract is invalid' >&2; exit 1; }
+
+for profile in \
+  gke-cos-containerd-amd64 gke-ubuntu-containerd-amd64 \
+  eks-al2023-containerd-amd64 aks-ubuntu-containerd-amd64 \
+  self-managed-containerd self-managed-crio-amd64 \
+  gke-autopilot eks-fargate aks-virtual-nodes windows-deep-mode cgroup-v1; do
+  test -f "hack/provider-profiles/${profile}.json" || {
+    echo "support contract check failed: missing provider profile ${profile}" >&2
+    exit 1
+  }
+done
+
+for profile in \
+  gke-cos-containerd-amd64 gke-ubuntu-containerd-amd64 \
+  eks-al2023-containerd-amd64 aks-ubuntu-containerd-amd64 \
+  self-managed-containerd self-managed-crio-amd64 \
+  gke-autopilot eks-fargate aks-virtual-nodes windows-deep-mode cgroup-v1; do
+  test -f "hack/provider-values/${profile}.yaml" || {
+    echo "support contract check failed: missing provider values ${profile}" >&2
+    exit 1
+  }
+done
+test -x hack/provider-inventory/collect.py ||
+  { echo 'support contract check failed: provider inventory collector is not executable' >&2; exit 1; }
+test -x hack/provider-inventory/observe_unsupported.py ||
+  { echo 'support contract check failed: unsupported observation collector is not executable' >&2; exit 1; }
+test -f hack/provider-profiles/evaluate_matrix.py ||
+  { echo 'support contract check failed: provider matrix evaluator is missing' >&2; exit 1; }
+test -x hack/provider-profiles/build_unsupported_pending.py ||
+  { echo 'support contract check failed: unsupported evidence builder is not executable' >&2; exit 1; }
+test -x hack/verify_chart_archive.py ||
+  { echo 'support contract check failed: chart archive verifier is not executable' >&2; exit 1; }
 
 echo 'support contract check passed'

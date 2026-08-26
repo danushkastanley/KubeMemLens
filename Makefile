@@ -1,4 +1,4 @@
-.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
+.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -45,10 +45,18 @@ check-scale-contract:
 	hack/test-density-libraries.sh
 	hack/verify-scale-capacity.sh
 
+check-provider-contract:
+	python3 -m unittest discover -s hack/provider-profiles -p 'test_*.py'
+	python3 -m unittest discover -s hack/provider-inventory -p 'test_*.py'
+	python3 hack/test_verify_chart_archive.py
+	hack/test-provider-evidence.sh
+	hack/test-provider-cleanup.sh
+	hack/verify-provider-chart.sh
+
 vuln:
 	go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
-check: fmt-check check-support-contract check-scale-contract test coverage test-race vet vuln build
+check: fmt-check check-support-contract check-scale-contract check-provider-contract test coverage test-race vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh

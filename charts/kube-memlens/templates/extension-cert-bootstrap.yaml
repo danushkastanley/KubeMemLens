@@ -85,6 +85,8 @@ spec:
       restartPolicy: Never
       serviceAccountName: kube-memlens-cert-bootstrap
       automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/os: linux
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532

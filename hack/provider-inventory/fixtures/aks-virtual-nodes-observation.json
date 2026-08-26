@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "profileID": "aks-virtual-nodes",
+  "provider": {
+    "name": "private-aks-cluster",
+    "provisioningState": "Succeeded",
+    "kubernetesVersion": "1.36.1",
+    "currentKubernetesVersion": "1.36.1",
+    "addonProfiles": {"aciConnectorLinux": {"enabled": true}},
+    "networkProfile": {"networkPlugin": "azure"}
+  },
+  "version": {"serverVersion": {"gitVersion": "v1.36.1"}},
+  "nodes": {"items": [{
+    "metadata": {
+      "uid": "private-virtual-node-uid",
+      "labels": {"kubernetes.io/os": "linux", "type": "virtual-kubelet"}
+    },
+    "spec": {"taints": [{"key": "virtual-kubelet.io/provider", "value": "azure"}]},
+    "status": {
+      "conditions": [{"type": "Ready", "status": "True"}],
+      "nodeInfo": {
+        "osImage": "Ubuntu 22.04.5 LTS",
+        "containerRuntimeVersion": "virtual-kubelet://1.11.0",
+        "architecture": "amd64",
+        "kernelVersion": "virtual-kubelet",
+        "kubeletVersion": "v1.36.1"
+      }
+    }
+  }]}
+}

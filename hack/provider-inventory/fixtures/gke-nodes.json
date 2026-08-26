@@ -1,0 +1,21 @@
+{
+  "items": [
+    {
+      "metadata": {
+        "name": "gke-node-1",
+        "labels": {
+          "kubernetes.io/os": "linux",
+          "cloud.google.com/gke-nodepool": "private-pool-name"
+        }
+      },
+      "spec": {"providerID": "gce://private-project/private-zone/private-instance"},
+      "status": {
+        "nodeInfo": {
+          "architecture": "amd64",
+          "containerRuntimeVersion": "containerd://2.0.5",
+          "osImage": "Container-Optimized OS cos-121"
+        }
+      }
+    }
+  ]
+}

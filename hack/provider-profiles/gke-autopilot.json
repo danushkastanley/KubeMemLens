@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "gke-autopilot",
+  "expectedOutcome": "unsupported",
+  "expectations": {
+    "providerPattern": "^gke-autopilot$",
+    "osImagePattern": "^[A-Za-z0-9][-A-Za-z0-9 ._()+/]{1,159}$",
+    "runtimePattern": "^containerd://[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?$",
+    "architecturePattern": "^amd64$",
+    "cgroupPattern": "^(v2|unreported)$",
+    "nodeImagePattern": "^(AUTOPILOT|COS_CONTAINERD)$",
+    "cniPattern": "^GKE Dataplane V2$",
+    "cniEnforcementRequired": true
+  },
+  "expectedUnsupportedReason": "hostpath_not_permitted",
+  "requalificationDays": 90,
+  "profileDigest": "sha256:dd6ddba02f001399052fbc9e170e21ca80c451f711fc68a6f753e979bbae795d"
+}
