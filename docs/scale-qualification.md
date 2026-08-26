@@ -163,7 +163,7 @@ A result may enter the repository or a durable release record only after manual 
 
 ## Cleanup and recovery checks
 
-The exit trap stops port-forwards, restores the original agent selector, requests deletion of the labelled soak namespace and writes a final summary. The KubeMemLens installation remains in place.
+The exit trap stops port-forwards, restores the original agent selector, requests deletion of the labelled soak namespace and writes a final summary. If the reliability subprocess fails, the evidence directory also retains an identifier-free `reliability-failure.json` with the final failed phase and the phase that triggered cleanup. The KubeMemLens installation remains in place.
 
 After any run, verify cleanup rather than relying on the trap message:
 

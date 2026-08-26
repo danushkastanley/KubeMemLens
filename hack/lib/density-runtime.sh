@@ -369,22 +369,34 @@ density_select_kind_worker() {
 }
 
 density_measure_worker_node_recovery() {
-  local deadline condition recovery_started worker_node
+  local deadline condition recovery_started recovery_deadline remaining worker_node
+  local unavailable_observed=false
   paused_kind_node=$(density_select_kind_worker "${nodes_json}") ||
     fail "qualification requires a kind worker Node"
   worker_node=${paused_kind_node}
-  docker pause "${paused_kind_node}" >/dev/null
+  docker pause "${paused_kind_node}" >/dev/null || fail "could not pause the selected kind worker"
   deadline=$((SECONDS + 120))
   while [ "${SECONDS}" -lt "${deadline}" ]; do
-    condition=$(k get node "${paused_kind_node}" -o json | jq -r '
-      [.status.conditions[] | select(.type == "Ready") | .status][0] // "Unknown"')
-    [ "${condition}" = True ] || break
+    if condition=$(k get node "${paused_kind_node}" --request-timeout=3s -o json 2>/dev/null | jq -r '
+      [.status.conditions[] | select(.type == "Ready") | .status][0] // "Unknown"'); then
+      if [ "${condition}" != True ]; then
+        unavailable_observed=true
+        break
+      fi
+    fi
     sleep 2
   done
-  [ "${condition}" != True ] || fail "kind worker did not become unavailable within 120 seconds"
+  [ "${unavailable_observed}" = true ] || fail "kind worker did not become unavailable within 120 seconds"
   recovery_started=${SECONDS}
-  density_restore_paused_node
-  k wait --for=condition=Ready "node/${worker_node}" --timeout=120s >/dev/null
-  wait_for_mapping 120 || fail "mapping did not recover within 120 seconds after kind worker interruption"
+  recovery_deadline=$((recovery_started + 120))
+  density_restore_paused_node || fail "could not restore the selected kind worker"
+  remaining=$((recovery_deadline - SECONDS))
+  [ "${remaining}" -gt 0 ] || fail "kind worker restoration exhausted the recovery budget"
+  k wait --for=condition=Ready "node/${worker_node}" --timeout="${remaining}s" >/dev/null ||
+    fail "kind worker did not become ready within 120 seconds"
+  remaining=$((recovery_deadline - SECONDS))
+  [ "${remaining}" -gt 0 ] || fail "kind worker readiness exhausted the mapping recovery budget"
+  wait_for_mapping "${remaining}" ||
+    fail "mapping did not recover within 120 seconds after kind worker interruption"
   worker_node_recovery_seconds=$((SECONDS - recovery_started))
 }

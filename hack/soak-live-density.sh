@@ -439,11 +439,26 @@ if [ "${profile_mode}" = qualification ]; then
   reliability_kubeconfig=${work_dir}/reliability-kubeconfig
   k config view --minify --flatten > "${reliability_kubeconfig}"
   chmod 600 "${reliability_kubeconfig}"
-  RELIABILITY_NAMESPACE="${collector_namespace}" \
+  if ! env RELIABILITY_NAMESPACE="${collector_namespace}" \
     RELIABILITY_KUBECONFIG="${reliability_kubeconfig}" \
     RELIABILITY_ARTIFACT_DIR="${reliability_dir}" \
     RELIABILITY_ACKNOWLEDGE=disrupt-and-restore-kube-memlens-components \
-    hack/verify-reliability-kind.sh
+    hack/verify-reliability-kind.sh; then
+    reliability_failure=${artifact_dir}/reliability-failure.json
+    if [ -f "${reliability_dir}/reliability-failure.json" ] && jq -e '
+      keys == ["phase","result","schemaVersion","triggerPhase"] and
+      .schemaVersion == 1 and .result == "fail" and
+      (.phase | type) == "string" and (.phase | test("^[a-z_]+$")) and
+      (.triggerPhase | type) == "string" and (.triggerPhase | test("^[a-z_]+$"))
+    ' "${reliability_dir}/reliability-failure.json" >/dev/null; then
+      jq '{schemaVersion:1,result:"fail",phase,triggerPhase}' \
+        "${reliability_dir}/reliability-failure.json" > "${reliability_failure}"
+    else
+      jq -n '{schemaVersion:1,result:"fail",phase:"unknown",triggerPhase:"unknown"}' > "${reliability_failure}"
+    fi
+    chmod 600 "${reliability_failure}"
+    fail "reliability failure-injection sequence failed"
+  fi
   cp "${reliability_dir}/reliability-summary.json" "${reliability_summary}"
   wait_for_mapping 120 || fail "mapping did not recover within 120 seconds after reliability injection"
   density_accept_component_rollout
