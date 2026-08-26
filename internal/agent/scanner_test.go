@@ -65,6 +65,31 @@ func TestScannerClassifiesUnmappedSiblingAsInfrastructure(t *testing.T) {
 	}
 }
 
+func TestScannerClassifiesCompactUIDStaticPodSandbox(t *testing.T) {
+	root := t.TempDir()
+	cgroupPodUID := "c2df6c2eedc06b1195677a320a366f5e"
+	mirrorPodUID := "12345678-1234-1234-1234-123456789abc"
+	containerID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	sandboxID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	podDir := filepath.Join(root, "kubepods", "pod"+cgroupPodUID)
+	writeScannerCgroup(t, filepath.Join(podDir, containerID), 1024)
+	writeScannerCgroup(t, filepath.Join(podDir, sandboxID), 128)
+	index := kube.EmptyPodIndex()
+	ref := kube.PodRef{Namespace: "kube-system", PodName: "static", PodUID: mirrorPodUID,
+		ContainerName: "component", ContainerID: containerID, NodeName: "node-a"}
+	index.ByContainerID[containerID] = ref
+	index.ByPodUID[mirrorPodUID] = []kube.PodRef{ref}
+
+	scanner := Scanner{CgroupRoot: root, NodeName: "node-a"}
+	result, err := scanner.Scan(context.Background(), index)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if result.Mapped != 1 || result.Unmapped != 0 || result.InfrastructureCgroups != 1 {
+		t.Fatalf("compact UID scan counts = %#v", result)
+	}
+}
+
 func TestScannerRetainsSandboxClassificationDuringPodTeardown(t *testing.T) {
 	root := t.TempDir()
 	podUID := "12345678-1234-1234-1234-123456789abc"

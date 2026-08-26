@@ -100,10 +100,11 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 		ok  bool
 	}
 	type parentMapping struct {
-		podUID    string
-		mapped    int
-		unmapped  []int
-		ambiguous bool
+		cgroupPodUID string
+		mappedPodUID string
+		mapped       int
+		unmapped     []int
+		ambiguous    bool
 	}
 	mappings := make([]mapping, len(entries))
 	parents := map[string]*parentMapping{}
@@ -113,13 +114,18 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 		parent := filepath.Dir(entry.RelativePath)
 		state := parents[parent]
 		if state == nil {
-			state = &parentMapping{podUID: entry.PodUID}
+			state = &parentMapping{cgroupPodUID: entry.PodUID}
 			parents[parent] = state
 		}
-		if entry.PodUID == "" || state.podUID != entry.PodUID {
+		if entry.PodUID == "" || state.cgroupPodUID != entry.PodUID {
 			state.ambiguous = true
 		}
 		if ok {
+			if state.mappedPodUID == "" {
+				state.mappedPodUID = ref.PodUID
+			} else if ref.PodUID == "" || state.mappedPodUID != ref.PodUID {
+				state.ambiguous = true
+			}
 			state.mapped++
 		} else {
 			state.unmapped = append(state.unmapped, i)
@@ -127,7 +133,7 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 	}
 	infrastructureCandidates := map[int]struct{}{}
 	for _, state := range parents {
-		expected := len(idx.ByPodUID[state.podUID])
+		expected := len(idx.ByPodUID[state.mappedPodUID])
 		if !state.ambiguous && expected > 0 && state.mapped == expected && len(state.unmapped) == 1 {
 			infrastructureCandidates[state.unmapped[0]] = struct{}{}
 		}
