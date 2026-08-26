@@ -72,11 +72,132 @@ k() {
   fi
 }
 density_create_staged_workload
-jq -e '.spec.strategy.rollingUpdate == {maxSurge:0,maxUnavailable:"50%"}' \
+jq -e '.spec.strategy.rollingUpdate == {maxSurge:0,maxUnavailable:"10%"}' \
   "${deployment_document}" >/dev/null || {
-  echo "density workload rollout does not permit the reviewed 50% recovery parallelism" >&2
+  echo "density workload rollout strategy changed unexpectedly" >&2
   exit 1
 }
+
+fail() {
+  echo "$*" >&2
+  exit 1
+}
+containers=24
+containers_per_pod=2
+pod_count=12
+creation_batch_pods=10
+baseline_workload_document=$(jq -cn --argjson containersPerPod "${containers_per_pod}" '
+  {items:[range(0;12) as $pod |
+    {metadata:{name:("worker-" + (11-$pod|tostring)),uid:("uid-" + (11-$pod|tostring)),deletionTimestamp:null},
+     status:{phase:"Running",containerStatuses:[range(0;$containersPerPod) |
+       {ready:true,state:{running:{}},restartCount:0,lastState:{}}]}}]}')
+workload_document=${baseline_workload_document}
+workload_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' <<<"${workload_document}")
+baseline_workload_restarts=0
+baseline_workload_oom_kills=0
+accepted_workload_pod_uids='[]'
+workload_replacement_expected_pods=0
+workload_replacement_observed_pods=0
+workload_replacement_resident_containers_before=0
+workload_replacement_resident_containers_after=0
+selection_file=${work_dir}/workload-churn-selection.json
+deleted_resources=
+k() {
+  case "$*" in
+    *"get pods"*) printf '%s' "${workload_document}" ;;
+    *"delete pod"*) deleted_resources=$* ;;
+  esac
+}
+density_prepare_workload_batch "${selection_file}"
+[ "$(find "${selection_file}" -prune -perm 0600 -print)" = "${selection_file}" ] || {
+  echo "density workload replacement selection is not private" >&2
+  exit 1
+}
+[ "$(jq -c 'map(.name)' "${selection_file}")" = \
+  '["worker-0","worker-1","worker-10","worker-11","worker-2","worker-3","worker-4","worker-5","worker-6","worker-7"]' ] || {
+  echo "density workload replacement did not select the exact sorted batch" >&2
+  exit 1
+}
+density_delete_workload_batch "${selection_file}"
+expected_deleted='worker-0 worker-1 worker-10 worker-11 worker-2 worker-3 worker-4 worker-5 worker-6 worker-7'
+actual_deleted=${deleted_resources#*--wait=false }
+[ "${actual_deleted}" = "${expected_deleted}" ] || {
+  echo "density workload replacement did not delete the exact batch" >&2
+  exit 1
+}
+
+workload_document=$(jq -cn --argjson containersPerPod "${containers_per_pod}" '
+  def pod($name;$uid):
+    {metadata:{name:$name,uid:$uid,deletionTimestamp:null},status:{phase:"Running",
+      containerStatuses:[range(0;$containersPerPod) |
+        {ready:true,state:{running:{}},restartCount:0,lastState:{}}]}};
+  {items:([8,9] | map(. as $pod | pod("worker-"+($pod|tostring);"uid-"+($pod|tostring)))) +
+    ([range(0;10) | pod("replacement-"+tostring;"replacement-uid-"+tostring)])}')
+density_wait_for_workload_batch_recovery "${selection_file}" "$((SECONDS + 2))"
+if [ "${workload_replacement_expected_pods}" -ne 10 ] ||
+  [ "${workload_replacement_observed_pods}" -ne 10 ] ||
+  [ "${workload_replacement_resident_containers_before}" -ne 24 ] ||
+  [ "${workload_replacement_resident_containers_after}" -ne 24 ]; then
+  echo "density workload replacement did not retain exact sanitised evidence" >&2
+  exit 1
+fi
+disruption_unexplained_restarts=0
+disruption_oom_kills=0
+density_accept_workload_batch
+
+extra_replacement_document=$(jq -cn --argjson containersPerPod "${containers_per_pod}" '
+  def pod($name;$uid):
+    {metadata:{name:$name,uid:$uid,deletionTimestamp:null},status:{phase:"Running",
+      containerStatuses:[range(0;$containersPerPod) |
+        {ready:true,state:{running:{}},restartCount:0,lastState:{}}]}};
+  {items:([9] | map(. as $pod | pod("worker-"+($pod|tostring);"uid-"+($pod|tostring)))) +
+    ([range(0;11) | pod("replacement-"+tostring;"replacement-uid-"+tostring)])}')
+if (workload_document=${extra_replacement_document};
+  density_wait_for_workload_batch_recovery "${selection_file}" "$((SECONDS + 2))" >/dev/null 2>&1); then
+  echo "density workload replacement accepted extra Pod churn" >&2
+  exit 1
+fi
+
+not_ready_document=$(jq '.items[0].status.containerStatuses[0].ready = false' <<<"${baseline_workload_document}")
+if failure_output=$(workload_document=${not_ready_document};
+  density_prepare_workload_batch "${work_dir}/rejected-selection.json" 2>&1); then
+  echo "density workload replacement accepted a not-ready Pod" >&2
+  exit 1
+fi
+case "${failure_output}" in
+  *worker-*|*uid-*)
+    echo "density workload replacement failure exposed a workload identifier" >&2
+    exit 1
+    ;;
+esac
+
+restarted_document=$(jq '.items[0].status.containerStatuses[0].restartCount = 1' \
+  <<<"${baseline_workload_document}")
+if (workload_document=${restarted_document};
+  density_prepare_workload_batch "${work_dir}/restarted-selection.json" >/dev/null 2>&1); then
+  echo "density workload replacement accepted a pre-delete restart" >&2
+  exit 1
+fi
+
+mapped_page='{"metadata":{"continue":""},"items":[
+  {"snapshot":{"podUID":"mapped-2","freshness":"fresh","completeness":"complete","context":{"labels":{"app.kubernetes.io/name":"density-workers"}}}},
+  {"snapshot":{"podUID":"mapped-1","freshness":"fresh","completeness":"complete","context":{"labels":{"app.kubernetes.io/name":"density-workers"}}}},
+  {"snapshot":{"podUID":"canary","freshness":"fresh","completeness":"complete","context":{"labels":{"app.kubernetes.io/name":"density-canary"}}}}
+]}'
+k() {
+  case "$*" in
+    *"get --raw"*) printf '%s' "${mapped_page}" ;;
+  esac
+}
+[ "$(mapped_workload_pod_uids)" = '["mapped-1","mapped-2"]' ] || {
+  echo "mapped workload UID check did not retain exact fresh evidence" >&2
+  exit 1
+}
+mapped_page=$(jq '.items[0].snapshot.freshness = "stale"' <<<"${mapped_page}")
+if mapped_workload_pod_uids >/dev/null 2>&1; then
+  echo "mapped workload UID check accepted stale evidence" >&2
+  exit 1
+fi
 startup_component_pod_uids='[]'
 startup_workload_pod_uids='[]'
 startup_component_restarts=0
@@ -90,10 +211,6 @@ k() {
     *workload-ns*) printf '%s' "${workload_document}" ;;
     *"get nodes"*) printf '%s' "${node_document}" ;;
   esac
-}
-fail() {
-  echo "$*" >&2
-  exit 1
 }
 density_capture_startup_baseline
 density_assert_startup_stable

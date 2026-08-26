@@ -17,7 +17,7 @@ density_create_staged_workload() {
     {apiVersion: "apps/v1", kind: "Deployment", metadata: {name: "density-workers", namespace: $namespace,
       labels: {"app.kubernetes.io/name": "density-workers", "app.kubernetes.io/managed-by": "kube-memlens-density-soak"}},
      spec: {replicas: 0, progressDeadlineSeconds: 1800,
-      strategy: {type: "RollingUpdate", rollingUpdate: {maxSurge: 0, maxUnavailable: "50%"}},
+      strategy: {type: "RollingUpdate", rollingUpdate: {maxSurge: 0, maxUnavailable: "10%"}},
       selector: {matchLabels: {"app.kubernetes.io/name": "density-workers"}},
       template: {metadata: {labels: {"app.kubernetes.io/name": "density-workers"}},
         spec: {automountServiceAccountToken: false, terminationGracePeriodSeconds: 0,
@@ -33,6 +33,169 @@ density_create_staged_workload() {
     k rollout status deployment/density-workers -n "${namespace}" --timeout="${timeout}"
     density_assert_startup_stable
   done
+}
+
+mapped_count() {
+  "${cli}" "${cli_args[@]}" top containers --all-namespaces \
+    --field-selector metadata.namespace="${namespace}" \
+    --selector app.kubernetes.io/name=density-workers --output json 2>/dev/null | jq 'length'
+}
+
+mapped_workload_pod_uids() {
+  local page_file=${work_dir}/mapped-workload-pods.json encoded path
+  local uids='[]' page_uids
+  local continue_token=
+  : > "${page_file}"
+  chmod 600 "${page_file}"
+  while :; do
+    path="/apis/memory.kubememlens.io/v1alpha1/namespaces/${namespace}/pods?summary=true&limit=500"
+    if [ -n "${continue_token}" ]; then
+      encoded=$(jq -nr --arg value "${continue_token}" '$value | @uri')
+      path="${path}&continue=${encoded}"
+    fi
+    k get --raw "${path}" > "${page_file}" || return 1
+    page_uids=$(jq -ce '
+      [.items[].snapshot |
+        select(.context.labels["app.kubernetes.io/name"] == "density-workers")] as $pods |
+      if all($pods[]; .freshness == "fresh" and .completeness == "complete")
+      then [$pods[].podUID] | sort else error("workload Pod evidence is not fresh and complete") end
+    ' "${page_file}") || return 1
+    uids=$(jq -cn --argjson existing "${uids}" --argjson page "${page_uids}" \
+      '$existing + $page | unique | sort')
+    continue_token=$(jq -er '.metadata.continue // ""' "${page_file}") || return 1
+    [ -n "${continue_token}" ] || break
+  done
+  printf '%s' "${uids}"
+}
+
+wait_for_mapping() {
+  local timeout_seconds=${1:-120} deadline count=0 status doctor state complete unmapped
+  local mapped_uids mapped_uids_ready
+  deadline=$((SECONDS + timeout_seconds))
+  while [ "${SECONDS}" -lt "${deadline}" ]; do
+    count=$(mapped_count || true)
+    status=$("${cli}" "${cli_args[@]}" status --output json 2>/dev/null || true)
+    doctor=$("${cli}" "${cli_args[@]}" doctor --output json 2>/dev/null || true)
+    state=$(jq -r '.store.reliability.state // empty' <<<"${status}" 2>/dev/null || true)
+    complete=$(jq -r '
+      .store.reliability.expectedNodes == .store.reliability.freshNodes and
+      .store.reliability.staleNodes == 0 and .store.reliability.missingNodes == 0
+    ' <<<"${status}" 2>/dev/null || true)
+    unmapped=$(jq -r '.mapping.unmapped // empty' <<<"${doctor}" 2>/dev/null || true)
+    mapped_uids_ready=true
+    if [ "${required_workload_pod_uids}" != '[]' ]; then
+      mapped_uids=$(mapped_workload_pod_uids || true)
+      [ "${mapped_uids:-}" = "${required_workload_pod_uids}" ] || mapped_uids_ready=false
+    fi
+    if [ "${count:-0}" -eq "${containers}" ] && [ "${state}" = ready ] && [ "${complete}" = true ] &&
+      [ "${unmapped:-1}" -eq 0 ] && [ "${mapped_uids_ready}" = true ]; then
+      return 0
+    fi
+    sleep 10
+  done
+  return 1
+}
+
+density_prepare_workload_batch() {
+  local selection_file=$1 pods_file=${work_dir}/workload-churn-before.json
+  k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${pods_file}"
+  : > "${selection_file}"
+  chmod 600 "${selection_file}"
+  jq -e --argjson expected "${workload_pod_uids}" --argjson podCount "${pod_count}" \
+    --argjson batch "${creation_batch_pods}" --argjson containersPerPod "${containers_per_pod}" \
+    --argjson target "${containers}" --argjson baselineRestarts "${baseline_workload_restarts}" \
+    --argjson baselineOOMKills "${baseline_workload_oom_kills}" '
+    .items as $pods |
+    ($pods | map(.metadata.uid) | sort) as $uids |
+    if (($pods | length) == $podCount and ($uids | unique | length) == $podCount and
+      ($pods | map(.metadata.name) | unique | length) == $podCount and $uids == $expected and
+      ([$pods[].status.containerStatuses[]?] | length) == $target and
+      ([$pods[].status.containerStatuses[]?.restartCount] | add // 0) == $baselineRestarts and
+      ([$pods[].status.containerStatuses[]? |
+        select(.lastState.terminated.reason == "OOMKilled")] | length) == $baselineOOMKills and
+      all($pods[];
+        .metadata.deletionTimestamp == null and .status.phase == "Running" and
+        (.status.containerStatuses | type) == "array" and
+        (.status.containerStatuses | length) == $containersPerPod and
+        all(.status.containerStatuses[]; .ready == true and (.state.running | type) == "object")))
+    then ($pods | sort_by(.metadata.name) | .[:$batch] | map({name:.metadata.name,uid:.metadata.uid}))
+    else error("workload is not at the exact ready baseline") end |
+    if length == $batch then . else error("workload churn batch is incomplete") end
+  ' "${pods_file}" > "${selection_file}" || fail "could not prepare the exact workload replacement batch"
+  workload_replacement_expected_pods=${creation_batch_pods}
+  workload_replacement_resident_containers_before=${containers}
+}
+
+density_delete_workload_batch() {
+  local selection_file=$1 names_file=${work_dir}/workload-churn-names.txt
+  local output_file=${work_dir}/workload-churn-delete.txt selected_count name
+  local names=()
+  : > "${names_file}"
+  : > "${output_file}"
+  chmod 600 "${names_file}" "${output_file}"
+  jq -er '.[] | .name' "${selection_file}" > "${names_file}" ||
+    fail "could not read the workload replacement batch"
+  while IFS= read -r name; do
+    [ -n "${name}" ] || fail "workload replacement batch contained an empty resource"
+    names+=("${name}")
+  done < "${names_file}"
+  selected_count=${#names[@]}
+  [ "${selected_count}" -eq "${creation_batch_pods}" ] ||
+    fail "workload replacement batch count changed before deletion"
+  k delete pod -n "${namespace}" --wait=false "${names[@]}" > "${output_file}" 2>&1 ||
+    fail "could not delete the workload replacement batch"
+}
+
+density_workload_recovery_state() {
+  local pods_file=$1 selection_file=$2
+  jq -c --slurpfile selected "${selection_file}" --argjson baseline "${workload_pod_uids}" \
+    --argjson podCount "${pod_count}" --argjson batch "${creation_batch_pods}" \
+    --argjson containersPerPod "${containers_per_pod}" --argjson target "${containers}" '
+    .items as $pods |
+    ($selected[0] | map(.uid) | sort) as $selectedUIDs |
+    ($pods | map(.metadata.uid) | sort) as $currentUIDs |
+    ($baseline - $currentUIDs | unique | sort) as $removedUIDs |
+    ($currentUIDs - $baseline | unique | sort) as $addedUIDs |
+    {currentUIDs:$currentUIDs,addedUIDs:$addedUIDs,
+     removedPods:($removedUIDs | length),addedPods:($addedUIDs | length),
+     unexpectedRemovedPods:(($removedUIDs - $selectedUIDs) | length),
+     residentContainers:([$pods[].status.containerStatuses[]?] | length),
+     complete:(($pods | length) == $podCount and ($currentUIDs | unique | length) == $podCount and
+       ($pods | map(.metadata.name) | unique | length) == $podCount and
+       $removedUIDs == $selectedUIDs and ($addedUIDs | length) == $batch and
+       ([$pods[].status.containerStatuses[]?] | length) == $target and
+       all($pods[];
+         .metadata.deletionTimestamp == null and .status.phase == "Running" and
+         (.status.containerStatuses | type) == "array" and
+         (.status.containerStatuses | length) == $containersPerPod and
+         all(.status.containerStatuses[]; .ready == true and (.state.running | type) == "object")))}
+  ' "${pods_file}"
+}
+
+density_wait_for_workload_batch_recovery() {
+  local selection_file=$1 deadline=$2 pods_file=${work_dir}/workload-churn-current.json
+  local state observed_new_uids='[]' observed_new_count
+  while [ "${SECONDS}" -lt "${deadline}" ]; do
+    if k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${pods_file}"; then
+      state=$(density_workload_recovery_state "${pods_file}" "${selection_file}") ||
+        fail "workload replacement state was invalid"
+      observed_new_uids=$(jq -cn --argjson previous "${observed_new_uids}" \
+        --argjson current "$(jq -c '.addedUIDs' <<<"${state}")" '$previous + $current | unique | sort')
+      observed_new_count=$(jq 'length' <<<"${observed_new_uids}")
+      [ "$(jq '.unexpectedRemovedPods' <<<"${state}")" -eq 0 ] ||
+        fail "an unselected workload Pod was replaced"
+      [ "${observed_new_count}" -le "${creation_batch_pods}" ] ||
+        fail "more workload Pods were replaced than the selected batch"
+      if [ "$(jq -r '.complete' <<<"${state}")" = true ]; then
+        accepted_workload_pod_uids=$(jq -c '.currentUIDs' <<<"${state}")
+        workload_replacement_observed_pods=$(jq '.addedPods' <<<"${state}")
+        workload_replacement_resident_containers_after=$(jq '.residentContainers' <<<"${state}")
+        return 0
+      fi
+    fi
+    sleep 2
+  done
+  return 1
 }
 
 density_capture_startup_baseline() {
@@ -82,6 +245,10 @@ density_capture_operational_baseline() {
   k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
   component_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' "${component_file}")
   workload_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' "${workload_file}")
+  if [ "${accepted_workload_pod_uids}" != '[]' ] &&
+    [ "${workload_pod_uids}" != "${accepted_workload_pod_uids}" ]; then
+    fail "workload Pod set changed before the operational baseline was refreshed"
+  fi
   component_baseline=$(jq '
     {restarts: ([.items[].status.containerStatuses[]?.restartCount] | add // 0),
      oomKills: ([.items[].status.containerStatuses[]? |
@@ -162,12 +329,15 @@ density_record_component_operational() {
   density_accumulate_issues "${issues}"
 }
 
-density_accept_workload_rollout() {
-  local workload_file=${work_dir}/accepted-workload-rollout.json issues
+density_accept_workload_batch() {
+  local workload_file=${work_dir}/accepted-workload-batch.json current_uids issues
   k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
+  current_uids=$(jq -c '[.items[].metadata.uid] | sort' "${workload_file}")
+  [ "${current_uids}" = "${accepted_workload_pod_uids}" ] ||
+    fail "workload Pod set changed after the accepted replacement batch"
   issues=$(jq '
-    {restarts: ([.items[].status.containerStatuses[]?.restartCount] | add // 0),
-     oomKills: ([.items[].status.containerStatuses[]? |
+    {restarts:([.items[].status.containerStatuses[]?.restartCount] | add // 0),
+     oomKills:([.items[].status.containerStatuses[]? |
        select(.lastState.terminated.reason == "OOMKilled")] | length)}' "${workload_file}")
   density_accumulate_issues "${issues}"
 }

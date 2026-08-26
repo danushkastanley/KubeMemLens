@@ -38,6 +38,12 @@ baseline_component_restarts=0
 baseline_component_oom_kills=0
 component_pod_uids='[]'
 workload_pod_uids='[]'
+accepted_workload_pod_uids='[]'
+required_workload_pod_uids='[]'
+workload_replacement_expected_pods=0
+workload_replacement_observed_pods=0
+workload_replacement_resident_containers_before=0
+workload_replacement_resident_containers_after=0
 disruption_unexplained_restarts=0
 disruption_oom_kills=0
 startup_component_restarts=0
@@ -223,6 +229,7 @@ installed_agent_interval=$(k get daemonset kube-memlens-agent -n "${collector_na
   fail "installed agent interval ${installed_agent_interval} does not match profile ${agent_interval}"
 k auth can-i create namespaces | grep -Fxq yes || fail "identity cannot create namespaces"
 k auth can-i create deployments.apps -n "${namespace}" | grep -Fxq yes || fail "identity cannot create the workload"
+k auth can-i delete pods -n "${namespace}" | grep -Fxq yes || fail "identity cannot replace workload Pods"
 
 nodes_json=${work_dir}/nodes.json
 pods_json=${work_dir}/pods.json
@@ -326,34 +333,6 @@ k rollout status deployment/density-canary -n "${namespace}" --timeout="${timeou
 
 density_create_staged_workload
 
-mapped_count() {
-  "${cli}" "${cli_args[@]}" top containers --all-namespaces \
-    --field-selector metadata.namespace="${namespace}" \
-    --selector app.kubernetes.io/name=density-workers --output json 2>/dev/null | jq 'length'
-}
-
-wait_for_mapping() {
-  local timeout_seconds=${1:-120} deadline count=0 status doctor state complete unmapped
-  deadline=$((SECONDS + timeout_seconds))
-  while [ "${SECONDS}" -lt "${deadline}" ]; do
-    count=$(mapped_count || true)
-    status=$("${cli}" "${cli_args[@]}" status --output json 2>/dev/null || true)
-    doctor=$("${cli}" "${cli_args[@]}" doctor --output json 2>/dev/null || true)
-    state=$(jq -r '.store.reliability.state // empty' <<<"${status}" 2>/dev/null || true)
-    complete=$(jq -r '
-      .store.reliability.expectedNodes == .store.reliability.freshNodes and
-      .store.reliability.staleNodes == 0 and .store.reliability.missingNodes == 0
-    ' <<<"${status}" 2>/dev/null || true)
-    unmapped=$(jq -r '.mapping.unmapped // empty' <<<"${doctor}" 2>/dev/null || true)
-    if [ "${count:-0}" -eq "${containers}" ] && [ "${state}" = ready ] && [ "${complete}" = true ] &&
-      [ "${unmapped:-1}" -eq 0 ]; then
-      return 0
-    fi
-    sleep 10
-  done
-  return 1
-}
-
 wait_for_mapping 900 || fail "KubeMemLens did not map all ${containers} workload containers within 15 minutes"
 
 blocked_selector=$(jq -c '. + {"kubememlens.io/density-control":"true"}' <<<"${agent_node_selector}")
@@ -434,13 +413,21 @@ while [ "${next_sample}" -le "${steady_deadline}" ]; do
 done
 api_steady_end=$(density_api_server_counters)
 
+workload_batch_file=${work_dir}/workload-churn-selection.json
+density_prepare_workload_batch "${workload_batch_file}"
 churn_started=${SECONDS}
-k rollout restart deployment/density-workers -n "${namespace}" >/dev/null
-k rollout status deployment/density-workers -n "${namespace}" --timeout="${timeout}"
-wait_for_mapping || fail "mapping did not recover after rolling restart"
+churn_deadline=$((churn_started + 120))
+density_delete_workload_batch "${workload_batch_file}"
+density_wait_for_workload_batch_recovery "${workload_batch_file}" "${churn_deadline}" ||
+  fail "workload replacement Pods did not become ready within 120 seconds"
+required_workload_pod_uids=${accepted_workload_pod_uids}
+mapping_seconds_remaining=$((churn_deadline - SECONDS))
+[ "${mapping_seconds_remaining}" -gt 0 ] || fail "workload replacement exhausted the mapping recovery budget"
+wait_for_mapping "${mapping_seconds_remaining}" ||
+  fail "mapping did not recover after workload batch replacement within 120 seconds"
 churn_recovery_seconds=$((SECONDS - churn_started))
 density_record_component_operational
-density_accept_workload_rollout
+density_accept_workload_batch
 density_capture_operational_baseline
 sample_once post-churn
 

@@ -2,7 +2,7 @@
 
 This gate tests one declared KubeMemLens build against one reviewed workload profile. A passing result supports only that exact profile and environment. Configured store limits, synthetic benchmarks and the development smoke are not live-scale claims.
 
-The gate mutates a disposable cluster. It creates a workload namespace, temporarily stops and restores the agent DaemonSet, rolls the workload, and runs the reliability failure sequence for the qualification profile. Use a cluster whose owner has authorised those actions.
+The gate mutates a disposable cluster. It creates a workload namespace, temporarily stops and restores the agent DaemonSet, replaces an exact workload Pod batch, and runs the reliability failure sequence for the qualification profile. Use a cluster whose owner has authorised those actions.
 
 ## Profiles
 
@@ -10,14 +10,14 @@ Profiles live under `hack/scale-profiles`. Their canonical SHA-256 digest covers
 
 | Profile | Purpose | Workload | Evidence |
 | --- | --- | --- | --- |
-| `development-smoke` | Ordinary kind regression smoke. It makes no scale claim. | 20 containers, 10 per Pod, 30 seconds, sampled every 5 seconds, 5-second agent interval, 32 MiB canary transfer. | At least 7 steady-state samples and 7 control samples. Optional telemetry is reported as `not_evaluated` when unavailable. |
-| `rc-5000` | Local release-candidate qualification. | 5,000 containers, 50 per Pod, 30 minutes, sampled every 30 seconds, 5-second agent interval, 256 MiB canary transfer. | At least 61 steady-state samples and 7 control samples. Every telemetry source is required. |
+| `development-smoke` | Ordinary kind regression smoke. It makes no scale claim. | 20 containers, 10 per Pod, 30 seconds, sampled every 5 seconds, 5-second agent interval, 32 MiB canary transfer. | At least 7 steady-state samples, 7 control samples and exact replacement of 2 Pods at full density. Optional telemetry is reported as `not_evaluated` when unavailable. |
+| `rc-5000` | Local release-candidate qualification. | 5,000 containers, 50 per Pod, 30 minutes, sampled every 30 seconds, 5-second agent interval, 256 MiB canary transfer. | At least 61 steady-state samples, 7 control samples and exact replacement of 10 Pods at full density. Every telemetry source is required. |
 
 `rc-5000` has no accepted result yet. It remains a declared test profile, not a supported capacity. The [support contract](compatibility.md) stays at `Qualification required` until a passing run and its environment record receive review.
 
 Both profiles use the digest-pinned BusyBox image recorded in the profile. The density containers request 1 MiB of memory and 1 millicore of CPU. They sleep, so they test collection density rather than application throughput. The separate canary provides the control and observed workload comparison.
 
-The runner creates the development workload in one two-Pod batch. The RC workload scales in ten-Pod batches until all 100 Pods are available. This bounds the container-start storm without changing the 5,000-container steady state or its budgets.
+The runner creates the development workload in one two-Pod batch. The RC workload scales in ten-Pod batches until all 100 Pods are available. The same profile field sets the later replacement batch. This bounds both container creation and measured churn without changing the 5,000-container steady state or its budgets.
 
 ## Predeclared budgets
 
@@ -30,7 +30,7 @@ The RC profile uses these release-claim budgets. The development smoke uses the 
 | Agent scan p99 | Below 4,000 ms | Exclusive bound. This is 80% of the default 5-second agent interval. A different interval is not this profile. |
 | CLI p95 | At or below 2,000 ms | Time for `doctor --output json`. |
 | TUI p95 | At or below 2,000 ms | Time to start the 80 by 24 TUI and render the initial Pod table from the collector response. |
-| Recovery | At or below 120 seconds per event | Workload, agent, collector, Node, Kubernetes API and partial-rollout recovery are checked separately. |
+| Recovery | At or below 120 seconds per event | Exact workload batch replacement, agent, collector, Node, Kubernetes API and partial-rollout recovery are checked separately. The workload timer covers Pod deletion through replacement readiness and fresh mapping. |
 | Component memory p95 | At or below 70% of the configured limit | Evaluated separately for the maximum agent replica and collector ratio in every steady sample. |
 | Component CPU throttling p95 | Below 1% | Exclusive bound over per-interval counter deltas for the maximum agent replica and collector. |
 | Agent scan and post failures | Delta 0 | Each aggregate counter must remain monotonic and must not increase during the sampled window. |
@@ -68,7 +68,7 @@ The evaluator compares nearest-rank medians. This canary detects gross execution
 
 ## Disruption sequence
 
-The development smoke runs the agent-disabled control phase and rolls the density Deployment. It requires complete mapping within 120 seconds after each recovery starts. The synthetic Deployment permits up to 50% unavailability with no surge, so Kubernetes can replace half of the RC workload in parallel instead of serialising recovery behind ten runtime-startup batches.
+The development smoke runs the agent-disabled control phase and then replaces one exact workload staging batch starting from the full target density. It requires complete mapping within 120 seconds after each recovery starts. For `rc-5000`, the replacement batch is 10 Pods and 500 containers. This tests KubeMemLens recovery from bounded workload churn without treating a full 5,000-container runtime restart as a KubeMemLens latency measurement.
 
 The `rc-5000` profile pauses and restores one real kind worker while the density workload is resident, then runs the [reliability failure harness](reliability.md). The combined sequence covers a workload-serving Node interruption, agent outage, collector restart, removed and replacement Node inventory, delegated-authorisation API failure, partial agent rollout and final recovery. Each recorded event must meet the 120-second budget. The collector generation and history reset remain subject to the single-collector contract.
 
@@ -87,7 +87,7 @@ This focused gate checks 10,000-record paging and response bounds, store capacit
 - Enough Docker memory and schedulable Pod capacity for the selected profile, four kind Nodes, the canary and KubeMemLens. Record the tested Docker allocation; nested kind allocatable memory is not a host-capacity check.
 - The default five-second agent interval for the checked-in scan budget.
 - `curl`, Docker, Expect, Go, `jq`, `kubectl` and Python 3.
-- Permission to create and delete the dedicated namespace, patch and restore the agent DaemonSet, port-forward to agent Pods, read Node conditions and read API server metrics.
+- Permission to create and delete the dedicated namespace and its workload Pods, patch and restore the agent DaemonSet, port-forward to agent Pods, read Node conditions and read API server metrics.
 - A new or empty directory below `qualification-evidence/`.
 
 The qualification profile requires local Docker access to every supplied kind Node container. It fails rather than estimating component telemetry from `kubectl top`.
@@ -150,7 +150,8 @@ The raw summary has schema version 1 and contains:
 - the exact workload object copied from the profile;
 - bounded aggregate samples with monotonic elapsed seconds for mapping, reliability, component resources, operational state and latency;
 - agent scan and post measurements;
-- recovery seconds for workload, agent, collector, Node, API and partial rollout;
+- expected and observed replacement Pod counts plus resident container counts before and after replacement;
+- recovery seconds for the exact workload replacement batch, agent, collector, Node, API and partial rollout;
 - API server counter deltas, Node MemoryPressure samples and canary series; and
 - explicit privacy flags and caveats.
 

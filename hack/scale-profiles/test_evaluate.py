@@ -165,6 +165,20 @@ class ScaleEvaluatorTests(unittest.TestCase):
         self.assertEqual(report["result"], "fail")
         self.assertEqual(self.checks_by_name(report)["disruption_stability"]["status"], "fail")
 
+    def test_qualification_requires_exact_full_density_replacement(self):
+        for field, value in (
+            ("observedPods", 9),
+            ("observedPods", 11),
+            ("residentContainersBefore", 4950),
+            ("residentContainersAfter", 4950),
+        ):
+            with self.subTest(field=field, value=value):
+                summary = self.fixture("qualification-boundary-pass.json", self.qualification)
+                summary["workloadReplacement"][field] = value
+                report = EVALUATOR.evaluate(self.qualification, summary)
+                self.assertEqual(report["result"], "fail")
+                self.assertEqual(self.checks_by_name(report)["workload_replacement"]["status"], "fail")
+
     def test_qualification_rejects_sparse_telemetry(self):
         summary = self.fixture("qualification-boundary-pass.json", self.qualification)
         summary["measurements"]["agentScanMilliseconds"] = [1]

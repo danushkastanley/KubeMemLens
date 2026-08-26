@@ -104,6 +104,16 @@ def evaluate_core(profile, summary, failures):
     disruption_ok = disruption == {"unexplainedRestarts": 0, "oomKills": 0}
     checks.append(check("disruption_stability", disruption_ok, {"unexplainedRestarts": 0, "oomKills": 0},
                         disruption, failures, "disruption_stability: an unexpected restart or OOM kill occurred"))
+    replacement = summary.get("workloadReplacement")
+    replacement_budget = {
+        "expectedPods": profile["workload"]["creationBatchPods"],
+        "observedPods": profile["workload"]["creationBatchPods"],
+        "residentContainersBefore": target,
+        "residentContainersAfter": target,
+    }
+    checks.append(check("workload_replacement", replacement == replacement_budget, replacement_budget,
+                        replacement, failures,
+                        "workload_replacement: exact full-density replacement evidence is missing"))
     return checks
 
 

@@ -10,10 +10,12 @@ from pathlib import Path
 SUMMARY_ALLOWED_KEYS = {
     "schemaVersion", "orchestrationOutcome", "completedAt", "profile", "workload", "samples", "measurements",
     "privacy", "caveats", "disruptionOperational",
+    "workloadReplacement",
 }
 SUMMARY_REQUIRED_KEYS = {
     "schemaVersion", "orchestrationOutcome", "profile", "workload", "samples", "privacy", "caveats",
     "disruptionOperational",
+    "workloadReplacement",
 }
 REQUIRED_PRIVACY = {
     "clusterIdentifiersIncluded": False,

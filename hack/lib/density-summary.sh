@@ -15,6 +15,10 @@ write_summary() {
     --argjson churnRecoverySeconds "${churn_recovery_seconds}" \
     --argjson controlAgentRecoverySeconds "${control_agent_recovery_seconds}" \
     --argjson workerNodeRecoverySeconds "${worker_node_recovery_seconds}" \
+    --argjson replacementExpectedPods "${workload_replacement_expected_pods}" \
+    --argjson replacementObservedPods "${workload_replacement_observed_pods}" \
+    --argjson replacementContainersBefore "${workload_replacement_resident_containers_before}" \
+    --argjson replacementContainersAfter "${workload_replacement_resident_containers_after}" \
     --argjson disruptionRestarts "${disruption_unexplained_restarts}" \
     --argjson disruptionOOMKills "${disruption_oom_kills}" \
     --argjson apiStart "${api_baseline}" --argjson apiEnd "${api_steady_end}" \
@@ -24,6 +28,9 @@ write_summary() {
     ($profile[0]) as $p | ($samples[0] // []) as $points | ($reliability[0] // {}) as $recovery |
     {schemaVersion:1, orchestrationOutcome:$outcome, completedAt:$completedAt,
      disruptionOperational:{unexplainedRestarts:$disruptionRestarts,oomKills:$disruptionOOMKills},
+     workloadReplacement:{expectedPods:$replacementExpectedPods,observedPods:$replacementObservedPods,
+       residentContainersBefore:$replacementContainersBefore,
+       residentContainersAfter:$replacementContainersAfter},
      profile:{id:$p.id,digest:$p.profileDigest},workload:$p.workload,samples:$points,
      measurements:{
        agentScanMilliseconds:[$points[] | select(.phase == "steady") |

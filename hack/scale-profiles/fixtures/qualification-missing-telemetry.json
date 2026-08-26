@@ -1,6 +1,7 @@
 {
   "orchestrationOutcome": "completed",
   "disruptionOperational": {"unexplainedRestarts": 0, "oomKills": 0},
+  "workloadReplacement": {"expectedPods": 10, "observedPods": 10, "residentContainersBefore": 5000, "residentContainersAfter": 5000},
   "schemaVersion": 1,
   "profile": {
     "id": "rc-5000",
