@@ -17,7 +17,7 @@ density_create_staged_workload() {
     {apiVersion: "apps/v1", kind: "Deployment", metadata: {name: "density-workers", namespace: $namespace,
       labels: {"app.kubernetes.io/name": "density-workers", "app.kubernetes.io/managed-by": "kube-memlens-density-soak"}},
      spec: {replicas: 0, progressDeadlineSeconds: 1800,
-      strategy: {type: "RollingUpdate", rollingUpdate: {maxSurge: 0, maxUnavailable: "10%"}},
+      strategy: {type: "RollingUpdate", rollingUpdate: {maxSurge: 0, maxUnavailable: "50%"}},
       selector: {matchLabels: {"app.kubernetes.io/name": "density-workers"}},
       template: {metadata: {labels: {"app.kubernetes.io/name": "density-workers"}},
         spec: {automountServiceAccountToken: false, terminationGracePeriodSeconds: 0,

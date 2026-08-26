@@ -68,7 +68,7 @@ The evaluator compares nearest-rank medians. This canary detects gross execution
 
 ## Disruption sequence
 
-The development smoke runs the agent-disabled control phase and rolls the density Deployment. It requires complete mapping within 120 seconds after each recovery starts.
+The development smoke runs the agent-disabled control phase and rolls the density Deployment. It requires complete mapping within 120 seconds after each recovery starts. The synthetic Deployment permits up to 50% unavailability with no surge, so Kubernetes can replace half of the RC workload in parallel instead of serialising recovery behind ten runtime-startup batches.
 
 The `rc-5000` profile pauses and restores one real kind worker while the density workload is resident, then runs the [reliability failure harness](reliability.md). The combined sequence covers a workload-serving Node interruption, agent outage, collector restart, removed and replacement Node inventory, delegated-authorisation API failure, partial agent rollout and final recovery. Each recorded event must meet the 120-second budget. The collector generation and history reset remain subject to the single-collector contract.
 

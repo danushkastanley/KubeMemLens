@@ -61,6 +61,22 @@ collector_namespace=component-ns
 namespace=workload-ns
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/kube-memlens-density-library-test.XXXXXX")
 trap 'rm -rf -- "${work_dir}"' EXIT
+deployment_document=${work_dir}/density-deployment.json
+image=test-image
+containers_per_pod=1
+pod_count=0
+creation_batch_pods=1
+k() {
+  if [ "$*" = "apply -f -" ]; then
+    cat > "${deployment_document}"
+  fi
+}
+density_create_staged_workload
+jq -e '.spec.strategy.rollingUpdate == {maxSurge:0,maxUnavailable:"50%"}' \
+  "${deployment_document}" >/dev/null || {
+  echo "density workload rollout does not permit the reviewed 50% recovery parallelism" >&2
+  exit 1
+}
 startup_component_pod_uids='[]'
 startup_workload_pod_uids='[]'
 startup_component_restarts=0
