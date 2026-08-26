@@ -68,7 +68,7 @@ The evaluator compares nearest-rank medians. This canary detects gross execution
 
 ## Disruption sequence
 
-The development smoke runs the agent-disabled control phase and then replaces one exact workload staging batch starting from the full target density. It requires complete mapping within 120 seconds after each recovery starts. For `rc-5000`, the replacement batch is 10 Pods and 500 containers. This tests KubeMemLens recovery from bounded workload churn without treating a full 5,000-container runtime restart as a KubeMemLens latency measurement.
+The development smoke runs the agent-disabled control phase and then replaces one exact workload staging batch starting from the full target density. It requires complete mapping within 120 seconds after each recovery starts. For `rc-5000`, the replacement batch is 10 Pods and 500 containers. The collector must expose the exact replacement Pod UIDs as fresh evidence; partial optional memory context does not make fresh UID mapping stale. This tests KubeMemLens recovery from bounded workload churn without treating a full 5,000-container runtime restart as a KubeMemLens latency measurement.
 
 The `rc-5000` profile pauses and restores one real kind worker while the density workload is resident, then runs the [reliability failure harness](reliability.md). The combined sequence covers a workload-serving Node interruption, agent outage, collector restart, removed and replacement Node inventory, delegated-authorisation API failure, partial agent rollout and final recovery. Each recorded event must meet the 120-second budget. The collector generation and history reset remain subject to the single-collector contract.
 

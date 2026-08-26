@@ -180,7 +180,7 @@ if (workload_document=${restarted_document};
 fi
 
 mapped_page='{"metadata":{"continue":""},"items":[
-  {"snapshot":{"podUID":"mapped-2","freshness":"fresh","completeness":"complete","context":{"labels":{"app.kubernetes.io/name":"density-workers"}}}},
+  {"snapshot":{"podUID":"mapped-2","freshness":"fresh","completeness":"partial","context":{"labels":{"app.kubernetes.io/name":"density-workers"}}}},
   {"snapshot":{"podUID":"mapped-1","freshness":"fresh","completeness":"complete","context":{"labels":{"app.kubernetes.io/name":"density-workers"}}}},
   {"snapshot":{"podUID":"canary","freshness":"fresh","completeness":"complete","context":{"labels":{"app.kubernetes.io/name":"density-canary"}}}}
 ]}'
@@ -190,7 +190,7 @@ k() {
   esac
 }
 [ "$(mapped_workload_pod_uids)" = '["mapped-1","mapped-2"]' ] || {
-  echo "mapped workload UID check did not retain exact fresh evidence" >&2
+  echo "mapped workload UID check did not accept exact fresh partial evidence" >&2
   exit 1
 }
 mapped_page=$(jq '.items[0].snapshot.freshness = "stale"' <<<"${mapped_page}")

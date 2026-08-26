@@ -57,8 +57,8 @@ mapped_workload_pod_uids() {
     page_uids=$(jq -ce '
       [.items[].snapshot |
         select(.context.labels["app.kubernetes.io/name"] == "density-workers")] as $pods |
-      if all($pods[]; .freshness == "fresh" and .completeness == "complete")
-      then [$pods[].podUID] | sort else error("workload Pod evidence is not fresh and complete") end
+      if all($pods[]; .freshness == "fresh")
+      then [$pods[].podUID] | sort else empty end
     ' "${page_file}") || return 1
     uids=$(jq -cn --argjson existing "${uids}" --argjson page "${page_uids}" \
       '$existing + $page | unique | sort')
