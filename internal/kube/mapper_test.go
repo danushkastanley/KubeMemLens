@@ -42,7 +42,8 @@ func TestContainerRuntime(t *testing.T) {
 
 func TestBuildPodIndexAndExactLookup(t *testing.T) {
 	idx := BuildPodIndexFromPods([]corev1.Pod{podWithStatuses("pod-a", "uid-a", []corev1.ContainerStatus{
-		{Name: "app", ContainerID: "containerd://abcdef1234567890"},
+		{Name: "app", ContainerID: "containerd://abcdef1234567890",
+			State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
 	})})
 
 	ref, ok := idx.Lookup("abcdef1234567890", "")
@@ -51,6 +52,27 @@ func TestBuildPodIndexAndExactLookup(t *testing.T) {
 	}
 	if ref.Namespace != "default" || ref.PodName != "pod-a" || ref.ContainerName != "app" {
 		t.Fatalf("unexpected PodRef: %#v", ref)
+	}
+	if !ref.Running {
+		t.Fatal("running container was not marked running")
+	}
+}
+
+func TestBuildPodIndexDistinguishesCompletedInitContainer(t *testing.T) {
+	pod := podWithStatuses("pod-a", "uid-a", []corev1.ContainerStatus{{
+		Name: "app", ContainerID: "containerd://aaaaaaaaaaaaaaaa",
+		State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}},
+	}})
+	pod.Status.InitContainerStatuses = []corev1.ContainerStatus{{
+		Name: "install", ContainerID: "containerd://bbbbbbbbbbbbbbbb",
+		State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{ExitCode: 0}},
+	}}
+	idx := BuildPodIndexFromPods([]corev1.Pod{pod})
+	if !idx.ByContainerID["aaaaaaaaaaaaaaaa"].Running {
+		t.Fatal("app container was not marked running")
+	}
+	if idx.ByContainerID["bbbbbbbbbbbbbbbb"].Running {
+		t.Fatal("completed init container was marked running")
 	}
 }
 
