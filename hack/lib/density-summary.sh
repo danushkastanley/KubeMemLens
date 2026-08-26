@@ -12,6 +12,7 @@ write_summary() {
   jq -s '.' "${canary_observed}" > "${observed_json}"
   jq -n \
     --arg outcome "${outcome}" --arg completedAt "${completed_at}" \
+    --arg samplingFailureProbe "${sampling_failure_probe}" \
     --argjson churnRecoverySeconds "${churn_recovery_seconds}" \
     --argjson controlAgentRecoverySeconds "${control_agent_recovery_seconds}" \
     --argjson workerNodeRecoverySeconds "${worker_node_recovery_seconds}" \
@@ -27,6 +28,7 @@ write_summary() {
     --slurpfile reliability "${reliability_summary}" '
     ($profile[0]) as $p | ($samples[0] // []) as $points | ($reliability[0] // {}) as $recovery |
     {schemaVersion:1, orchestrationOutcome:$outcome, completedAt:$completedAt,
+     samplingFailureProbe:$samplingFailureProbe,
      disruptionOperational:{unexplainedRestarts:$disruptionRestarts,oomKills:$disruptionOOMKills},
      workloadReplacement:{expectedPods:$replacementExpectedPods,observedPods:$replacementObservedPods,
        residentContainersBefore:$replacementContainersBefore,

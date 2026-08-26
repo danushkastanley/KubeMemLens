@@ -9,12 +9,12 @@ from pathlib import Path
 
 SUMMARY_ALLOWED_KEYS = {
     "schemaVersion", "orchestrationOutcome", "completedAt", "profile", "workload", "samples", "measurements",
-    "privacy", "caveats", "disruptionOperational",
+    "privacy", "caveats", "disruptionOperational", "samplingFailureProbe",
     "workloadReplacement",
 }
 SUMMARY_REQUIRED_KEYS = {
     "schemaVersion", "orchestrationOutcome", "profile", "workload", "samples", "privacy", "caveats",
-    "disruptionOperational",
+    "disruptionOperational", "samplingFailureProbe",
     "workloadReplacement",
 }
 REQUIRED_PRIVACY = {
@@ -29,6 +29,10 @@ FORBIDDEN_KEYS = {
 }
 MAX_CAVEATS = 8
 MAX_CAVEAT_LENGTH = 240
+SAMPLE_FAILURE_PROBES = {
+    "none", "doctor", "tui", "mapping", "status", "agent_telemetry", "component_telemetry",
+    "operational", "node_pressure", "canary", "evidence_encoding",
+}
 
 
 class EvaluationInputError(ValueError):
@@ -168,4 +172,9 @@ def validate_summary(summary):
     )
     if not valid_caveats:
         raise EvaluationInputError("raw summary caveats must be bounded non-empty strings")
+    sampling_failure_probe = summary["samplingFailureProbe"]
+    if sampling_failure_probe not in SAMPLE_FAILURE_PROBES:
+        raise EvaluationInputError("raw summary sampling failure probe is invalid")
+    if summary["orchestrationOutcome"] in ("completed", "passed") and sampling_failure_probe != "none":
+        raise EvaluationInputError("successful orchestration cannot contain a sampling failure probe")
     reject_forbidden_keys(summary)

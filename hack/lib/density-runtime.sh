@@ -200,7 +200,7 @@ density_wait_for_workload_batch_recovery() {
 
 density_capture_startup_baseline() {
   local component_file=${work_dir}/startup-component-baseline.json
-  k get pods -n "${collector_namespace}" -o json > "${component_file}"
+  k get pods -n "${collector_namespace}" --request-timeout=5s -o json > "${component_file}"
   startup_component_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' "${component_file}")
   startup_component_restarts=$(jq '[.items[].status.containerStatuses[]?.restartCount] | add // 0' \
     "${component_file}")
@@ -211,8 +211,9 @@ density_capture_startup_baseline() {
 density_assert_startup_stable() {
   local component_file=${work_dir}/startup-component.json workload_file=${work_dir}/startup-workload.json
   local component_replaced workload_replaced restarts oom_kills node_pressure current_uids
-  k get pods -n "${collector_namespace}" -o json > "${component_file}"
-  k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
+  k get pods -n "${collector_namespace}" --request-timeout=5s -o json > "${component_file}"
+  k get pods -n "${namespace}" --request-timeout=5s \
+    -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
   component_replaced=$(jq --argjson expected "${startup_component_pod_uids}" \
     'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' "${component_file}")
   current_uids=$(jq -c '[.items[].metadata.uid] | sort' "${workload_file}")
@@ -230,7 +231,7 @@ density_assert_startup_stable() {
       select(.lastState.terminated.reason == "OOMKilled")] | length)-$baseline),0]|max) +
     ([$workload[0].items[].status.containerStatuses[]? |
       select(.lastState.terminated.reason == "OOMKilled")] | length)')
-  node_pressure=$(k get nodes -o json | jq '
+  node_pressure=$(k get nodes --request-timeout=5s -o json | jq '
     [.items[].status.conditions[]? | select(.type == "MemoryPressure" and .status == "True")] | length')
   [ "${restarts}" -eq 0 ] || fail "a workload or KubeMemLens container restarted during staged creation"
   [ "${oom_kills}" -eq 0 ] || fail "a workload or KubeMemLens container was OOM-killed during staged creation"
@@ -241,8 +242,9 @@ density_assert_startup_stable() {
 density_capture_operational_baseline() {
   local component_file=${work_dir}/operational-component-baseline.json
   local workload_file=${work_dir}/operational-workload-baseline.json component_baseline workload_baseline
-  k get pods -n "${collector_namespace}" -o json > "${component_file}"
-  k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
+  k get pods -n "${collector_namespace}" --request-timeout=5s -o json > "${component_file}"
+  k get pods -n "${namespace}" --request-timeout=5s \
+    -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
   component_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' "${component_file}")
   workload_pod_uids=$(jq -c '[.items[].metadata.uid] | sort' "${workload_file}")
   if [ "${accepted_workload_pod_uids}" != '[]' ] &&
@@ -270,8 +272,9 @@ density_capture_operational_baseline() {
 density_collect_operational_json() {
   local component_file=${work_dir}/operational-component.json workload_file=${work_dir}/operational-workload.json
   local component_replaced workload_replaced
-  k get pods -n "${collector_namespace}" -o json > "${component_file}"
-  k get pods -n "${namespace}" -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
+  k get pods -n "${collector_namespace}" --request-timeout=5s -o json > "${component_file}"
+  k get pods -n "${namespace}" --request-timeout=5s \
+    -l app.kubernetes.io/name=density-workers -o json > "${workload_file}"
   component_replaced=$(jq --argjson expected "${component_pod_uids}" \
     'if ([.items[].metadata.uid] | sort) == $expected then 0 else 1 end' "${component_file}")
   workload_replaced=$(jq --argjson expected "${workload_pod_uids}" \

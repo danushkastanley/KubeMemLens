@@ -1,5 +1,6 @@
 {
   "orchestrationOutcome": "completed",
+  "samplingFailureProbe": "none",
   "disruptionOperational": {"unexplainedRestarts": 0, "oomKills": 0},
   "workloadReplacement": {"expectedPods": 2, "observedPods": 2, "residentContainersBefore": 20, "residentContainersAfter": 20},
   "schemaVersion": 1,

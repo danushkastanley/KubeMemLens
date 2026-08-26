@@ -10,6 +10,8 @@ source hack/lib/density-telemetry.sh
 source hack/lib/density-summary.sh
 # shellcheck source=hack/lib/density-runtime.sh
 source hack/lib/density-runtime.sh
+# shellcheck source=hack/lib/density-sampling.sh
+source hack/lib/density-sampling.sh
 
 # Create a dedicated, finite workload namespace against an explicitly selected
 # cluster. KubeMemLens must already be installed and healthy.
@@ -26,6 +28,7 @@ work_dir=
 cli=
 namespace_created=false
 outcome=failed
+sampling_failure_probe=none
 churn_recovery_seconds=0
 port_forward_pid=
 agent_blocked=false
@@ -354,51 +357,6 @@ if [ "${kind_observer_available}" = true ]; then
 fi
 
 density_capture_operational_baseline
-
-sample_once() {
-  local phase=$1 start_ns end_ns query_ms tui_ms doctor_json count status_json
-  local agent_json observer_json operational_json node_pressure canary_ms elapsed_seconds
-  elapsed_seconds=$((SECONDS - steady_started))
-  doctor_json=${work_dir}/doctor-sample.json
-  status_json=${work_dir}/status-sample.json
-  start_ns=$(density_monotonic_ns)
-  "${cli}" "${cli_args[@]}" doctor --output json > "${doctor_json}"
-  end_ns=$(density_monotonic_ns)
-  query_ms=$(((end_ns - start_ns) / 1000000))
-  tui_ms=$(density_measure_tui_ms)
-  count=$(mapped_count)
-  "${cli}" "${cli_args[@]}" status --output json > "${status_json}"
-  agent_json=$(density_collect_agent_metrics "${work_dir}/agent-metrics.txt")
-  observer_json='{"available":false}'
-  if [ "${kind_observer_available}" = true ]; then
-    observer_json=$(python3 hack/observe_kind_telemetry.py "${observer_args[@]}")
-  fi
-  operational_json=$(density_collect_operational_json)
-  node_pressure=$(k get nodes -o json | jq '[.items[].status.conditions[]? | select(.type == "MemoryPressure" and .status == "True")] | length')
-  canary_ms=null
-  if [ "${phase}" = steady ]; then
-    canary_ms=$(density_measure_canary_ms "${canary_mib}")
-    echo "${canary_ms}" >> "${canary_observed}"
-  fi
-  jq -n --arg phase "${phase}" --argjson target "${containers}" --argjson count "${count}" \
-    --argjson elapsedSeconds "${elapsed_seconds}" \
-    --argjson queryMs "${query_ms}" --argjson tuiMs "${tui_ms}" \
-    --argjson unmapped "$(jq '.mapping.unmapped' "${doctor_json}")" \
-    --argjson reliability "$(jq '.store.reliability' "${status_json}")" \
-    --argjson operational "${operational_json}" --argjson baselineRestarts "${baseline_restarts}" \
-    --argjson baselineOOM "${baseline_oom_kills}" --argjson agents "${agent_json}" \
-    --argjson components "${observer_json}" --argjson nodePressure "${node_pressure}" \
-    --argjson canaryMs "${canary_ms}" \
-    '{phase:$phase,elapsedSeconds:$elapsedSeconds,workloadContainers:$count,
-      mapping:{expected:$target,mapped:$count,unmapped:$unmapped},
-      reliability:{state:$reliability.state,expectedNodes:$reliability.expectedNodes,
-        freshNodes:$reliability.freshNodes,staleNodes:$reliability.staleNodes,missingNodes:$reliability.missingNodes},
-      operational:{unexplainedRestarts:(([$operational.restarts-$baselineRestarts,0]|max)+$operational.replacements),
-        oomKills:([$operational.oomKills-$baselineOOM,0]|max)},
-      cliLatencyMilliseconds:$queryMs,tuiLatencyMilliseconds:$tuiMs,agents:$agents,
-      componentTelemetry:$components,nodeMemoryPressureNodes:$nodePressure,
-      canaryLatencyMilliseconds:$canaryMs}' >> "${samples}"
-}
 
 api_baseline=$(density_api_server_counters)
 steady_started=${SECONDS}

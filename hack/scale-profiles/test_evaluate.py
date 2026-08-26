@@ -32,6 +32,7 @@ class ScaleEvaluatorTests(unittest.TestCase):
     def fixture(self, name, profile):
         result = read_json(ROOT / "fixtures" / name)
         result["orchestrationOutcome"] = "completed"
+        result["samplingFailureProbe"] = "none"
         result["disruptionOperational"] = {"unexplainedRestarts": 0, "oomKills": 0}
         result["profile"] = {"id": profile["id"], "digest": profile["profileDigest"]}
         result["workload"] = copy.deepcopy(profile["workload"])
@@ -68,6 +69,15 @@ class ScaleEvaluatorTests(unittest.TestCase):
         changed["workload"]["containers"] += 1
         with self.assertRaisesRegex(EVALUATOR.EvaluationInputError, "profileDigest"):
             EVALUATOR.validate_profile(changed)
+
+    def test_checked_in_fixtures_match_the_summary_contract(self):
+        for path in sorted((ROOT / "fixtures").glob("*.json")):
+            summary = read_json(path)
+            if path.name == "qualification-forbidden-identifier.json":
+                with self.assertRaisesRegex(EVALUATOR.EvaluationInputError, "forbidden key"):
+                    EVALUATOR.validate_summary(summary)
+            else:
+                EVALUATOR.validate_summary(summary)
 
     def test_qualification_cannot_disable_required_telemetry(self):
         changed = copy.deepcopy(self.qualification)
@@ -154,9 +164,22 @@ class ScaleEvaluatorTests(unittest.TestCase):
     def test_qualification_rejects_failed_orchestration(self):
         summary = self.fixture("qualification-boundary-pass.json", self.qualification)
         summary["orchestrationOutcome"] = "failed"
+        summary["samplingFailureProbe"] = "mapping"
         report = EVALUATOR.evaluate(self.qualification, summary)
         self.assertEqual(report["result"], "fail")
         self.assertEqual(self.checks_by_name(report)["orchestration"]["status"], "fail")
+
+    def test_sampling_failure_probe_is_strict_and_absent_on_success(self):
+        summary = self.fixture("qualification-boundary-pass.json", self.qualification)
+        summary["samplingFailureProbe"] = "mapping"
+        with self.assertRaisesRegex(EVALUATOR.EvaluationInputError, "successful orchestration"):
+            EVALUATOR.validate_summary(summary)
+
+        summary["orchestrationOutcome"] = "failed"
+        EVALUATOR.validate_summary(summary)
+        summary["samplingFailureProbe"] = "pod-name"
+        with self.assertRaisesRegex(EVALUATOR.EvaluationInputError, "sampling failure probe"):
+            EVALUATOR.validate_summary(summary)
 
     def test_qualification_rejects_disruption_anomalies(self):
         summary = self.fixture("qualification-boundary-pass.json", self.qualification)

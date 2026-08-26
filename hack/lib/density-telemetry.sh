@@ -32,8 +32,18 @@ density_stop_port_forward() {
 
 density_collect_agent_metrics() {
   local output=$1 port=${SOAK_AGENT_METRICS_LOCAL_PORT:-18082}
-  local pod ready metrics_available=true
+  local pod pod_count pod_list ready recognised_required_metrics metrics_available=true
   : > "${output}"
+  pod_list=$(k get pods -n "${collector_namespace}" --request-timeout=5s \
+    -l app.kubernetes.io/name=kube-memlens-agent -o json | jq -r '.items[].metadata.name') || {
+    jq -n '{available:false, reason:"agent Pod discovery failed"}'
+    return
+  }
+  pod_count=$(awk 'NF {count++} END {print count + 0}' <<<"${pod_list}")
+  if [ "${pod_count}" -eq 0 ]; then
+    jq -n '{available:false, reason:"no agent Pods found"}'
+    return
+  fi
   while IFS= read -r pod; do
     [ -n "${pod}" ] || continue
     density_stop_port_forward
@@ -42,7 +52,8 @@ density_collect_agent_metrics() {
     port_forward_pid=$!
     ready=false
     for _ in $(seq 1 20); do
-      if curl -fsS "http://127.0.0.1:${port}/healthz" >/dev/null 2>&1; then
+      if curl -fsS --connect-timeout 1 --max-time 2 \
+        "http://127.0.0.1:${port}/healthz" >/dev/null 2>&1; then
         ready=true
         break
       fi
@@ -50,13 +61,24 @@ density_collect_agent_metrics() {
       sleep 0.1
     done
     if [ "${ready}" != true ] ||
-      ! curl -fsS "http://127.0.0.1:${port}/metrics" >> "${output}"; then
+      ! curl -fsS --connect-timeout 1 --max-time 2 \
+        "http://127.0.0.1:${port}/metrics" >> "${output}"; then
       metrics_available=false
     fi
     density_stop_port_forward
     [ "${metrics_available}" = true ] || break
-  done < <(k get pods -n "${collector_namespace}" \
-    -l app.kubernetes.io/name=kube-memlens-agent -o json | jq -r '.items[].metadata.name')
+  done <<<"${pod_list}"
+
+  recognised_required_metrics=$(awk '
+    $1 == "kubememlens_agent_last_scan_duration_seconds" ||
+    $1 == "kubememlens_agent_last_scan_containers{kind=\"found\"}" ||
+    $1 == "kubememlens_agent_last_scan_containers{kind=\"mapped\"}" ||
+    $1 == "kubememlens_agent_last_scan_containers{kind=\"unmapped\"}" ||
+    $1 == "kubememlens_agent_snapshot_posts_total{result=\"failure\"}" ||
+    $1 == "kubememlens_agent_scans_total{result=\"failure\"}" {count++}
+    END {print count + 0}
+  ' "${output}")
+  [ "${recognised_required_metrics}" -eq "$((pod_count * 6))" ] || metrics_available=false
 
   if [ "${metrics_available}" != true ]; then
     jq -n '{available:false, reason:"loopback port-forward failed"}'
@@ -70,9 +92,11 @@ density_collect_agent_metrics() {
   scan_ms=$(awk '$1 == "kubememlens_agent_last_scan_duration_seconds" && $2 > max {max = $2} END {print (max + 0) * 1000}' "${output}")
   post_failures=$(awk '$1 == "kubememlens_agent_snapshot_posts_total{result=\"failure\"}" {sum += $2} END {print sum + 0}' "${output}")
   scan_failures=$(awk '$1 == "kubememlens_agent_scans_total{result=\"failure\"}" {sum += $2} END {print sum + 0}' "${output}")
-  jq -n --arg found "${found}" --arg mapped "${mapped}" --arg unmapped "${unmapped}" \
+  jq -n --argjson podCount "${pod_count}" \
+    --arg found "${found}" --arg mapped "${mapped}" --arg unmapped "${unmapped}" \
     --arg scanMs "${scan_ms}" --arg postFailures "${post_failures}" --arg scanFailures "${scan_failures}" \
-    '{available:true, found:($found|tonumber), mapped:($mapped|tonumber), unmapped:($unmapped|tonumber),
+    '{available:true, podCount:$podCount,
+      found:($found|tonumber), mapped:($mapped|tonumber), unmapped:($unmapped|tonumber),
       scanMilliseconds:($scanMs|tonumber), postFailures:($postFailures|tonumber),
       scanFailures:($scanFailures|tonumber)}'
 }

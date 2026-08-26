@@ -147,6 +147,7 @@ An evaluator exit status of `0` means the supplied summary met the selected prof
 The raw summary has schema version 1 and contains:
 
 - profile ID and canonical digest;
+- an identifier-free sampling probe name when orchestration stops during a measurement;
 - the exact workload object copied from the profile;
 - bounded aggregate samples with monotonic elapsed seconds for mapping, reliability, component resources, operational state and latency;
 - agent scan and post measurements;
@@ -157,7 +158,7 @@ The raw summary has schema version 1 and contains:
 
 The evaluation has schema version 1, the selected profile identity, overall `pass` or `fail`, one record per budget and a plain failure list. Each check retains its budget and observed value. The evaluator uses nearest-rank percentiles and does not hide unavailable required telemetry.
 
-The evidence directory uses mode `0700`; result files use mode `0600`. It is ignored by Git. The evaluator requires all four privacy flags to be `false`, permits at most eight caveats of 240 characters each, and rejects identifier-bearing keys such as context, cluster, namespace, Node name, Pod name or UID, container ID, token and kubeconfig. Keep kubeconfigs, raw runtime output, port-forward logs, API metrics, Node and Pod JSON, cloud identifiers and failed raw diagnostics local.
+The evidence directory uses mode `0700`; result files use mode `0600`. It is ignored by Git. If a sample acquisition exhausts its bounded read-only retries, `sample-failure.json` records only the phase, elapsed seconds and allowlisted probe step; latency probes are not retried. The evaluator requires all four privacy flags to be `false`, permits at most eight caveats of 240 characters each, and rejects identifier-bearing keys such as context, cluster, namespace, Node name, Pod name or UID, container ID, token and kubeconfig. Keep kubeconfigs, raw runtime output, port-forward logs, API metrics, Node and Pod JSON, cloud identifiers and failed raw diagnostics local.
 
 A result may enter the repository or a durable release record only after manual privacy review. Retain the sanitised raw summary, evaluation, exact KubeMemLens source revision, runtime image digest, chart identity, kind and Kubernetes versions, host architecture, run date and environment limitations. If adding that record changes the commit, verify that no runtime, chart or profile input changed after the tested revision.
 

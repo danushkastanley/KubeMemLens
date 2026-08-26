@@ -18,3 +18,20 @@ retry_to_file() {
     attempt=$((attempt + 1))
   done
 }
+
+retry_capture() {
+  local attempts=$1 interval_seconds=$2 attempt=1 value
+  shift 2
+
+  while [ "${attempt}" -le "${attempts}" ]; do
+    if value=$("$@"); then
+      printf '%s' "${value}"
+      return 0
+    fi
+    if [ "${attempt}" -eq "${attempts}" ]; then
+      return 1
+    fi
+    sleep "${interval_seconds}"
+    attempt=$((attempt + 1))
+  done
+}
