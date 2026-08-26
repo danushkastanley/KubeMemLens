@@ -29,6 +29,7 @@ cli=
 namespace_created=false
 outcome=failed
 sampling_failure_probe=none
+summary_finalised=false
 churn_recovery_seconds=0
 port_forward_pid=
 agent_blocked=false
@@ -201,7 +202,9 @@ cleanup() {
       k delete namespace "${namespace}" --wait=false >/dev/null 2>&1 || true
     fi
   fi
-  write_summary "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if [ "${summary_finalised}" = false ]; then
+    write_summary "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  fi
   if [[ "${work_dir}" == "${TMPDIR:-/tmp}/kube-memlens-density."* ]]; then
     rm -rf -- "${work_dir}"
   fi
@@ -438,11 +441,18 @@ write_summary "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 if ! python3 hack/scale-profiles/evaluate.py --profile "${profile_path}" \
   --summary "${artifact_dir}/density-soak-summary.json" \
   --output "${artifact_dir}/density-soak-evaluation.json"; then
+  outcome=failed
+  write_summary "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  final_evaluation_status=0
+  python3 hack/scale-profiles/evaluate.py --profile "${profile_path}" \
+    --summary "${artifact_dir}/density-soak-summary.json" \
+    --output "${artifact_dir}/density-soak-evaluation.json" || final_evaluation_status=$?
   chmod 600 "${artifact_dir}/density-soak-evaluation.json" 2>/dev/null || true
+  summary_finalised=true
   jq -r '.failures[]?' "${artifact_dir}/density-soak-evaluation.json" >&2 || true
+  [ "${final_evaluation_status}" -eq 1 ] || fail "final failed-summary evaluation was invalid"
   fail "density soak did not meet the selected profile budgets"
 fi
 chmod 600 "${artifact_dir}/density-soak-evaluation.json"
-outcome=passed
-write_summary "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+summary_finalised=true
 echo "density soak passed; sanitised evidence: ${artifact_dir}"

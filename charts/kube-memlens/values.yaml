@@ -28,7 +28,7 @@ agent:
   resources:
     requests:
       cpu: 10m
-      memory: 32Mi
+      memory: 96Mi
     limits:
       memory: 128Mi
 
@@ -62,7 +62,7 @@ collector:
   resources:
     requests:
       cpu: 10m
-      memory: 64Mi
+      memory: 192Mi
     limits:
       memory: 256Mi
   service:

@@ -1,0 +1,4546 @@
+{
+  "schemaVersion": 1,
+  "orchestrationOutcome": "completed",
+  "completedAt": "2026-08-26T09:44:50Z",
+  "samplingFailureProbe": "none",
+  "disruptionOperational": {
+    "unexplainedRestarts": 0,
+    "oomKills": 0
+  },
+  "workloadReplacement": {
+    "expectedPods": 10,
+    "observedPods": 10,
+    "residentContainersBefore": 5000,
+    "residentContainersAfter": 5000
+  },
+  "profile": {
+    "id": "rc-5000",
+    "digest": "sha256:37fe361b28f93095e96ed2990d6ff7de0c53a1149d8b2593bb6b56b8c19a0d62"
+  },
+  "workload": {
+    "containers": 5000,
+    "containersPerPod": 50,
+    "creationBatchPods": 10,
+    "steadyStateSeconds": 1800,
+    "sampleIntervalSeconds": 30,
+    "agentInterval": "5s",
+    "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+    "canaryMiB": 256
+  },
+  "samples": [
+    {
+      "phase": "steady",
+      "elapsedSeconds": 0,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 365,
+      "tuiLatencyMilliseconds": 99,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 441.558,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 7070855,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47512817,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 189333504
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 7083984,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45239258,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 121438208
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 116
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 30,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 450,
+      "tuiLatencyMilliseconds": 102,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 408.518,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 16286284,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46670532,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 183152640
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 8963953,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.51800537,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 139051008
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 177
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 60,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 466,
+      "tuiLatencyMilliseconds": 103,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 384.576,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 25574283,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46240234,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 160477184
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 10896684,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.56007385,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 150343680
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 115
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 90,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 407,
+      "tuiLatencyMilliseconds": 89,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 356.886,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 34357455,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47460938,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 188616704
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 12613653,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.53614807,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 143921152
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 127
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 120,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 382,
+      "tuiLatencyMilliseconds": 109,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 356.386,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 42640021,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46148682,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 160927744
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 14295749,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.26470947,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 71057408
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 120
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 150,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 337,
+      "tuiLatencyMilliseconds": 90,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 363.981,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 50790216,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46365356,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 178929664
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 15881173,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45501709,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 122142720
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 131
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 180,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 385,
+      "tuiLatencyMilliseconds": 91,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 349.486,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 59546336,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46893311,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 160989184
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 17479137,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.42132568,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 113098752
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 134
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 210,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 394,
+      "tuiLatencyMilliseconds": 95,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 350.879,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 68435934,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47555542,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 180043776
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 19177189,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.52082825,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 139808768
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 117
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 240,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 364,
+      "tuiLatencyMilliseconds": 92,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 353.575,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 76685175,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47915649,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 167567360
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 20828603,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.38661194,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 103780352
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 116
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 270,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 404,
+      "tuiLatencyMilliseconds": 96,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 353.995,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 84992784,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47113037,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 184467456
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 22442983,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.52774048,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 141664256
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 117
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 300,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 353,
+      "tuiLatencyMilliseconds": 92,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 353.85,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 93194331,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.44473267,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 168824832
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 24014383,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.53514099,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 143650816
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 108
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 330,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 400,
+      "tuiLatencyMilliseconds": 98,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 352.767,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 101517784,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45593262,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 177790976
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 25627350,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.4675293,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 125501440
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 113
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 360,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 425,
+      "tuiLatencyMilliseconds": 93,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 367.105,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 110055402,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47595215,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 165564416
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 27252755,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.29019165,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 77897728
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 112
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 390,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 417,
+      "tuiLatencyMilliseconds": 97,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 355.149,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 119024229,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47897339,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 173756416
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 28890183,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.56192017,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 150839296
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 123
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 420,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 404,
+      "tuiLatencyMilliseconds": 88,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 362.605,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 127437763,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48815918,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 188735488
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 30495466,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.50926208,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 136704000
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 113
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 450,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 346,
+      "tuiLatencyMilliseconds": 93,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 355.612,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 135818627,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45455933,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 172916736
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 32122721,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.59368896,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 159367168
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 117
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 480,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 363,
+      "tuiLatencyMilliseconds": 99,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 366.722,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 144143460,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47125244,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 163966976
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 33752352,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47096252,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 126423040
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 103
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 510,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 377,
+      "tuiLatencyMilliseconds": 91,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 347.995,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 152563312,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47271729,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 184369152
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 35426481,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.63174438,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 169582592
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 111
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 540,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 381,
+      "tuiLatencyMilliseconds": 93,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 369.894,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 160776576,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46881104,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 184549376
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 37058730,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48078918,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 129060864
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 119
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 570,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 451,
+      "tuiLatencyMilliseconds": 95,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 358.729,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 169270110,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48327637,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 190771200
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 38668080,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.54101562,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 145227776
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 114
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 600,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 365,
+      "tuiLatencyMilliseconds": 90,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 348.857,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 177975031,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48446655,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 180961280
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 40260594,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45901489,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 123215872
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 124
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 630,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 348,
+      "tuiLatencyMilliseconds": 96,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 354.11,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 186370693,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45755005,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 167280640
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 41835374,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.44825745,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 120328192
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 109
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 660,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 439,
+      "tuiLatencyMilliseconds": 92,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 388.62,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 194898200,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47439575,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 185065472
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 43493938,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.42466736,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 113995776
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 115
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 690,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 465,
+      "tuiLatencyMilliseconds": 93,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 356.036,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 203283276,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48062134,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 187015168
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 45089488,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.4866333,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 130629632
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 114
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 720,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 468,
+      "tuiLatencyMilliseconds": 117,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 377.695,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 211766868,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48095703,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 177930240
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 46671333,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46774292,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 125558784
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 101
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 750,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 438,
+      "tuiLatencyMilliseconds": 95,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 357.483,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 220168262,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48217773,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 190054400
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 48283861,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.63168335,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 169566208
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 120
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 780,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 376,
+      "tuiLatencyMilliseconds": 99,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 363.489,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 228337716,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.49716187,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 186908672
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 49870507,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48764038,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 130899968
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 119
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 810,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 359,
+      "tuiLatencyMilliseconds": 93,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 347.757,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 236679601,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.43606567,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 168128512
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 51475944,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.63226318,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 169721856
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 118
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 840,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 370,
+      "tuiLatencyMilliseconds": 91,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 359.029,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 245515288,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48034668,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 189325312
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 53099897,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.5947876,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 159662080
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 123
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 870,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 369,
+      "tuiLatencyMilliseconds": 94,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 407.423,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 253440177,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47839355,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 183369728
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 54696368,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.60736084,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 163037184
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 118
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 900,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 394,
+      "tuiLatencyMilliseconds": 98,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 361.778,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 262274837,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47268677,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 179830784
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 56308066,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.62388611,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 167473152
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 109
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 930,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 432,
+      "tuiLatencyMilliseconds": 97,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 346.011,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 270746100,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47076416,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 155623424
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 57877158,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.40013123,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 107409408
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 110
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 960,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 376,
+      "tuiLatencyMilliseconds": 92,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 376.366,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 279153441,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46755981,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 187699200
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 59478323,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.57019043,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 153059328
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 105
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 990,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 438,
+      "tuiLatencyMilliseconds": 97,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 363.809,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 287593360,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.50683594,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 192278528
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 61065625,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.59031677,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 158461952
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 110
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1020,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 346,
+      "tuiLatencyMilliseconds": 98,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 353.527,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 295867000,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46774292,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 176369664
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 62653502,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.52781677,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 141684736
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 117
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1050,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 373,
+      "tuiLatencyMilliseconds": 100,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 350.112,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 303980292,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46670532,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 179351552
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 64264290,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.6036377,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 162037760
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 110
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1080,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 311,
+      "tuiLatencyMilliseconds": 92,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 365.458,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 312446532,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46014404,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 146092032
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 65841584,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.3072052,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 82464768
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 120
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1110,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 428,
+      "tuiLatencyMilliseconds": 116,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 360.224,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 320973575,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47561646,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 188911616
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 67443295,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45294189,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 121585664
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 120
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1140,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 357,
+      "tuiLatencyMilliseconds": 86,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 351.255,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 329326440,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.43591309,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 145817600
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 69071471,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.29043579,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 77963264
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 110
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1170,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 464,
+      "tuiLatencyMilliseconds": 99,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 355.821,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 338205027,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.49789429,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 184832000
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 70712680,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.4138031,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 111079424
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 111
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1200,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 449,
+      "tuiLatencyMilliseconds": 95,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 356.895,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 346682177,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46499634,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 170799104
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 72276875,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.59179688,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 158859264
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 110
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1230,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 389,
+      "tuiLatencyMilliseconds": 94,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 349.488,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 355052518,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48980713,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 189972480
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 73825635,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.55018616,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 147689472
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 100
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1260,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 409,
+      "tuiLatencyMilliseconds": 101,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 347.073,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 363311185,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45602417,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 159850496
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 75429992,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.50961304,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 136798208
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 113
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1290,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 367,
+      "tuiLatencyMilliseconds": 93,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 357.013,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 371665540,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47546387,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 157437952
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 77010288,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47766113,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 128221184
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 109
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1320,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 377,
+      "tuiLatencyMilliseconds": 91,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 355.682,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 379924530,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46459961,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 174919680
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 78694600,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45375061,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 121802752
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 117
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1350,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 376,
+      "tuiLatencyMilliseconds": 94,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 348.151,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 388181272,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47540283,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 189382656
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 80339370,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.56622314,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 151994368
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 111
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1380,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 301,
+      "tuiLatencyMilliseconds": 90,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 345.978,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 396315506,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47555542,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 184705024
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 81997784,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.42181396,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 113229824
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 116
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1410,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 394,
+      "tuiLatencyMilliseconds": 91,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 387.787,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 404786742,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46322632,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 157372416
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 83615892,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.28808594,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 77332480
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 112
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1440,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 375,
+      "tuiLatencyMilliseconds": 99,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 365.093,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 413699652,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47454834,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 188952576
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 85175704,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.42984009,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 115384320
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 100
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1470,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 417,
+      "tuiLatencyMilliseconds": 95,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 353.658,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 422082273,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46920776,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 184025088
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 86813685,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.42718506,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 114671616
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 97
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1500,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 358,
+      "tuiLatencyMilliseconds": 93,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 368.296,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 430467463,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45117188,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 166649856
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 88459211,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.59941101,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 160903168
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 116
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1530,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 405,
+      "tuiLatencyMilliseconds": 97,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 360.494,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 438472433,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47821045,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 190328832
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 90093273,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.602005,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 161599488
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 111
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1560,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 370,
+      "tuiLatencyMilliseconds": 92,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 358.017,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 447208676,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46557617,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 185450496
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 91667019,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47567749,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 127688704
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 110
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1590,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 406,
+      "tuiLatencyMilliseconds": 95,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 351.776,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 455831675,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47717285,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 150061056
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 93235680,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46781921,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 125579264
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 110
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1620,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 395,
+      "tuiLatencyMilliseconds": 90,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 369.61,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 464144044,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46838379,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 179924992
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 94829822,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.61720276,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 165679104
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 96
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1650,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 440,
+      "tuiLatencyMilliseconds": 100,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 354.878,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 472508559,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.47634888,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 187052032
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 96410843,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.60345459,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 161988608
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 115
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1680,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 391,
+      "tuiLatencyMilliseconds": 95,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 420.178,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 481078426,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.48727417,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 188145664
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 98057453,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.55195618,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 148164608
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 101
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1710,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 450,
+      "tuiLatencyMilliseconds": 99,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 356.84,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 489736339,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45968628,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 179695616
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 99699708,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.54354858,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 145907712
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 118
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1740,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 341,
+      "tuiLatencyMilliseconds": 93,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 359.337,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 497967819,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.4887085,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 174809088
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 101346243,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.55509949,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 149008384
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 106
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1770,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 348,
+      "tuiLatencyMilliseconds": 92,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 355.493,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 506562622,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.45440674,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 168742912
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 102917797,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.50053406,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 134361088
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 106
+    },
+    {
+      "phase": "steady",
+      "elapsedSeconds": 1800,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 322,
+      "tuiLatencyMilliseconds": 96,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 347.745,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 514863255,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.46133423,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 168292352
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 104499881,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.53573608,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 143810560
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": 115
+    },
+    {
+      "phase": "post-churn",
+      "elapsedSeconds": 1849,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 362,
+      "tuiLatencyMilliseconds": 102,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5132,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 434.481,
+        "postFailures": 0,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 529737226,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.53988647,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 206102528
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 107853782,
+            "maximumCPUThrottlingRatio": 0.0,
+            "maximumMemoryLimitRatio": 0.5302124,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 142327808
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": null
+    },
+    {
+      "phase": "post-recovery",
+      "elapsedSeconds": 2039,
+      "workloadContainers": 5000,
+      "mapping": {
+        "expected": 5000,
+        "mapped": 5000,
+        "unmapped": 0
+      },
+      "reliability": {
+        "state": "ready",
+        "expectedNodes": 3,
+        "freshNodes": 3,
+        "staleNodes": 0,
+        "missingNodes": 0
+      },
+      "operational": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "cliLatencyMilliseconds": 378,
+      "tuiLatencyMilliseconds": 123,
+      "agents": {
+        "available": true,
+        "podCount": 3,
+        "found": 5122,
+        "mapped": 5011,
+        "unmapped": 0,
+        "scanMilliseconds": 418.635,
+        "postFailures": 3,
+        "scanFailures": 0
+      },
+      "componentTelemetry": {
+        "components": {
+          "agent": {
+            "containerCount": 3,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 20242773,
+            "maximumCPUThrottlingRatio": null,
+            "maximumMemoryLimitRatio": 0.46496582,
+            "memoryLimitBytes": 402653184,
+            "workingSetBytes": 178630656
+          },
+          "collector": {
+            "containerCount": 1,
+            "cpuQuotaConfigured": false,
+            "cpuThrottledUsec": 0,
+            "cpuUsageUsec": 1599579,
+            "maximumCPUThrottlingRatio": null,
+            "maximumMemoryLimitRatio": 0.6166687,
+            "memoryLimitBytes": 268435456,
+            "workingSetBytes": 165535744
+          }
+        },
+        "schemaVersion": 1
+      },
+      "nodeMemoryPressureNodes": 0,
+      "canaryLatencyMilliseconds": null
+    }
+  ],
+  "measurements": {
+    "agentScanMilliseconds": [
+      441.558,
+      408.518,
+      384.576,
+      356.886,
+      356.386,
+      363.981,
+      349.486,
+      350.879,
+      353.575,
+      353.995,
+      353.85,
+      352.767,
+      367.105,
+      355.149,
+      362.605,
+      355.612,
+      366.722,
+      347.995,
+      369.894,
+      358.729,
+      348.857,
+      354.11,
+      388.62,
+      356.036,
+      377.695,
+      357.483,
+      363.489,
+      347.757,
+      359.029,
+      407.423,
+      361.778,
+      346.011,
+      376.366,
+      363.809,
+      353.527,
+      350.112,
+      365.458,
+      360.224,
+      351.255,
+      355.821,
+      356.895,
+      349.488,
+      347.073,
+      357.013,
+      355.682,
+      348.151,
+      345.978,
+      387.787,
+      365.093,
+      353.658,
+      368.296,
+      360.494,
+      358.017,
+      351.776,
+      369.61,
+      354.878,
+      420.178,
+      356.84,
+      359.337,
+      355.493,
+      347.745
+    ],
+    "cliLatencyMilliseconds": [
+      365,
+      450,
+      466,
+      407,
+      382,
+      337,
+      385,
+      394,
+      364,
+      404,
+      353,
+      400,
+      425,
+      417,
+      404,
+      346,
+      363,
+      377,
+      381,
+      451,
+      365,
+      348,
+      439,
+      465,
+      468,
+      438,
+      376,
+      359,
+      370,
+      369,
+      394,
+      432,
+      376,
+      438,
+      346,
+      373,
+      311,
+      428,
+      357,
+      464,
+      449,
+      389,
+      409,
+      367,
+      377,
+      376,
+      301,
+      394,
+      375,
+      417,
+      358,
+      405,
+      370,
+      406,
+      395,
+      440,
+      391,
+      450,
+      341,
+      348,
+      322
+    ],
+    "tuiLatencyMilliseconds": [
+      99,
+      102,
+      103,
+      89,
+      109,
+      90,
+      91,
+      95,
+      92,
+      96,
+      92,
+      98,
+      93,
+      97,
+      88,
+      93,
+      99,
+      91,
+      93,
+      95,
+      90,
+      96,
+      92,
+      93,
+      117,
+      95,
+      99,
+      93,
+      91,
+      94,
+      98,
+      97,
+      92,
+      97,
+      98,
+      100,
+      92,
+      116,
+      86,
+      99,
+      95,
+      94,
+      101,
+      93,
+      91,
+      94,
+      90,
+      91,
+      99,
+      95,
+      93,
+      97,
+      92,
+      95,
+      90,
+      100,
+      95,
+      99,
+      93,
+      92,
+      96
+    ],
+    "recoverySeconds": {
+      "workload": 39,
+      "agent": 37,
+      "collector": 7,
+      "node": 34,
+      "api": 7,
+      "partialRollout": 4
+    },
+    "components": {
+      "agent": {
+        "memoryLimitRatios": [
+          0.47512817,
+          0.46670532,
+          0.46240234,
+          0.47460938,
+          0.46148682,
+          0.46365356,
+          0.46893311,
+          0.47555542,
+          0.47915649,
+          0.47113037,
+          0.44473267,
+          0.45593262,
+          0.47595215,
+          0.47897339,
+          0.48815918,
+          0.45455933,
+          0.47125244,
+          0.47271729,
+          0.46881104,
+          0.48327637,
+          0.48446655,
+          0.45755005,
+          0.47439575,
+          0.48062134,
+          0.48095703,
+          0.48217773,
+          0.49716187,
+          0.43606567,
+          0.48034668,
+          0.47839355,
+          0.47268677,
+          0.47076416,
+          0.46755981,
+          0.50683594,
+          0.46774292,
+          0.46670532,
+          0.46014404,
+          0.47561646,
+          0.43591309,
+          0.49789429,
+          0.46499634,
+          0.48980713,
+          0.45602417,
+          0.47546387,
+          0.46459961,
+          0.47540283,
+          0.47555542,
+          0.46322632,
+          0.47454834,
+          0.46920776,
+          0.45117188,
+          0.47821045,
+          0.46557617,
+          0.47717285,
+          0.46838379,
+          0.47634888,
+          0.48727417,
+          0.45968628,
+          0.4887085,
+          0.45440674,
+          0.46133423
+        ],
+        "cpuThrottlingRatios": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "collector": {
+        "memoryLimitRatios": [
+          0.45239258,
+          0.51800537,
+          0.56007385,
+          0.53614807,
+          0.26470947,
+          0.45501709,
+          0.42132568,
+          0.52082825,
+          0.38661194,
+          0.52774048,
+          0.53514099,
+          0.4675293,
+          0.29019165,
+          0.56192017,
+          0.50926208,
+          0.59368896,
+          0.47096252,
+          0.63174438,
+          0.48078918,
+          0.54101562,
+          0.45901489,
+          0.44825745,
+          0.42466736,
+          0.4866333,
+          0.46774292,
+          0.63168335,
+          0.48764038,
+          0.63226318,
+          0.5947876,
+          0.60736084,
+          0.62388611,
+          0.40013123,
+          0.57019043,
+          0.59031677,
+          0.52781677,
+          0.6036377,
+          0.3072052,
+          0.45294189,
+          0.29043579,
+          0.4138031,
+          0.59179688,
+          0.55018616,
+          0.50961304,
+          0.47766113,
+          0.45375061,
+          0.56622314,
+          0.42181396,
+          0.28808594,
+          0.42984009,
+          0.42718506,
+          0.59941101,
+          0.602005,
+          0.47567749,
+          0.46781921,
+          0.61720276,
+          0.60345459,
+          0.55195618,
+          0.54354858,
+          0.55509949,
+          0.50053406,
+          0.53573608
+        ],
+        "cpuThrottlingRatios": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "agentPostFailures": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "agentScanFailures": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "apiServer": {
+      "errorDelta": 0,
+      "rateLimitedDelta": 0
+    },
+    "nodeMemoryPressureNodes": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "canary": {
+      "higherIsBetter": false,
+      "control": [
+        141,
+        106,
+        135,
+        122,
+        120,
+        120,
+        120
+      ],
+      "observed": [
+        116,
+        177,
+        115,
+        127,
+        120,
+        131,
+        134,
+        117,
+        116,
+        117,
+        108,
+        113,
+        112,
+        123,
+        113,
+        117,
+        103,
+        111,
+        119,
+        114,
+        124,
+        109,
+        115,
+        114,
+        101,
+        120,
+        119,
+        118,
+        123,
+        118,
+        109,
+        110,
+        105,
+        110,
+        117,
+        110,
+        120,
+        120,
+        110,
+        111,
+        110,
+        100,
+        113,
+        109,
+        117,
+        111,
+        116,
+        112,
+        100,
+        97,
+        116,
+        111,
+        110,
+        110,
+        96,
+        115,
+        101,
+        118,
+        106,
+        106,
+        115
+      ]
+    }
+  },
+  "privacy": {
+    "clusterIdentifiersIncluded": false,
+    "workloadIdentifiersIncluded": false,
+    "rawMetricsIncluded": false,
+    "rawLogsIncluded": false
+  },
+  "caveats": [
+    "This result supports only the selected profile and is not managed-provider evidence."
+  ]
+}

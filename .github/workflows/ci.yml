@@ -213,12 +213,16 @@ jobs:
           -strict -summary
           < /tmp/kube-memlens.yaml
 
-      - name: Check exact ingestion limit rendering
+      - name: Check exact scale and ingestion limit rendering
         run: |
           grep -q -- '--max-snapshot-bytes=8388608' /tmp/kube-memlens.yaml
+          sed -n '/^        - name: agent$/,/^          volumeMounts:$/p' \
+            /tmp/kube-memlens.yaml > /tmp/kube-memlens-agent.yaml
+          test "$(grep -c '^              memory: 96Mi$' /tmp/kube-memlens-agent.yaml)" -eq 1
+          test "$(grep -c '^              memory: 128Mi$' /tmp/kube-memlens-agent.yaml)" -eq 1
           sed -n '/^        - name: collector$/,/^          volumeMounts:$/p' \
             /tmp/kube-memlens.yaml > /tmp/kube-memlens-collector.yaml
-          test "$(grep -c '^              memory: 64Mi$' /tmp/kube-memlens-collector.yaml)" -eq 1
+          test "$(grep -c '^              memory: 192Mi$' /tmp/kube-memlens-collector.yaml)" -eq 1
           test "$(grep -c '^              memory: 256Mi$' /tmp/kube-memlens-collector.yaml)" -eq 1
           grep -q -- '--max-response-bytes=16777216' /tmp/kube-memlens.yaml
           grep -q -- '--read-max-concurrent=4' /tmp/kube-memlens.yaml

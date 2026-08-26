@@ -13,7 +13,7 @@ Profiles live under `hack/scale-profiles`. Their canonical SHA-256 digest covers
 | `development-smoke` | Ordinary kind regression smoke. It makes no scale claim. | 20 containers, 10 per Pod, 30 seconds, sampled every 5 seconds, 5-second agent interval, 32 MiB canary transfer. | At least 7 steady-state samples, 7 control samples and exact replacement of 2 Pods at full density. Optional telemetry is reported as `not_evaluated` when unavailable. |
 | `rc-5000` | Local release-candidate qualification. | 5,000 containers, 50 per Pod, 30 minutes, sampled every 30 seconds, 5-second agent interval, 256 MiB canary transfer. | At least 61 steady-state samples, 7 control samples and exact replacement of 10 Pods at full density. Every telemetry source is required. |
 
-`rc-5000` has no accepted result yet. It remains a declared test profile, not a supported capacity. The [support contract](compatibility.md) stays at `Qualification required` until a passing run and its environment record receive review.
+`rc-5000` passed on 26 August 2026 for the exact local kind environment in the [reviewed result record](qualification-results/rc-5000-local-kind-2026-08-26.md). The result supports that local 5,000-container, 30-minute profile only. Managed-provider and larger live-scale claims remain unqualified.
 
 Both profiles use the digest-pinned BusyBox image recorded in the profile. The density containers request 1 MiB of memory and 1 millicore of CPU. They sleep, so they test collection density rather than application throughput. The separate canary provides the control and observed workload comparison.
 
