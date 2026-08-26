@@ -77,7 +77,7 @@ def write_supported_evidence_files(root, pending, receipt):
             "connection": {"mode": "kubernetes-api", "collector": "redacted",
                            "healthy": True, "description": "redacted"},
             "store": {"nodeRecords": environment["linuxNodeCount"]},
-            "data": {"status": "healthy"},
+            "data": {"status": "ready"},
         },
         "lifecycle.json": lifecycle_document(pending, measurement),
     }

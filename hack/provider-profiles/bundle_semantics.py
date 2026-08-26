@@ -155,7 +155,7 @@ def validate_supported_bundle(bundle, pending, receipt):
     valid_status = valid_status and status.get("error") in (None, "") \
         and type(store.get("nodeRecords")) is int \
         and store["nodeRecords"] == pending["environment"]["linuxNodeCount"] \
-        and data.get("status") == "healthy"
+        and data.get("status") == "ready"
     if not valid_status:
         raise ManifestError("manifested status evidence is invalid")
     if manifest["manifestDigest"] != pending["artefacts"]["evidenceManifestDigest"]:
