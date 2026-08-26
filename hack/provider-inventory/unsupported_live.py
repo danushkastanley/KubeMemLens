@@ -200,15 +200,11 @@ def collect_aks_virtual(environment, runner):
 
 def _aks_cni(provider):
     network = require_object(provider.get("networkProfile"), "AKS network profile")
-    policy = network.get("networkPolicy")
-    dataplane = network.get("networkDataplane")
     if network.get("networkPlugin") != "azure":
         raise ReceiptError("AKS observation requires Azure CNI")
-    if dataplane == "cilium" or policy == "cilium":
-        return "Azure CNI Powered by Cilium"
-    if policy == "calico":
-        return "Calico"
-    raise ReceiptError("AKS Windows observation requires a recorded enforcing CNI")
+    if network.get("networkDataplane") == "cilium" or network.get("networkPolicy") != "calico":
+        raise ReceiptError("AKS Windows observation requires Azure CNI with Calico")
+    return "Azure CNI Calico"
 
 
 def _chart_contract(repo_root, runner):
@@ -250,7 +246,7 @@ def collect_windows(environment, runner, repo_root):
     control_plane = provider.get("currentKubernetesVersion")
     proof = {"provider": "aks-node-pools",
              "nodeImage": require_text(pool.get("nodeImageVersion"), "AKS Windows node image"),
-             "cniName": _aks_cni(provider), "cniEnforced": True,
+             "cniName": _aks_cni(provider), "cniEnforced": False,
              "controlPlaneVersion": require_text(control_plane, "AKS current control-plane version")}
     return {"schemaVersion": 1, "profileID": "windows-deep-mode", "providerProof": proof,
             "version": version, "nodes": nodes, "chart": _chart_contract(repo_root, runner)}

@@ -3,16 +3,16 @@
   "id": "windows-deep-mode",
   "expectedOutcome": "unsupported",
   "expectations": {
-    "providerPattern": "^(gke-standard|eks-managed-nodes|aks-node-pools|self-managed)$",
+    "providerPattern": "^aks-node-pools$",
     "osImagePattern": "^Windows Server [A-Za-z0-9][-A-Za-z0-9 ._()+/]{1,143}$",
     "runtimePattern": "^containerd://[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?$",
     "architecturePattern": "^amd64$",
     "cgroupPattern": "^(none|unreported)$",
     "nodeImagePattern": "^[A-Za-z0-9][-A-Za-z0-9 ._()+]{1,159}$",
-    "cniPattern": "^(GKE Dataplane V2|Amazon VPC CNI|Azure CNI Powered by Cilium|Calico|Cilium)( v?[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?)?$",
+    "cniPattern": "^Azure CNI Calico$",
     "cniEnforcementRequired": true
   },
   "expectedUnsupportedReason": "windows_nodes_not_supported",
   "requalificationDays": 90,
-  "profileDigest": "sha256:7e468c530d3c748cc4a8ff923a846b4bce3d6da8213025e048068ad2e0d8f155"
+  "profileDigest": "sha256:ed48685ee50537826d12fccc5a261f6e474d396fa538e85b0ca364a52b76cb9c"
 }

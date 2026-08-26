@@ -99,17 +99,23 @@ credentials or invoke a cloud CLI. The operator performs the already reviewed
 replacement separately; the runner detects the changed Node UID privately,
 proves DaemonSet and strict-doctor recovery, and discards the identifiers.
 
-Use exactly one replacement action against the selected pool:
+Replace exactly one Linux Node in the selected pool. Some providers complete
+that as one operation; AKS requires the bounded provider-native delete and
+restore sequence below:
 
 | Row | Approved replacement shape |
 |---|---|
 | GKE Standard | Resolve the selected pool's managed instance group privately, then use `gcloud compute instance-groups managed recreate-instances` for one instance. |
 | EKS managed nodes | Resolve one selected-group EC2 instance from the private Node `providerID`, then terminate that instance so the managed node group replaces it. |
-| AKS node pools | Resolve one selected-pool VMSS instance in the private node resource group, then use `az vmss reimage` for that instance. |
+| AKS node pools | Start with exactly three Linux Nodes in a fixed-size pool whose `enableAutoScaling` value is `false`. Cordon and drain one selected-pool machine, use `az aks nodepool delete-machines` for that one machine, verify the pool and Kubernetes each contain two Linux Nodes, then use `az aks nodepool scale --node-count 3`. |
 | Self-managed | Remove one non-control-plane worker and recreate it from the same reviewed immutable bootstrap configuration and join contract. |
 
-Do not replace a control-plane Node, resize the pool, or act on a second Node.
-Abort the row if another Node changes, the provider reports a degraded pool, or
+Do not replace a control-plane Node or act on a second Node. Do not resize a
+pool except for the exact AKS three-to-two-to-three sequence above. AKS
+`delete-machines` does not drain or automatically restore capacity, so verify
+the two-Node intermediate state before requesting exactly one replacement.
+Abort the row if another Node changes, either AKS count differs from the
+expected intermediate or final count, the provider reports a degraded pool, or
 the runner reaches its timeout. The runner requires one removed and one added
 UID, the same exact runtime tuple, a subsequent fresh snapshot and a refreshed
 provider receipt before continuing.
@@ -156,7 +162,7 @@ used by the supported collector. Add the profile-specific private inputs:
 | GKE Autopilot | `QUALIFY_OBSERVATION_NAMESPACE` naming an existing authorised namespace. The collector checks `auth can-i`, accepts the exact baseline server dry-run and requires the exact cgroup-hostPath Status denial. |
 | EKS Fargate | `QUALIFY_EKS_FARGATE_PROFILE` naming an active profile with at least one Ready Fargate Node in its scope. |
 | AKS virtual nodes | An enabled ACI connector and at least one Ready Azure virtual-kubelet Node in the selected AKS cluster. |
-| Windows deep mode | `QUALIFY_AKS_WINDOWS_NODE_POOL` naming a current AKS Windows pool. The live Nodes, provider-owned pool and rendered candidate agent contract must agree. |
+| Windows deep mode | `QUALIFY_AKS_WINDOWS_NODE_POOL` naming a current AKS Windows pool. The live Nodes, provider-owned pool, configured Azure CNI with Calico and rendered candidate agent contract must agree. Cilium is Linux-only and is rejected for this row. The receipt records configuration only and does not claim Windows policy enforcement. |
 | cgroup v1 | `QUALIFY_SSH_USER`, `QUALIFY_SSH_ADDRESS_TYPE`, `QUALIFY_SSH_KEY` and `QUALIFY_SSH_KNOWN_HOSTS`. The key must be mode `0600`; strict-host-key, BatchMode SSH checks every Linux Node UID for no `cgroup.controllers` file and a real cgroup v1 mount. |
 
 No SSH address, key path, provider selector, Node UID, raw admission response or

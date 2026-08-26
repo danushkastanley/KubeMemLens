@@ -43,7 +43,7 @@ SAMPLES = {
     "gke-autopilot": ("gke-autopilot", "Container-Optimized OS cos-121", "containerd://2.0.5", "amd64", "unreported", "AUTOPILOT", "GKE Dataplane V2"),
     "eks-fargate": ("eks-fargate", "Amazon Linux 2023.7", "containerd://2.0.5", "amd64", "unreported", "AWS Fargate managed runtime", "AWS Fargate pod networking"),
     "aks-virtual-nodes": ("aks-virtual-nodes", "Ubuntu 22.04.5 LTS", "virtual-kubelet://1.11.0", "amd64", "unreported", "AKS virtual-node ACI", "Azure CNI virtual nodes"),
-    "windows-deep-mode": ("self-managed", "Windows Server 2025 Datacenter", "containerd://2.0.5", "amd64", "none", "Windows Server 2025 Datacenter", "Cilium v1.18.1"),
+    "windows-deep-mode": ("aks-node-pools", "Windows Server 2022 Datacenter", "containerd://2.0.5", "amd64", "none", "AKSWindows-2022-containerd-20348.4052.250716", "Azure CNI Calico"),
     "cgroup-v1": ("self-managed", "Debian GNU/Linux 11", "containerd://1.7.28", "amd64", "v1", "Debian GNU/Linux 11", "Antrea v2.3.0"),
 }
 UNSUPPORTED_SOURCES = {

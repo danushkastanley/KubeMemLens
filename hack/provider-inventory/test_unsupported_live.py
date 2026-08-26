@@ -79,8 +79,8 @@ class LiveRunner:
             value["fqdn"] = "aks.private.example.test"
             value["currentKubernetesVersion"] = value.get("currentKubernetesVersion", "1.36.1")
             value.setdefault("networkProfile", {})["networkPlugin"] = "azure"
-            value["networkProfile"]["networkPolicy"] = "cilium"
-            value["networkProfile"]["networkDataplane"] = "cilium"
+            value["networkProfile"]["networkPolicy"] = "calico"
+            value["networkProfile"]["networkDataplane"] = None
             return self.result(command, value)
         if "version -o json" in text:
             return self.result(command, self.source["version"])
@@ -229,6 +229,32 @@ class UnsupportedLiveTests(unittest.TestCase):
                     "windows-deep-mode", self.environment("windows-deep-mode", directory), None,
                     runner=linux_pool, repo_root=REPOSITORY,
                 )
+
+    def test_windows_rejects_linux_only_cilium_network_policy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runner = LiveRunner("windows-deep-mode")
+            original = runner.__call__
+
+            def cilium_cluster(command, **kwargs):
+                if "az aks show" in " ".join(command):
+                    response = original(command, **kwargs)
+                    provider = json.loads(response.stdout)
+                    provider["networkProfile"]["networkPolicy"] = "cilium"
+                    provider["networkProfile"]["networkDataplane"] = "cilium"
+                    return runner.result(command, provider)
+                return original(command, **kwargs)
+
+            with self.assertRaisesRegex(observer.ReceiptError, "Azure CNI with Calico"):
+                live.collect_live_source(
+                    "windows-deep-mode", self.environment("windows-deep-mode", directory), None,
+                    runner=cilium_cluster, repo_root=REPOSITORY,
+                )
+
+    def test_windows_records_configured_cni_without_claiming_enforcement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            receipt, _ = self.receipt("windows-deep-mode", directory)
+        self.assertEqual(receipt["environment"]["cniName"], "Azure CNI Calico")
+        self.assertFalse(receipt["environment"]["cniEnforced"])
 
     def test_cgroup_v1_uses_batchmode_ssh_for_every_linux_node(self):
         with tempfile.TemporaryDirectory() as directory:

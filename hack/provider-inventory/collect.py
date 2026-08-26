@@ -211,6 +211,8 @@ def collect_aks(profile, environment, runner):
     if pool.get("provisioningState") != "Succeeded" or pool.get("osType") != "Linux" \
             or pool.get("osSku") != "Ubuntu" or pool.get("type") != "VirtualMachineScaleSets":
         raise ReceiptError("AKS node pool is not the claimed managed Ubuntu Linux row")
+    if pool.get("enableAutoScaling") is not False or pool.get("count") != 3:
+        raise ReceiptError("AKS qualification requires a fixed three-Node pool with autoscaling disabled")
     network = require_object(cluster.get("networkProfile", {}), "AKS network profile")
     policy = network.get("networkPolicy")
     if network.get("networkPlugin") != "azure" or policy not in {"azure", "calico", "cilium"}:

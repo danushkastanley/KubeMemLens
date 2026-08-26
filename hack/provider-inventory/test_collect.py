@@ -163,6 +163,18 @@ class ProviderInventoryTests(unittest.TestCase):
         for forbidden in environment.values():
             self.assertNotIn(forbidden, encoded)
 
+    def test_aks_qualification_requires_fixed_three_node_pool(self):
+        for field, value in (("enableAutoScaling", True), ("count", 2)):
+            with self.subTest(field=field):
+                pool = fixture("aks-node-pool.json")
+                pool[field] = value
+                runner, _ = self.aks_runner(pool=pool)
+                with self.assertRaisesRegex(collect.ReceiptError, "fixed three-Node pool"):
+                    collect.collect_receipt(
+                        self.profile("aks-ubuntu-containerd-amd64"),
+                        self.aks_environment(), runner,
+                    )
+
     def test_self_managed_profiles_use_live_bounded_kubectl_inventory(self):
         cases = (
             ("self-managed-containerd", "self-containerd-inventory.json", "Cilium v1.18.1"),

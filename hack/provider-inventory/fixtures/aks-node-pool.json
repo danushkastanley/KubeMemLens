@@ -4,5 +4,7 @@
   "osSku": "Ubuntu",
   "type": "VirtualMachineScaleSets",
   "mode": "User",
+  "count": 3,
+  "enableAutoScaling": false,
   "nodeImageVersion": "AKSUbuntu-2404gen2containerd-2026.08.12"
 }

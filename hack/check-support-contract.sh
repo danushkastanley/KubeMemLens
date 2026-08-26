@@ -13,6 +13,15 @@ require_text() {
   }
 }
 
+reject_text() {
+  local file=$1
+  local text=$2
+  if grep -Fq "$text" "$file"; then
+    echo "support contract check failed: ${file} contains obsolete text: ${text}" >&2
+    exit 1
+  fi
+}
+
 contract=docs/compatibility.md
 
 require_text "$contract" '# Support and compatibility contract'
@@ -39,6 +48,9 @@ require_text docs/installation.md 'compatibility.md'
 require_text docs/security-model.md 'compatibility.md'
 require_text charts/kube-memlens/README.md 'docs/compatibility.md'
 require_text docs/qualification.md 'provider-qualification.json'
+require_text docs/qualification.md 'az aks nodepool delete-machines'
+require_text docs/qualification.md 'az aks nodepool scale --node-count 3'
+reject_text docs/qualification.md 'az vmss reimage'
 require_text docs/provider-qualification-sources.md 'Review date: 2026-08-26'
 require_text hack/provider-probe-image.json 'docker.io/library/busybox@sha256:'
 jq -e '.schemaVersion == 1 and .platform == "linux/amd64" and
