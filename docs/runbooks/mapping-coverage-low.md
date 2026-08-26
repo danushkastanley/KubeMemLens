@@ -7,4 +7,4 @@ This alert means an agent mapped fewer than 95 percent of discovered workload co
 3. Compare the reported container runtime and cgroup driver with the support and compatibility contract.
 4. Preserve agent logs and a redacted incident bundle when opening an issue; never attach host cgroup paths or container IDs unless explicitly required.
 
-Sandbox and runtime infrastructure cgroups are intentionally excluded, so investigate only the reported workload-container denominator.
+Sandbox and runtime infrastructure cgroups are intentionally excluded, so investigate only the reported workload-container denominator. The agent classifies a sandbox only when one unmatched sibling remains after every expected Pod container maps. It keeps excluding that proven path while the runtime tears down the Pod. Extra or unrelated unknown cgroups remain unmapped.
