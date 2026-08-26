@@ -75,7 +75,7 @@ Required environment:
                               provider-action-approved
 
 The script installs and removes KubeMemLens and its dedicated namespace. It
-refuses existing namespaces, releases, and cluster-scoped KubeMemLens RBAC.
+refuses existing namespaces, releases, and chart-owned KubeMemLens RBAC.
 It waits for an operator-triggered provider node replacement but never creates,
 replaces or deletes cloud infrastructure itself.
 EOF
@@ -206,13 +206,21 @@ k version -o json > "${work_dir}/version.json"
 if k get namespace "${namespace}" >/dev/null 2>&1; then
   fail "namespace already exists: ${namespace}"
 fi
-for resource in "${owned_cluster_resources[@]}"; do
-  k get "${resource}" >/dev/null 2>&1 &&
-    fail "cluster-scoped KubeMemLens resource already exists: ${resource}"
+for resource in "${owned_resources[@]}"; do
+  status=0
+  get_owned_resource_json "${resource}" >/dev/null || status=$?
+  if [ "${status}" -eq 0 ]; then
+    fail "chart-owned KubeMemLens resource already exists: ${resource}"
+  fi
+  [ "${status}" -eq 1 ] || fail "could not verify KubeMemLens resource absence: ${resource}"
 done
 k auth can-i create namespaces | grep -Fxq yes || fail "current identity cannot create namespaces"
 k auth can-i create clusterroles.rbac.authorization.k8s.io | grep -Fxq yes ||
   fail "current identity cannot install required cluster RBAC"
+for verb in "${required_kube_system_rolebinding_verbs[@]}"; do
+  k auth can-i "${verb}" rolebindings.rbac.authorization.k8s.io --namespace kube-system |
+    grep -Fxq yes || fail "current identity cannot ${verb} required kube-system RBAC"
+done
 
 nodes_json=${work_dir}/nodes.json
 k get nodes -o json > "${nodes_json}"
@@ -452,7 +460,7 @@ helm uninstall "${release}" \
   "${helm_cluster_args[@]}" \
   --namespace "${namespace}" --wait
 release_installed=false
-cluster_resources_removed || fail "cluster-scoped resources remain after uninstall"
+owned_resources_removed || fail "chart-owned resources remain after uninstall"
 delete_owned_namespace || fail "UID-preconditioned namespace deletion failed"
 k wait --for=delete "namespace/${namespace}" --timeout=5m >/dev/null ||
   fail "namespace deletion did not complete"

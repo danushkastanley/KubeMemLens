@@ -3,7 +3,7 @@
 # Evidence finalisation and bounded cleanup for hack/qualify-cluster.sh.
 # shellcheck disable=SC2034,SC2154
 
-owned_cluster_resources=(
+owned_resources=(
   clusterrole/kube-memlens-agent
   clusterrole/kube-memlens-namespace-viewer
   clusterrole/kube-memlens-cluster-viewer
@@ -15,12 +15,24 @@ owned_cluster_resources=(
   clusterrolebinding/kube-memlens-collector-node-reader
   clusterrolebinding/kube-memlens-cert-bootstrap
   apiservice/v1alpha1.memory.kubememlens.io
+  rolebinding/kube-system/kube-memlens-extension-authentication-reader
 )
+required_kube_system_rolebinding_verbs=(create get delete patch)
 
 get_owned_resource_json() {
   local resource=$1
   local error_file=${work_dir}/qualification-cleanup-get.err
-  if k get "${resource}" -o json 2>"${error_file}"; then
+  local resource_name resource_namespace resource_tail status=0
+  if [[ "${resource}" == rolebinding/*/* ]]; then
+    resource_tail=${resource#*/}
+    resource_namespace=${resource_tail%%/*}
+    resource_name=${resource_tail#*/}
+    k get "rolebinding/${resource_name}" --namespace "${resource_namespace}" \
+      -o json 2>"${error_file}" || status=$?
+  else
+    k get "${resource}" -o json 2>"${error_file}" || status=$?
+  fi
+  if [ "${status}" -eq 0 ]; then
     return 0
   fi
   if grep -Eiq '(\(NotFound\)| not found)' "${error_file}"; then
@@ -41,14 +53,22 @@ owned_resource_delete_uri() {
     apiservice/*)
       printf '/apis/apiregistration.k8s.io/v1/apiservices/%s' "${resource#*/}"
       ;;
+    rolebinding/*/*)
+      local resource_name resource_namespace resource_tail
+      resource_tail=${resource#*/}
+      resource_namespace=${resource_tail%%/*}
+      resource_name=${resource_tail#*/}
+      printf '/apis/rbac.authorization.k8s.io/v1/namespaces/%s/rolebindings/%s' \
+        "${resource_namespace}" "${resource_name}"
+      ;;
     *) return 1 ;;
   esac
 }
 
-delete_owned_cluster_rbac() {
+delete_owned_resources() {
   local delete_uri resource resource_json resource_uid release_name release_namespace status
   local failed=false
-  for resource in "${owned_cluster_resources[@]}"; do
+  for resource in "${owned_resources[@]}"; do
     status=0
     resource_json=$(get_owned_resource_json "${resource}") || status=$?
     if [ "${status}" -eq 1 ]; then
@@ -61,31 +81,30 @@ delete_owned_cluster_rbac() {
     release_name=$(jq -r '.metadata.annotations["meta.helm.sh/release-name"] // ""' <<<"${resource_json}")
     release_namespace=$(jq -r '.metadata.annotations["meta.helm.sh/release-namespace"] // ""' <<<"${resource_json}")
     resource_uid=$(jq -r '.metadata.uid // ""' <<<"${resource_json}")
-    if [ "${release_name}" = "${release}" ] && [ "${release_namespace}" = "${namespace}" ]; then
-      if [ -z "${resource_uid}" ]; then
-        failed=true
-      else
-        delete_uri=$(owned_resource_delete_uri "${resource}") || {
-          failed=true
-          continue
-        }
-        jq -n --arg uid "${resource_uid}" '
-          {apiVersion:"v1",kind:"DeleteOptions",preconditions:{uid:$uid},
-           propagationPolicy:"Background"}
-        ' | k delete --raw "${delete_uri}" -f - >/dev/null 2>&1 || failed=true
-      fi
+    if [ "${release_name}" != "${release}" ] || [ "${release_namespace}" != "${namespace}" ] ||
+      [ -z "${resource_uid}" ]; then
+      failed=true
+      continue
     fi
+    delete_uri=$(owned_resource_delete_uri "${resource}") || {
+      failed=true
+      continue
+    }
+    jq -n --arg uid "${resource_uid}" '
+      {apiVersion:"v1",kind:"DeleteOptions",preconditions:{uid:$uid},
+       propagationPolicy:"Background"}
+    ' | k delete --raw "${delete_uri}" -f - >/dev/null 2>&1 || failed=true
   done
   [ "${failed}" = false ]
 }
 
-cluster_resources_removed() {
+owned_resources_removed() {
   local resource resource_json status
-  for resource in "${owned_cluster_resources[@]}"; do
+  for resource in "${owned_resources[@]}"; do
     status=0
     resource_json=$(get_owned_resource_json "${resource}") || status=$?
     if [ "${status}" -eq 0 ]; then
-      echo "qualification cleanup error: cluster-scoped resource remains: ${resource}" >&2
+      echo "qualification cleanup error: owned resource remains: ${resource}" >&2
       return 1
     fi
     if [ "${status}" -ne 1 ]; then
@@ -164,9 +183,9 @@ cleanup() {
     fi
   fi
   if [ "${namespace_created}" = true ]; then
-    if ! delete_owned_cluster_rbac; then
+    if ! delete_owned_resources; then
       cleanup_failed=true
-      echo "qualification cleanup error: owned cluster RBAC deletion failed" >&2
+      echo "qualification cleanup error: owned resource deletion failed" >&2
     fi
     if delete_owned_namespace &&
       k wait --for=delete "namespace/${namespace}" --timeout=5m >/dev/null 2>&1; then
@@ -176,7 +195,7 @@ cleanup() {
       echo "qualification cleanup error: namespace deletion did not complete" >&2
     fi
   fi
-  if [ "${verify_owned_resources}" = true ] && ! cluster_resources_removed; then
+  if [ "${verify_owned_resources}" = true ] && ! owned_resources_removed; then
     cleanup_failed=true
   fi
   if [ "${cleanup_failed}" = true ]; then
