@@ -318,10 +318,8 @@ cgroup_version=$(jq -r '[.nodes[].environment.cgroupVersion] | unique |
   if length == 1 then .[0] else "mixed" end' "${doctor_raw}")
 write_environment_evidence "${cgroup_version}" false
 
-jq '
-  .connection = "redacted" |
-  .nodes = ((.nodes // []) | map(del(.nodeName)))
-' "${doctor_raw}" > "${artifact_dir}/doctor.json"
+jq -f hack/provider-profiles/sanitise_doctor.jq \
+  "${doctor_raw}" > "${artifact_dir}/doctor.json"
 chmod 600 "${artifact_dir}/doctor.json"
 
 current_check=api

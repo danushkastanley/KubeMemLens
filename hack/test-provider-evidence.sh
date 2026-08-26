@@ -58,4 +58,17 @@ jq -e '.result == "fail"' <<<"${validation}" >/dev/null
 jq -e '.reasonCode == "mixed_os_scheduling_failed" and
   .checks.mixedOSScheduling == "fail"' "${artifact_dir}/provider-qualification.pending.json" >/dev/null
 
+sanitised_doctor=${artifact_dir}/doctor-sanitised.json
+jq -n '{
+  connection: "private endpoint",
+  nodes: [{nodeName: "private-node", freshness: "fresh"}],
+  checks: [{name: "workload context", status: "pass"}]
+}' | jq -f hack/provider-profiles/sanitise_doctor.jq > "${sanitised_doctor}"
+jq -e '
+  .connection == "redacted" and
+  .nodes == [{freshness: "fresh"}] and
+  .checks == [{name: "workload metadata", status: "pass"}]
+' "${sanitised_doctor}" >/dev/null
+python3 hack/provider-profiles/validate_privacy.py "${sanitised_doctor}"
+
 echo "provider evidence writer checks passed"
