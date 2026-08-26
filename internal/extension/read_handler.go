@@ -102,7 +102,17 @@ func (h *ReadHandler) servePods(w http.ResponseWriter, r *http.Request, info *ap
 	}
 	scope := collector.ReadScope{Namespace: info.Namespace}
 	if info.Verb == "list" && info.Name == "" {
-		page, err := h.store.PagePodsScoped(scope, h.now(), h.opts.SnapshotTTL, r.URL.Query(), h.generationScope(readScopeKey("pods", scope)), h.nestedReadBudget())
+		summary, err := podSummaryRequested(r.URL.Query().Get("summary"))
+		if err != nil {
+			writeReadError(w, http.StatusBadRequest, metav1.StatusReasonBadRequest, err.Error())
+			return
+		}
+		var page collector.ScopedPodPage
+		if summary {
+			page, err = h.store.PagePodSummariesScoped(scope, h.now(), h.opts.SnapshotTTL, r.URL.Query(), h.generationScope(readScopeKey("pod-summaries", scope)))
+		} else {
+			page, err = h.store.PagePodsScoped(scope, h.now(), h.opts.SnapshotTTL, r.URL.Query(), h.generationScope(readScopeKey("pods", scope)), h.nestedReadBudget())
+		}
 		if writeReadPageError(w, err) {
 			return
 		}
@@ -128,6 +138,17 @@ func (h *ReadHandler) servePods(w http.ResponseWriter, r *http.Request, info *ap
 		return
 	}
 	writeBoundedReadJSON(w, podMemory(pod), h.opts.MaxResponseBytes)
+}
+
+func podSummaryRequested(value string) (bool, error) {
+	switch value {
+	case "":
+		return false, nil
+	case "true":
+		return true, nil
+	default:
+		return false, errors.New("summary must be true when supplied")
+	}
 }
 
 func (h *ReadHandler) serveContainers(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo) {

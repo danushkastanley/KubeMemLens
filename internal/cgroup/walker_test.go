@@ -12,6 +12,7 @@ import (
 
 const (
 	testPodUID        = "12345678-1234-1234-1234-123456789abc"
+	testCompactPodUID = "12345678123412341234123456789abc"
 	testPodUIDSystemd = "12345678_1234_1234_1234_123456789abc"
 	testContainerID   = "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
 )
@@ -27,6 +28,20 @@ func TestExtractPodUIDFromPathCgroupFS(t *testing.T) {
 	path := "/sys/fs/cgroup/kubepods/burstable/pod" + testPodUID + "/" + testContainerID
 	if got := ExtractPodUIDFromPath(path); got != testPodUID {
 		t.Fatalf("ExtractPodUIDFromPath = %q, want %q", got, testPodUID)
+	}
+}
+
+func TestExtractCompactPodUIDFromStaticPodPath(t *testing.T) {
+	path := "/sys/fs/cgroup/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-burstable.slice/kubelet-kubepods-burstable-pod" + testCompactPodUID + ".slice/cri-containerd-" + testContainerID + ".scope"
+	if got := ExtractPodUIDFromPath(path); got != testCompactPodUID {
+		t.Fatalf("ExtractPodUIDFromPath = %q, want %q", got, testCompactPodUID)
+	}
+}
+
+func TestExtractPodUIDRejectsOverlongCompactUID(t *testing.T) {
+	path := "/sys/fs/cgroup/kubepods/pod" + testCompactPodUID + testCompactPodUID + "/" + testContainerID
+	if got := ExtractPodUIDFromPath(path); got != "" {
+		t.Fatalf("ExtractPodUIDFromPath = %q, want empty", got)
 	}
 }
 

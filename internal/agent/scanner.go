@@ -21,9 +21,10 @@ import (
 )
 
 type Scanner struct {
-	CgroupRoot string
-	NodeName   string
-	Kube       bool
+	CgroupRoot          string
+	NodeName            string
+	Kube                bool
+	infrastructurePaths map[string]struct{}
 }
 
 type ScanResult struct {
@@ -49,7 +50,7 @@ func (s Scanner) ScanOnce(name string) (model.MemoryBreakdown, error) {
 	return cgroup.ParseDirectory(name, s.CgroupRoot)
 }
 
-func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error) {
+func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error) {
 	if strings.TrimSpace(s.CgroupRoot) == "" {
 		return ScanResult{}, fmt.Errorf("cgroup root is required")
 	}
@@ -60,6 +61,9 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 		return ScanResult{}, walkErr
 	}
 	if len(entries) == 0 {
+		if walkErr == nil {
+			s.infrastructurePaths = nil
+		}
 		breakdown, err := s.ScanOnce("local")
 		if err != nil {
 			if walkErr != nil {
@@ -95,13 +99,43 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 		ref kube.PodRef
 		ok  bool
 	}
+	type parentMapping struct {
+		cgroupPodUID string
+		mappedPodUID string
+		mapped       int
+		unmapped     []int
+		ambiguous    bool
+	}
 	mappings := make([]mapping, len(entries))
-	mappedParents := map[string]struct{}{}
+	parents := map[string]*parentMapping{}
 	for i, entry := range entries {
 		ref, ok := idx.Lookup(entry.ContainerID, entry.PodUID)
 		mappings[i] = mapping{ref: ref, ok: ok}
+		parent := filepath.Dir(entry.RelativePath)
+		state := parents[parent]
+		if state == nil {
+			state = &parentMapping{cgroupPodUID: entry.PodUID}
+			parents[parent] = state
+		}
+		if entry.PodUID == "" || state.cgroupPodUID != entry.PodUID {
+			state.ambiguous = true
+		}
 		if ok {
-			mappedParents[filepath.Dir(entry.RelativePath)] = struct{}{}
+			if state.mappedPodUID == "" {
+				state.mappedPodUID = ref.PodUID
+			} else if ref.PodUID == "" || state.mappedPodUID != ref.PodUID {
+				state.ambiguous = true
+			}
+			state.mapped++
+		} else {
+			state.unmapped = append(state.unmapped, i)
+		}
+	}
+	infrastructureCandidates := map[int]struct{}{}
+	for _, state := range parents {
+		expected := len(idx.ByPodUID[state.mappedPodUID])
+		if !state.ambiguous && expected > 0 && state.mapped == expected && len(state.unmapped) == 1 {
+			infrastructureCandidates[state.unmapped[0]] = struct{}{}
 		}
 	}
 
@@ -110,6 +144,7 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 	mapped := 0
 	unmapped := 0
 	infrastructure := 0
+	currentInfrastructure := map[string]struct{}{}
 	runtimes := map[string]struct{}{}
 	for i, entry := range entries {
 		select {
@@ -139,11 +174,19 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 				Context:       ref.Context,
 				Memory:        memory,
 			})
-		} else if _, siblingMapped := mappedParents[filepath.Dir(entry.RelativePath)]; siblingMapped {
+		} else if _, sandboxCandidate := infrastructureCandidates[i]; sandboxCandidate {
 			// CRI Pod sandboxes are charged in a sibling cgroup but are not
-			// exposed as Kubernetes containers. Avoid presenting that runtime
-			// infrastructure as an unknown workload container.
+			// exposed as Kubernetes containers. Classify only the single
+			// unmatched sibling after every expected Pod container mapped.
 			infrastructure++
+			currentInfrastructure[entry.RelativePath] = struct{}{}
+			continue
+		} else if _, knownInfrastructure := s.infrastructurePaths[entry.RelativePath]; knownInfrastructure {
+			// Sandbox cgroups can outlive their mapped siblings while the
+			// runtime tears down a deleted Pod. Retain only prior positive
+			// classifications so an unrelated unknown cgroup stays visible.
+			infrastructure++
+			currentInfrastructure[entry.RelativePath] = struct{}{}
 			continue
 		} else {
 			unmapped++
@@ -157,6 +200,9 @@ func (s Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, error
 			})
 		}
 		memories = append(memories, memory)
+	}
+	if walkErr == nil {
+		s.infrastructurePaths = currentInfrastructure
 	}
 
 	return ScanResult{

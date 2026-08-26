@@ -52,6 +52,47 @@ func (reader *fakeSnapshotReader) DebugStore(context.Context) (api.DebugStore, e
 
 type basicSnapshotReader struct{ inner *fakeSnapshotReader }
 
+type summarySnapshotReader struct {
+	inner        *fakeSnapshotReader
+	summaryCalls int
+}
+
+func (reader *summarySnapshotReader) Health(ctx context.Context) error {
+	return reader.inner.Health(ctx)
+}
+func (reader *summarySnapshotReader) CurrentSnapshot(ctx context.Context) (client.CurrentSnapshot, error) {
+	return reader.inner.CurrentSnapshot(ctx)
+}
+func (reader *summarySnapshotReader) CurrentSummary(context.Context) (client.CurrentSummary, error) {
+	reader.summaryCalls++
+	return client.CurrentSummary{
+		Namespaces: reader.inner.current.Namespaces,
+		Workloads:  reader.inner.current.Workloads,
+		Pods:       reader.inner.current.Pods,
+	}, reader.inner.err
+}
+func (reader *summarySnapshotReader) Containers(ctx context.Context) ([]api.ContainerSnapshot, error) {
+	return reader.inner.Containers(ctx)
+}
+func (reader *summarySnapshotReader) Pods(ctx context.Context) ([]api.PodSnapshot, error) {
+	return reader.inner.Pods(ctx)
+}
+func (reader *summarySnapshotReader) Namespaces(ctx context.Context) ([]api.NamespaceSnapshot, error) {
+	return reader.inner.Namespaces(ctx)
+}
+func (reader *summarySnapshotReader) Nodes(ctx context.Context) ([]api.NodeSnapshotStatus, error) {
+	return reader.inner.Nodes(ctx)
+}
+func (reader *summarySnapshotReader) Workloads(ctx context.Context) ([]api.WorkloadSnapshot, error) {
+	return reader.inner.Workloads(ctx)
+}
+func (reader *summarySnapshotReader) PodHistory(ctx context.Context, namespace, pod string) ([]api.PodHistory, error) {
+	return reader.inner.PodHistory(ctx, namespace, pod)
+}
+func (reader *summarySnapshotReader) DebugStore(ctx context.Context) (api.DebugStore, error) {
+	return reader.inner.DebugStore(ctx)
+}
+
 func (reader basicSnapshotReader) Health(ctx context.Context) error { return reader.inner.Health(ctx) }
 func (reader basicSnapshotReader) Containers(ctx context.Context) ([]api.ContainerSnapshot, error) {
 	return reader.inner.Containers(ctx)
@@ -103,6 +144,28 @@ func TestNamespacedFetchDoesNotRequestClusterNodes(t *testing.T) {
 	}
 	if reader.nodeCalls != 0 || len(message.data.Nodes) != 0 || len(message.data.Pods) == 0 {
 		t.Fatalf("namespaced fetch widened scope: calls=%d data=%#v", reader.nodeCalls, message.data)
+	}
+}
+
+func TestSummaryFetchRendersBeforeCompleteContainerFetch(t *testing.T) {
+	reader := &summarySnapshotReader{inner: tuiFixtureReader()}
+	m := newModel(context.Background(), Options{AllNamespaces: true}, reader, "test")
+	message := m.fetchCmd()().(fetchMsg)
+	if message.err != nil {
+		t.Fatalf("summary fetch: %v", message.err)
+	}
+	if len(message.data.Pods) != 2 || len(message.data.Containers) != 0 || message.data.ContainersLoaded || reader.summaryCalls != 1 {
+		t.Fatalf("summary data = %#v, calls = %d", message.data, reader.summaryCalls)
+	}
+	m.data = message.data
+	complete := m.completeFetchCmd(m.fetchGeneration)().(completeFetchMsg)
+	if complete.err != nil {
+		t.Fatalf("complete fetch: %v", complete.err)
+	}
+	updated, _ := m.Update(complete)
+	loaded := updated.(appModel)
+	if len(loaded.data.Containers) != 2 || !loaded.data.ContainersLoaded || reader.summaryCalls != 1 {
+		t.Fatalf("container data = %#v, summary calls = %d", loaded.data, reader.summaryCalls)
 	}
 }
 

@@ -72,6 +72,34 @@ func (s *Store) PagePodsScoped(scope ReadScope, now time.Time, ttl time.Duration
 	return ScopedPodPage{Items: items, Continue: continuation}, nil
 }
 
+func (s *Store) PagePodSummariesScoped(scope ReadScope, now time.Time, ttl time.Duration, query url.Values, tokenScope string) (ScopedPodPage, error) {
+	selection, err := newDigestSelection(query, tokenScope)
+	if err != nil {
+		return ScopedPodPage{}, err
+	}
+	shards := s.readShards(now, ttl)
+	hasher := identityBuffer{}
+	visitScopedShards(shards, scope, func(container api.ContainerSnapshot) {
+		if key, ok := hasher.pod(container); ok {
+			selection.add(key)
+		}
+	})
+	keys, continuation := selection.page(tokenScope)
+	selected := make(map[digestKey]struct{}, len(keys))
+	for _, key := range keys {
+		selected[key] = struct{}{}
+	}
+	summaries := aggregate.NewPodSummaryAccumulator()
+	visitScopedShards(shards, scope, func(container api.ContainerSnapshot) {
+		key, valid := hasher.pod(container)
+		if _, ok := selected[key]; valid && ok {
+			summaries.Add(container)
+		}
+	})
+	items := orderPodsByDigest(summaries.Snapshots(), keys)
+	return ScopedPodPage{Items: items, Continue: continuation}, nil
+}
+
 func (s *Store) PageWorkloadsScoped(scope ReadScope, now time.Time, ttl time.Duration, query url.Values, tokenScope string, maxNestedBytes int) (ScopedWorkloadPage, error) {
 	selection, err := newDigestSelection(query, tokenScope)
 	if err != nil {

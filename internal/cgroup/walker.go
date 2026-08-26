@@ -156,4 +156,4 @@ func isHexID(value string, minLength, maxLength int) bool {
 	return true
 }
 
-var podUIDPattern = regexp.MustCompile(`pod([0-9a-fA-F]{8}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{12})`)
+var podUIDPattern = regexp.MustCompile(`pod([0-9a-fA-F]{32}|[0-9a-fA-F]{8}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{4}[-_][0-9a-fA-F]{12})(?:\.slice|/|$)`)

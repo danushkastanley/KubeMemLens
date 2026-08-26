@@ -21,7 +21,7 @@ func TestScannerClassifiesUnmappedSiblingAsInfrastructure(t *testing.T) {
 	writeScannerCgroup(t, filepath.Join(podDir, appID), 1024)
 	writeScannerCgroup(t, filepath.Join(podDir, sandboxID), 128)
 	index := kube.EmptyPodIndex()
-	index.ByContainerID[appID] = kube.PodRef{
+	appRef := kube.PodRef{
 		Namespace:     "default",
 		PodName:       "api",
 		PodUID:        podUID,
@@ -30,9 +30,12 @@ func TestScannerClassifiesUnmappedSiblingAsInfrastructure(t *testing.T) {
 		NodeName:      "node-a",
 		Runtime:       "containerd",
 	}
+	index.ByContainerID[appID] = appRef
+	index.ByPodUID[podUID] = []kube.PodRef{appRef}
 	index.NodeContext = api.NodeContext{Available: true, MemoryPressureStatus: "False", MemoryAllocatableKnown: true, MemoryAllocatableBytes: 8 << 30}
 
-	result, err := (Scanner{CgroupRoot: root, NodeName: "node-a"}).Scan(context.Background(), index)
+	scanner := Scanner{CgroupRoot: root, NodeName: "node-a"}
+	result, err := scanner.Scan(context.Background(), index)
 	if err != nil {
 		t.Fatalf("Scan returned error: %v", err)
 	}
@@ -62,11 +65,118 @@ func TestScannerClassifiesUnmappedSiblingAsInfrastructure(t *testing.T) {
 	}
 }
 
+func TestScannerClassifiesCompactUIDStaticPodSandbox(t *testing.T) {
+	root := t.TempDir()
+	cgroupPodUID := "c2df6c2eedc06b1195677a320a366f5e"
+	mirrorPodUID := "12345678-1234-1234-1234-123456789abc"
+	containerID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	sandboxID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	podDir := filepath.Join(root, "kubepods", "pod"+cgroupPodUID)
+	writeScannerCgroup(t, filepath.Join(podDir, containerID), 1024)
+	writeScannerCgroup(t, filepath.Join(podDir, sandboxID), 128)
+	index := kube.EmptyPodIndex()
+	ref := kube.PodRef{Namespace: "kube-system", PodName: "static", PodUID: mirrorPodUID,
+		ContainerName: "component", ContainerID: containerID, NodeName: "node-a"}
+	index.ByContainerID[containerID] = ref
+	index.ByPodUID[mirrorPodUID] = []kube.PodRef{ref}
+
+	scanner := Scanner{CgroupRoot: root, NodeName: "node-a"}
+	result, err := scanner.Scan(context.Background(), index)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if result.Mapped != 1 || result.Unmapped != 0 || result.InfrastructureCgroups != 1 {
+		t.Fatalf("compact UID scan counts = %#v", result)
+	}
+}
+
+func TestScannerRetainsSandboxClassificationDuringPodTeardown(t *testing.T) {
+	root := t.TempDir()
+	podUID := "12345678-1234-1234-1234-123456789abc"
+	appID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	sandboxID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	unknownID := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	podDir := filepath.Join(root, "kubepods", "pod"+podUID)
+	appDir := filepath.Join(podDir, appID)
+	writeScannerCgroup(t, appDir, 1024)
+	writeScannerCgroup(t, filepath.Join(podDir, sandboxID), 128)
+	index := kube.EmptyPodIndex()
+	appRef := kube.PodRef{
+		Namespace: "default", PodName: "api", PodUID: podUID,
+		ContainerName: "app", ContainerID: appID, NodeName: "node-a",
+	}
+	index.ByContainerID[appID] = appRef
+	index.ByPodUID[podUID] = []kube.PodRef{appRef}
+
+	scanner := Scanner{CgroupRoot: root, NodeName: "node-a"}
+	first, err := scanner.Scan(context.Background(), index)
+	if err != nil {
+		t.Fatalf("first Scan returned error: %v", err)
+	}
+	if first.Mapped != 1 || first.Unmapped != 0 || first.InfrastructureCgroups != 1 {
+		t.Fatalf("first scan counts = %#v", first)
+	}
+
+	if err := os.WriteFile(filepath.Join(podDir, sandboxID, "memory.current"), []byte("invalid\n"), 0o644); err != nil {
+		t.Fatalf("corrupt sandbox cgroup: %v", err)
+	}
+	partial, err := scanner.Scan(context.Background(), kube.EmptyPodIndex())
+	if err != nil {
+		t.Fatalf("partial Scan returned error: %v", err)
+	}
+	if partial.WalkError == nil {
+		t.Fatal("partial Scan did not retain its walk error")
+	}
+	if err := os.WriteFile(filepath.Join(podDir, sandboxID, "memory.current"), []byte("128\n"), 0o644); err != nil {
+		t.Fatalf("restore sandbox cgroup: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(podDir, appID, "memory.current"), []byte("invalid\n"), 0o644); err != nil {
+		t.Fatalf("corrupt mapped cgroup: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(podDir, sandboxID, "memory.current"), []byte("invalid\n"), 0o644); err != nil {
+		t.Fatalf("corrupt sandbox cgroup for empty partial walk: %v", err)
+	}
+	if _, err := scanner.Scan(context.Background(), kube.EmptyPodIndex()); err == nil {
+		t.Fatal("zero-entry partial Scan returned no error")
+	}
+	if err := os.WriteFile(filepath.Join(podDir, sandboxID, "memory.current"), []byte("128\n"), 0o644); err != nil {
+		t.Fatalf("restore sandbox after empty partial walk: %v", err)
+	}
+	if err := os.RemoveAll(appDir); err != nil {
+		t.Fatalf("remove mapped cgroup: %v", err)
+	}
+	second, err := scanner.Scan(context.Background(), kube.EmptyPodIndex())
+	if err != nil {
+		t.Fatalf("second Scan returned error: %v", err)
+	}
+	if second.Mapped != 0 || second.Unmapped != 0 || second.InfrastructureCgroups != 1 {
+		t.Fatalf("teardown scan counts = %#v", second)
+	}
+
+	unknownPodDir := filepath.Join(root, "kubepods", "pod-new")
+	unknownAppID := "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+	writeScannerCgroup(t, filepath.Join(unknownPodDir, unknownAppID), 512)
+	writeScannerCgroup(t, filepath.Join(unknownPodDir, sandboxID), 128)
+	writeScannerCgroup(t, filepath.Join(unknownPodDir, unknownID), 256)
+	unknownIndex := kube.EmptyPodIndex()
+	unknownRef := kube.PodRef{Namespace: "default", PodName: "unknown", PodUID: "new", ContainerName: "app", ContainerID: unknownAppID, NodeName: "node-a"}
+	unknownIndex.ByContainerID[unknownAppID] = unknownRef
+	unknownIndex.ByPodUID["new"] = []kube.PodRef{unknownRef}
+	third, err := scanner.Scan(context.Background(), unknownIndex)
+	if err != nil {
+		t.Fatalf("third Scan returned error: %v", err)
+	}
+	if third.Unmapped != 2 || third.InfrastructureCgroups != 1 {
+		t.Fatalf("unknown cgroup was hidden: %#v", third)
+	}
+}
+
 func TestScannerHonoursCancelledContextBeforeWalking(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := (Scanner{CgroupRoot: t.TempDir(), NodeName: "node-a"}).Scan(ctx, kube.EmptyPodIndex())
+	scanner := Scanner{CgroupRoot: t.TempDir(), NodeName: "node-a"}
+	_, err := scanner.Scan(ctx, kube.EmptyPodIndex())
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("Scan error = %v, want context cancellation", err)
 	}

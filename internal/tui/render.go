@@ -42,6 +42,12 @@ func (m appModel) viewString() string {
 		b.WriteString("Loading collector snapshots...")
 	} else if len(m.data.Namespaces) == 0 && m.statusErr == nil && !m.loading {
 		b.WriteString(m.renderEmpty(width))
+	} else if m.requiresContainers() && !m.data.ContainersLoaded {
+		if m.containerErr != nil {
+			b.WriteString("Complete container evidence is unavailable. Press r to retry.")
+		} else {
+			b.WriteString("Loading complete container evidence...")
+		}
 	} else {
 		b.WriteString(m.renderContent(plan))
 	}

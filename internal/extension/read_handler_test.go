@@ -38,12 +38,69 @@ func TestReadHandlerNamespacedAndClusterPodLists(t *testing.T) {
 	if len(namespacedList.Items) != 1 || namespacedList.Items[0].Namespace != "team-a" || namespacedList.Items[0].Snapshot.Namespace != "team-a" {
 		t.Fatalf("namespaced list = %#v", namespacedList)
 	}
+	summary := serveRead(t, handler, "/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods?summary=true")
+	var summaryList api.PodMemoryList
+	decodeRead(t, summary, &summaryList)
+	if len(summaryList.Items) != 1 || len(summaryList.Items[0].Snapshot.Containers) != 0 ||
+		summaryList.Items[0].Snapshot.Memory != namespacedList.Items[0].Snapshot.Memory {
+		t.Fatalf("namespaced summary = %#v", summaryList)
+	}
+	invalidSummary := serveRead(t, handler, "/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods?summary=false")
+	assertStatus(t, invalidSummary, http.StatusBadRequest, metav1.StatusReasonBadRequest)
 
 	cluster := serveRead(t, handler, "/apis/memory.kubememlens.io/v1alpha1/pods")
 	var clusterList api.PodMemoryList
 	decodeRead(t, cluster, &clusterList)
 	if len(clusterList.Items) != 2 {
 		t.Fatalf("cluster list = %#v", clusterList)
+	}
+}
+
+func TestReadHandlerBindsPodSummaryContinuationToProjection(t *testing.T) {
+	handler, _ := populatedReadHandler(t)
+	first := serveRead(t, handler, "/apis/memory.kubememlens.io/v1alpha1/pods?summary=true&limit=1")
+	var page api.PodMemoryList
+	decodeRead(t, first, &page)
+	if len(page.Items) != 1 || page.Continue == "" {
+		t.Fatalf("summary page = %#v", page)
+	}
+	full := serveRead(t, handler, "/apis/memory.kubememlens.io/v1alpha1/pods?continue="+page.Continue)
+	assertStatus(t, full, http.StatusBadRequest, metav1.StatusReasonBadRequest)
+}
+
+func TestReadHandlerPodSummaryBoundsFiveThousandContainers(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	containers := make([]api.ContainerSnapshot, 5000)
+	for index := range containers {
+		containers[index] = api.ContainerSnapshot{
+			Namespace: "density", PodName: fmt.Sprintf("pod-%03d", index/50), PodUID: fmt.Sprintf("uid-%03d", index/50),
+			ContainerName: fmt.Sprintf("container-%02d", index%50), ContainerID: fmt.Sprintf("runtime-%04d", index),
+			NodeName: "worker", CapturedAt: now,
+			Context: api.ContainerContext{WorkloadKind: "Deployment", WorkloadName: "density"},
+		}
+	}
+	store := collector.NewStore()
+	if _, err := store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "worker", CapturedAt: now, Containers: containers}); err != nil {
+		t.Fatal(err)
+	}
+	handler := NewReadHandler(store, collector.DefaultHandlerOptions(time.Minute))
+	handler.now = func() time.Time { return now }
+	response := serveRead(t, handler, "/apis/memory.kubememlens.io/v1alpha1/namespaces/density/pods?summary=true")
+	if response.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", response.Code, response.Body.String())
+	}
+	if response.Body.Len() >= 1<<20 || strings.Contains(response.Body.String(), "runtime-") {
+		t.Fatalf("summary response retained nested container evidence: bytes=%d", response.Body.Len())
+	}
+	var summary api.PodMemoryList
+	decodeRead(t, response, &summary)
+	if len(summary.Items) != 100 {
+		t.Fatalf("summaries = %d, want 100", len(summary.Items))
+	}
+	for _, pod := range summary.Items {
+		if len(pod.Snapshot.Containers) != 0 {
+			t.Fatalf("Pod %q retained %d containers", pod.Name, len(pod.Snapshot.Containers))
+		}
 	}
 }
 

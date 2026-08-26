@@ -44,11 +44,16 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `agent.nodeSelector` | `kubernetes.io/os: linux` | Linux-node targeting |
 | `agent.tolerations` | empty | Operator-reviewed node-pool tolerations |
 | `agent.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime |
+| `agent.resources.requests.memory` | `96Mi` | Local `rc-5000` p95-derived agent scheduling request |
+| `agent.resources.limits.memory` | `128Mi` | Default per-agent memory ceiling |
 | `collector.replicas` | `1` | Required single in-memory collector |
 | `collector.read.maxConcurrentRequests` | `4` | Authenticated read admission ceiling; aggregate construction is serialised |
 | `collector.ingestion.maxConcurrentRequests` | `4` | Concurrent snapshot decode ceiling |
 | `collector.ingestion.requestsPerSecondPerAgent` | `1` | Per-agent sustained ingestion rate |
 | `collector.ingestion.burstPerAgent` | `2` | Per-agent ingestion burst |
+| `collector.ingestion.maxSnapshotBytes` | `8388608` | Per-node snapshot request ceiling in bytes |
+| `collector.resources.requests.memory` | `192Mi` | Local `rc-5000` p95-derived collector scheduling request |
+| `collector.resources.limits.memory` | `256Mi` | Default collector memory ceiling |
 | `extensionTLS.rotateBefore` | `720h` | Serving-certificate rotation window |
 | `networkPolicy.enabled` | `true` | Cluster-local read and APIService ingress policy |
 | `metrics.includeContainers` | `false` | High-cardinality container metrics opt-in |

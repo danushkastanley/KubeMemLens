@@ -40,13 +40,14 @@ const (
 )
 
 type snapshotData struct {
-	Nodes       []api.NodeSnapshotStatus
-	Namespaces  []api.NamespaceSnapshot
-	Workloads   []api.WorkloadSnapshot
-	Pods        []api.PodSnapshot
-	Containers  []api.ContainerSnapshot
-	FetchedAt   time.Time
-	Reliability api.CollectorReliability
+	Nodes            []api.NodeSnapshotStatus
+	Namespaces       []api.NamespaceSnapshot
+	Workloads        []api.WorkloadSnapshot
+	Pods             []api.PodSnapshot
+	Containers       []api.ContainerSnapshot
+	FetchedAt        time.Time
+	Reliability      api.CollectorReliability
+	ContainersLoaded bool
 }
 
 func (v viewMode) String() string {

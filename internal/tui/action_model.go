@@ -85,6 +85,10 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 }
 
 func (m *appModel) startRecommendation() tea.Cmd {
+	if !m.data.ContainersLoaded || m.containerErr != nil {
+		m.setActionError(fmt.Errorf("recommendations require complete container evidence; retry after loading finishes"))
+		return m.beginCompleteFetch()
+	}
 	if !m.currentEvidenceReady() {
 		m.setActionError(fmt.Errorf("recommendations require ready, current evidence; collector state is %s", m.currentEvidenceState()))
 		return nil
@@ -98,6 +102,10 @@ func (m *appModel) startRecommendation() tea.Cmd {
 }
 
 func (m *appModel) startCompare() tea.Cmd {
+	if !m.data.ContainersLoaded || m.containerErr != nil {
+		m.setActionError(fmt.Errorf("comparison requires complete container evidence; retry after loading finishes"))
+		return m.beginCompleteFetch()
+	}
 	if !m.currentEvidenceReady() {
 		m.setActionError(fmt.Errorf("comparison requires ready, current evidence; collector state is %s", m.currentEvidenceState()))
 		return nil
@@ -125,6 +133,10 @@ func (m *appModel) startCompare() tea.Cmd {
 }
 
 func (m *appModel) startCapture(overwrite bool) tea.Cmd {
+	if !m.data.ContainersLoaded || m.containerErr != nil {
+		m.setActionError(fmt.Errorf("capture requires complete container evidence; retry after loading finishes"))
+		return m.beginCompleteFetch()
+	}
 	if m.statusErr != nil {
 		m.setActionError(fmt.Errorf("capture is unavailable while the collector cannot be reached"))
 		return nil

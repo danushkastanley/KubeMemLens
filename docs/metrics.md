@@ -131,6 +131,8 @@ curl http://127.0.0.1:18082/metrics
 
 Running the agent binary with an explicit non-loopback value such as `--metrics-listen=:8082` widens access and is intended only for a separately reviewed local environment. The metrics contain aggregate container, mapping and Pod-cache counts, so NetworkPolicy must not be their only confidentiality control.
 
+The [local scale gate](scale-qualification.md) keeps this listener on loopback. It forwards to one agent at a time, records aggregate scan, scan-failure and post-failure counters, then closes the forward. Component working set, memory limit and interval cgroup CPU counters come from the local kind runtime observer. API-server `429` and `5xx` counters and Node MemoryPressure come from Kubernetes. None of these qualification sources changes the production scrape contract.
+
 ## Memory Metrics
 
 `kubememlens_namespace_memory_bytes`

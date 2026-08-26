@@ -37,18 +37,26 @@ type appModel struct {
 	detail              entityRef
 	detailParent        viewMode
 
-	data            snapshotData
-	podTrends       map[string]int8
-	lastRefresh     time.Time
-	statusErr       error
-	loading         bool
-	fetchGeneration uint64
-	selectedHistory selectedHistory
+	data             snapshotData
+	podTrends        map[string]int8
+	lastRefresh      time.Time
+	statusErr        error
+	loading          bool
+	fetchGeneration  uint64
+	containerLoading bool
+	containerErr     error
+	selectedHistory  selectedHistory
 }
 
 type fetchMsg struct {
 	generation uint64
 	data       snapshotData
+	err        error
+}
+
+type completeFetchMsg struct {
+	generation uint64
+	data       client.CurrentSnapshot
 	err        error
 }
 
@@ -106,14 +114,55 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.loading = false
 		if msg.err != nil {
 			if client.IsForbidden(msg.err) {
+				m.fetchGeneration++
 				m.clearRevokedData()
 			}
 			m.statusErr = msg.err
 			return m, nil
 		}
+		summaryOnly := !msg.data.ContainersLoaded
+		if summaryOnly && m.data.ContainersLoaded {
+			m.statusErr = nil
+			return m, m.beginCompleteFetch()
+		}
 		selectedKey := m.selectedEntityKey()
 		m.updatePodTrends(msg.data.Pods)
 		m.data = msg.data
+		m.lastRefresh = time.Now()
+		m.statusErr = nil
+		m.reconcileCurrentViewport(selectedKey)
+		commands := []tea.Cmd{m.ensureHistoryTarget()}
+		if summaryOnly {
+			commands = append(commands, m.beginCompleteFetch())
+		}
+		return m, tea.Batch(commands...)
+	case completeFetchMsg:
+		if msg.generation != m.fetchGeneration {
+			return m, nil
+		}
+		m.containerLoading = false
+		if msg.err != nil {
+			if client.IsForbidden(msg.err) {
+				m.fetchGeneration++
+				m.clearRevokedData()
+				m.statusErr = msg.err
+				return m, nil
+			}
+			m.containerErr = msg.err
+			if m.requiresContainers() {
+				m.statusErr = msg.err
+			}
+			return m, nil
+		}
+		selectedKey := m.selectedEntityKey()
+		m.updatePodTrends(msg.data.Pods)
+		m.data.Namespaces = msg.data.Namespaces
+		m.data.Workloads = msg.data.Workloads
+		m.data.Pods = msg.data.Pods
+		m.data.Containers = msg.data.Containers
+		m.data.ContainersLoaded = true
+		m.containerErr = nil
+		m.data.FetchedAt = time.Now().UTC()
 		m.lastRefresh = time.Now()
 		m.statusErr = nil
 		m.reconcileCurrentViewport(selectedKey)
@@ -146,6 +195,8 @@ func (m *appModel) clearRevokedData() {
 	m.selectedPodNS = ""
 	m.selectedPodName = ""
 	m.detail = entityRef{}
+	m.containerLoading = false
+	m.containerErr = nil
 }
 
 func (m *appModel) updatePodTrends(next []api.PodSnapshot) {
@@ -262,6 +313,7 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "c":
 		m.view = viewContainers
 		m.resetCurrentViewport()
+		return m, tea.Batch(m.beginCompleteFetch(), m.ensureHistoryTarget())
 	case "e":
 		return m, m.openSelectedDetail()
 	case "enter":

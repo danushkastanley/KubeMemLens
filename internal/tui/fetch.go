@@ -15,6 +15,33 @@ func (m appModel) fetchCmd() tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(m.ctx, 5*time.Second)
 		defer cancel()
+		if reader, ok := m.client.(client.CurrentSummaryReader); ok {
+			var current client.CurrentSummary
+			var nodes []api.NodeSnapshotStatus
+			var reliability api.DebugStore
+			var currentErr, nodesErr, reliabilityErr error
+			var wait sync.WaitGroup
+			wait.Add(1)
+			go func() { defer wait.Done(); current, currentErr = reader.CurrentSummary(ctx) }()
+			if m.opts.AllNamespaces {
+				wait.Add(2)
+				go func() { defer wait.Done(); nodes, nodesErr = m.client.Nodes(ctx) }()
+				go func() { defer wait.Done(); reliability, reliabilityErr = m.client.DebugStore(ctx) }()
+			}
+			wait.Wait()
+			for _, err := range []error{currentErr, nodesErr, reliabilityErr} {
+				if err != nil {
+					return fetchMsg{generation: generation, err: err}
+				}
+			}
+			data := snapshotData{
+				Nodes: nodes, Namespaces: current.Namespaces, Workloads: current.Workloads,
+				Pods: current.Pods, FetchedAt: time.Now().UTC(), Reliability: reliability.Reliability,
+				ContainersLoaded: false,
+			}
+			data.Reliability = inferReliability(data)
+			return fetchMsg{generation: generation, data: data}
+		}
 		if reader, ok := m.client.(client.CurrentSnapshotReader); ok {
 			var current client.CurrentSnapshot
 			var nodes []api.NodeSnapshotStatus
@@ -39,11 +66,9 @@ func (m appModel) fetchCmd() tea.Cmd {
 				return fetchMsg{generation: generation, err: reliabilityErr}
 			}
 			data := snapshotData{
-				Nodes:      nodes,
-				Namespaces: current.Namespaces,
-				Workloads:  current.Workloads,
-				Pods:       current.Pods, Containers: current.Containers,
-				FetchedAt: time.Now().UTC(), Reliability: reliability.Reliability,
+				Nodes: nodes, Namespaces: current.Namespaces, Workloads: current.Workloads,
+				Pods: current.Pods, Containers: current.Containers, FetchedAt: time.Now().UTC(),
+				Reliability: reliability.Reliability, ContainersLoaded: true,
 			}
 			data.Reliability = inferReliability(data)
 			return fetchMsg{generation: generation, data: data}
@@ -69,10 +94,39 @@ func (m appModel) fetchCmd() tea.Cmd {
 			}
 		}
 		data.FetchedAt = time.Now().UTC()
+		data.ContainersLoaded = true
 		data.Reliability = debug.Reliability
 		data.Reliability = inferReliability(data)
 		return fetchMsg{generation: generation, data: data}
 	}
+}
+
+func (m appModel) completeFetchCmd(generation uint64) tea.Cmd {
+	reader, ok := m.client.(client.CurrentSnapshotReader)
+	if !ok {
+		return nil
+	}
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(m.ctx, 15*time.Second)
+		defer cancel()
+		data, err := reader.CurrentSnapshot(ctx)
+		return completeFetchMsg{generation: generation, data: data, err: err}
+	}
+}
+
+func (m *appModel) beginCompleteFetch() tea.Cmd {
+	if m.loading || m.containerLoading {
+		return nil
+	}
+	command := m.completeFetchCmd(m.fetchGeneration)
+	if command != nil {
+		m.containerLoading = true
+	}
+	return command
+}
+
+func (m appModel) requiresContainers() bool {
+	return m.view == viewContainers || (m.view == viewDetail && (m.detail.kind == entityPod || m.detail.kind == entityContainer))
 }
 
 func inferReliability(data snapshotData) api.CollectorReliability {
@@ -102,7 +156,7 @@ func inferReliability(data snapshotData) api.CollectorReliability {
 }
 
 func (m *appModel) beginFetch() tea.Cmd {
-	if m.loading {
+	if m.loading || m.containerLoading {
 		return nil
 	}
 	m.loading = true

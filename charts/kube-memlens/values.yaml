@@ -28,7 +28,7 @@ agent:
   resources:
     requests:
       cpu: 10m
-      memory: 32Mi
+      memory: 96Mi
     limits:
       memory: 128Mi
 
@@ -51,7 +51,7 @@ collector:
     maxConcurrentRequests: 4
     requestsPerSecondPerAgent: 1
     burstPerAgent: 2
-    maxSnapshotBytes: 4194304
+    maxSnapshotBytes: 8388608
     maxContainers: 10000
     maxSnapshotAge: 2m
     maxFutureSkew: 30s
@@ -62,9 +62,9 @@ collector:
   resources:
     requests:
       cpu: 10m
-      memory: 32Mi
+      memory: 192Mi
     limits:
-      memory: 128Mi
+      memory: 256Mi
   service:
     # Pod-local health listener. The authenticated Service does not expose it.
     port: 8080

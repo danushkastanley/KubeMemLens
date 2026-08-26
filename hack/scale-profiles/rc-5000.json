@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "id": "rc-5000",
+  "mode": "qualification",
+  "telemetryRequired": true,
+  "workload": {
+    "containers": 5000,
+    "containersPerPod": 50,
+    "creationBatchPods": 10,
+    "steadyStateSeconds": 1800,
+    "sampleIntervalSeconds": 30,
+    "agentInterval": "5s",
+    "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+    "canaryMiB": 256
+  },
+  "evidence": {
+    "minimumSamples": 61,
+    "canaryControlSamples": 7
+  },
+  "budgets": {
+    "agentScanP99MillisecondsExclusive": 4000,
+    "cliP95Milliseconds": 2000,
+    "tuiP95Milliseconds": 2000,
+    "recoverySeconds": 120,
+    "memoryLimitRatio": 0.7,
+    "cpuThrottlingRatioExclusive": 0.01,
+    "agentPostFailureDelta": 0,
+    "agentScanFailureDelta": 0,
+    "apiErrorDelta": 0,
+    "apiRateLimitedDelta": 0,
+    "nodeMemoryPressureNodes": 0,
+    "canaryRegressionPercent": 5
+  },
+  "profileDigest": "sha256:37fe361b28f93095e96ed2990d6ff7de0c53a1149d8b2593bb6b56b8c19a0d62"
+}

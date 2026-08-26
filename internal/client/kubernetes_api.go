@@ -29,6 +29,7 @@ type KubernetesAPIClient struct {
 
 var _ SnapshotReader = (*KubernetesAPIClient)(nil)
 var _ CurrentSnapshotReader = (*KubernetesAPIClient)(nil)
+var _ CurrentSummaryReader = (*KubernetesAPIClient)(nil)
 var _ PodReader = (*KubernetesAPIClient)(nil)
 var _ MetricsReader = (*KubernetesAPIClient)(nil)
 
@@ -78,11 +79,19 @@ func (c *KubernetesAPIClient) Containers(ctx context.Context) ([]api.ContainerSn
 }
 
 func (c *KubernetesAPIClient) Pods(ctx context.Context) ([]api.PodSnapshot, error) {
+	return c.loadPods(ctx, nil)
+}
+
+func (c *KubernetesAPIClient) PodSummaries(ctx context.Context) ([]api.PodSnapshot, error) {
+	return c.loadPods(ctx, url.Values{"summary": {"true"}})
+}
+
+func (c *KubernetesAPIClient) loadPods(ctx context.Context, query url.Values) ([]api.PodSnapshot, error) {
 	path, err := c.scope.resourcePath("pods")
 	if err != nil {
 		return nil, err
 	}
-	items, err := loadAggregatedPages(ctx, c, "list pods", path,
+	items, err := loadAggregatedPagesWithQuery(ctx, c, "list pods", path, query,
 		func() *api.PodMemoryList { return &api.PodMemoryList{} },
 		func(list *api.PodMemoryList) ([]api.PodMemory, string) { return list.Items, list.Continue })
 	if err != nil {
@@ -188,19 +197,24 @@ func (c *KubernetesAPIClient) CurrentSnapshot(ctx context.Context) (CurrentSnaps
 	if err != nil {
 		return CurrentSnapshot{}, err
 	}
-	pods, err := c.Pods(ctx)
-	if err != nil {
-		return CurrentSnapshot{}, err
-	}
-	workloads, err := c.Workloads(ctx)
-	if err != nil {
-		return CurrentSnapshot{}, err
-	}
+	pods := aggregate.Pods(containers)
 	return CurrentSnapshot{
 		Containers: containers,
 		Pods:       pods,
 		Namespaces: aggregate.Namespaces(pods),
-		Workloads:  workloads,
+		Workloads:  aggregate.Workloads(pods),
+	}, nil
+}
+
+func (c *KubernetesAPIClient) CurrentSummary(ctx context.Context) (CurrentSummary, error) {
+	pods, err := c.PodSummaries(ctx)
+	if err != nil {
+		return CurrentSummary{}, err
+	}
+	return CurrentSummary{
+		Namespaces: aggregate.Namespaces(pods),
+		Workloads:  aggregate.Workloads(pods),
+		Pods:       pods,
 	}, nil
 }
 
@@ -249,14 +263,33 @@ func loadAggregatedPages[Item any, List any](
 	newList func() *List,
 	page func(*List) ([]Item, string),
 ) ([]Item, error) {
+	return loadAggregatedPagesWithQuery(ctx, client, operation, basePath, nil, newList, page)
+}
+
+func loadAggregatedPagesWithQuery[Item any, List any](
+	ctx context.Context,
+	client *KubernetesAPIClient,
+	operation string,
+	basePath string,
+	baseQuery url.Values,
+	newList func() *List,
+	page func(*List) ([]Item, string),
+) ([]Item, error) {
 	items := make([]Item, 0, aggregatedPageSize)
 	continuation := ""
 	seen := map[string]struct{}{}
 	for {
-		path := basePath + "?limit=" + fmt.Sprint(aggregatedPageSize)
-		if continuation != "" {
-			path += "&continue=" + url.QueryEscape(continuation)
+		query := url.Values{}
+		for key, values := range baseQuery {
+			for _, value := range values {
+				query.Add(key, value)
+			}
 		}
+		query.Set("limit", fmt.Sprint(aggregatedPageSize))
+		if continuation != "" {
+			query.Set("continue", continuation)
+		}
+		path := basePath + "?" + query.Encode()
 		list := newList()
 		if err := client.get(ctx, operation, path, list); err != nil {
 			return nil, err

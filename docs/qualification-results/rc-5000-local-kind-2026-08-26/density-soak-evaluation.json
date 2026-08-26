@@ -1,0 +1,320 @@
+{
+  "schemaVersion": 1,
+  "profile": {
+    "id": "rc-5000",
+    "digest": "sha256:37fe361b28f93095e96ed2990d6ff7de0c53a1149d8b2593bb6b56b8c19a0d62",
+    "mode": "qualification"
+  },
+  "result": "pass",
+  "checks": [
+    {
+      "name": "orchestration",
+      "status": "pass",
+      "budget": {
+        "accepted": [
+          "completed",
+          "passed"
+        ]
+      },
+      "observed": "completed"
+    },
+    {
+      "name": "profile_identity",
+      "status": "pass",
+      "budget": {
+        "id": "rc-5000",
+        "digest": "sha256:37fe361b28f93095e96ed2990d6ff7de0c53a1149d8b2593bb6b56b8c19a0d62"
+      },
+      "observed": {
+        "id": "rc-5000",
+        "digest": "sha256:37fe361b28f93095e96ed2990d6ff7de0c53a1149d8b2593bb6b56b8c19a0d62"
+      }
+    },
+    {
+      "name": "workload",
+      "status": "pass",
+      "budget": {
+        "containers": 5000,
+        "containersPerPod": 50,
+        "creationBatchPods": 10,
+        "steadyStateSeconds": 1800,
+        "sampleIntervalSeconds": 30,
+        "agentInterval": "5s",
+        "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+        "canaryMiB": 256
+      },
+      "observed": {
+        "containers": 5000,
+        "containersPerPod": 50,
+        "creationBatchPods": 10,
+        "steadyStateSeconds": 1800,
+        "sampleIntervalSeconds": 30,
+        "agentInterval": "5s",
+        "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+        "canaryMiB": 256
+      }
+    },
+    {
+      "name": "sample_count",
+      "status": "pass",
+      "budget": {
+        "minimum": 61
+      },
+      "observed": {
+        "count": 61
+      }
+    },
+    {
+      "name": "steady_state_window",
+      "status": "pass",
+      "budget": {
+        "minimumSeconds": 1800
+      },
+      "observed": {
+        "firstSeconds": 0,
+        "lastSeconds": 1800
+      }
+    },
+    {
+      "name": "mapping_and_node_coverage",
+      "status": "pass",
+      "budget": {
+        "containers": 5000,
+        "state": "ready",
+        "coveragePercent": 100
+      },
+      "observed": {
+        "samplesChecked": 63
+      }
+    },
+    {
+      "name": "operational_stability",
+      "status": "pass",
+      "budget": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "observed": {
+        "samplesChecked": 61
+      }
+    },
+    {
+      "name": "disruption_stability",
+      "status": "pass",
+      "budget": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      },
+      "observed": {
+        "unexplainedRestarts": 0,
+        "oomKills": 0
+      }
+    },
+    {
+      "name": "workload_replacement",
+      "status": "pass",
+      "budget": {
+        "expectedPods": 10,
+        "observedPods": 10,
+        "residentContainersBefore": 5000,
+        "residentContainersAfter": 5000
+      },
+      "observed": {
+        "expectedPods": 10,
+        "observedPods": 10,
+        "residentContainersBefore": 5000,
+        "residentContainersAfter": 5000
+      }
+    },
+    {
+      "name": "agent_scan_p99",
+      "status": "pass",
+      "budget": {
+        "percentile": 99,
+        "maximum": 4000,
+        "exclusive": true
+      },
+      "observed": 441.558
+    },
+    {
+      "name": "cli_latency_p95",
+      "status": "pass",
+      "budget": {
+        "percentile": 95,
+        "maximum": 2000,
+        "exclusive": false
+      },
+      "observed": 464
+    },
+    {
+      "name": "tui_latency_p95",
+      "status": "pass",
+      "budget": {
+        "percentile": 95,
+        "maximum": 2000,
+        "exclusive": false
+      },
+      "observed": 103
+    },
+    {
+      "name": "recovery",
+      "status": "pass",
+      "budget": {
+        "maximumSeconds": 120,
+        "events": [
+          "workload",
+          "agent",
+          "collector",
+          "node",
+          "api",
+          "partialRollout"
+        ]
+      },
+      "observed": {
+        "workload": 39,
+        "agent": 37,
+        "collector": 7,
+        "node": 34,
+        "api": 7,
+        "partialRollout": 4
+      }
+    },
+    {
+      "name": "component_memory_p95",
+      "status": "pass",
+      "budget": {
+        "maximumLimitRatio": 0.7
+      },
+      "observed": {
+        "agent": 0.48980713,
+        "collector": 0.62388611
+      }
+    },
+    {
+      "name": "cpu_throttling_p95",
+      "status": "pass",
+      "budget": {
+        "maximumRatio": 0.01,
+        "exclusive": true
+      },
+      "observed": {
+        "agent": 0.0,
+        "collector": 0.0
+      }
+    },
+    {
+      "name": "agent_post_failures",
+      "status": "pass",
+      "budget": {
+        "maximumDelta": 0,
+        "minimumSamples": 61
+      },
+      "observed": 0
+    },
+    {
+      "name": "agent_scan_failures",
+      "status": "pass",
+      "budget": {
+        "maximumDelta": 0,
+        "minimumSamples": 61
+      },
+      "observed": 0
+    },
+    {
+      "name": "api_server",
+      "status": "pass",
+      "budget": {
+        "errorDelta": 0,
+        "rateLimitedDelta": 0
+      },
+      "observed": {
+        "errorDelta": 0,
+        "rateLimitedDelta": 0
+      }
+    },
+    {
+      "name": "node_memory_pressure",
+      "status": "pass",
+      "budget": {
+        "maximumNodes": 0
+      },
+      "observed": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "canary_regression",
+      "status": "pass",
+      "budget": {
+        "maximumPercent": 5
+      },
+      "observed": {
+        "controlMedian": 120,
+        "observedMedian": 114,
+        "regressionPercent": 0.0,
+        "higherIsBetter": false
+      }
+    }
+  ],
+  "failures": []
+}

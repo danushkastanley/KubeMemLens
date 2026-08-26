@@ -50,22 +50,12 @@ run_live_density_smoke() {
   if [ "${E2E_RUN_LIVE_DENSITY_SMOKE:-false}" != true ]; then
     return
   fi
-  local workload_image=${E2E_LIVE_DENSITY_IMAGE:-}
   local output_dir=${artifact_dir:-${work_dir}/artifacts}/live-density-smoke
-  [[ "${workload_image}" =~ @sha256:[a-f0-9]{64}$ ]] || {
-    echo "E2E_LIVE_DENSITY_IMAGE must be digest-pinned" >&2
-    return 1
-  }
   SOAK_CONTEXT="kind-${cluster_name}" \
     SOAK_COLLECTOR_NAMESPACE="${namespace}" \
     SOAK_NAMESPACE=kube-memlens-soak-e2e \
-    SOAK_WORKLOAD_IMAGE="${workload_image}" \
     SOAK_ARTIFACT_DIR="${output_dir}" \
-    SOAK_PROFILE=development \
-    SOAK_CONTAINERS="${E2E_LIVE_DENSITY_CONTAINERS:-20}" \
-    SOAK_CONTAINERS_PER_POD="${E2E_LIVE_DENSITY_CONTAINERS_PER_POD:-10}" \
-    SOAK_DURATION_SECONDS="${E2E_LIVE_DENSITY_DURATION_SECONDS:-30}" \
-    SOAK_SAMPLE_INTERVAL_SECONDS=5 \
+    SOAK_PROFILE_PATH=hack/scale-profiles/development-smoke.json \
     SOAK_READY_TIMEOUT=5m \
     SOAK_ACKNOWLEDGE=run-and-remove-kube-memlens-density-soak \
     KUBECONFIG="${kubeconfig}" \

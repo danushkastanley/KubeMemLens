@@ -1,0 +1,32 @@
+{
+  "orchestrationOutcome": "completed",
+  "samplingFailureProbe": "none",
+  "disruptionOperational": {"unexplainedRestarts": 0, "oomKills": 0},
+  "workloadReplacement": {"expectedPods": 2, "observedPods": 2, "residentContainersBefore": 20, "residentContainersAfter": 20},
+  "schemaVersion": 1,
+  "profile": {
+    "id": "development-smoke",
+    "digest": "sha256:86ab7c8e07dc56237c3dcb84c58e819c24610a402b7aa68e6110ebcd907b55f9"
+  },
+  "workload": {
+    "containers": 20,
+    "containersPerPod": 10,
+    "creationBatchPods": 2,
+    "steadyStateSeconds": 30,
+    "sampleIntervalSeconds": 5,
+    "agentInterval": "5s",
+    "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+    "canaryMiB": 32
+  },
+  "samples": [
+    {
+      "phase": "steady",
+      "workloadContainers": 20,
+      "mapping": {"expected": 20, "mapped": 20, "unmapped": 0},
+      "reliability": {"state": "ready", "expectedNodes": 1, "freshNodes": 1, "staleNodes": 0, "missingNodes": 0},
+      "operational": {"unexplainedRestarts": 0, "oomKills": 0}
+    }
+  ],
+  "privacy": {"clusterIdentifiersIncluded": false, "workloadIdentifiersIncluded": false, "rawMetricsIncluded": false, "rawLogsIncluded": false},
+  "caveats": ["Development smoke evidence; optional telemetry is unavailable."]
+}
