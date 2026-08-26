@@ -131,8 +131,9 @@ workload_document=$(jq -cn --argjson containersPerPod "${containers_per_pod}" '
     {metadata:{name:$name,uid:$uid,deletionTimestamp:null},status:{phase:"Running",
       containerStatuses:[range(0;$containersPerPod) |
         {ready:true,state:{running:{}},restartCount:0,lastState:{}}]}};
-  {items:([8,9] | map(. as $pod | pod("worker-"+($pod|tostring);"uid-"+($pod|tostring)))) +
-    ([range(0;10) | pod("replacement-"+tostring;"replacement-uid-"+tostring)])}')
+  ([8,9] | map(. as $pod | pod("worker-"+($pod|tostring);"uid-"+($pod|tostring)))) as $retained |
+  [range(0;10) | pod("replacement-"+tostring;"replacement-uid-"+tostring)] as $replacements |
+  {items:($retained + $replacements)}')
 density_wait_for_workload_batch_recovery "${selection_file}" "$((SECONDS + 2))"
 if [ "${workload_replacement_expected_pods}" -ne 10 ] ||
   [ "${workload_replacement_observed_pods}" -ne 10 ] ||
@@ -150,8 +151,9 @@ extra_replacement_document=$(jq -cn --argjson containersPerPod "${containers_per
     {metadata:{name:$name,uid:$uid,deletionTimestamp:null},status:{phase:"Running",
       containerStatuses:[range(0;$containersPerPod) |
         {ready:true,state:{running:{}},restartCount:0,lastState:{}}]}};
-  {items:([9] | map(. as $pod | pod("worker-"+($pod|tostring);"uid-"+($pod|tostring)))) +
-    ([range(0;11) | pod("replacement-"+tostring;"replacement-uid-"+tostring)])}')
+  ([9] | map(. as $pod | pod("worker-"+($pod|tostring);"uid-"+($pod|tostring)))) as $retained |
+  [range(0;11) | pod("replacement-"+tostring;"replacement-uid-"+tostring)] as $replacements |
+  {items:($retained + $replacements)}')
 if (workload_document=${extra_replacement_document};
   density_wait_for_workload_batch_recovery "${selection_file}" "$((SECONDS + 2))" >/dev/null 2>&1); then
   echo "density workload replacement accepted extra Pod churn" >&2
