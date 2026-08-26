@@ -43,6 +43,20 @@ density_restore_paused_node
   exit 1
 }
 
+node_fixture=$(mktemp "${TMPDIR:-/tmp}/kube-memlens-node-fixture.XXXXXX")
+trap 'rm -f -- "${node_fixture}"' EXIT
+printf '%s\n' '{"items":[
+  {"metadata":{"name":"kind-control-plane","labels":{"node-role.kubernetes.io/control-plane":""}}},
+  {"metadata":{"name":"kind-legacy-control-plane","labels":{"node-role.kubernetes.io/master":""}}},
+  {"metadata":{"name":"kind-worker","labels":{"kubernetes.io/hostname":"kind-worker"}}}
+]}' > "${node_fixture}"
+[ "$(density_select_kind_worker "${node_fixture}")" = kind-worker ] || {
+  echo "kind worker selection accepted a control-plane Node" >&2
+  exit 1
+}
+rm -f -- "${node_fixture}"
+trap - EXIT
+
 collector_namespace=component-ns
 namespace=workload-ns
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/kube-memlens-density-library-test.XXXXXX")

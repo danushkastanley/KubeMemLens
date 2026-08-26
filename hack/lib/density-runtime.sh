@@ -191,11 +191,17 @@ density_restore_paused_node() {
   fi
 }
 
+density_select_kind_worker() {
+  jq -er '[.items[] | select(
+    ((.metadata.labels // {}) | has("node-role.kubernetes.io/control-plane") | not) and
+    ((.metadata.labels // {}) | has("node-role.kubernetes.io/master") | not)
+  )][0].metadata.name' "$1"
+}
+
 density_measure_worker_node_recovery() {
   local deadline condition recovery_started worker_node
-  paused_kind_node=$(jq -er '[.items[] |
-    select((.metadata.labels["node-role.kubernetes.io/control-plane"] // "") == "")][0].metadata.name' \
-    "${nodes_json}") || fail "qualification requires a kind worker Node"
+  paused_kind_node=$(density_select_kind_worker "${nodes_json}") ||
+    fail "qualification requires a kind worker Node"
   worker_node=${paused_kind_node}
   docker pause "${paused_kind_node}" >/dev/null
   deadline=$((SECONDS + 120))
