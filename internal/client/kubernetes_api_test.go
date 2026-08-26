@@ -43,6 +43,9 @@ func TestKubernetesAPIClientUsesExactScopedResourcePaths(t *testing.T) {
 	if _, err := client.Pods(context.Background()); err != nil {
 		t.Fatalf("Pods returned error: %v", err)
 	}
+	if _, err := client.PodSummaries(context.Background()); err != nil {
+		t.Fatalf("PodSummaries returned error: %v", err)
+	}
 	if _, err := client.Containers(context.Background()); err != nil {
 		t.Fatalf("Containers returned error: %v", err)
 	}
@@ -58,6 +61,7 @@ func TestKubernetesAPIClientUsesExactScopedResourcePaths(t *testing.T) {
 
 	want := []string{
 		"/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods?limit=500",
+		"/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods?limit=500&summary=true",
 		"/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/containers?limit=500",
 		"/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/workloads?limit=500",
 		"/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods/api",
@@ -114,6 +118,51 @@ func TestKubernetesAPIClientUsesClusterPathsOnlyForAllNamespaces(t *testing.T) {
 	}
 }
 
+func TestKubernetesAPIClientCurrentSummarySkipsNestedResources(t *testing.T) {
+	requests := []string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		requests = append(requests, request.URL.RequestURI())
+		if request.URL.Path != "/apis/memory.kubememlens.io/v1alpha1/pods" || request.URL.Query().Get("summary") != "true" {
+			t.Fatalf("unexpected summary request %q", request.URL.RequestURI())
+		}
+		writeTestJSON(t, w, api.PodMemoryList{Items: []api.PodMemory{{Snapshot: api.PodSnapshot{Namespace: "team-a", PodName: "api"}}}})
+	}))
+	defer server.Close()
+
+	client := newTestKubernetesAPIClient(t, server.URL, AllNamespacesScope())
+	summary, err := client.CurrentSummary(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summary.Pods) != 1 || len(summary.Namespaces) != 1 || len(summary.Workloads) != 1 || len(requests) != 1 {
+		t.Fatalf("summary = %#v, requests = %#v", summary, requests)
+	}
+}
+
+func TestKubernetesAPIClientCurrentSnapshotDerivesAggregatesFromContainers(t *testing.T) {
+	requests := []string{}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		requests = append(requests, request.URL.RequestURI())
+		if request.URL.Path != "/apis/memory.kubememlens.io/v1alpha1/containers" {
+			t.Fatalf("unexpected complete snapshot request %q", request.URL.RequestURI())
+		}
+		writeTestJSON(t, w, api.ContainerMemoryList{Items: []api.ContainerMemory{{Snapshot: api.ContainerSnapshot{
+			Namespace: "team-a", PodName: "api", PodUID: "uid-a", ContainerName: "app", NodeName: "worker",
+			Context: api.ContainerContext{WorkloadKind: "Deployment", WorkloadName: "api"},
+		}}}})
+	}))
+	defer server.Close()
+
+	client := newTestKubernetesAPIClient(t, server.URL, AllNamespacesScope())
+	snapshot, err := client.CurrentSnapshot(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.Containers) != 1 || len(snapshot.Pods) != 1 || len(snapshot.Namespaces) != 1 || len(snapshot.Workloads) != 1 || len(requests) != 1 {
+		t.Fatalf("snapshot = %#v, requests = %#v", snapshot, requests)
+	}
+}
+
 func TestKubernetesAPIClientPaginatesWithoutChangingScope(t *testing.T) {
 	requests := []string{}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
@@ -135,8 +184,8 @@ func TestKubernetesAPIClientPaginatesWithoutChangingScope(t *testing.T) {
 	if len(pods) != 2 {
 		t.Fatalf("pods = %d, want 2", len(pods))
 	}
-	if len(requests) != 2 || requests[1] != "/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods?limit=500&continue=next+token" {
-		t.Fatalf("requests = %#v", requests)
+	if len(requests) != 2 || requests[1] != "/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods?continue=next+token&limit=500" {
+		t.Fatalf("pagination requests = %#v", requests)
 	}
 }
 

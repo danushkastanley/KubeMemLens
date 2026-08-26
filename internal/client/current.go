@@ -21,8 +21,18 @@ type CurrentSnapshot struct {
 	Containers []api.ContainerSnapshot
 }
 
+type CurrentSummary struct {
+	Namespaces []api.NamespaceSnapshot
+	Workloads  []api.WorkloadSnapshot
+	Pods       []api.PodSnapshot
+}
+
 type CurrentSnapshotReader interface {
 	CurrentSnapshot(ctx context.Context) (CurrentSnapshot, error)
+}
+
+type CurrentSummaryReader interface {
+	CurrentSummary(ctx context.Context) (CurrentSummary, error)
 }
 
 type pageGetter func(context.Context, string, any) error
