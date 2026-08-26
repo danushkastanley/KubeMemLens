@@ -158,15 +158,20 @@ cluster_status() {
 }
 
 cluster_status_retry() {
-  local attempt output
+  local deadline=${1:-0} attempt output
   attempt=1
   while [ "${attempt}" -le 10 ]; do
     if output=$(cluster_status 2>/dev/null) && jq -e '
       (.store.totalContainers | type) == "number" and
       (.store.reliability.state | type) == "string"
     ' <<<"${output}" >/dev/null; then
-      printf '%s' "${output}"
-      return 0
+      if [ "${deadline}" -eq 0 ] || [ "${SECONDS}" -le "${deadline}" ]; then
+        printf '%s' "${output}"
+        return 0
+      fi
+    fi
+    if [ "${deadline}" -gt 0 ] && [ "${SECONDS}" -ge "${deadline}" ]; then
+      break
     fi
     [ "${attempt}" -eq 10 ] || sleep 1
     attempt=$((attempt + 1))
@@ -199,6 +204,26 @@ wait_for_state() {
   done
 }
 
+wait_for_stale_retention() {
+  local expected=$1 deadline=$2 output
+  while true; do
+    output=
+    output=$(cluster_status 2>/dev/null) || true
+    if [ "${SECONDS}" -le "${deadline}" ] && [ -n "${output}" ] && jq -e --argjson expected "${expected}" '
+      .store.reliability.state == "stale" and
+      .store.staleContainers == $expected and
+      .store.totalContainers == $expected
+    ' <<<"${output}" >/dev/null; then
+      return
+    fi
+    if [ "${SECONDS}" -ge "${deadline}" ]; then
+      echo "collector did not retain the complete baseline as stale evidence" >&2
+      return 1
+    fi
+    sleep 2
+  done
+}
+
 wait_for_collector_ready() {
   "${kc[@]}" rollout status deployment/"${collector_deployment}" -n "${namespace}" --timeout=90s >/dev/null
   "${kc[@]}" wait --for=condition=Available apiservice/v1alpha1.memory.kubememlens.io --timeout=90s >/dev/null
@@ -217,6 +242,10 @@ baseline_containers=$(jq -r '.store.totalContainers' <<<"${baseline}")
 baseline_expected_nodes=$(jq -r '.store.reliability.expectedNodes' <<<"${baseline}")
 [ "${baseline_containers}" -gt 0 ] || {
   echo "collector baseline has no evidence" >&2
+  exit 1
+}
+[ "${baseline_expected_nodes}" -gt 0 ] || {
+  echo "collector baseline has no expected Nodes" >&2
   exit 1
 }
 existing_fake_node=$("${kc[@]}" get node "${fake_node}" --ignore-not-found -o name)
@@ -256,13 +285,29 @@ write_phase agent_outage
 agent_blocked=true
 "${kc[@]}" patch daemonset "${agent_daemonset}" -n "${namespace}" --type=json -p="${patch}" >/dev/null
 "${kc[@]}" wait --for=delete pod -n "${namespace}" -l app.kubernetes.io/name=kube-memlens-agent --timeout=90s >/dev/null
-agent_stale_seconds=$(wait_for_state stale 75)
-stale=$(cluster_status_retry)
-jq -e --argjson baseline "${baseline_containers}" '
-  .store.reliability.state == "stale" and
-  .store.staleContainers == $baseline and
-  .store.totalContainers == $baseline
-' <<<"${stale}" >/dev/null
+agent_outage_started=${SECONDS}
+agent_outage_deadline=$((agent_outage_started + 75))
+write_phase agent_outage_boundary
+outage_boundary=$(cluster_status_retry "${agent_outage_deadline}")
+outage_containers=$(jq -er '.store.totalContainers' <<<"${outage_boundary}")
+minimum_outage_containers=$((baseline_containers - baseline_expected_nodes))
+if [ "${outage_containers}" -le 0 ] ||
+  [ "${outage_containers}" -lt "${minimum_outage_containers}" ] ||
+  [ "${outage_containers}" -gt "${baseline_containers}" ]; then
+  echo "collector outage boundary has an invalid retained-container count" >&2
+  exit 1
+fi
+write_phase agent_outage_stale
+[ "${SECONDS}" -lt "${agent_outage_deadline}" ] || {
+  echo "collector outage boundary exhausted the stale-evidence budget" >&2
+  exit 1
+}
+wait_for_stale_retention "${outage_containers}" "${agent_outage_deadline}"
+[ "${SECONDS}" -le "${agent_outage_deadline}" ] || {
+  echo "collector stale evidence exceeded the outage budget" >&2
+  exit 1
+}
+agent_stale_seconds=$((SECONDS - agent_outage_started))
 
 old_collector=$(collector_pod)
 write_phase collector_restart
