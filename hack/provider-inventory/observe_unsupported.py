@@ -217,14 +217,17 @@ def parse_aks(source):
         labels = require_object(item.get("metadata", {}).get("labels"), "AKS virtual Node labels")
         if labels.get("kubernetes.io/os") != "linux":
             raise ReceiptError("AKS virtual Nodes must report the standard Linux label")
-        label_architecture = require_text(
-            labels.get("kubernetes.io/arch"), "AKS virtual Node architecture label",
-        )
         info = require_object(item.get("status", {}).get("nodeInfo"), "AKS virtual Node nodeInfo")
+        label_architecture = labels.get("kubernetes.io/arch")
         reported_architecture = info.get("architecture")
-        if reported_architecture not in (None, "") and reported_architecture != label_architecture:
+        if label_architecture not in (None, ""):
+            label_architecture = require_text(
+                label_architecture, "AKS virtual Node architecture label",
+            )
+        if label_architecture and reported_architecture not in (None, "") \
+                and reported_architecture != label_architecture:
             raise ReceiptError("AKS virtual Node architecture conflicts with its standard label")
-        info["architecture"] = label_architecture
+        info["architecture"] = label_architecture or reported_architecture or "unreported"
         for field in ("osImage", "containerRuntimeVersion", "kernelVersion"):
             if info.get(field) in (None, ""):
                 info[field] = "unreported"

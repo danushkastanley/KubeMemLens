@@ -60,8 +60,9 @@ Delete qualification-created external Services and Ingresses before cluster dele
 - AKS virtual nodes run Pods on Azure Container Instances. DaemonSets do not deploy to virtual nodes, and virtual-node networking has NetworkPolicy limitations, so they cannot satisfy the deep agent row. [AKS virtual nodes](https://learn.microsoft.com/en-us/azure/aks/virtual-nodes#limitations)
 - Azure virtual-kubelet Nodes may leave OS image, container runtime and kernel
   fields blank. Qualification records those facts as `unreported`, retains the
-  reported kubelet version and uses only the standard architecture label for
-  amd64 evidence.
+  reported kubelet version, uses only the standard architecture label for
+  amd64 evidence, and records architecture as `unreported` when that label is
+  also absent.
 
 ### Exact inventory to retain
 

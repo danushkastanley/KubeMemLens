@@ -168,7 +168,7 @@ used by the supported collector. Add the profile-specific private inputs:
 |---|---|
 | GKE Autopilot | `QUALIFY_OBSERVATION_NAMESPACE` naming an existing authorised namespace. The collector checks `auth can-i`, accepts the exact baseline server dry-run and requires the exact cgroup-hostPath Status denial. |
 | EKS Fargate | `QUALIFY_EKS_FARGATE_PROFILE` naming an active profile with at least one Ready Fargate Node in its scope. |
-| AKS virtual nodes | An enabled ACI connector and at least one Ready Azure virtual-kubelet Node in the selected AKS cluster. The receipt retains the real kubelet version, derives amd64 only from `kubernetes.io/arch`, and records blank virtual-node OS image, runtime and kernel fields as `unreported`. |
+| AKS virtual nodes | An enabled ACI connector and at least one Ready Azure virtual-kubelet Node in the selected AKS cluster. The receipt retains the real kubelet version, derives amd64 only from `kubernetes.io/arch`, and records missing architecture plus blank virtual-node OS image, runtime and kernel fields as `unreported`. |
 | Windows deep mode | `QUALIFY_AKS_WINDOWS_NODE_POOL` naming a current AKS Windows pool. The live Nodes, provider-owned pool, configured Azure CNI with Calico and rendered candidate agent contract must agree. Cilium is Linux-only and is rejected for this row. The receipt records configuration only and does not claim Windows policy enforcement. |
 | cgroup v1 | `QUALIFY_SSH_USER`, `QUALIFY_SSH_ADDRESS_TYPE`, `QUALIFY_SSH_KEY` and `QUALIFY_SSH_KNOWN_HOSTS`. The key must be mode `0600`; strict-host-key, BatchMode SSH checks every Linux Node UID for no `cgroup.controllers` file and a real cgroup v1 mount. |
 

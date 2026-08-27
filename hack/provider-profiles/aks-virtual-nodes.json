@@ -6,7 +6,7 @@
     "providerPattern": "^aks-virtual-nodes$",
     "osImagePattern": "^[A-Za-z0-9][-A-Za-z0-9 ._()+/]{1,159}$",
     "runtimePattern": "^((containerd|virtual-kubelet)://[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?|unreported)$",
-    "architecturePattern": "^amd64$",
+    "architecturePattern": "^(amd64|unreported)$",
     "cgroupPattern": "^(v2|unreported)$",
     "nodeImagePattern": "^AKS virtual-node ACI$",
     "cniPattern": "^Azure CNI virtual nodes$",
@@ -14,5 +14,5 @@
   },
   "expectedUnsupportedReason": "virtual_nodes_not_supported",
   "requalificationDays": 90,
-  "profileDigest": "sha256:2a5627490b5d4e9abd704d956192294dab1f8ebba45adf99c3b8db62a8feca98"
+  "profileDigest": "sha256:e47980a7fabfe00d558016df1c1128ec4e89e064ca769fc163411d176de597bc"
 }

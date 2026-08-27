@@ -78,7 +78,7 @@ class UnsupportedObservationTests(unittest.TestCase):
         self.assertEqual(eks["environment"]["cgroupVersion"], "unreported")
         self.assertEqual(aks["environment"]["osImage"], "unreported")
         self.assertEqual(aks["environment"]["runtime"], "unreported")
-        self.assertEqual(aks["environment"]["architecture"], "amd64")
+        self.assertEqual(aks["environment"]["architecture"], "unreported")
         self.assertEqual(aks["environment"]["kernelVersion"], "unreported")
         self.assertEqual(aks["environment"]["kubeletVersion"], "v1.25.0-vk-azure-aci-")
         self.assertEqual(aks["environment"]["cgroupVersion"], "unreported")
@@ -105,16 +105,17 @@ class UnsupportedObservationTests(unittest.TestCase):
         with self.assertRaisesRegex(observer.ReceiptError, "qualificationToolCommit"):
             observer.validate_unsupported_receipt(profile, changed)
 
-    def test_aks_virtual_node_architecture_is_label_bound(self):
+    def test_aks_virtual_node_architecture_uses_label_or_unreported(self):
         profile = self.profile("aks-virtual-nodes")
-        for mutation in ("missing", "conflict", "non-linux"):
+        labelled = self.source("aks-virtual-nodes")
+        labelled["nodes"]["items"][0]["metadata"]["labels"]["kubernetes.io/arch"] = "amd64"
+        receipt = self.build(profile, labelled)
+        self.assertEqual(receipt["environment"]["architecture"], "amd64")
+        for mutation in ("conflict", "non-linux"):
             with self.subTest(mutation=mutation):
-                source = self.source("aks-virtual-nodes")
+                source = copy.deepcopy(labelled)
                 labels = source["nodes"]["items"][0]["metadata"]["labels"]
-                if mutation == "missing":
-                    labels.pop("kubernetes.io/arch")
-                    message = "architecture label"
-                elif mutation == "conflict":
+                if mutation == "conflict":
                     source["nodes"]["items"][0]["status"]["nodeInfo"]["architecture"] = "arm64"
                     message = "conflicts"
                 else:
