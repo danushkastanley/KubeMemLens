@@ -68,14 +68,14 @@ These are project operating checks. They do not promise a response time to users
 
 | Control | Readback |
 |---|---|
-| `main` ruleset | Targets `refs/heads/main`; one independent approval, stale-review dismissal, last-push separation, resolved conversations, strict CI and CodeQL checks, deletion protection, and force-push protection are active; CODEOWNER enforcement activates after the bootstrap PR places both owners on `main` |
+| `main` ruleset | Targets `refs/heads/main`; one independent CODEOWNER approval, stale-review dismissal, last-push separation, resolved conversations, strict CI and CodeQL checks, deletion protection, and force-push protection are active |
 | Release tags and environment | `refs/tags/v*` restrictions and the tag-only environment policy are active; `@danushkastanley` and `@legolas296` are reviewers; self-review and admin bypass are disabled |
 | Workflow token | Default `read`; workflows cannot approve pull requests |
-| Vulnerability reporting | Enabled; synthetic advisory `GHSA-9r58-62g3-2v7p` closed privately without a CVE, private fork, or publication |
+| Vulnerability reporting | Enabled; primary drill `GHSA-9r58-62g3-2v7p` and backup-handover drill `GHSA-wfhm-45q5-8jf6` closed privately without a CVE, private fork, or publication |
 | Dependencies and secrets | Dependabot security updates, secret scanning, and push protection enabled; zero open Dependabot or secret-scanning alerts at readback |
 | Immutable releases | Enabled |
 | Routing labels | `compatibility`, `diagnosis-feedback`, and `adopter-feedback` created alongside the existing bug, enhancement, question, and dependency labels |
 
-This is a point-in-time record. `make check-community-settings` is the final
-live gate after CODEOWNER enforcement, Scorecard publication, and the OpenSSF
-Best Practices result are active.
+This is a point-in-time record. CODEOWNER enforcement and the published 8.0
+Scorecard result are active. `make check-community-settings` remains the final
+live gate after the OpenSSF Best Practices result is active.
