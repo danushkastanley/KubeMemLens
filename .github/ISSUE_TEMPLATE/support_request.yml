@@ -1,0 +1,61 @@
+name: Support request
+description: Ask a privacy-safe installation or usage question.
+title: "[Support]: "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Community support is best effort and public. Do not include credentials,
+        provider identifiers, cluster or workload names, raw Kubernetes objects,
+        Pod UIDs, container IDs, labels, image names, or sensitive paths. Report
+        suspected vulnerabilities privately through SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: KubeMemLens version
+      description: Paste `kubectl memlens version` or the exact commit SHA.
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation method
+      options:
+        - Helm OCI chart
+        - Local chart checkout
+        - Release archive or Krew
+        - Source checkout
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Redacted environment
+      description: >-
+        Kubernetes version, provider family or self-managed, node operating-system
+        family, architecture, cgroup mode, and container runtime. Do not include names or IDs.
+    validations:
+      required: true
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Describe the task, expected outcome, and the smallest redacted error or observation.
+    validations:
+      required: true
+  - type: textarea
+    id: attempted
+    attributes:
+      label: What have you tried?
+      description: Link relevant documentation and list safe, redacted troubleshooting steps.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I reviewed this public submission and removed credentials, real identifiers, labels, workload data, and sensitive paths.
+          required: true
+        - label: This is not a suspected security vulnerability.
+          required: true

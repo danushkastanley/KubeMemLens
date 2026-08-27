@@ -107,6 +107,16 @@ make qualify-cluster # requires the explicit environment in docs/qualification.m
 
 Use the [scale qualification guide](docs/scale-qualification.md) for the development smoke, RC profile, evidence contract and claim limits. Ordinary development does not require the 5,000-container run.
 
+## Community and support
+
+KubeMemLens is community maintained on a best-effort basis. Read
+[SUPPORT.md](SUPPORT.md) for public installation and usage help,
+[CONTRIBUTING.md](CONTRIBUTING.md) before proposing a change, and
+[SECURITY.md](SECURITY.md) for private vulnerability reporting. The
+[installation feedback form](https://github.com/danushkastanley/KubeMemLens/issues/new?template=adopter_feedback.yml)
+records only a version, minimal environment profile, and outcome; it is not
+telemetry and does not create a provider-support claim.
+
 ## Cluster Smoke Test
 
 Start minikube with Docker:
