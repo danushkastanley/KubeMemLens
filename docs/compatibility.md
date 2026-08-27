@@ -35,6 +35,8 @@ KubeMemLens is currently alpha software. The published alpha is for evaluation o
 
 CLI archives exist for Darwin, Linux and Windows on amd64 and arm64. The release workflow checks their construction, checksums and SBOMs. Archive availability does not prove every operating system and terminal combination. PROD-009 owns the interactive client claim. The deep-mode agent remains Linux-only.
 
+KubeMemLens builds with Go 1.27. Darwin archives therefore require macOS 13 or later, matching the Go 1.27 runtime baseline.
+
 [Kubernetes upstream maintains the latest three minor release branches](https://kubernetes.io/releases/). A new minor enters the general KubeMemLens API contract only after the automated kind matrix passes. Provider claims remain limited to their recorded Kubernetes versions unless a separate, explicitly approved requalification widens them. The oldest minor leaves at the next KubeMemLens release after upstream stops maintaining it. Historical provider evidence never extends an upstream end-of-life date.
 
 Kubernetes 1.37 reached GA on 26 August 2026 and is part of the current upstream-maintained window. The v1 candidate remains blocked until the 1.35, 1.36 and 1.37 lifecycle lanes pass on the frozen commit. This general API window does not widen any version-bound provider claim.
