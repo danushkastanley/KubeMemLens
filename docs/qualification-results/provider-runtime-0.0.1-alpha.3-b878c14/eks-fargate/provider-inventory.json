@@ -1,0 +1,53 @@
+{
+  "artefacts": {
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d"
+  },
+  "controlPlaneVersion": "1.36",
+  "environment": {
+    "architecture": "amd64",
+    "cgroupVersion": "unreported",
+    "cniEnforced": false,
+    "cniName": "AWS Fargate pod networking",
+    "kernelVersion": "6.1.177",
+    "kubeletVersion": "v1.36.2-eks-254016e",
+    "kubernetesVersion": "v1.36.2-eks-bca9cf6",
+    "linuxNodeCount": 1,
+    "nodeImage": "AWS Fargate managed runtime",
+    "osImage": "Minimal",
+    "provider": "eks-fargate",
+    "runtime": "containerd://2.2.5+unknown",
+    "windowsNodeCount": 0
+  },
+  "observedAt": "2026-08-27T04:11:15Z",
+  "profile": {
+    "digest": "sha256:504f672daeacbbd3e30217acc58ff1a3df55df5fb99d07eef2b60717aa964fb0",
+    "id": "eks-fargate"
+  },
+  "proof": {
+    "observationSpecDigest": "sha256:a604a6564e90db36597675f6105fc33f83d34f4a672724032ea3db948410b3dd",
+    "source": "aws:fargate+nodes",
+    "sourceDigest": "sha256:66297262c74a90f105f4f9ebca351b0717c02e7996f97b6fd95631d74e9d28c4"
+  },
+  "providerChecks": {
+    "cni": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "receiptDigest": "sha256:2929fab363e2756b7a88bdd0e0f5f9273f5f42c12bac7ad9391432faaf037d05",
+  "schemaVersion": 2,
+  "unsupportedObservation": {
+    "checks": {
+      "liveSubjectObserved": true,
+      "reasonMatched": true,
+      "sourceBound": true,
+      "unsupportedConditionObserved": true
+    },
+    "method": "provider_capability",
+    "reasonCode": "daemonset_not_supported",
+    "state": "daemonset_capability_absent",
+    "subjectCount": 1
+  }
+}

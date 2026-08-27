@@ -1,0 +1,23 @@
+{
+  "cniName": "Calico v3.32.1",
+  "controlPlaneVersion": "v1.36.4",
+  "nodeImage": "Ubuntu 24.04.4 LTS",
+  "observedAt": "2026-08-27T02:41:03Z",
+  "profile": {
+    "digest": "sha256:5a6dd07d5bf10a9f85b43a691762222f91bdfa18d93fc3fd320a6cab2502060e",
+    "id": "self-managed-containerd"
+  },
+  "proofSource": "kubectl:version+nodes+daemonsets",
+  "provider": "self-managed",
+  "providerChecks": {
+    "cni": true,
+    "contextBinding": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "nodePoolBinding": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "receiptDigest": "sha256:7b32c435dbe9f6315cc464ddbbbbcab26848a33fe06869f136908241302d7268",
+  "schemaVersion": 1
+}

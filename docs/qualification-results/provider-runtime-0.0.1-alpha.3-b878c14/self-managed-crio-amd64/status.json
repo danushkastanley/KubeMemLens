@@ -1,0 +1,52 @@
+{
+  "connection": {
+    "mode": "kubernetes-api",
+    "collector": "redacted",
+    "healthy": true,
+    "description": "redacted"
+  },
+  "store": {
+    "totalContainers": 14,
+    "staleContainers": 0,
+    "nodeRecords": 2,
+    "maxNodes": 5000,
+    "maxContainers": 100000,
+    "maxResponseBytes": 16777216,
+    "pods": 14,
+    "namespaces": 2,
+    "historySeries": 14,
+    "historyPoints": 154,
+    "reliability": {
+      "state": "ready",
+      "generation": "dkze1b8e644l",
+      "startedAt": "2026-08-27T02:58:35.589130341Z",
+      "transitionedAt": "2026-08-27T02:59:27.835721861Z",
+      "firstSnapshotAt": "2026-08-27T02:58:40.149591597Z",
+      "lastSnapshotAt": "2026-08-27T02:59:30.976121994Z",
+      "lastReceivedAt": "2026-08-27T02:59:31.010307233Z",
+      "freshNodes": 2,
+      "staleNodes": 0,
+      "missingNodes": 0,
+      "expectedNodes": 2,
+      "inventoryUpdatedAt": "2026-08-27T02:59:20.834684952Z",
+      "completeness": "complete",
+      "snapshotTTLSeconds": 30,
+      "history": {
+        "resetAt": "2026-08-27T02:58:35.589130341Z",
+        "availableFrom": "2026-08-27T02:58:40.149591597Z",
+        "completeness": "partial",
+        "droppedSeries": 0,
+        "evictedPoints": 0,
+        "lastLossAt": "0001-01-01T00:00:00Z"
+      }
+    }
+  },
+  "metrics": {
+    "endpoint": "/apis/memory.kubememlens.io/v1alpha1/metrics/current",
+    "enabled": "unknown",
+    "hint": "read the separately authorised metrics resource through the Kubernetes API"
+  },
+  "data": {
+    "status": "ready"
+  }
+}

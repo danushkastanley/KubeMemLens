@@ -59,6 +59,7 @@ func BuildPodIndexFromPods(pods []corev1.Pod) PodIndex {
 				NodeName:      pod.Spec.NodeName,
 				ContainerID:   containerID,
 				Runtime:       ContainerRuntime(status.ContainerID),
+				Running:       status.State.Running != nil,
 				Context:       containerContext(pod, status),
 			}
 			idx.ByContainerID[containerID] = ref

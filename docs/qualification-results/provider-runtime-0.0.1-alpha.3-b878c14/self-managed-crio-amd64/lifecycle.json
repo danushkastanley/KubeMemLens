@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "releaseIdentity": {
+    "imageDigest": "sha256:12b1b244ceed8c956cd2e3433d0c18f80c0f891b9bbc54b7c4079ec16c4e6b1b",
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "valuesDigest": "sha256:8e9d008cf31e88a15fe1a93f55becf811c3811ee927f5dd73071d4b0a4a1f746",
+    "probeImageDigest": "sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d"
+  },
+  "checks": {
+    "prerequisites": {
+      "passed": true,
+      "profileCanonical": true,
+      "sourceClean": true,
+      "providerReceiptBound": true
+    },
+    "helmInstall": {
+      "passed": true,
+      "revision": 1
+    },
+    "readiness": {
+      "passed": true,
+      "linuxNodes": 2,
+      "desiredAgents": 2,
+      "readyAgents": 2,
+      "collectorReady": true
+    },
+    "mounts": {
+      "passed": true,
+      "cgroupPath": "/sys/fs/cgroup",
+      "readOnly": true,
+      "projectedToken": true
+    },
+    "securityContext": {
+      "passed": true,
+      "nonRoot": true,
+      "readOnlyRootFilesystem": true,
+      "privilegeEscalation": false,
+      "capabilitiesDropped": true
+    },
+    "mixedOSScheduling": {
+      "passed": true,
+      "result": "not_run",
+      "linuxNodes": 2,
+      "windowsNodes": 0
+    },
+    "collection": {
+      "passed": true,
+      "cgroupVersion": "v2",
+      "doctorChecks": 11,
+      "mappedContainers": 14
+    },
+    "api": {
+      "passed": true,
+      "statusHealthy": true,
+      "explanationMetadata": true,
+      "metricsAvailable": true
+    },
+    "tui": {
+      "passed": true,
+      "columns": 80,
+      "rows": 24,
+      "cleanExit": true
+    },
+    "networkPolicy": {
+      "passed": true,
+      "cniName": "Calico v3.32.1",
+      "servicePort": 443,
+      "allowedControls": 2,
+      "deniedControls": 1,
+      "deniedProbeExecuted": true
+    },
+    "agentRestart": {
+      "passed": true,
+      "recoverySeconds": 28
+    },
+    "collectorRestart": {
+      "passed": true,
+      "recoverySeconds": 33
+    },
+    "nodeReplacement": {
+      "passed": true,
+      "recoverySeconds": 66,
+      "providerReceiptRefreshed": true
+    },
+    "upgrade": {
+      "passed": true,
+      "upgradeRevision": 2,
+      "rollbackRevision": 3,
+      "postRollbackDoctor": true
+    },
+    "uninstall": {
+      "passed": true,
+      "clusterResourcesRemaining": 0,
+      "namespaceRemoved": true
+    }
+  }
+}

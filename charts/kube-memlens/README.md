@@ -21,7 +21,13 @@ helm upgrade --install kube-memlens \
 
 The digest must be 64 lowercase hexadecimal characters. It takes precedence over `image.tag`.
 
-The current alpha is not yet supported as a shared multi-tenant service. Agent writes and operator reads use Kubernetes request-header authentication and exact delegated authorisation, but the separate adversarial isolation gate must pass before that support claim changes. Run the qualification procedure before evaluating the chart on a managed cluster. The chart targets compatible Linux cgroup v2 nodes; provider-restricted, serverless, Windows, and cgroup v1 nodes are not silently treated as supported.
+The current alpha is not yet supported as a shared multi-tenant service. Current
+`main` has passed the local adversarial isolation gate for authenticated writes
+and exactly delegated reads; exact provider and enforcing-CNI qualification
+still remains before that support claim changes. Run the qualification
+procedure before evaluating the chart on a managed cluster. The chart targets
+compatible Linux cgroup v2 nodes; provider-restricted, serverless, Windows, and
+cgroup v1 nodes are not silently treated as supported.
 
 ## Components
 

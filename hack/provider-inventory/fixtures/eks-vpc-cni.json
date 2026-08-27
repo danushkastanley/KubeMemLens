@@ -1,0 +1,8 @@
+{
+  "addon": {
+    "addonName": "vpc-cni",
+    "status": "ACTIVE",
+    "addonVersion": "v1.20.0-eksbuild.1",
+    "configurationValues": "{\"enableNetworkPolicy\":\"true\"}"
+  }
+}

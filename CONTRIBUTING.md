@@ -43,7 +43,7 @@ Match verification to the change. A normal pull request does not require a cloud
 - Use synthetic fixtures for parser, aggregation, API-boundary and presentation changes.
 - State which checks you ran and which relevant paths you could not run. Missing provider access is acceptable when the change does not make a provider-specific claim.
 
-Maintainers own the GKE, EKS and AKS release matrix. Provider qualification is required before the project publishes a provider-support claim, not before every contribution can be reviewed or merged. Scale testing follows the same rule: a PR needs extra capacity evidence only when it changes the scale contract or makes a new scale claim. Use the [scale qualification guide](docs/scale-qualification.md) for those changes; the development smoke is sufficient for ordinary integration work.
+Maintainers own the provider evidence matrix. Live-cloud qualification is an explicit, one-time, opt-in operation for a new or widened provider-support claim; it is not scheduled, run in CI or required before each release. A provider-sensitive change must narrow the affected claim unless a maintainer separately approves requalification. Review dates remain integrity metadata and freshness dates are advisory. Scale testing follows the same claim-based rule: a PR needs extra capacity evidence only when it changes the scale contract or makes a new scale claim. Use the [scale qualification guide](docs/scale-qualification.md) for those changes; the development smoke is sufficient for ordinary integration work.
 
 ## Pull requests
 

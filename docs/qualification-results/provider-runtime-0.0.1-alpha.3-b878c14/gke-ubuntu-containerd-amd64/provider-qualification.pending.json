@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "outcome": "passed",
+  "completedAt": "2026-08-27T01:51:15Z",
+  "profile": {
+    "id": "gke-ubuntu-containerd-amd64",
+    "digest": "sha256:34e27f4110d12c3883e0efdca8dbd1c1b1b1dcb1eb9833aabceb2e3b4aa938dc"
+  },
+  "artefacts": {
+    "imageDigest": "sha256:12b1b244ceed8c956cd2e3433d0c18f80c0f891b9bbc54b7c4079ec16c4e6b1b",
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "valuesDigest": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "providerReceiptDigest": "sha256:9c44264388209dd763dae23bb61d25f12e73c8c3f76d2b6dc8492558672ccd0c",
+    "evidenceManifestDigest": "sha256:2ee7724f20926ed03cf1b1ee6d249e11cc32743256c3009c9c90d39443f9683e",
+    "probeImageDigest": "sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d",
+    "chartVersion": "0.0.1-alpha.3"
+  },
+  "environment": {
+    "provider": "gke-standard",
+    "kubernetesVersion": "v1.35.6-gke.1250000",
+    "nodeImage": "UBUNTU_CONTAINERD",
+    "osImage": "Ubuntu 24.04.4 LTS",
+    "kernelVersion": "6.8.0-1055-gke",
+    "kubeletVersion": "v1.35.6-gke.1250000",
+    "runtime": "containerd://2.1.5",
+    "architecture": "amd64",
+    "cgroupVersion": "v2",
+    "cniName": "GKE Dataplane V2",
+    "cniEnforced": true,
+    "linuxNodeCount": 2,
+    "windowsNodeCount": 0
+  },
+  "checks": {
+    "prerequisites": "pass",
+    "helmInstall": "pass",
+    "readiness": "pass",
+    "collection": "pass",
+    "tui": "pass",
+    "api": "pass",
+    "upgrade": "pass",
+    "uninstall": "pass",
+    "nodeReplacement": "pass",
+    "agentRestart": "pass",
+    "collectorRestart": "pass",
+    "mounts": "pass",
+    "securityContext": "pass",
+    "networkPolicy": "pass",
+    "mixedOSScheduling": "not_run"
+  },
+  "reasonCode": null,
+  "privacy": {
+    "clusterIdentifiersIncluded": false,
+    "workloadIdentifiersIncluded": false,
+    "providerResourceIdentifiersIncluded": false,
+    "rawErrorsIncluded": false,
+    "rawLogsIncluded": false
+  }
+}

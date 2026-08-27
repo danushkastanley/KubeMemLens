@@ -1,0 +1,24 @@
+{
+  "cniName": "Azure CNI Calico",
+  "controlPlaneVersion": "1.35.7",
+  "nodeImage": "AKSUbuntu-2404gen2containerd-202608.14.0",
+  "observedAt": "2026-08-27T07:49:08Z",
+  "profile": {
+    "digest": "sha256:d3bacd69e69564cc3a43a8e4f1e016a8ed7d0d71bbe5e178677518e0ca62b5df",
+    "id": "aks-ubuntu-containerd-amd64"
+  },
+  "proofSource": "az:control-plane+node-pool",
+  "provider": "aks-node-pools",
+  "providerChecks": {
+    "cni": true,
+    "contextBinding": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "nodePoolBinding": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "qualificationToolCommit": "a9edaeaff4d6e9c4af8abda96e85a77d3f8e3a0c",
+  "receiptDigest": "sha256:b6800651cb558fa5b27c01ae20c487a58ce69472c941943d89000d6d4fafe313",
+  "schemaVersion": 2
+}

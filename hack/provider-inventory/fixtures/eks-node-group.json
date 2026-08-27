@@ -1,0 +1,7 @@
+{
+  "nodegroup": {
+    "status": "ACTIVE",
+    "amiType": "AL2023_x86_64_STANDARD",
+    "releaseVersion": "1.36.1-20260820"
+  }
+}

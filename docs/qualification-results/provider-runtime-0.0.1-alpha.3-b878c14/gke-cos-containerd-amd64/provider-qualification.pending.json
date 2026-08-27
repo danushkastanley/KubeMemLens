@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "outcome": "passed",
+  "completedAt": "2026-08-27T01:25:03Z",
+  "profile": {
+    "id": "gke-cos-containerd-amd64",
+    "digest": "sha256:0623092add08e0145dcb1a9c410c6bd9b8cfc65027fa968fae37c493ada2964c"
+  },
+  "artefacts": {
+    "imageDigest": "sha256:12b1b244ceed8c956cd2e3433d0c18f80c0f891b9bbc54b7c4079ec16c4e6b1b",
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "valuesDigest": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "providerReceiptDigest": "sha256:e72fd1a163d232197a1ded91ab4c40f7214419c9a8798095c4bd7f4e03e6e39f",
+    "evidenceManifestDigest": "sha256:d7fc517f116f5f19bdf035bee03805da5c74fd0c4cf91058ba552d53c10de657",
+    "probeImageDigest": "sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d",
+    "chartVersion": "0.0.1-alpha.3"
+  },
+  "environment": {
+    "provider": "gke-standard",
+    "kubernetesVersion": "v1.35.6-gke.1250000",
+    "nodeImage": "COS_CONTAINERD",
+    "osImage": "Container-Optimized OS from Google",
+    "kernelVersion": "6.12.85+",
+    "kubeletVersion": "v1.35.6-gke.1250000",
+    "runtime": "containerd://2.1.7",
+    "architecture": "amd64",
+    "cgroupVersion": "v2",
+    "cniName": "GKE Dataplane V2",
+    "cniEnforced": true,
+    "linuxNodeCount": 2,
+    "windowsNodeCount": 0
+  },
+  "checks": {
+    "prerequisites": "pass",
+    "helmInstall": "pass",
+    "readiness": "pass",
+    "collection": "pass",
+    "tui": "pass",
+    "api": "pass",
+    "upgrade": "pass",
+    "uninstall": "pass",
+    "nodeReplacement": "pass",
+    "agentRestart": "pass",
+    "collectorRestart": "pass",
+    "mounts": "pass",
+    "securityContext": "pass",
+    "networkPolicy": "pass",
+    "mixedOSScheduling": "not_run"
+  },
+  "reasonCode": null,
+  "privacy": {
+    "clusterIdentifiersIncluded": false,
+    "workloadIdentifiersIncluded": false,
+    "providerResourceIdentifiersIncluded": false,
+    "rawErrorsIncluded": false,
+    "rawLogsIncluded": false
+  }
+}

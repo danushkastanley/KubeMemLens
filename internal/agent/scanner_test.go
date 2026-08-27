@@ -29,6 +29,7 @@ func TestScannerClassifiesUnmappedSiblingAsInfrastructure(t *testing.T) {
 		ContainerID:   appID,
 		NodeName:      "node-a",
 		Runtime:       "containerd",
+		Running:       true,
 	}
 	index.ByContainerID[appID] = appRef
 	index.ByPodUID[podUID] = []kube.PodRef{appRef}
@@ -65,6 +66,62 @@ func TestScannerClassifiesUnmappedSiblingAsInfrastructure(t *testing.T) {
 	}
 }
 
+func TestScannerClassifiesSandboxAfterCompletedInitCgroupIsRemoved(t *testing.T) {
+	root := t.TempDir()
+	podUID := "12345678-1234-1234-1234-123456789abc"
+	appID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	initID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	sandboxID := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	podDir := filepath.Join(root, "kubepods", "pod"+podUID)
+	writeScannerCgroup(t, filepath.Join(podDir, appID), 1024)
+	writeScannerCgroup(t, filepath.Join(podDir, sandboxID), 128)
+	index := kube.EmptyPodIndex()
+	appRef := kube.PodRef{
+		Namespace: "kube-system", PodName: "network-agent", PodUID: podUID,
+		ContainerName: "app", ContainerID: appID, NodeName: "node-a", Running: true,
+	}
+	completedInitRef := kube.PodRef{
+		Namespace: "kube-system", PodName: "network-agent", PodUID: podUID,
+		ContainerName: "install", ContainerID: initID, NodeName: "node-a",
+	}
+	index.ByContainerID[appID] = appRef
+	index.ByContainerID[initID] = completedInitRef
+	index.ByPodUID[podUID] = []kube.PodRef{appRef, completedInitRef}
+
+	result, err := (&Scanner{CgroupRoot: root, NodeName: "node-a"}).Scan(context.Background(), index)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if result.Mapped != 1 || result.Unmapped != 0 || result.InfrastructureCgroups != 1 {
+		t.Fatalf("completed init scan counts = %#v", result)
+	}
+}
+
+func TestScannerDoesNotHideUnknownCgroupWhenRunningSiblingIsMissing(t *testing.T) {
+	root := t.TempDir()
+	podUID := "12345678-1234-1234-1234-123456789abc"
+	appID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	missingID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	unknownID := "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	podDir := filepath.Join(root, "kubepods", "pod"+podUID)
+	writeScannerCgroup(t, filepath.Join(podDir, appID), 1024)
+	writeScannerCgroup(t, filepath.Join(podDir, unknownID), 128)
+	index := kube.EmptyPodIndex()
+	appRef := kube.PodRef{PodUID: podUID, ContainerID: appID, Running: true}
+	missingRef := kube.PodRef{PodUID: podUID, ContainerID: missingID, Running: true}
+	index.ByContainerID[appID] = appRef
+	index.ByContainerID[missingID] = missingRef
+	index.ByPodUID[podUID] = []kube.PodRef{appRef, missingRef}
+
+	result, err := (&Scanner{CgroupRoot: root, NodeName: "node-a"}).Scan(context.Background(), index)
+	if err != nil {
+		t.Fatalf("Scan returned error: %v", err)
+	}
+	if result.Mapped != 1 || result.Unmapped != 1 || result.InfrastructureCgroups != 0 {
+		t.Fatalf("missing running sibling scan counts = %#v", result)
+	}
+}
+
 func TestScannerClassifiesCompactUIDStaticPodSandbox(t *testing.T) {
 	root := t.TempDir()
 	cgroupPodUID := "c2df6c2eedc06b1195677a320a366f5e"
@@ -76,7 +133,7 @@ func TestScannerClassifiesCompactUIDStaticPodSandbox(t *testing.T) {
 	writeScannerCgroup(t, filepath.Join(podDir, sandboxID), 128)
 	index := kube.EmptyPodIndex()
 	ref := kube.PodRef{Namespace: "kube-system", PodName: "static", PodUID: mirrorPodUID,
-		ContainerName: "component", ContainerID: containerID, NodeName: "node-a"}
+		ContainerName: "component", ContainerID: containerID, NodeName: "node-a", Running: true}
 	index.ByContainerID[containerID] = ref
 	index.ByPodUID[mirrorPodUID] = []kube.PodRef{ref}
 
@@ -103,7 +160,7 @@ func TestScannerRetainsSandboxClassificationDuringPodTeardown(t *testing.T) {
 	index := kube.EmptyPodIndex()
 	appRef := kube.PodRef{
 		Namespace: "default", PodName: "api", PodUID: podUID,
-		ContainerName: "app", ContainerID: appID, NodeName: "node-a",
+		ContainerName: "app", ContainerID: appID, NodeName: "node-a", Running: true,
 	}
 	index.ByContainerID[appID] = appRef
 	index.ByPodUID[podUID] = []kube.PodRef{appRef}
@@ -159,7 +216,7 @@ func TestScannerRetainsSandboxClassificationDuringPodTeardown(t *testing.T) {
 	writeScannerCgroup(t, filepath.Join(unknownPodDir, sandboxID), 128)
 	writeScannerCgroup(t, filepath.Join(unknownPodDir, unknownID), 256)
 	unknownIndex := kube.EmptyPodIndex()
-	unknownRef := kube.PodRef{Namespace: "default", PodName: "unknown", PodUID: "new", ContainerName: "app", ContainerID: unknownAppID, NodeName: "node-a"}
+	unknownRef := kube.PodRef{Namespace: "default", PodName: "unknown", PodUID: "new", ContainerName: "app", ContainerID: unknownAppID, NodeName: "node-a", Running: true}
 	unknownIndex.ByContainerID[unknownAppID] = unknownRef
 	unknownIndex.ByPodUID["new"] = []kube.PodRef{unknownRef}
 	third, err := scanner.Scan(context.Background(), unknownIndex)

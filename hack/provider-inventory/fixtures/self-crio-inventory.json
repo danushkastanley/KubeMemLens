@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "version": {"serverVersion": {"gitVersion": "v1.36.1"}},
+  "nodes": {
+    "items": [{
+      "metadata": {"labels": {"kubernetes.io/os": "linux"}},
+      "status": {"nodeInfo": {
+        "architecture": "amd64",
+        "containerRuntimeVersion": "cri-o://1.36.1",
+        "osImage": "Fedora Linux 42 (Server Edition)"
+      }}
+    }]
+  },
+  "daemonsets": {
+    "items": [{
+      "metadata": {"name": "calico-node"},
+      "spec": {"template": {"spec": {"containers": [
+        {"image": "docker.io/calico/node:v3.30.3"}
+      ]}}}
+    }]
+  }
+}

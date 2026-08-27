@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "ticket": "PROD-008",
+  "provider": "aks-node-pools",
+  "observedAt": "2026-08-27T08:05:01Z",
+  "releaseCandidate": {
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d",
+    "imageDigest": "sha256:12b1b244ceed8c956cd2e3433d0c18f80c0f891b9bbc54b7c4079ec16c4e6b1b",
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "extensionServerSourceSha256": "d978c2bf7d5bd75e4ad65346f32ec551db4472c5604c015a6fca4fb38cd71962"
+  },
+  "environment": {
+    "kubernetesVersion": "v1.35.7",
+    "nodeImage": "AKSUbuntu-2404gen2containerd-202608.14.0",
+    "osImage": "Ubuntu 24.04.4 LTS",
+    "runtime": "containerd://2.3.3-2",
+    "architecture": "amd64",
+    "cniName": "Azure CNI Calico",
+    "linuxNodeCount": 3,
+    "windowsNodeCount": 1
+  },
+  "providerAuthenticationConfiguration": {
+    "requestHeaderClientCAValid": true,
+    "requestHeaderAllowedNames": [],
+    "providerOwnedConfigMap": true
+  },
+  "candidateObservation": {
+    "collectorLive": true,
+    "collectorReady": false,
+    "requestHeaderReadinessFailed": true,
+    "helmInstallReachedTimeout": true,
+    "cleanupVerified": true,
+    "failedPendingSha256": "7a19bfe4186bead2be7ca1f3efedd898731c73596f6b7cc4d5a1b43aad2f8dd4",
+    "failedSummarySha256": "b2a5079eb133e944506c48dea63c2148c3e011aeac26dde0c6354acd7199ecf0"
+  },
+  "classification": {
+    "reasonCode": "requestheader_proxy_identity_unavailable",
+    "result": "unsupported-for-current-candidate",
+    "securityDecision": "do-not-weaken-request-header-client-name-validation"
+  }
+}

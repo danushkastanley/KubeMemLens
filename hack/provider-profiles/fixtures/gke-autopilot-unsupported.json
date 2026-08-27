@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "outcome": "unsupported_confirmed",
+  "completedAt": "2026-08-26T12:00:00Z",
+  "reviewedAt": "2026-08-26",
+  "reviewDueAt": "2026-11-24",
+  "profile": {
+    "id": "gke-autopilot",
+    "digest": "sha256:dd6ddba02f001399052fbc9e170e21ca80c451f711fc68a6f753e979bbae795d"
+  },
+  "artefacts": {
+    "imageDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "chartDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "valuesDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "providerReceiptDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "evidenceManifestDigest": null,
+    "probeImageDigest": null,
+    "sourceCommit": "3333333333333333333333333333333333333333",
+    "chartVersion": "0.0.1-alpha.4"
+  },
+  "environment": {
+    "provider": "gke-autopilot",
+    "osImage": "Container-Optimized OS cos-121-18867-199-28",
+    "runtime": "containerd://2.0.5",
+    "architecture": "amd64",
+    "cgroupVersion": "unreported",
+    "cniEnforced": true,
+    "kubernetesVersion": "v1.36.1-gke.100",
+    "nodeImage": "AUTOPILOT",
+    "kernelVersion": "6.6.105+",
+    "kubeletVersion": "v1.36.1-gke.100",
+    "cniName": "GKE Dataplane V2",
+    "linuxNodeCount": 3,
+    "windowsNodeCount": 0
+  },
+  "checks": {
+    "prerequisites": "unsupported",
+    "helmInstall": "not_run",
+    "readiness": "not_run",
+    "collection": "not_run",
+    "tui": "not_run",
+    "api": "not_run",
+    "upgrade": "not_run",
+    "uninstall": "not_run",
+    "nodeReplacement": "not_run",
+    "agentRestart": "not_run",
+    "collectorRestart": "not_run",
+    "mounts": "not_run",
+    "securityContext": "not_run",
+    "networkPolicy": "not_run",
+    "mixedOSScheduling": "not_run"
+  },
+  "reasonCode": "hostpath_not_permitted",
+  "privacy": {
+    "clusterIdentifiersIncluded": false,
+    "workloadIdentifiersIncluded": false,
+    "providerResourceIdentifiersIncluded": false,
+    "rawErrorsIncluded": false,
+    "rawLogsIncluded": false
+  }
+}

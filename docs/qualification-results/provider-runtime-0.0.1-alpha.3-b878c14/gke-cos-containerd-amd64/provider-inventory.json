@@ -1,0 +1,23 @@
+{
+  "cniName": "GKE Dataplane V2",
+  "controlPlaneVersion": "1.35.6-gke.1250000",
+  "nodeImage": "COS_CONTAINERD",
+  "observedAt": "2026-08-27T01:22:31Z",
+  "profile": {
+    "digest": "sha256:0623092add08e0145dcb1a9c410c6bd9b8cfc65027fa968fae37c493ada2964c",
+    "id": "gke-cos-containerd-amd64"
+  },
+  "proofSource": "gcloud:control-plane+node-pool",
+  "provider": "gke-standard",
+  "providerChecks": {
+    "cni": true,
+    "contextBinding": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "nodePoolBinding": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "receiptDigest": "sha256:e72fd1a163d232197a1ded91ab4c40f7214419c9a8798095c4bd7f4e03e6e39f",
+  "schemaVersion": 1
+}

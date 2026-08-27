@@ -1,0 +1,7 @@
+{
+  "cluster": {
+    "status": "ACTIVE",
+    "endpoint": "https://eks.private.example.test",
+    "version": "1.36"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "autopilot": {"enabled": false},
+  "status": "RUNNING",
+  "endpoint": "203.0.113.10",
+  "currentMasterVersion": "1.36.1-gke.100",
+  "networkConfig": {"datapathProvider": "ADVANCED_DATAPATH"},
+  "networkPolicy": {"enabled": true, "provider": "PROVIDER_UNSPECIFIED"}
+}

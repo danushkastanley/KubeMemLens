@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "outcome": "passed",
+  "completedAt": "2026-08-27T02:43:47Z",
+  "profile": {
+    "id": "self-managed-containerd",
+    "digest": "sha256:5a6dd07d5bf10a9f85b43a691762222f91bdfa18d93fc3fd320a6cab2502060e"
+  },
+  "artefacts": {
+    "imageDigest": "sha256:12b1b244ceed8c956cd2e3433d0c18f80c0f891b9bbc54b7c4079ec16c4e6b1b",
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "valuesDigest": "sha256:8e9d008cf31e88a15fe1a93f55becf811c3811ee927f5dd73071d4b0a4a1f746",
+    "providerReceiptDigest": "sha256:7b32c435dbe9f6315cc464ddbbbbcab26848a33fe06869f136908241302d7268",
+    "evidenceManifestDigest": "sha256:03650b9882b12f539059c70e33b293353be8a25160bdb1554b55c5a8b08bcefa",
+    "probeImageDigest": "sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d",
+    "chartVersion": "0.0.1-alpha.3"
+  },
+  "environment": {
+    "provider": "self-managed",
+    "kubernetesVersion": "v1.36.4",
+    "nodeImage": "Ubuntu 24.04.4 LTS",
+    "osImage": "Ubuntu 24.04.4 LTS",
+    "kernelVersion": "6.17.0-1022-gcp",
+    "kubeletVersion": "v1.36.4",
+    "runtime": "containerd://2.3.3",
+    "architecture": "amd64",
+    "cgroupVersion": "v2",
+    "cniName": "Calico v3.32.1",
+    "cniEnforced": true,
+    "linuxNodeCount": 2,
+    "windowsNodeCount": 0
+  },
+  "checks": {
+    "prerequisites": "pass",
+    "helmInstall": "pass",
+    "readiness": "pass",
+    "collection": "pass",
+    "tui": "pass",
+    "api": "pass",
+    "upgrade": "pass",
+    "uninstall": "pass",
+    "nodeReplacement": "pass",
+    "agentRestart": "pass",
+    "collectorRestart": "pass",
+    "mounts": "pass",
+    "securityContext": "pass",
+    "networkPolicy": "pass",
+    "mixedOSScheduling": "not_run"
+  },
+  "reasonCode": null,
+  "privacy": {
+    "clusterIdentifiersIncluded": false,
+    "workloadIdentifiersIncluded": false,
+    "providerResourceIdentifiersIncluded": false,
+    "rawErrorsIncluded": false,
+    "rawLogsIncluded": false
+  },
+  "reviewedAt": "2026-08-27",
+  "reviewDueAt": "2026-11-25"
+}

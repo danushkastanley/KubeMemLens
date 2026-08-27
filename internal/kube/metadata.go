@@ -12,5 +12,6 @@ type PodRef struct {
 	NodeName      string
 	ContainerID   string
 	Runtime       string
+	Running       bool
 	Context       api.ContainerContext
 }

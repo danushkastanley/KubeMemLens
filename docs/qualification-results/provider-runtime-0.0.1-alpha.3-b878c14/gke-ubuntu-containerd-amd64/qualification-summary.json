@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "outcome": "passed",
+  "completedAt": "2026-08-27T01:51:15Z",
+  "image": {
+    "repository": "redacted",
+    "digest": "sha256:12b1b244ceed8c956cd2e3433d0c18f80c0f891b9bbc54b7c4079ec16c4e6b1b"
+  },
+  "checks": {
+    "networkPolicy": "enforced",
+    "plaintextServiceExposure": "closed"
+  },
+  "measurements": {
+    "installToFirstValidExplanationSeconds": 76
+  },
+  "caveats": [
+    "Identifiers are deliberately omitted",
+    "This is not a high-density soak"
+  ]
+}

@@ -100,11 +100,12 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 		ok  bool
 	}
 	type parentMapping struct {
-		cgroupPodUID string
-		mappedPodUID string
-		mapped       int
-		unmapped     []int
-		ambiguous    bool
+		cgroupPodUID  string
+		mappedPodUID  string
+		mapped        int
+		mappedRunning int
+		unmapped      []int
+		ambiguous     bool
 	}
 	mappings := make([]mapping, len(entries))
 	parents := map[string]*parentMapping{}
@@ -127,14 +128,23 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 				state.ambiguous = true
 			}
 			state.mapped++
+			if ref.Running {
+				state.mappedRunning++
+			}
 		} else {
 			state.unmapped = append(state.unmapped, i)
 		}
 	}
 	infrastructureCandidates := map[int]struct{}{}
 	for _, state := range parents {
-		expected := len(idx.ByPodUID[state.mappedPodUID])
-		if !state.ambiguous && expected > 0 && state.mapped == expected && len(state.unmapped) == 1 {
+		expectedRunning := 0
+		for _, ref := range idx.ByPodUID[state.mappedPodUID] {
+			if ref.Running {
+				expectedRunning++
+			}
+		}
+		if !state.ambiguous && expectedRunning > 0 && state.mappedRunning == expectedRunning &&
+			len(state.unmapped) == 1 {
 			infrastructureCandidates[state.unmapped[0]] = struct{}{}
 		}
 	}
@@ -177,7 +187,7 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 		} else if _, sandboxCandidate := infrastructureCandidates[i]; sandboxCandidate {
 			// CRI Pod sandboxes are charged in a sibling cgroup but are not
 			// exposed as Kubernetes containers. Classify only the single
-			// unmatched sibling after every expected Pod container mapped.
+			// unmatched sibling after every currently running Pod container mapped.
 			infrastructure++
 			currentInfrastructure[entry.RelativePath] = struct{}{}
 			continue

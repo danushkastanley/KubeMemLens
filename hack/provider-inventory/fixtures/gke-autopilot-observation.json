@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "profileID": "gke-autopilot",
+  "provider": {
+    "name": "private-autopilot-cluster",
+    "status": "RUNNING",
+    "autopilot": {"enabled": true},
+    "currentMasterVersion": "1.36.1-gke.100",
+    "networkConfig": {"datapathProvider": "ADVANCED_DATAPATH"}
+  },
+  "version": {"serverVersion": {"gitVersion": "v1.36.1-gke.100"}},
+  "nodes": {"items": [{
+    "metadata": {"uid": "private-gke-node-uid", "labels": {"kubernetes.io/os": "linux"}},
+    "status": {
+      "conditions": [{"type": "Ready", "status": "True"}],
+      "nodeInfo": {
+        "osImage": "Container-Optimized OS cos-121-18867-199-28",
+        "containerRuntimeVersion": "containerd://2.0.5",
+        "architecture": "amd64",
+        "kernelVersion": "6.6.105+",
+        "kubeletVersion": "v1.36.1-gke.100"
+      }
+    }
+  }]},
+  "admission": {
+    "canCreatePods": true,
+    "baselineAccepted": true,
+    "targetStatus": {
+      "status": "Failure",
+      "reason": "GKE Warden constraints violations",
+      "code": 400,
+      "message": "autogke-no-write-mode-hostpath denied /sys/fs/cgroup"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "probeImageDigest": "sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0",
+  "files": [
+    {
+      "name": "doctor.json",
+      "digest": "sha256:da28f1f84c7d12ffc51ecd2ced6d95217175a80a3f90e5464e34d8b132de151f"
+    },
+    {
+      "name": "environment.json",
+      "digest": "sha256:b290e1a572bc9c93343eae9f491b22733e5b46ce8a7807ad2c1a88673cb8509c"
+    },
+    {
+      "name": "lifecycle.json",
+      "digest": "sha256:332e598678a653a41206ffe839da647221dbb816088516d13c224ecda45296b1"
+    },
+    {
+      "name": "provider-inventory.json",
+      "digest": "sha256:7fe03b29abeeeb5f9e037767be1d3e5332001a6c8f5535634b9dc1b4bcb7c7f7"
+    },
+    {
+      "name": "qualification-summary.json",
+      "digest": "sha256:e75bd9c5fa79ac75d4c3cbe90344d99500716fb18f3b2ce15695bdbf10b3c257"
+    },
+    {
+      "name": "recovery.json",
+      "digest": "sha256:b87a3ad83d7912053e3afbb7f225e962fc2e5690b24dfb490da7908af30e5b43"
+    },
+    {
+      "name": "status.json",
+      "digest": "sha256:cabfc579de6d920643445ea1d91a9d5110d2f0d26f356796b14e93494143bb5c"
+    }
+  ],
+  "manifestDigest": "sha256:71c613fc346f1689ee75d425fb7ec0e985d4ab509537ae40c8e9bb5fa75e593a"
+}

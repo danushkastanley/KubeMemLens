@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "provider": "gke-standard",
+  "kubernetesVersion": "v1.35.6-gke.1250000",
+  "nodeImage": "COS_CONTAINERD",
+  "osImage": "Container-Optimized OS from Google",
+  "kernelVersion": "6.12.85+",
+  "kubeletVersion": "v1.35.6-gke.1250000",
+  "runtime": "containerd://2.1.7",
+  "architecture": "amd64",
+  "cgroupVersion": "v2",
+  "cniName": "GKE Dataplane V2",
+  "cniEnforced": true,
+  "linuxNodeCount": 2,
+  "windowsNodeCount": 0
+}

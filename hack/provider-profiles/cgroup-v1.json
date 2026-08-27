@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "cgroup-v1",
+  "expectedOutcome": "unsupported",
+  "expectations": {
+    "providerPattern": "^self-managed$",
+    "osImagePattern": "^[A-Za-z0-9][-A-Za-z0-9 ._()+/]{1,159}$",
+    "runtimePattern": "^(containerd|cri-o)://[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?$",
+    "architecturePattern": "^(amd64|arm64)$",
+    "cgroupPattern": "^v1$",
+    "nodeImagePattern": "^[A-Za-z0-9][-A-Za-z0-9 ._()+/]{1,159}$",
+    "cniPattern": "^(Cilium|Calico|Antrea) v[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?$",
+    "cniEnforcementRequired": true
+  },
+  "expectedUnsupportedReason": "cgroup_v1_not_supported",
+  "requalificationDays": 90,
+  "profileDigest": "sha256:ebd68d06373b71b6ca3f8e90aa2bb1570fb09140aa00cab3ea028e85e0e894a9"
+}

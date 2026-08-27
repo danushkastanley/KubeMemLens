@@ -1,0 +1,53 @@
+{
+  "artefacts": {
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d"
+  },
+  "controlPlaneVersion": "1.35.6-gke.1250000",
+  "environment": {
+    "architecture": "amd64",
+    "cgroupVersion": "unreported",
+    "cniEnforced": true,
+    "cniName": "GKE Dataplane V2",
+    "kernelVersion": "6.12.85+",
+    "kubeletVersion": "v1.35.6-gke.1250000",
+    "kubernetesVersion": "v1.35.6-gke.1250000",
+    "linuxNodeCount": 1,
+    "nodeImage": "AUTOPILOT",
+    "osImage": "Container-Optimized OS from Google",
+    "provider": "gke-autopilot",
+    "runtime": "containerd://2.1.7",
+    "windowsNodeCount": 0
+  },
+  "observedAt": "2026-08-27T02:07:08Z",
+  "profile": {
+    "digest": "sha256:dd6ddba02f001399052fbc9e170e21ca80c451f711fc68a6f753e979bbae795d",
+    "id": "gke-autopilot"
+  },
+  "proof": {
+    "observationSpecDigest": "sha256:fc0356034bac1f55866af2d316e4ae83dcd27e4762e50bfe54358b7f8e1897c1",
+    "source": "gcloud:autopilot+dry-run",
+    "sourceDigest": "sha256:2dc3819ccb01b06ffe06996b5eedf3ca114b28a20ed65db4b524bfdb63dc5d85"
+  },
+  "providerChecks": {
+    "cni": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "receiptDigest": "sha256:f07f9f3de136a47d9c2890c8e61197c68af6a7280fd8d563438b9312a8e7b9b6",
+  "schemaVersion": 2,
+  "unsupportedObservation": {
+    "checks": {
+      "liveSubjectObserved": true,
+      "reasonMatched": true,
+      "sourceBound": true,
+      "unsupportedConditionObserved": true
+    },
+    "method": "provider_and_server_dry_run",
+    "reasonCode": "hostpath_not_permitted",
+    "state": "cgroup_hostpath_denied",
+    "subjectCount": 1
+  }
+}

@@ -2,7 +2,11 @@
 
 KubeMemLens is in alpha and has no supported production release. Alpha artefacts are for evaluation on disposable or explicitly authorised clusters. Use exact versions and review the [support and compatibility contract](compatibility.md) and release assets before installation.
 
-Do not claim shared multi-tenant support for the current alpha until the separate adversarial isolation gate passes. The chart routes agent writes and operator reads through the authenticated Kubernetes aggregated API and denies direct workload reads in its secure profile.
+Do not claim shared multi-tenant support for the current alpha. Current `main`
+has passed the local adversarial isolation gate, but exact provider and
+enforcing-CNI qualification remains required. The chart routes agent writes
+and operator reads through the authenticated Kubernetes aggregated API and
+denies direct workload reads in its secure profile.
 
 ## Requirements
 
@@ -148,4 +152,4 @@ kubectl get all -n kube-memlens
 kubectl delete namespace kube-memlens
 ```
 
-The chart installs no CRDs or persistent volumes. Uninstall removes the workloads, Services, ServiceAccounts, RBAC objects and NetworkPolicy managed by the release. RoleBindings or ClusterRoleBindings created separately by an administrator are not Helm-owned; remove them before uninstall. Verify that the agent, namespace-viewer, cluster-viewer and metrics-reader ClusterRoles are absent if an uninstall was interrupted.
+The chart installs no CRDs or persistent volumes. Uninstall removes the workloads, Services, ServiceAccounts, RBAC objects and NetworkPolicy managed by the release. RoleBindings or ClusterRoleBindings created separately by an administrator are not Helm-owned; remove them before uninstall. If an uninstall was interrupted, verify that the agent, namespace-viewer, cluster-viewer and metrics-reader ClusterRoles are absent and that `kube-system/kube-memlens-extension-authentication-reader` no longer exists.

@@ -1,4 +1,10 @@
 {{- if .Values.agent.enabled }}
+{{- if .Values.security.privileged }}
+{{- fail "security.privileged must remain false for the standard cgroup-read profile" }}
+{{- end }}
+{{- if not .Values.security.readOnlyRootFilesystem }}
+{{- fail "security.readOnlyRootFilesystem must remain true for the standard cgroup-read profile" }}
+{{- end }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:

@@ -1,0 +1,119 @@
+{
+  "build": {
+    "version": "dev",
+    "commit": "b878c14ecb4206f82259545017c554a3fb0d704d",
+    "buildDate": "unknown",
+    "goVersion": "go1.27.0",
+    "platform": "darwin/arm64"
+  },
+  "connection": "redacted",
+  "checks": [
+    {
+      "name": "build",
+      "status": "pass",
+      "summary": "version=dev commit=b878c14ecb4206f82259545017c554a3fb0d704d buildDate=unknown go=go1.27.0 platform=darwin/arm64"
+    },
+    {
+      "name": "connection",
+      "status": "pass",
+      "summary": "collector read endpoint is healthy through Kubernetes API memory.kubememlens.io/v1alpha1"
+    },
+    {
+      "name": "agent coverage",
+      "status": "pass",
+      "summary": "2 node snapshots are fresh"
+    },
+    {
+      "name": "cgroup mode",
+      "status": "pass",
+      "summary": "all reporting nodes use cgroup v2"
+    },
+    {
+      "name": "cgroup access",
+      "status": "pass",
+      "summary": "agents reported no cgroup read or walk errors"
+    },
+    {
+      "name": "runtime layout",
+      "status": "pass",
+      "summary": "identified containerd"
+    },
+    {
+      "name": "node pressure",
+      "status": "pass",
+      "summary": "all reporting nodes have MemoryPressure=False"
+    },
+    {
+      "name": "workload metadata",
+      "status": "pass",
+      "summary": "top-level workload owner resolution is available"
+    },
+    {
+      "name": "mapping coverage",
+      "status": "pass",
+      "summary": "mapped all 49 container cgroups"
+    },
+    {
+      "name": "store consistency",
+      "status": "pass",
+      "summary": "collector reports 49 containers, 25 Pods, and 3 namespaces"
+    },
+    {
+      "name": "collector bounds",
+      "status": "pass",
+      "summary": "2/5000 node records, 49/100000 containers, and 16777216-byte response ceiling"
+    }
+  ],
+  "nodes": [
+    {
+      "capturedAt": "2026-08-27T01:40:47.442567203Z",
+      "containerCount": 22,
+      "stale": false,
+      "freshness": "fresh",
+      "completeness": "complete",
+      "environment": {
+        "cgroupVersion": "v2",
+        "cgroupDriver": "systemd",
+        "containerRuntimes": [
+          "containerd"
+        ],
+        "cgroupReadErrors": 0,
+        "nodeContextAvailable": true,
+        "memoryPressureStatus": "False",
+        "memoryPressureSince": "2026-08-27T01:37:39Z",
+        "memoryAllocatableBytes": 6312574976,
+        "memoryAllocatableKnown": true,
+        "workloadContextAvailable": true,
+        "workloadContextErrors": 0
+      }
+    },
+    {
+      "capturedAt": "2026-08-27T01:40:47.637361353Z",
+      "containerCount": 27,
+      "stale": false,
+      "freshness": "fresh",
+      "completeness": "complete",
+      "environment": {
+        "cgroupVersion": "v2",
+        "cgroupDriver": "systemd",
+        "containerRuntimes": [
+          "containerd"
+        ],
+        "cgroupReadErrors": 0,
+        "nodeContextAvailable": true,
+        "memoryPressureStatus": "False",
+        "memoryPressureSince": "2026-08-27T01:37:39Z",
+        "memoryAllocatableBytes": 6312570880,
+        "memoryAllocatableKnown": true,
+        "workloadContextAvailable": true,
+        "workloadContextErrors": 0
+      }
+    }
+  ],
+  "mapping": {
+    "containers": 49,
+    "mapped": 49,
+    "unmapped": 0,
+    "coverage": 1
+  }
+}

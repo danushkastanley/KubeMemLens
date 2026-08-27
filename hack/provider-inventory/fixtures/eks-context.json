@@ -1,0 +1,5 @@
+{
+  "clusters": [
+    {"cluster": {"server": "https://eks.private.example.test"}}
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "outcome": "unsupported_confirmed",
+  "completedAt": "2026-08-27T03:25:50Z",
+  "profile": {
+    "id": "cgroup-v1",
+    "digest": "sha256:ebd68d06373b71b6ca3f8e90aa2bb1570fb09140aa00cab3ea028e85e0e894a9"
+  },
+  "artefacts": {
+    "imageDigest": "sha256:12b1b244ceed8c956cd2e3433d0c18f80c0f891b9bbc54b7c4079ec16c4e6b1b",
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "valuesDigest": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "providerReceiptDigest": "sha256:eeb70ffd0b35a35355970e291e2475563add97cf9e48b4d5dc2bc84217a4ddb8",
+    "evidenceManifestDigest": null,
+    "probeImageDigest": null,
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d",
+    "chartVersion": "0.0.1-alpha.3"
+  },
+  "environment": {
+    "architecture": "amd64",
+    "cgroupVersion": "v1",
+    "cniEnforced": false,
+    "cniName": "Calico v3.32.1",
+    "kernelVersion": "6.8.0-1066-gcp",
+    "kubeletVersion": "v1.36.4",
+    "kubernetesVersion": "v1.36.4",
+    "linuxNodeCount": 1,
+    "nodeImage": "Ubuntu 22.04.5 LTS",
+    "osImage": "Ubuntu 22.04.5 LTS",
+    "provider": "self-managed",
+    "runtime": "containerd://2.3.3",
+    "windowsNodeCount": 0
+  },
+  "checks": {
+    "prerequisites": "unsupported",
+    "helmInstall": "not_run",
+    "readiness": "not_run",
+    "collection": "not_run",
+    "tui": "not_run",
+    "api": "not_run",
+    "upgrade": "not_run",
+    "uninstall": "not_run",
+    "nodeReplacement": "not_run",
+    "agentRestart": "not_run",
+    "collectorRestart": "not_run",
+    "mounts": "not_run",
+    "securityContext": "not_run",
+    "networkPolicy": "not_run",
+    "mixedOSScheduling": "not_run"
+  },
+  "reasonCode": "cgroup_v1_not_supported",
+  "privacy": {
+    "clusterIdentifiersIncluded": false,
+    "workloadIdentifiersIncluded": false,
+    "providerResourceIdentifiersIncluded": false,
+    "rawErrorsIncluded": false,
+    "rawLogsIncluded": false
+  },
+  "reviewedAt": "2026-08-27",
+  "reviewDueAt": "2026-11-25"
+}

@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "outcome": "passed",
+  "completedAt": "2026-08-27T04:03:46Z",
+  "profile": {
+    "id": "eks-al2023-containerd-amd64",
+    "digest": "sha256:6ac2f859300a80525a9b7678ca96e9258c5e9814a7ed9864d5a0fd61a74eac8e"
+  },
+  "artefacts": {
+    "imageDigest": "sha256:12b1b244ceed8c956cd2e3433d0c18f80c0f891b9bbc54b7c4079ec16c4e6b1b",
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "valuesDigest": "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+    "providerReceiptDigest": "sha256:6e47700e37520ff97833c0b210a53e852bbced51717b972d3f937805ca6faa7f",
+    "evidenceManifestDigest": "sha256:a373bc86844bb599ccf69492bf9e148b25baf8d0273402593f4a54f9dc7308b4",
+    "probeImageDigest": "sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d",
+    "chartVersion": "0.0.1-alpha.3"
+  },
+  "environment": {
+    "provider": "eks-managed-nodes",
+    "kubernetesVersion": "v1.36.2-eks-bca9cf6",
+    "nodeImage": "AL2023_x86_64_STANDARD@1.36.2-20260818",
+    "osImage": "Amazon Linux 2023.12.20260817",
+    "kernelVersion": "6.18.41-94.142.amzn2023.x86_64",
+    "kubeletVersion": "v1.36.2-eks-b3f9404",
+    "runtime": "containerd://2.2.5+unknown",
+    "architecture": "amd64",
+    "cgroupVersion": "v2",
+    "cniName": "Amazon VPC CNI v1.22.4-eksbuild.3 network-policy=enabled",
+    "cniEnforced": true,
+    "linuxNodeCount": 2,
+    "windowsNodeCount": 0
+  },
+  "checks": {
+    "prerequisites": "pass",
+    "helmInstall": "pass",
+    "readiness": "pass",
+    "collection": "pass",
+    "tui": "pass",
+    "api": "pass",
+    "upgrade": "pass",
+    "uninstall": "pass",
+    "nodeReplacement": "pass",
+    "agentRestart": "pass",
+    "collectorRestart": "pass",
+    "mounts": "pass",
+    "securityContext": "pass",
+    "networkPolicy": "pass",
+    "mixedOSScheduling": "not_run"
+  },
+  "reasonCode": null,
+  "privacy": {
+    "clusterIdentifiersIncluded": false,
+    "workloadIdentifiersIncluded": false,
+    "providerResourceIdentifiersIncluded": false,
+    "rawErrorsIncluded": false,
+    "rawLogsIncluded": false
+  }
+}

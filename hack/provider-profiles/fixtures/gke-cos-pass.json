@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "outcome": "passed",
+  "completedAt": "2026-08-26T12:00:00Z",
+  "reviewedAt": "2026-08-26",
+  "reviewDueAt": "2026-11-24",
+  "profile": {
+    "id": "gke-cos-containerd-amd64",
+    "digest": "sha256:0623092add08e0145dcb1a9c410c6bd9b8cfc65027fa968fae37c493ada2964c"
+  },
+  "artefacts": {
+    "imageDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+    "chartDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+    "valuesDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+    "providerReceiptDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+    "evidenceManifestDigest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+    "probeImageDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+    "sourceCommit": "3333333333333333333333333333333333333333",
+    "chartVersion": "0.0.1-alpha.4"
+  },
+  "environment": {
+    "provider": "gke-standard",
+    "osImage": "Container-Optimized OS cos-121-18867-199-28",
+    "runtime": "containerd://2.0.5",
+    "architecture": "amd64",
+    "cgroupVersion": "v2",
+    "cniEnforced": true,
+    "kubernetesVersion": "v1.36.1-gke.100",
+    "nodeImage": "COS_CONTAINERD",
+    "kernelVersion": "6.6.105+",
+    "kubeletVersion": "v1.36.1-gke.100",
+    "cniName": "GKE Dataplane V2",
+    "linuxNodeCount": 3,
+    "windowsNodeCount": 0
+  },
+  "checks": {
+    "prerequisites": "pass",
+    "helmInstall": "pass",
+    "readiness": "pass",
+    "collection": "pass",
+    "tui": "pass",
+    "api": "pass",
+    "upgrade": "pass",
+    "uninstall": "pass",
+    "nodeReplacement": "pass",
+    "agentRestart": "pass",
+    "collectorRestart": "pass",
+    "mounts": "pass",
+    "securityContext": "pass",
+    "networkPolicy": "pass",
+    "mixedOSScheduling": "not_run"
+  },
+  "reasonCode": null,
+  "privacy": {
+    "clusterIdentifiersIncluded": false,
+    "workloadIdentifiersIncluded": false,
+    "providerResourceIdentifiersIncluded": false,
+    "rawErrorsIncluded": false,
+    "rawLogsIncluded": false
+  }
+}

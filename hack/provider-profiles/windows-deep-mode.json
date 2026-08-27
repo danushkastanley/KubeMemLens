@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "windows-deep-mode",
+  "expectedOutcome": "unsupported",
+  "expectations": {
+    "providerPattern": "^aks-node-pools$",
+    "osImagePattern": "^Windows Server [A-Za-z0-9][-A-Za-z0-9 ._()+/]{1,143}$",
+    "runtimePattern": "^containerd://[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?$",
+    "architecturePattern": "^amd64$",
+    "cgroupPattern": "^(none|unreported)$",
+    "nodeImagePattern": "^[A-Za-z0-9][-A-Za-z0-9 ._()+]{1,159}$",
+    "cniPattern": "^Azure CNI Calico$",
+    "cniEnforcementRequired": true
+  },
+  "expectedUnsupportedReason": "windows_nodes_not_supported",
+  "requalificationDays": 90,
+  "profileDigest": "sha256:ed48685ee50537826d12fccc5a261f6e474d396fa538e85b0ca364a52b76cb9c"
+}

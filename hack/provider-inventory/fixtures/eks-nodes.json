@@ -1,0 +1,20 @@
+{
+  "items": [
+    {
+      "metadata": {
+        "name": "eks-node-1",
+        "labels": {
+          "kubernetes.io/os": "linux",
+          "eks.amazonaws.com/nodegroup": "private-group-name"
+        }
+      },
+      "status": {
+        "nodeInfo": {
+          "architecture": "amd64",
+          "containerRuntimeVersion": "containerd://2.0.5",
+          "osImage": "Amazon Linux 2023.8.20260818"
+        }
+      }
+    }
+  ]
+}
