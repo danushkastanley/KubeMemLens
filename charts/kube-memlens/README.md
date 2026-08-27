@@ -38,7 +38,13 @@ cgroup v1 nodes are not silently treated as supported.
 
 The collector must remain at one replica because replicas do not share state. The chart rejects other replica counts.
 
-Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collectorURL`, `collector.ingestion.port`, `metrics.serviceAnnotations` and `metrics.serviceMonitor` are no longer part of the chart contract. Persisted copies are inert and cannot reopen a direct listener; remove them from saved values files.
+The chart ships a strict values schema and a `helm test` hook that checks the collector's TLS Service from a non-root, capability-free Pod. Run it after install, upgrade and rollback:
+
+```sh
+helm test kube-memlens --namespace kube-memlens
+```
+
+Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collectorURL`, `collector.ingestion.port`, `metrics.serviceAnnotations` and `metrics.serviceMonitor` are no longer part of the chart contract. The strict schema rejects persisted copies. Remove them from saved values files, or use reviewed current values instead of carrying an old release's values into an upgrade.
 
 ## Important values
 

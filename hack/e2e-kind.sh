@@ -5,6 +5,7 @@ cluster_name=${E2E_CLUSTER_NAME:-kube-memlens-e2e}
 namespace=${E2E_NAMESPACE:-kube-memlens}
 node_image=${E2E_NODE_IMAGE:-kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5}
 image=${E2E_IMAGE:-kube-memlens:local-e2e}
+chart=${E2E_CHART:-./charts/kube-memlens}
 artifact_dir=${E2E_ARTIFACT_DIR:-}
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/kube-memlens-e2e.XXXXXX")
 kubeconfig=${work_dir}/kubeconfig
@@ -194,7 +195,7 @@ cluster_created=true
 kind load docker-image "${image}" --name "${cluster_name}"
 run_linux_fixture_benchmarks
 
-helm upgrade --install kube-memlens ./charts/kube-memlens \
+helm upgrade --install kube-memlens "${chart}" \
   --kubeconfig "${kubeconfig}" \
   --namespace "${namespace}" \
   --create-namespace \
@@ -207,6 +208,10 @@ helm upgrade --install kube-memlens ./charts/kube-memlens \
 KUBECONFIG="${kubeconfig}" kubectl rollout status daemonset/kube-memlens-agent -n "${namespace}" --timeout=2m
 KUBECONFIG="${kubeconfig}" kubectl rollout status deployment/kube-memlens-collector -n "${namespace}" --timeout=2m
 assert_authenticated_ingestion_healthy
+helm test kube-memlens \
+  --kubeconfig "${kubeconfig}" \
+  --namespace "${namespace}" \
+  --timeout 1m
 
 if [ "${E2E_RUN_AUTHENTICATED_INGESTION_SMOKE:-false}" = true ]; then
   AUTH_INGEST_KUBECONFIG="${kubeconfig}" \
@@ -331,7 +336,7 @@ run_tui_smoke
 run_live_density_smoke
 [ "${E2E_RUN_RELIABILITY_SMOKE:-false}" != true ] || RELIABILITY_KUBECONFIG="${kubeconfig}" RELIABILITY_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/reliability" RELIABILITY_ACKNOWLEDGE=disrupt-and-restore-kube-memlens-components hack/verify-reliability-kind.sh
 
-helm upgrade kube-memlens ./charts/kube-memlens \
+helm upgrade kube-memlens "${chart}" \
   --kubeconfig "${kubeconfig}" \
   --namespace "${namespace}" \
   --reuse-values \
@@ -341,6 +346,10 @@ helm upgrade kube-memlens ./charts/kube-memlens \
 KUBECONFIG="${kubeconfig}" kubectl rollout status daemonset/kube-memlens-agent -n "${namespace}" --timeout=2m
 KUBECONFIG="${kubeconfig}" kubectl rollout status deployment/kube-memlens-collector -n "${namespace}" --timeout=2m
 assert_authenticated_ingestion_healthy
+helm test kube-memlens \
+  --kubeconfig "${kubeconfig}" \
+  --namespace "${namespace}" \
+  --timeout 1m
 run_tenant_scoped_read_smoke upgrade
 
 helm rollback kube-memlens 1 \
@@ -351,6 +360,10 @@ helm rollback kube-memlens 1 \
 KUBECONFIG="${kubeconfig}" kubectl rollout status daemonset/kube-memlens-agent -n "${namespace}" --timeout=2m
 KUBECONFIG="${kubeconfig}" kubectl rollout status deployment/kube-memlens-collector -n "${namespace}" --timeout=2m
 assert_authenticated_ingestion_healthy
+helm test kube-memlens \
+  --kubeconfig "${kubeconfig}" \
+  --namespace "${namespace}" \
+  --timeout 1m
 wait_for_doctor
 run_tenant_scoped_read_smoke rollback
 

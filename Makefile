@@ -1,4 +1,4 @@
-.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
+.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -67,10 +67,16 @@ check-terminal-contract:
 		grep -q 'TERMINAL_LINUX_ACKNOWLEDGE' "$$output"; \
 		rm -f "$$output"
 
+check-release-contract:
+	python3 -m unittest discover -s hack/release -p 'test_*.py'
+	hack/release/test_create_draft.sh
+	hack/release/test_validate_tag.sh
+	hack/check-release-contract.sh
+
 vuln:
 	go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
-check: fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract test coverage test-race vet vuln build
+check: fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract test coverage test-race vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh

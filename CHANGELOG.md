@@ -15,6 +15,8 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Published one-time, digest-bound provider/runtime evidence for the exact GKE Standard, EKS managed-node, self-managed containerd and CRI-O combinations, with freshness reported as advisory rather than a scheduled or per-release cloud gate.
 - Classified standard AKS as unsupported for the recorded candidate because AKS supplied no request-header proxy client-name constraint and the candidate correctly failed closed; GKE Autopilot, EKS Fargate, AKS virtual nodes, Windows nodes and cgroup v1 remain explicit unsupported rows.
 - Qualified xterm, Kitty, Alacritty, tmux and delayed SSH for the exact terminal candidate, with 30-minute PTY and real-emulator runs; named macOS emulators remain unqualified until a real permitted run exists.
+- Changed release publication to build the multi-architecture image once, promote its OCI archive without digest change, sign the final subject inventory and create a draft only after clean-consumer verification.
+- Added strict Helm values schema validation and a non-privileged chart test hook exercised across install, upgrade and rollback.
 
 ### Security
 
@@ -24,6 +26,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Added unbound namespace-viewer, cluster-viewer and metrics-reader roles, server-side scope filtering, direct-identifier denial, scope-bound pagination and multi-user revocation tests.
 - Added a disposable-cluster adversarial isolation gate covering direct reachability, NetworkPolicy removal, delegated-authorisation failure, denial timing, bounded read abuse, least privilege and retained-evidence privacy.
 - Bound agent operational metrics to loopback and sanitised cgroup scan failures so node-local density and runtime identifiers do not escape through the Pod network or logs.
+- Protected `v*` release tags and the reviewed release environment, enabled immutable GitHub releases, and removed persisted write credentials from the publication checkout.
 
 ## 0.0.1-alpha.3 - 2026-08-22
 
