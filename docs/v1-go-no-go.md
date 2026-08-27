@@ -41,10 +41,10 @@ They record responsibility only.
 
 The backup reviewer must review the exact head and artefact inventory. Approval
 of an earlier pull request or policy change does not approve a release tag.
-The owner-only pull-request bypass currently configured for this implementation
-queue does not satisfy or remove this independent release review. It does not
-expire automatically and must be removed or explicitly re-authorised before RC
-review.
+The temporary owner-only pull-request bypass used for the implementation queue
+was removed after PR #42 merged. It did not satisfy or remove this independent
+release review, and any future bypass would require an explicit, separately
+recorded decision.
 
 ## Adopter evidence
 
