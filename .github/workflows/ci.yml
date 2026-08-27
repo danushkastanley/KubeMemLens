@@ -27,6 +27,11 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Download modules with bounded retry
+        run: |
+          source hack/lib/retry.sh
+          retry_capture 3 5 go mod download >/dev/null
+
       - name: Verify modules
         run: go mod verify
 
@@ -88,7 +93,9 @@ jobs:
         run: go vet ./...
 
       - name: Scan reachable vulnerabilities
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+        run: |
+          source hack/lib/retry.sh
+          retry_capture 3 5 go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
       - name: Build commands
         run: go build ./cmd/...
