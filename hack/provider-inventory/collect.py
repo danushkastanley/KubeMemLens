@@ -26,7 +26,8 @@ GKE_PROFILES = {
 EKS_PROFILES = {"eks-al2023-containerd-amd64"}
 AKS_PROFILES = {"aks-ubuntu-containerd-amd64"}
 SELF_MANAGED_PROFILES = {"self-managed-containerd", "self-managed-crio-amd64"}
-SUPPORTED_PROFILES = set(GKE_PROFILES) | EKS_PROFILES | AKS_PROFILES | SELF_MANAGED_PROFILES
+SUPPORTED_PROFILES = set(GKE_PROFILES) | EKS_PROFILES | SELF_MANAGED_PROFILES
+KNOWN_RECEIPT_PROFILES = SUPPORTED_PROFILES | AKS_PROFILES
 RECEIPT_KEYS_V1 = {"schemaVersion", "profile", "observedAt", "provider", "nodeImage", "cniName",
                    "controlPlaneVersion", "proofSource", "providerChecks", "receiptDigest"}
 RECEIPT_KEYS_V2 = RECEIPT_KEYS_V1 | {"qualificationToolCommit"}
@@ -341,7 +342,7 @@ def validate_receipt(receipt):
         raise ReceiptError("receipt qualificationToolCommit is invalid")
     profile = receipt["profile"]
     valid_profile = isinstance(profile, dict) and set(profile) == {"id", "digest"}
-    valid_profile = valid_profile and profile["id"] in SUPPORTED_PROFILES
+    valid_profile = valid_profile and profile["id"] in KNOWN_RECEIPT_PROFILES
     valid_profile = valid_profile and isinstance(profile["digest"], str) \
         and DIGEST_PATTERN.fullmatch(profile["digest"]) is not None
     if not valid_profile:
@@ -364,12 +365,12 @@ def validate_receipt(receipt):
 def collect_receipt(profile, environment, runner=subprocess.run, observed_at=None,
                     qualification_tool_commit=None):
     profile_id = profile["id"]
+    if profile.get("expectedOutcome") != "pass" or profile_id not in SUPPORTED_PROFILES:
+        raise ReceiptError("the selected profile is not an active supported inventory row")
     if profile_id in GKE_PROFILES:
         values = collect_gke(profile, environment, runner)
     elif profile_id in EKS_PROFILES:
         values = collect_eks(profile, environment, runner)
-    elif profile_id in AKS_PROFILES:
-        values = collect_aks(profile, environment, runner)
     else:
         values = collect_self_managed(profile_id, environment, runner)
     provider, node_image, cni, control_plane, proof = values

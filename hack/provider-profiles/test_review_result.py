@@ -22,9 +22,11 @@ from bundle_test_support import write_supported_evidence_files  # noqa: E402
 from evidence_manifest import create_manifest  # noqa: E402
 from review_result import ACKNOWLEDGEMENT, finalise_result, kubernetes_versions_match  # noqa: E402
 import observe_unsupported as observer  # noqa: E402
+import convert_recorded_unsupported as converter  # noqa: E402
 
 
 UNSUPPORTED_CASES = {
+    "aks-ubuntu-containerd-amd64": None,
     "gke-autopilot": "gke-autopilot-observation.json",
     "eks-fargate": "eks-fargate-observation.json",
     "aks-virtual-nodes": "aks-virtual-nodes-observation.json",
@@ -79,6 +81,37 @@ class ProviderReviewResultTests(unittest.TestCase):
 
     def unsupported_case(self, profile_id):
         profile = load_json(ROOT / f"{profile_id}.json")
+        if profile_id == "aks-ubuntu-containerd-amd64":
+            fixture_root = INVENTORY_ROOT / "fixtures"
+            record_path = fixture_root / "aks-requestheader-incompatibility.json"
+            failed_path = fixture_root / "aks-requestheader-failed-pending.json"
+            receipt_path = fixture_root / "aks-requestheader-provider-inventory.json"
+            summary_path = fixture_root / "aks-requestheader-failed-summary.json"
+            record = load_json(record_path)
+            failed = load_json(failed_path)
+            receipt = converter.convert_record(
+                profile, record, failed, load_json(receipt_path), load_json(summary_path),
+                failed_digest=converter.digest_file(failed_path),
+                summary_digest=converter.digest_file(summary_path),
+                qualification_tool_commit="5" * 40,
+                source_content=converter.source_at_commit(record["releaseCandidate"]["sourceCommit"]),
+            )
+            unsupported = load_json(ROOT / "fixtures" / "gke-autopilot-unsupported.json")
+            pending = {key: copy.deepcopy(value) for key, value in unsupported.items()
+                       if key not in {"reviewedAt", "reviewDueAt"}}
+            pending["completedAt"] = receipt["observedAt"]
+            pending["profile"] = copy.deepcopy(receipt["profile"])
+            pending["environment"] = copy.deepcopy(receipt["environment"])
+            pending["reasonCode"] = profile["expectedUnsupportedReason"]
+            pending["artefacts"].update({
+                "imageDigest": record["releaseCandidate"]["imageDigest"],
+                "chartDigest": record["releaseCandidate"]["chartDigest"],
+                "valuesDigest": failed["artefacts"]["valuesDigest"],
+                "providerReceiptDigest": receipt["receiptDigest"],
+                "sourceCommit": record["releaseCandidate"]["sourceCommit"],
+                "chartVersion": failed["artefacts"]["chartVersion"],
+            })
+            return profile, pending, receipt
         source = load_json(INVENTORY_ROOT / "fixtures" / UNSUPPORTED_CASES[profile_id])
         receipt = observer.build_receipt(
             profile, source, "2026-08-26T11:30:00Z",
@@ -208,11 +241,12 @@ class ProviderReviewResultTests(unittest.TestCase):
             with self.assertRaisesRegex(EvaluationInputError, "lifecycle strict facts"):
                 finalise_result(self.profile, pending, self.receipt, date(2026, 8, 26), bundle=root)
 
-    def test_review_finalises_all_five_unsupported_observations(self):
+    def test_review_finalises_all_six_unsupported_observations(self):
         for profile_id in UNSUPPORTED_CASES:
             with self.subTest(profile=profile_id):
                 profile, pending, receipt = self.unsupported_case(profile_id)
-                final = self.review(profile, pending, receipt, date(2026, 8, 26))
+                reviewed_at = date.fromisoformat(pending["completedAt"][:10])
+                final = self.review(profile, pending, receipt, reviewed_at)
                 self.assertEqual(final["outcome"], "unsupported_confirmed")
                 self.assertEqual(final["reasonCode"], profile["expectedUnsupportedReason"])
                 validate_evidence(final)

@@ -2,7 +2,7 @@
 
 Review date: 2026-08-26
 
-This note records primary-source facts used to design PROD-008 qualification. It does not declare any provider, node image, runtime or CNI supported. A support row still requires a passing, reviewed result for the exact release-candidate image and chart on the recorded environment.
+This note records primary-source facts used to design PROD-008 qualification and interpret its one-time results. A support row requires a passing, reviewed result for the exact image, chart and environment linked from the support contract. Historical evidence is not a claim about unrecorded provider versions.
 
 ## Cross-provider evidence
 
@@ -57,6 +57,12 @@ Delete qualification-created external Services and Ingresses before cluster dele
   resource envelope's `type`; the exact legacy pool `type` remains accepted
   only when `typePropertiesType` is absent.
 - Record the actual NetworkPolicy engine. AKS documents different platform constraints for Cilium, Azure NPM and Calico, and records retirement dates for Azure NPM. Merely creating a NetworkPolicy does not prove enforcement. [AKS NetworkPolicy options](https://learn.microsoft.com/en-us/azure/aks/use-network-policies)
+- AKS configures aggregated APIs with a request-header client CA and an empty
+  `--requestheader-allowed-names` value. The recorded KubeMemLens candidate
+  deliberately requires a named proxy client and therefore failed closed on
+  standard AKS rather than widening forwarded-header trust. This is a
+  candidate-specific authentication incompatibility, not evidence that AKS can
+  never be supported. [AKS Engine aggregated API configuration](https://github.com/Azure/aks-engine-azurestack/blob/master/docs/topics/clusterdefinitions.md)
 - AKS virtual nodes run Pods on Azure Container Instances. DaemonSets do not deploy to virtual nodes, and virtual-node networking has NetworkPolicy limitations, so they cannot satisfy the deep agent row. [AKS virtual nodes](https://learn.microsoft.com/en-us/azure/aks/virtual-nodes#limitations)
 - Azure virtual-kubelet Nodes may leave OS image, container runtime and kernel
   fields blank. Qualification records those facts as `unreported`, retains the

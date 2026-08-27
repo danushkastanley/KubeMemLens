@@ -8,12 +8,12 @@ KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer 
 2. Read `README.md` and the canonical support contract, then confirm the target version, maturity label, support rows and evidence owners across `CHANGELOG.md`, chart metadata, installation, security and release notes.
 3. Run `make check`; inspect the reported statement coverage rather than treating a percentage as a substitute for behaviour-focused tests.
 4. Run Helm lint, rendering, strict schema validation, and the unsafe-replica rejection check.
-5. Complete every support-contract row claimed by the release, including install, upgrade, rollback and uninstall with the exact candidate artefacts. A live-scale claim also requires the reviewed [scale qualification](scale-qualification.md) summary and evaluation for the exact declared profile.
+5. Confirm every provider/runtime claim links to reviewed, version-bound evidence. Do not provision cloud resources merely because its advisory freshness date has passed. If the candidate changes a provider-sensitive boundary, narrow the affected claim or obtain separate approval for a new qualification run. A live-scale claim still requires the reviewed [scale qualification](scale-qualification.md) summary and evaluation for the exact declared profile.
 6. Review `govulncheck`, the pinned Trivy configuration/secret/runtime-image scans, licences, RBAC, NetworkPolicy, host mounts, image user, and sensitive metric labels.
 7. Check the [current upstream Kubernetes support window](https://kubernetes.io/releases/), move the kind matrix to all three supported minors, and keep each checksum-pinned kubectl on the same minor as its node image.
 8. Confirm the rollback path and known limitations.
 
-A support-contract change is a release decision. The change must name the exact profile, link reviewed evidence, update the changelog and pass the release documentation gate before a tag is created.
+A support-contract change is a release decision. A new or widened claim must name the exact profile, link reviewed evidence, update the changelog and pass the release documentation gate before a tag is created. Historical provider evidence is never scheduled, run in CI or made a per-release requirement; stale rows are advisory and malformed or tampered rows still fail validation.
 
 Configure a GitHub environment named `release` before the first tag. Restrict it to protected release tags and require maintainer approval. The workflow references this environment so its publication job cannot start until the configured protection rules pass.
 
@@ -45,6 +45,7 @@ Before promotion:
 - pull the image by digest and confirm it runs as UID/GID 65532;
 - install the exact OCI chart into a disposable cluster and repeat smoke, upgrade, rollback, and uninstall;
 - verify that any live-scale statement matches the reviewed profile, candidate artefacts and sanitised scale evaluation;
+- confirm provider claims remain limited to their reviewed combinations and inspect, but do not fail solely on, advisory freshness warnings;
 - confirm the image, chart, archive, changelog, and tag use one version;
 - confirm the release contains no credentials, local paths, production identifiers, or build debris.
 

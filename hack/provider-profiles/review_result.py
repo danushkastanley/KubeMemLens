@@ -123,6 +123,9 @@ def finalise_result(profile, pending, receipt, reviewed_at=None, bundle=None):
         raise EvaluationInputError("pending Kubernetes version does not match provider-owned inventory")
     observed_at = parse_timestamp(receipt["observedAt"])
     completed_at = parse_timestamp(pending["completedAt"])
+    proof = receipt.get("proof", {})
+    if proof.get("source") == "recorded-live-conversion" and completed_at != observed_at:
+        raise EvaluationInputError("recorded-live pending completion must equal the recorded observation")
     if observed_at > completed_at:
         raise EvaluationInputError("provider inventory cannot postdate the pending result")
     if completed_at - observed_at > MAX_OBSERVATION_AGE:

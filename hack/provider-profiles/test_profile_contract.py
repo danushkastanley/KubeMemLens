@@ -165,10 +165,15 @@ class ProviderProfileContractTests(unittest.TestCase):
         with self.assertRaisesRegex(EvaluationInputError, "schemaVersion"):
             validate_evidence(evidence)
 
-    def test_expired_or_incorrect_review_window_is_rejected(self):
+    def test_stale_review_is_advisory_but_incorrect_or_future_fields_are_rejected(self):
         profile = self.profiles["gke-cos-containerd-amd64"]
-        with self.assertRaisesRegex(EvaluationInputError, "expired"):
-            evaluate(profile, self.evidence_for(profile), date(2026, 11, 25))
+        stale = evaluate(profile, self.evidence_for(profile), date(2026, 11, 25))
+        self.assertEqual(stale["result"], "pass")
+        self.assertEqual(stale["freshness"], "stale")
+        self.assertEqual(len(stale["warnings"]), 1)
+        current = evaluate(profile, self.evidence_for(profile), date(2026, 11, 24))
+        self.assertEqual(current["freshness"], "current")
+        self.assertEqual(current["warnings"], [])
         evidence = self.evidence_for(profile)
         evidence["reviewDueAt"] = "2026-11-23"
         with self.assertRaisesRegex(EvaluationInputError, "requalification period"):

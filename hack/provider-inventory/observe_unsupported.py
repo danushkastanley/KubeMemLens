@@ -33,6 +33,12 @@ from unsupported_artifact_binding import verify_binding  # noqa: E402
 
 
 SPECS = {
+    "aks-ubuntu-containerd-amd64": {
+        "reasonCode": "requestheader_proxy_identity_unavailable",
+        "method": "recorded_live_candidate_incompatibility",
+        "state": "requestheader_proxy_identity_unavailable",
+        "source": "recorded-live-conversion",
+    },
     "gke-autopilot": {
         "reasonCode": "hostpath_not_permitted", "method": "provider_and_server_dry_run",
         "state": "cgroup_hostpath_denied", "source": "gcloud:autopilot+dry-run",
@@ -371,6 +377,8 @@ def validate_unsupported_receipt(profile, receipt):
 
 
 def build_receipt(profile, source, observed_at=None, artefact_binding=None):
+    if profile["id"] not in PARSERS:
+        raise ReceiptError("the selected profile requires the recorded-live conversion tool")
     validate_source(profile["id"], source)
     binding_keys = set(artefact_binding) if isinstance(artefact_binding, dict) else set()
     version = {frozenset(ARTEFACT_KEYS): 2, frozenset(ARTEFACT_BINDING_KEYS_V3): 3}.get(

@@ -37,7 +37,7 @@ SAMPLES = {
     "gke-cos-containerd-amd64": ("gke-standard", "Container-Optimized OS cos-121", "containerd://2.0.5", "amd64", "v2", "COS_CONTAINERD", "GKE Dataplane V2"),
     "gke-ubuntu-containerd-amd64": ("gke-standard", "Ubuntu 22.04.5 LTS", "containerd://2.0.5", "amd64", "v2", "UBUNTU_CONTAINERD", "GKE Dataplane V2"),
     "eks-al2023-containerd-amd64": ("eks-managed-nodes", "Amazon Linux 2023.7.20250804", "containerd://2.0.5", "amd64", "v2", "AL2023_x86_64_STANDARD@1.36.1-20260820", "Amazon VPC CNI v1.21.0-eksbuild.1 network-policy=enabled"),
-    "aks-ubuntu-containerd-amd64": ("aks-node-pools", "Ubuntu 24.04 LTS", "containerd://2.0.5", "amd64", "v2", "AKSUbuntu-2404gen2containerd-2026.08.12", "Azure CNI Cilium"),
+    "aks-ubuntu-containerd-amd64": ("aks-node-pools", "Ubuntu 24.04 LTS", "containerd://2.0.5", "amd64", "unreported", "AKSUbuntu-2404gen2containerd-2026.08.12", "Azure CNI Cilium"),
     "self-managed-containerd": ("self-managed", "Debian GNU/Linux 12 (bookworm)", "containerd://2.0.5", "amd64", "v2", "Debian GNU/Linux 12 (bookworm)", "Cilium v1.18.1"),
     "self-managed-crio-amd64": ("self-managed", "Fedora Linux 42 (Server Edition)", "cri-o://1.36.1", "amd64", "v2", "Fedora Linux 42 (Server Edition)", "Calico v3.30.3"),
     "gke-autopilot": ("gke-autopilot", "Container-Optimized OS cos-121", "containerd://2.0.5", "amd64", "unreported", "AUTOPILOT", "GKE Dataplane V2"),
@@ -89,11 +89,7 @@ class ProviderMatrixTests(unittest.TestCase):
         return evidence
 
     def complete_matrix(self):
-        records = [self.evidence_for(profile_id) for profile_id in sorted(PROFILE_IDS)]
-        mixed = next(record for record in records if record["profile"]["id"] == "gke-cos-containerd-amd64")
-        mixed["environment"]["windowsNodeCount"] = 1
-        mixed["checks"]["mixedOSScheduling"] = "pass"
-        return records
+        return [self.evidence_for(profile_id) for profile_id in sorted(PROFILE_IDS)]
 
     def supported_receipt(self, profile, pending):
         providers = {
@@ -141,15 +137,38 @@ class ProviderMatrixTests(unittest.TestCase):
 
     def write_unsupported_bundle(self, bundle, record):
         profile = self.profiles[record["profile"]["id"]]
-        source = read_json(INVENTORY_ROOT / "fixtures" / UNSUPPORTED_SOURCES[profile["id"]])
-        receipt = observer.build_receipt(
-            profile, source, "2026-08-26T11:30:00Z",
-            {
-                "sourceCommit": "3" * 40,
-                "chartDigest": "sha256:" + "2" * 64,
+        if profile["id"] == "aks-ubuntu-containerd-amd64":
+            spec = observer.SPECS[profile["id"]]
+            receipt = {
+                "schemaVersion": 3,
+                "profile": {"id": profile["id"], "digest": profile["profileDigest"]},
+                "observedAt": "2026-08-26T12:00:00Z",
                 "qualificationToolCommit": "5" * 40,
-            },
-        )
+                "environment": copy.deepcopy(record["environment"]),
+                "controlPlaneVersion": record["environment"]["kubernetesVersion"].removeprefix("v"),
+                "artefacts": {"sourceCommit": "3" * 40, "chartDigest": "sha256:" + "2" * 64},
+                "proof": {
+                    "source": spec["source"], "sourceDigest": "sha256:" + "8" * 64,
+                    "observationSpecDigest": observer.canonical_digest(spec, "unused"),
+                },
+                "providerChecks": dict.fromkeys(observer.PROVIDER_CHECK_KEYS, True),
+                "unsupportedObservation": {
+                    "reasonCode": spec["reasonCode"], "method": spec["method"], "state": spec["state"],
+                    "subjectCount": 3, "checks": dict.fromkeys(observer.OBSERVATION_CHECK_KEYS, True),
+                },
+            }
+            receipt["receiptDigest"] = observer.canonical_digest(receipt, "receiptDigest")
+            observer.validate_unsupported_receipt(profile, receipt)
+        else:
+            source = read_json(INVENTORY_ROOT / "fixtures" / UNSUPPORTED_SOURCES[profile["id"]])
+            receipt = observer.build_receipt(
+                profile, source, "2026-08-26T11:30:00Z",
+                {
+                    "sourceCommit": "3" * 40,
+                    "chartDigest": "sha256:" + "2" * 64,
+                    "qualificationToolCommit": "5" * 40,
+                },
+            )
         pending = {key: copy.deepcopy(value) for key, value in record.items()
                    if key not in {"reviewedAt", "reviewDueAt"}}
         pending["environment"] = copy.deepcopy(receipt["environment"])
@@ -181,13 +200,15 @@ class ProviderMatrixTests(unittest.TestCase):
     def test_complete_reviewed_matrix_passes(self):
         report = evaluate_matrix(self.complete_matrix(), date(2026, 8, 26), self.profiles)
         self.assertEqual(report["result"], "pass", report["failures"])
+        self.assertEqual(report["freshness"], "current")
+        self.assertEqual(report["warnings"], [])
         self.assertEqual(len(report["rows"]), 11)
         self.assertEqual(set(report["release"]), set(RELEASE_FIELDS))
         self.assertNotIn("qualificationToolCommit", report["release"])
 
     def test_canonical_matrix_has_exact_supported_and_unsupported_rows(self):
-        self.assertEqual(len(SUPPORTED_PROFILE_IDS), 6)
-        self.assertEqual(len(UNSUPPORTED_PROFILE_IDS), 5)
+        self.assertEqual(len(SUPPORTED_PROFILE_IDS), 5)
+        self.assertEqual(len(UNSUPPORTED_PROFILE_IDS), 6)
         self.assertEqual(set(self.profiles), PROFILE_IDS)
 
     def test_missing_duplicate_unknown_and_pending_rows_are_rejected(self):
@@ -217,7 +238,7 @@ class ProviderMatrixTests(unittest.TestCase):
                 self.assertEqual(report["result"], "fail")
                 self.assertTrue(any(field in failure for failure in report["failures"]))
 
-    def test_failed_row_and_missing_mixed_os_record_fail_matrix(self):
+    def test_failed_row_and_probe_identity_mismatch_fail_matrix(self):
         records = self.complete_matrix()
         record = next(item for item in records if item["profile"]["id"] == "gke-ubuntu-containerd-amd64")
         record["outcome"] = "failed"
@@ -228,15 +249,6 @@ class ProviderMatrixTests(unittest.TestCase):
         self.assertTrue(any("did not pass" in failure for failure in report["failures"]))
 
         records = self.complete_matrix()
-        mixed = next(item for item in records if item["environment"]["windowsNodeCount"] > 0
-                     and item["profile"]["id"] in SUPPORTED_PROFILE_IDS)
-        mixed["environment"]["windowsNodeCount"] = 0
-        mixed["checks"]["mixedOSScheduling"] = "not_run"
-        report = evaluate_matrix(records, date(2026, 8, 26), self.profiles)
-        self.assertEqual(report["result"], "fail")
-        self.assertIn("mixed Linux/Windows", report["failures"][-1])
-
-        records = self.complete_matrix()
         supported = next(
             item for item in records if item["profile"]["id"] in SUPPORTED_PROFILE_IDS
         )
@@ -245,7 +257,7 @@ class ProviderMatrixTests(unittest.TestCase):
         self.assertEqual(report["result"], "fail")
         self.assertTrue(any("probe image digest" in failure for failure in report["failures"]))
 
-    def test_cli_exit_codes_distinguish_failed_matrix_from_invalid_input(self):
+    def test_cli_stale_matrix_warns_and_exits_zero_while_invalid_input_exits_two(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             paths = self.complete_bundle_paths(root)
@@ -253,21 +265,10 @@ class ProviderMatrixTests(unittest.TestCase):
                        *(str(path) for path in paths)]
             passed = subprocess.run(command, check=False, capture_output=True, text=True)
             incomplete = subprocess.run(command[:-1], check=False, capture_output=True, text=True)
-            mixed_path = next(path for path in paths if path.parent.name == "gke-cos-containerd-amd64")
-            pending_path = mixed_path.parent / "provider-qualification.pending.json"
-            pending = read_json(pending_path)
-            pending["environment"]["windowsNodeCount"] = 0
-            pending["checks"]["mixedOSScheduling"] = "not_run"
-            receipt = read_json(mixed_path.parent / "provider-inventory.json")
-            (mixed_path.parent / MANIFEST_NAME).unlink()
-            write_supported_evidence_files(mixed_path.parent, pending, receipt)
-            pending_path.write_text(json.dumps(pending), encoding="utf-8")
-            final = finalise_result(
-                self.profiles["gke-cos-containerd-amd64"], pending, receipt,
-                date(2026, 8, 26), bundle=mixed_path.parent,
-            )
-            mixed_path.write_text(json.dumps(final), encoding="utf-8")
-            failed = subprocess.run(command, check=False, capture_output=True, text=True)
+            stale_command = [sys.executable, str(ROOT / "evaluate_matrix.py"), "--as-of", "2026-11-25",
+                             *(str(path) for path in paths)]
+            stale = subprocess.run(stale_command, check=False, capture_output=True, text=True)
+            final = read_json(paths[0])
             detached = root / "detached" / "provider-qualification.json"
             detached.parent.mkdir()
             detached.write_text(json.dumps(final), encoding="utf-8")
@@ -277,8 +278,10 @@ class ProviderMatrixTests(unittest.TestCase):
             )
         self.assertEqual(passed.returncode, 0, passed.stderr)
         self.assertEqual(json.loads(passed.stdout)["result"], "pass")
+        self.assertEqual(stale.returncode, 0, stale.stderr)
+        self.assertEqual(json.loads(stale.stdout)["freshness"], "stale")
+        self.assertEqual(len(json.loads(stale.stdout)["warnings"]), 11)
         self.assertEqual(incomplete.returncode, 2)
-        self.assertEqual(failed.returncode, 1, failed.stderr)
         self.assertEqual(detached_result.returncode, 2)
 
     def test_bundle_loader_enforces_outcome_specific_manifest_rules(self):

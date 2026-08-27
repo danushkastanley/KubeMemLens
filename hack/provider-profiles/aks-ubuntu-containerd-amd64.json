@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
   "id": "aks-ubuntu-containerd-amd64",
-  "expectedOutcome": "pass",
+  "expectedOutcome": "unsupported",
   "expectations": {
     "providerPattern": "^aks-node-pools$",
     "osImagePattern": "^Ubuntu (20\\.04|22\\.04|24\\.04)(\\.[0-9]+)? LTS$",
     "runtimePattern": "^containerd://[0-9]+\\.[0-9]+\\.[0-9]+([+-][A-Za-z0-9._-]+)?$",
     "architecturePattern": "^amd64$",
-    "cgroupPattern": "^v2$",
+    "cgroupPattern": "^(v2|unreported)$",
     "nodeImagePattern": "^AKSUbuntu-(2004|2204|2404)(gen[12])?containerd-([0-9]{4}\\.[0-9]{2}\\.[0-9]+|[0-9]{6}\\.[0-9]{2}\\.[0-9]+)$",
     "cniPattern": "^Azure CNI( Cilium| Calico)?$",
     "cniEnforcementRequired": true
   },
-  "expectedUnsupportedReason": null,
+  "expectedUnsupportedReason": "requestheader_proxy_identity_unavailable",
   "requalificationDays": 90,
-  "profileDigest": "sha256:d3bacd69e69564cc3a43a8e4f1e016a8ed7d0d71bbe5e178677518e0ca62b5df"
+  "profileDigest": "sha256:4b373681613f603b9a5e8abdfe264fa2b8ce7ffbe15d00547a5ee0f8d6a8f5f4"
 }

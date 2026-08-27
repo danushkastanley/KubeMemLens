@@ -91,6 +91,7 @@ UNSUPPORTED_REASON_CODES = {
     "virtual_nodes_not_supported",
     "windows_nodes_not_supported",
     "cgroup_v1_not_supported",
+    "requestheader_proxy_identity_unavailable",
 }
 FAILURE_REASON_CHECKS = {
     "prerequisite_failed": "prerequisites",
@@ -354,8 +355,10 @@ def evaluate(profile, evidence, as_of=None):
         raise EvaluationInputError("evidence review is more than seven days after completion")
     if due != completed + timedelta(days=profile["requalificationDays"]):
         raise EvaluationInputError("evidence reviewDueAt does not match the profile requalification period")
-    if as_of > due:
-        raise EvaluationInputError("evidence review has expired")
+    freshness = "stale" if as_of > due else "current"
+    warnings = []
+    if freshness == "stale":
+        warnings.append(f"evidence review freshness is stale after {evidence['reviewDueAt']}")
 
     outcome = evidence["outcome"]
     expected = profile["expectedOutcome"]
@@ -384,5 +387,7 @@ def evaluate(profile, evidence, as_of=None):
         "result": "pass" if not failures else "fail",
         "profile": {"id": profile["id"], "digest": profile["profileDigest"]},
         "outcome": outcome,
+        "freshness": freshness,
+        "warnings": warnings,
         "failures": failures,
     }

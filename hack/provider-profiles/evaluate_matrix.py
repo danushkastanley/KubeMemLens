@@ -18,7 +18,6 @@ from review_result import finalise_result
 
 ROOT = Path(__file__).resolve().parent
 SUPPORTED_PROFILE_IDS = frozenset({
-    "aks-ubuntu-containerd-amd64",
     "eks-al2023-containerd-amd64",
     "gke-cos-containerd-amd64",
     "gke-ubuntu-containerd-amd64",
@@ -26,6 +25,7 @@ SUPPORTED_PROFILE_IDS = frozenset({
     "self-managed-crio-amd64",
 })
 UNSUPPORTED_PROFILE_IDS = frozenset({
+    "aks-ubuntu-containerd-amd64",
     "aks-virtual-nodes",
     "cgroup-v1",
     "eks-fargate",
@@ -127,12 +127,14 @@ def evaluate_matrix(records, as_of=None, profiles=None):
     indexed = index_records(records, profiles)
     release = None
     failures = []
+    warnings = []
     rows = []
     for profile_id in sorted(PROFILE_IDS):
         evidence = indexed[profile_id]
         report = evaluate(profiles[profile_id], evidence, as_of)
         if report["result"] != "pass":
             failures.append(f"{profile_id}: reviewed evidence did not pass")
+        warnings.extend(f"{profile_id}: {warning}" for warning in report["warnings"])
         if release is None:
             release = {field: evidence["artefacts"][field] for field in RELEASE_FIELDS}
         mismatched = [field for field in RELEASE_FIELDS if evidence["artefacts"][field] != release[field]]
@@ -143,6 +145,8 @@ def evaluate_matrix(records, as_of=None, profiles=None):
             "outcome": evidence["outcome"],
             "reviewedAt": evidence["reviewedAt"],
             "reviewDueAt": evidence["reviewDueAt"],
+            "freshness": report["freshness"],
+            "warnings": report["warnings"],
             "bundlePath": f"{profile_id}/{FINAL_NAME}",
             "recordDigest": "sha256:" + hashlib.sha256(json.dumps(
                 evidence, ensure_ascii=False, separators=(",", ":"), sort_keys=True,
@@ -150,13 +154,6 @@ def evaluate_matrix(records, as_of=None, profiles=None):
             "providerReceiptDigest": evidence["artefacts"]["providerReceiptDigest"],
             "evidenceManifestDigest": evidence["artefacts"]["evidenceManifestDigest"],
         })
-    mixed_os = any(
-        indexed[profile_id]["environment"]["windowsNodeCount"] > 0
-        and indexed[profile_id]["checks"]["mixedOSScheduling"] == "pass"
-        for profile_id in SUPPORTED_PROFILE_IDS
-    )
-    if not mixed_os:
-        failures.append("matrix has no reviewed supported mixed Linux/Windows record")
     supported_probe_digests = {
         indexed[profile_id]["artefacts"]["probeImageDigest"]
         for profile_id in SUPPORTED_PROFILE_IDS
@@ -166,10 +163,12 @@ def evaluate_matrix(records, as_of=None, profiles=None):
     return {
         "schemaVersion": 1,
         "result": "pass" if not failures else "fail",
+        "freshness": "stale" if any(row["freshness"] == "stale" for row in rows) else "current",
         "release": release,
         "supportedProbeImageDigest": next(iter(supported_probe_digests), None)
         if len(supported_probe_digests) == 1 else None,
         "rows": rows,
+        "warnings": warnings,
         "failures": failures,
     }
 

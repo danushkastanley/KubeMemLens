@@ -158,6 +158,8 @@ def build_pending(profile, receipt, artefacts, completed_at):
         raise EvaluationInputError("unsupported receipt does not match the candidate source and chart")
     completed = parse_timestamp(completed_at)
     observed = parse_timestamp(receipt["observedAt"])
+    if receipt["proof"]["source"] == "recorded-live-conversion" and completed != observed:
+        raise EvaluationInputError("recorded-live pending completion must equal the recorded observation")
     if observed > completed or completed - observed > MAX_OBSERVATION_AGE:
         raise EvaluationInputError("unsupported observation must be no more than one hour old")
     checks = dict.fromkeys(CHECK_IDS, "not_run")
@@ -186,6 +188,15 @@ def build_pending(profile, receipt, artefacts, completed_at):
     return pending
 
 
+def completion_timestamp(receipt, current_timestamp):
+    proof = receipt.get("proof", {})
+    if proof.get("source") == "recorded-live-conversion":
+        if receipt.get("schemaVersion") != 3:
+            raise EvaluationInputError("recorded-live conversion requires an unsupported schema-v3 receipt")
+        return receipt["observedAt"]
+    return current_timestamp
+
+
 def main():
     parser = argparse.ArgumentParser(description="Build strict pending evidence from a live unsupported receipt.")
     parser.add_argument("--profile", required=True)
@@ -210,7 +221,8 @@ def main():
             arguments.chart_digest, Path(arguments.values), arguments.values_digest,
             arguments.source_commit, arguments.image_digest,
         )
-        completed_at = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+        current_timestamp = datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+        completed_at = completion_timestamp(receipt, current_timestamp)
         pending = build_pending(profile, receipt, artefacts, completed_at)
     except EvaluationInputError as error:
         raise SystemExit(f"unsupported pending evidence error: {error}") from error

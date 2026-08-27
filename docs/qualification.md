@@ -1,8 +1,8 @@
-# Existing-Cluster Qualification
+# One-time Existing-Cluster Qualification
 
 This runbook turns managed-provider and runtime compatibility into repeatable evidence for the [support contract](compatibility.md). It does not create a GKE, EKS or AKS cluster, push an image, publish results, or declare support merely because a manifest rendered.
 
-This is maintainer-owned release qualification. Ordinary pull requests use proportionate local and CI checks described in [CONTRIBUTING.md](../CONTRIBUTING.md); contributors do not need managed-provider accounts unless their change makes a provider-specific claim.
+This is a maintainer-owned, one-time, opt-in qualification workflow for creating or widening a provider-support claim. It is not scheduled, run in CI or required before each release. Ordinary pull requests use proportionate local and CI checks described in [CONTRIBUTING.md](../CONTRIBUTING.md); contributors do not need managed-provider accounts. A provider-sensitive change narrows the affected claim unless maintainers separately approve another live run.
 
 Use only a disposable cluster or a cluster whose owner has authorised installation of a read-only hostPath DaemonSet, cluster-scoped read RBAC, a NetworkPolicy and two short-lived probe Pods. Do not treat an alpha qualification run as shared multi-tenant authorisation evidence.
 
@@ -27,25 +27,23 @@ Use only a disposable cluster or a cluster whose owner has authorised installati
 - recovery after one real provider-triggered Linux node replacement;
 - one Helm upgrade, rollback and post-rollback strict diagnosis;
 - uninstall, cluster-scoped RBAC removal and deletion of the dedicated namespace;
-- sanitised, expiry-bound environment evidence without context, cluster, node
+- sanitised, integrity-bound environment evidence with advisory freshness and without context, cluster, node
   or provider-resource identifiers.
 
-It does not prove long-duration reliability, live scale, every CNI mode, managed-provider compatibility, or optional eBPF support. Provider records will be published together after the GKE, EKS and AKS qualification matrix completes. Run the separate [scale qualification gate](scale-qualification.md) when a release claims a live container profile; neither result substitutes for the other.
+It does not prove long-duration reliability, live scale, every CNI mode, unrecorded provider versions, or optional eBPF support. The reviewed one-time records are published together in the [provider/runtime matrix](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md). Run the separate [scale qualification gate](scale-qualification.md) when a release makes a live container claim; neither result substitutes for the other.
 
 ## Managed-provider boundary
 
-The standard cgroup collector targets Linux VM node pools in GKE Standard, EKS managed/self-managed node groups and AKS Linux node pools. Support depends on the node exposing read-only `/sys/fs/cgroup`, allowing a DaemonSet and enforcing the rendered NetworkPolicy.
+The standard cgroup collector targets Linux VM node pools. The recorded candidate qualified GKE Standard, EKS managed nodes and the two self-managed runtime rows. Standard AKS satisfied the node/runtime prerequisites but failed the stricter aggregation-proxy identity requirement, so it remains unsupported. Any supported row also depends on read-only `/sys/fs/cgroup`, DaemonSet scheduling and enforcement of the rendered NetworkPolicy.
 
 Restricted or serverless modes are separate capabilities, not aliases for their provider:
 
 - GKE Autopilot blocks hostPath access except read-only `/var/log`, so the cgroup agent cannot run there ([GKE Autopilot security](https://cloud.google.com/kubernetes-engine/docs/concepts/autopilot-security)).
 - EKS Fargate does not support DaemonSets, so the node agent cannot run there ([EKS Fargate considerations](https://docs.aws.amazon.com/eks/latest/userguide/fargate.html)).
+- Standard AKS supplies a valid request-header client CA but no proxy client-name constraint. The recorded candidate requires a named aggregation proxy and fails closed rather than trust forwarded identity using a wider CA-only rule.
 - AKS virtual nodes do not receive DaemonSet Pods and have NetworkPolicy limitations ([AKS virtual nodes](https://learn.microsoft.com/en-us/azure/aks/virtual-nodes)).
 
-These environments must be reported as unsupported without a privileged
-workaround. A mixed cluster qualifies only when it contains one homogeneous
-Linux pool plus the Windows pool being exercised. Another Linux pool makes the
-cluster unsuitable for an exact qualification row.
+These environments must be reported as unsupported without a privileged or weaker-authentication workaround. The status is specific to the current deep-mode architecture and recorded candidate, not necessarily permanent. A future mixed-cluster requalification must still contain only one homogeneous Linux pool plus the Windows pool being exercised; another Linux pool would make that run unsuitable for an exact row.
 
 ## Prerequisites
 
@@ -232,17 +230,20 @@ The review step adds `reviewedAt`
 and `reviewDueAt`, verifies every manifest-bound file, binds the environment to
 the receipt digest, writes
 `provider-qualification.json` with mode `0600` and refuses overwrite.
-Review must occur within seven days of completion. The 90-day requalification
-deadline is anchored to the completion date, so delayed review cannot refresh
-old evidence.
+Review must occur within seven days of completion. The 90-day freshness date is
+anchored to the completion date, so delayed review cannot make evidence look
+newer. Freshness is advisory. Stale evidence remains valid historical proof; it
+does not fail CI or a release. Widening a claim still requires separate,
+explicitly approved evidence.
 
 The provider matrix is complete only when
-`hack/provider-profiles/evaluate_matrix.py` passes all six supported and five
+`hack/provider-profiles/evaluate_matrix.py` passes all five supported and six
 unsupported reviewed records together. It requires one release identity across
-the matrix and at least one supported mixed Linux/Windows run whose scheduling
-check passed. `qualificationToolCommit` is receipt provenance, not a release
+the matrix. `qualificationToolCommit` is receipt provenance, not a release
 identity field. Existing supported receipt schema v1 and unsupported receipt
-schema v2 remain valid; new receipts use supported v2 and unsupported v3.
+schema v2 remain valid; new receipts use supported v2 and unsupported v3. Stale
+rows are emitted as warnings with a passing exit status; malformed,
+future-dated, tampered or incomplete rows still fail.
 
 ```sh
 python3 hack/provider-profiles/evaluate_matrix.py \
@@ -272,10 +273,10 @@ Add a row to [the support contract](compatibility.md) only after reviewing the e
 - image and chart version/digest;
 - pass/fail for install, node coverage, mapping, NetworkPolicy, explanation, metrics, upgrade, rollback and uninstall;
 - duration, date and a durable link to sanitised evidence;
-- review date and the profile's 90-day requalification deadline;
+- review date and the profile's advisory 90-day freshness date;
 - any node selector, toleration, admission-policy or CNI exceptions.
 
-One successful run supports only the tested combination. It is not evidence for every Kubernetes version, node image, CNI or provider mode.
+One successful run supports only the tested combination. It is not evidence for every Kubernetes version, node image, CNI or provider mode, and it is not a recurring release requirement.
 
 ## Publication and provider cleanup
 
@@ -291,9 +292,11 @@ proof of deletion.
 Reviewed public bundles belong under
 `docs/qualification-results/provider-runtime-<chart-version>-<source-short-sha>/<profile>/`.
 A supported bundle contains the seven manifest-bound run files, the manifest,
-the exact pending and reviewed records. An unsupported bundle contains its v2
+the exact pending and reviewed records. An unsupported bundle contains its v2 or v3
 receipt plus the exact pending and reviewed records; its private raw source is
 excluded. Re-run privacy validation, bundle verification and the complete
 matrix evaluator from a clean checkout before adding durable links to the
 support matrix. Publish all rows together so a partial matrix cannot imply
-provider support.
+provider support. Later releases consume this historical record without
+provisioning cloud resources; if a provider-sensitive change invalidates a row,
+narrow the public claim or run a new explicitly authorised qualification.

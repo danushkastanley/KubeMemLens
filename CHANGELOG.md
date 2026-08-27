@@ -12,6 +12,8 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Moved production CLI, TUI and metrics reads to tenant-scoped aggregated resources; the secure Service now exposes only TLS port `443` and keeps port `8080` health-only inside the collector Pod.
 - Removed legacy direct ingestion, collector reads and ServiceMonitor rendering from the production Helm chart while retaining binary/client rollback code for pre-v1 installations.
 - Narrowed the intended self-managed containerd qualification row to amd64 so one reviewed provider record cannot be misrepresented as arm64 evidence.
+- Published one-time, digest-bound provider/runtime evidence for the exact GKE Standard, EKS managed-node, self-managed containerd and CRI-O combinations, with freshness reported as advisory rather than a scheduled or per-release cloud gate.
+- Classified standard AKS as unsupported for the recorded candidate because AKS supplied no request-header proxy client-name constraint and the candidate correctly failed closed; GKE Autopilot, EKS Fargate, AKS virtual nodes, Windows nodes and cgroup v1 remain explicit unsupported rows.
 
 ### Security
 
