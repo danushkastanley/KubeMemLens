@@ -13,6 +13,19 @@ KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer 
 7. Check the [current upstream Kubernetes support window](https://kubernetes.io/releases/), move the kind matrix to all three supported minors, and keep each checksum-pinned kubectl on the same minor as its node image.
 8. Confirm the rollback path and known limitations.
 
+For a v1 RC, these checks are the pre-candidate gate. The gate includes every
+non-adopter security, correctness, privacy, compatibility and release-integrity
+prerequisite. It also includes the current dependency and finding queues, the
+release documentation, the prepared candidate path, and fresh approval naming
+the exact RC tag. The deferred OpenSSF Best Practices Passing result remains a
+pre-candidate blocker under the recorded project decision.
+
+Adopter evidence is not a pre-candidate gate. The three reports must identify
+one immutable published candidate, so collecting them before that candidate
+exists would either test a moving branch or create a circular release gate.
+Candidate publication starts the time-boxed adopter path. A count below three
+blocks stable v1 promotion, not creation of the reviewed RC.
+
 A support-contract change is a release decision. A new or widened claim must name the exact profile, link reviewed evidence, update the changelog and pass the release documentation gate before a tag is created. Historical provider evidence is never scheduled, run in CI or made a per-release requirement; stale rows are advisory and malformed or tampered rows still fail validation.
 
 The repository has three release-side protections: the `release` environment requires maintainer review and accepts only `v*` tags, the active release-tag ruleset prevents ordinary tag creation, movement or deletion, and repository release immutability protects published assets and their tags. Verify the live configuration before tagging:
@@ -23,9 +36,9 @@ hack/release/check_repository_settings.sh
 
 ## Build
 
-Push an annotated semantic-version tag such as `v0.5.0-alpha.1`. The release workflow has two jobs:
+Push an annotated alpha or beta semantic-version tag such as `v0.5.0-alpha.1`. The legacy prerelease workflow intentionally does not accept RC or stable tags. It has four jobs:
 
-- The read-only build job validates the annotated semantic tag, creates the six CLI archives and their SBOMs, and builds the multi-architecture image once as an OCI archive with embedded SPDX SBOM and SLSA provenance attestations.
+- The read-only build job validates the annotated semantic tag, creates the six CLI archives and their SBOMs, and builds the multi-architecture image once as a timestamp-normalised OCI archive. Signatures and provenance are attached after the immutable digest exists, so they do not change the product image.
 - The same job scans the exact amd64 image manifest, strictly lints and schema-validates the chart, packages the chart, creates its SPDX SBOM, and transfers the complete bundle through a one-day GitHub Actions artefact.
 - The reviewed publish job revalidates the bundle, refuses every occupied release/image/chart destination, then imports the OCI archive into GHCR with digest preservation. It does not rebuild the image.
 - Image and chart packages are signed and receive GitHub provenance. Their exact digests, tag and commit are written to `release-subjects.txt` before that file enters the signed checksum and provenance set.
@@ -34,11 +47,63 @@ Push an annotated semantic-version tag such as `v0.5.0-alpha.1`. The release wor
 
 GoReleaser cannot publish directly because `.goreleaser.yml` disables its release publisher and the build job also passes `--skip=publish`. The build job has only `contents: read`. The reviewed registry job has `packages`, `id-token` and `attestations` write permissions but only read access to repository contents. Clean-consumer verification runs in a fresh read-only job, so the candidate CLI never inherits a repository-write token. A final reviewed job receives only the content write needed to create the verified draft and does not execute candidate code. No checkout persists a write credential. No workflow run should be described as successful until the Actions logs and resulting artefacts have been inspected.
 
+## v1 candidate and exact promotion
+
+PROD-012 uses [the candidate evidence register](v1-candidate-evidence.md) and [go/no-go record](v1-go-no-go.md). Their current status is authoritative: preparation does not authorise a tag, workflow dispatch, package publication or release.
+
+At the candidate stage, create only the annotated `vX.Y.Z-rc.N` tag on the
+reviewed `main` commit. The stable tag must not exist yet. After every
+pre-candidate blocker closes and fresh approval names that exact RC tag,
+dispatch `.github/workflows/candidate.yml` from the RC tag and pass the same tag
+as `candidate_tag`. The workflow derives the intended stable identity
+`vX.Y.Z` from `vX.Y.Z-rc.N` and:
+
+- builds prospective `vX.Y.Z` CLI archives twice and compares all six SHA-256 values;
+- builds the multi-architecture image twice with a pinned BuildKit, commit-time metadata, `SOURCE_DATE_EPOCH`, timestamp rewriting and no digest-changing inline attestations, then requires identical OCI digests;
+- packages the prospective `X.Y.Z` chart twice with the deterministic standard-library packager and compares the bytes;
+- publishes only to version-scoped candidate repositories under `ghcr.io/danushkastanley/candidates/X.Y.Z-rc.N/`;
+- records the source commit, intended stable tag, archive checksums, candidate image/chart repositories and OCI digests in canonical `candidate-manifest.json`;
+- signs and attests the candidate subjects, verifies them as a clean consumer, and creates a draft prerelease for review.
+
+The candidate workflow stops at that draft. After the draft asset inventory has
+been reviewed, dispatch `.github/workflows/publish-candidate.yml` from the same
+RC tag with the same `candidate_tag`. Its protected job downloads every draft
+asset by release-asset ID, verifies the candidate-workflow signatures, canonical
+manifest, checksums, exact subject inventory and complete asset set, re-reads the
+unchanged draft, then changes only `draft` to `false`. It has no build, upload,
+replacement or package-write path. A partial, changed, duplicate or already
+published release fails closed.
+
+The candidate bytes deliberately carry the intended stable identity. Their RC status comes from the candidate repository path, signed manifest, prerelease tag and GitHub prerelease, not from changing the product bytes. This is the only supported way to keep correct stable metadata while later preserving every CLI archive byte, image digest and chart digest. If that identity model is rejected, update the PROD-012 contract before creating a candidate; do not relabel RC bytes as stable or call a rebuild an exact promotion.
+
+Publishing the candidate supplies the evidence that cannot exist at the
+pre-candidate stage: frozen artefact identities, two-build reproducibility,
+clean-consumer lifecycle results and the immutable version adopters must test.
+The real candidate run also closes the deferred execution evidence from
+PROD-010. It must not be treated as a missing prerequisite for its own launch.
+
+After the time-boxed adopter path and every go/no-go field passes, obtain fresh
+approval for the exact stable tag and publication. Only then create the
+annotated `vX.Y.Z` tag on the same commit as the published candidate. Dispatch
+`.github/workflows/promote.yml` from that stable tag with both the candidate and
+stable tags. The promotion workflow contains no GoReleaser, Docker build or
+Helm-package step. It verifies the published candidate prerelease, signatures,
+attestations, same-commit binding and signed manifest; copies the image and chart
+by digest; reuses the exact candidate archives and chart package; generates only
+stable publication envelopes; and repeats clean-consumer verification before
+creating a stable draft.
+
+Promotion is exact-idempotent. An absent destination is copied. A destination already bound to the expected digest is accepted for safe resumption. Any different digest fails closed. Candidate and promotion Actions artefacts are temporary transport only; the published candidate prerelease and its signed manifest are the durable promotion source.
+
+No RC or stable workflow is automatic. Run each manual dispatch against the selected tag ref so the keyless certificate identity is bound to that immutable tag. The protected `release` environment and independent reviewer remain required for candidate subject publication, candidate-draft publication, digest promotion and final draft creation.
+
 Trivy runs from the official `0.72.0` image pinned by immutable digest. KubeMemLens does not use mutable Trivy action tags: Aqua Security's [March 2026 advisory](https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23) documented compromised action tags and explicitly identifies digest-pinned images as unaffected. Version and digest upgrades require reviewing the official immutable release and rerunning all three scans locally or in CI.
 
 The Syft installer action is commit-pinned and requests Syft `v1.44.0` explicitly. Upgrade it only after checking the official immutable release and verifying that every archive produces a non-empty SPDX 2.3 SBOM without local build paths.
 
 The Dockerfile frontend and multi-architecture Go builder image are also pinned by manifest-list digest. Toolchain upgrades must update both the human-readable tag and digest, build both release architectures, and repeat the runtime-image scan.
+
+Candidate and legacy builds use BuildKit `v0.32.2` pinned by manifest-list digest. Stable chart promotion uses ORAS `v1.3.3` from the official release archive with its exact SHA-256 verified before extraction. Upgrade either tool only after reviewing its official security advisories and immutable release, updating the release-contract checks, and repeating the two-build or digest-preserving copy proof.
 
 ## Draft audit
 

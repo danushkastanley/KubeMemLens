@@ -17,6 +17,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Qualified xterm, Kitty, Alacritty, tmux and delayed SSH for the exact terminal candidate, with 30-minute PTY and real-emulator runs; named macOS emulators remain unqualified until a real permitted run exists.
 - Changed release publication to build the multi-architecture image once, promote its OCI archive without digest change, sign the final subject inventory and create a draft only after clean-consumer verification.
 - Added strict Helm values schema validation and a non-privileged chart test hook exercised across install, upgrade and rollback.
+- Moved required CI lifecycle coverage to the current upstream-supported Kubernetes 1.35, 1.36 and 1.37 minor releases after Kubernetes 1.37 reached GA.
 
 ### Security
 
@@ -62,7 +63,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Explicitly pinned Syft release tooling with locally validated non-empty SPDX archive SBOMs.
 - Artifact Hub-ready chart README and version-aligned release-image metadata.
 - Immutable Dockerfile frontend and Go builder image inputs for reproducible release builds.
-- CI compatibility coverage aligned to the current upstream-supported Kubernetes 1.34, 1.35 and 1.36 minor releases.
+- CI compatibility coverage aligned to the then-current upstream-supported Kubernetes 1.34, 1.35 and 1.36 minor releases.
 - A digest-pinned Inspektor Gadget prototype evaluation decision that preserves server-side KubeMemLens tenant admission and keeps tracing out of the default chart.
 
 ### Changed

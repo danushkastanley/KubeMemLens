@@ -49,6 +49,9 @@ jobs:
           koalaman/shellcheck:v0.10.0@sha256:2097951f02e735b613f4a34de20c40f937a6c8f18ecb170612c88c34517221fb
           hack/*.sh hack/community/*.sh hack/lib/*.sh hack/release/*.sh hack/terminal-qualification/*.sh
 
+      - name: Validate GitHub Actions workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+
       - name: Test shell helpers
         run: |
           hack/test-retry.sh
@@ -230,9 +233,18 @@ jobs:
       - name: Check authenticated ingestion boundary
         run: |
           test "$(grep -c -- '--ingestion-mode=authenticated' /tmp/kube-memlens.yaml)" -eq 2
-          ! grep -q -- '--collector-url=' /tmp/kube-memlens.yaml
-          ! grep -q -- '--ingest-listen=' /tmp/kube-memlens.yaml
-          ! grep -q '^    - name: ingest$' /tmp/kube-memlens.yaml
+          if grep -q -- '--collector-url=' /tmp/kube-memlens.yaml; then
+            echo 'rendered chart contains the retired collector URL' >&2
+            exit 1
+          fi
+          if grep -q -- '--ingest-listen=' /tmp/kube-memlens.yaml; then
+            echo 'rendered chart contains the retired ingestion listener' >&2
+            exit 1
+          fi
+          if grep -q '^    - name: ingest$' /tmp/kube-memlens.yaml; then
+            echo 'rendered chart contains the retired ingestion Service port' >&2
+            exit 1
+          fi
           grep -q '^kind: APIService$' /tmp/kube-memlens.yaml
           grep -q '^  name: v1alpha1.memory.kubememlens.io$' /tmp/kube-memlens.yaml
           grep -Eq '^  caBundle: "[A-Za-z0-9+/]' /tmp/kube-memlens.yaml
@@ -241,7 +253,10 @@ jobs:
           grep -q '^      port: 443$' /tmp/kube-memlens.yaml
           test "$(grep -c 'automountServiceAccountToken: false' /tmp/kube-memlens.yaml)" -ge 4
           test "$(grep -c 'serviceAccountToken:' /tmp/kube-memlens.yaml)" -eq 3
-          ! grep -q 'audience:' /tmp/kube-memlens.yaml
+          if grep -q 'audience:' /tmp/kube-memlens.yaml; then
+            echo 'rendered chart contains an unsupported token audience' >&2
+            exit 1
+          fi
           grep -q 'name: system:auth-delegator' /tmp/kube-memlens.yaml
           grep -q 'name: extension-apiserver-authentication-reader' /tmp/kube-memlens.yaml
           grep -q 'name: kube-memlens-collector-node-reader' /tmp/kube-memlens.yaml
@@ -386,14 +401,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - kubernetes: 1.34.8
-            node-image: kindest/node:v1.34.8@sha256:02722c2dedddcfc00febf5d27fbeb9b7b2c14294c82109ff4a85d89ac9ba3256
-            kubectl-version: v1.34.8
-            kubectl-sha256: f6249132865c13abe3c9dd5038f5da65849cb86eee1608c001831504e481aa8c
-            tui_smoke: false
-            authenticated_ingestion_smoke: false
-            tenant_scoped_read_smoke: false
-            tenant_isolation_smoke: false
           - kubernetes: 1.35.5
             node-image: kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e940429c2ce42fa3a5619ec2bbc60b949c0ac95
             kubectl-version: v1.35.5
@@ -406,6 +413,14 @@ jobs:
             node-image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
             kubectl-version: v1.36.1
             kubectl-sha256: 629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7
+            tui_smoke: false
+            authenticated_ingestion_smoke: false
+            tenant_scoped_read_smoke: false
+            tenant_isolation_smoke: false
+          - kubernetes: 1.37.0
+            node-image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+            kubectl-version: v1.37.0
+            kubectl-sha256: 6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
             tui_smoke: true
             authenticated_ingestion_smoke: true
             tenant_scoped_read_smoke: true

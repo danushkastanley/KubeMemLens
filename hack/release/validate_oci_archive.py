@@ -50,7 +50,7 @@ def _descriptor_json(archive, members, descriptor):
     return document
 
 
-def validate_archive(path, version, commit, build_date):
+def validate_archive(path, version, commit, build_date, require_attestations=True):
     path = Path(path)
     details = path.lstat()
     if not stat.S_ISREG(details.st_mode) or details.st_size <= 0 or details.st_size > MAX_ARCHIVE_BYTES:
@@ -107,8 +107,12 @@ def validate_archive(path, version, commit, build_date):
             image_manifests[key] = (item, _descriptor_json(archive, members, item))
 
         expected_platforms = {("linux", "amd64"), ("linux", "arm64")}
-        if set(image_manifests) != expected_platforms or len(attestations) != 2:
-            raise ArchiveError("OCI image must contain amd64, arm64 and one attestation per platform")
+        if set(image_manifests) != expected_platforms:
+            raise ArchiveError("OCI image must contain exactly amd64 and arm64 platform manifests")
+        if require_attestations and len(attestations) != 2:
+            raise ArchiveError("OCI image must contain one attestation per platform")
+        if not require_attestations and attestations:
+            raise ArchiveError("reproducible OCI image must not contain inline attestations")
 
         expected_labels = {
             "org.opencontainers.image.version": version,
@@ -127,6 +131,8 @@ def validate_archive(path, version, commit, build_date):
             labels = runtime.get("Labels", {})
             if any(labels.get(name) != value for name, value in expected_labels.items()):
                 raise ArchiveError("OCI image labels do not match the release identity")
+            if not require_attestations:
+                continue
             digest = item["digest"]
             attestation = attestations.get(digest)
             if attestation is None:
@@ -157,9 +163,16 @@ def main():
     parser.add_argument("--version", required=True)
     parser.add_argument("--commit", required=True)
     parser.add_argument("--build-date", required=True)
+    parser.add_argument("--attestations", choices=("required", "none"), default="required")
     arguments = parser.parse_args()
     try:
-        digest = validate_archive(arguments.archive, arguments.version, arguments.commit, arguments.build_date)
+        digest = validate_archive(
+            arguments.archive,
+            arguments.version,
+            arguments.commit,
+            arguments.build_date,
+            require_attestations=arguments.attestations == "required",
+        )
     except (OSError, ArchiveError) as error:
         print(f"OCI archive verification error: {error}", file=__import__("sys").stderr)
         return 2

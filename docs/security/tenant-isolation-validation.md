@@ -45,7 +45,7 @@ The content test replaces only the caller-supplied object name before hashing. I
 - `make verify-tenant-isolation-kind` owns ISO-LIVE-001 to ISO-LIVE-003, ISO-LIVE-006 to ISO-LIVE-008, ISO-LIVE-011, ISO-LIVE-012 and the concurrent-read part of ISO-LIVE-013.
 - `make verify-authenticated-ingestion-kind` owns ISO-LIVE-004, ISO-LIVE-005 and the forged, replayed, rate-limited, compressed and oversized write cases.
 - Go tests own exact route-to-SubjectAccessReview parity, cross-scope continuation rejection, malformed read bounds, authoriser deny/no-opinion/error behaviour and zero store work on failure.
-- The complete `hack/e2e-kind.sh` lifecycle owns ISO-LIVE-010. CI runs all four evidence sources on the extended Kubernetes 1.36 job; install, upgrade and rollback keep the tenant-read contract active.
+- The complete `hack/e2e-kind.sh` lifecycle owns ISO-LIVE-010. CI runs all four evidence sources on the extended Kubernetes 1.37 job; install, upgrade and rollback keep the tenant-read contract active.
 
 The E2E runner calculates and supplies the build-identity values shown above. A manual run must do the same. The verifier rejects a dirty repository, a source-commit mismatch, a different image reference or runtime image ID, a binary without the embedded full commit, or a different tracked chart-source hash.
 

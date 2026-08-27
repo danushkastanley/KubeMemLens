@@ -2,7 +2,9 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags:
+      - 'v*-alpha.*'
+      - 'v*-beta.*'
 
 permissions: {}
 
@@ -42,6 +44,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        with:
+          driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
 
       - name: Install pinned Helm
         run: |
@@ -51,8 +55,11 @@ jobs:
 
       - name: Resolve and validate release identity
         run: |
-          echo "BUILD_DATE=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
-          echo "CHART_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          {
+            echo "BUILD_DATE=$(git show -s --format=%cI HEAD)"
+            echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)"
+            echo "CHART_VERSION=${GITHUB_REF_NAME#v}"
+          } >> "$GITHUB_ENV"
           hack/release/validate_tag.sh "$GITHUB_REF_NAME" "$GITHUB_SHA"
 
       - name: Check release documentation
@@ -61,6 +68,7 @@ jobs:
           hack/check-release-contract.sh
           chart_version=$(awk '$1 == "version:" {print $2; exit}' charts/kube-memlens/Chart.yaml)
           app_version=$(awk '$1 == "appVersion:" {gsub(/"/, "", $2); print $2; exit}' charts/kube-memlens/Chart.yaml)
+          # shellcheck disable=SC2153 # Populated through GITHUB_ENV by the previous step.
           test "$chart_version" = "$CHART_VERSION"
           test "$app_version" = "$CHART_VERSION"
           grep -Fq "$GITHUB_REF_NAME" README.md
@@ -99,13 +107,14 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          outputs: type=oci,dest=${{ runner.temp }}/kube-memlens-image.tar
+          outputs: type=oci,dest=${{ runner.temp }}/kube-memlens-image.tar,rewrite-timestamp=true,compatibility-version=30
           build-args: |
             VERSION=${{ github.ref_name }}
             COMMIT=${{ github.sha }}
             BUILD_DATE=${{ env.BUILD_DATE }}
-          provenance: mode=max
-          sbom: true
+            SOURCE_DATE_EPOCH=${{ env.SOURCE_DATE_EPOCH }}
+          provenance: false
+          sbom: false
 
       - name: Validate build-once OCI image
         run: |
@@ -113,7 +122,8 @@ jobs:
             "${RUNNER_TEMP}/kube-memlens-image.tar" \
             --version "$GITHUB_REF_NAME" \
             --commit "$GITHUB_SHA" \
-            --build-date "$BUILD_DATE")
+            --build-date "$BUILD_DATE" \
+            --attestations none)
           test "$image_digest" = "${{ steps.image.outputs.digest }}"
           printf '%s\n' "$image_digest" > "${RUNNER_TEMP}/image-digest.txt"
           docker run --rm \
@@ -151,28 +161,35 @@ jobs:
           helm lint --strict "${RUNNER_TEMP}/kube-memlens-release-chart"
           helm template kube-memlens "${RUNNER_TEMP}/kube-memlens-release-chart" \
             --namespace kube-memlens >/dev/null
-          helm package "${RUNNER_TEMP}/kube-memlens-release-chart" \
-            --destination dist \
+          python3 hack/release/package_chart.py \
+            "${RUNNER_TEMP}/kube-memlens-release-chart" \
+            "dist/kube-memlens-${CHART_VERSION}.tgz" \
             --version "$CHART_VERSION" \
-            --app-version "$CHART_VERSION"
+            --app-version "$CHART_VERSION" \
+            --epoch "$SOURCE_DATE_EPOCH"
           python3 hack/verify_chart_archive.py \
             "dist/kube-memlens-${CHART_VERSION}.tgz" \
             "${RUNNER_TEMP}/kube-memlens-release-chart"
 
       - name: Generate chart SBOM and finalise build bundle
         run: |
+          syft "oci-archive:${RUNNER_TEMP}/kube-memlens-image.tar" \
+            -o "spdx-json=dist/kube-memlens-${CHART_VERSION}.image.sbom.json"
           syft "file:dist/kube-memlens-${CHART_VERSION}.tgz" \
             -o "spdx-json=dist/kube-memlens-${CHART_VERSION}.chart.sbom.json"
-          jq -e '
-            .spdxVersion == "SPDX-2.3" and
-            (.packages | type == "array" and length > 0) and
-            any(.creationInfo.creators[]; . == "Tool: syft-1.44.0")
-          ' "dist/kube-memlens-${CHART_VERSION}.chart.sbom.json" >/dev/null
+          for sbom in "dist/kube-memlens-${CHART_VERSION}."*.sbom.json; do
+            jq -e '
+              .spdxVersion == "SPDX-2.3" and
+              (.packages | type == "array" and length > 0) and
+              any(.creationInfo.creators[]; . == "Tool: syft-1.44.0")
+            ' "$sbom" >/dev/null
+          done
           (
             cd dist
             sha256sum \
               "kube-memlens-${CHART_VERSION}.tgz" \
               "kube-memlens-${CHART_VERSION}.chart.sbom.json" \
+              "kube-memlens-${CHART_VERSION}.image.sbom.json" \
               memlens.yaml >> checksums.txt
             sha256sum --check checksums.txt
             mkdir -p internal
@@ -245,7 +262,8 @@ jobs:
             dist/internal/kube-memlens-image.tar \
             --version "$GITHUB_REF_NAME" \
             --commit "$GITHUB_SHA" \
-            --build-date "$(git show -s --format=%cI HEAD)")
+            --build-date "$(git show -s --format=%cI HEAD)" \
+            --attestations none)
           test "$image_digest" = "$(cat dist/internal/image-digest.txt)"
 
       - name: Refuse existing release destinations
@@ -337,7 +355,7 @@ jobs:
         run: cosign sign --yes "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}"
 
       - name: Add GitHub image provenance
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/danushkastanley/kube-memlens
           subject-digest: ${{ env.IMAGE_DIGEST }}
@@ -357,7 +375,7 @@ jobs:
           echo "digest=$chart_digest" >> "$GITHUB_OUTPUT"
 
       - name: Add GitHub chart provenance
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/danushkastanley/charts/kube-memlens
           subject-digest: ${{ env.CHART_DIGEST }}
@@ -381,7 +399,7 @@ jobs:
             dist/checksums.txt
 
       - name: Attest final release files
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             dist/*.tar.gz

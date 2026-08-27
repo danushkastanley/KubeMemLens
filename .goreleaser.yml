@@ -12,11 +12,12 @@ builds:
     goarch: [amd64, arm64]
     flags:
       - -trimpath
+    mod_timestamp: "{{ .CommitTimestamp }}"
     ldflags:
       - -s -w
-      - -X github.com/danushkastanley/kube-memlens/internal/buildinfo.Version={{ .Version }}
+      - -X github.com/danushkastanley/kube-memlens/internal/buildinfo.Version=v{{ .Version }}
       - -X github.com/danushkastanley/kube-memlens/internal/buildinfo.Commit={{ .Commit }}
-      - -X github.com/danushkastanley/kube-memlens/internal/buildinfo.BuildDate={{ .Date }}
+      - -X github.com/danushkastanley/kube-memlens/internal/buildinfo.BuildDate={{ .CommitDate }}
 
 archives:
   - ids: [kubectl-memlens]
@@ -27,10 +28,29 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
+    builds_info:
+      group: root
+      owner: root
+      mtime: "{{ .CommitDate }}"
     files:
-      - LICENSE
-      - NOTICE
-      - README.md
+      - src: LICENSE
+        info:
+          group: root
+          owner: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      - src: NOTICE
+        info:
+          group: root
+          owner: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
+      - src: README.md
+        info:
+          group: root
+          owner: root
+          mode: 0644
+          mtime: "{{ .CommitDate }}"
 
 checksum:
   name_template: checksums.txt
@@ -48,3 +68,6 @@ changelog:
 
 release:
   disable: true
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
