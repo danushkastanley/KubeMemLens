@@ -55,9 +55,11 @@ jobs:
 
       - name: Resolve and validate release identity
         run: |
-          echo "BUILD_DATE=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
-          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
-          echo "CHART_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          {
+            echo "BUILD_DATE=$(git show -s --format=%cI HEAD)"
+            echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)"
+            echo "CHART_VERSION=${GITHUB_REF_NAME#v}"
+          } >> "$GITHUB_ENV"
           hack/release/validate_tag.sh "$GITHUB_REF_NAME" "$GITHUB_SHA"
 
       - name: Check release documentation
@@ -66,6 +68,7 @@ jobs:
           hack/check-release-contract.sh
           chart_version=$(awk '$1 == "version:" {print $2; exit}' charts/kube-memlens/Chart.yaml)
           app_version=$(awk '$1 == "appVersion:" {gsub(/"/, "", $2); print $2; exit}' charts/kube-memlens/Chart.yaml)
+          # shellcheck disable=SC2153 # Populated through GITHUB_ENV by the previous step.
           test "$chart_version" = "$CHART_VERSION"
           test "$app_version" = "$CHART_VERSION"
           grep -Fq "$GITHUB_REF_NAME" README.md
@@ -174,7 +177,7 @@ jobs:
             -o "spdx-json=dist/kube-memlens-${CHART_VERSION}.image.sbom.json"
           syft "file:dist/kube-memlens-${CHART_VERSION}.tgz" \
             -o "spdx-json=dist/kube-memlens-${CHART_VERSION}.chart.sbom.json"
-          for sbom in dist/kube-memlens-${CHART_VERSION}.*.sbom.json; do
+          for sbom in "dist/kube-memlens-${CHART_VERSION}."*.sbom.json; do
             jq -e '
               .spdxVersion == "SPDX-2.3" and
               (.packages | type == "array" and length > 0) and

@@ -233,9 +233,18 @@ jobs:
       - name: Check authenticated ingestion boundary
         run: |
           test "$(grep -c -- '--ingestion-mode=authenticated' /tmp/kube-memlens.yaml)" -eq 2
-          ! grep -q -- '--collector-url=' /tmp/kube-memlens.yaml
-          ! grep -q -- '--ingest-listen=' /tmp/kube-memlens.yaml
-          ! grep -q '^    - name: ingest$' /tmp/kube-memlens.yaml
+          if grep -q -- '--collector-url=' /tmp/kube-memlens.yaml; then
+            echo 'rendered chart contains the retired collector URL' >&2
+            exit 1
+          fi
+          if grep -q -- '--ingest-listen=' /tmp/kube-memlens.yaml; then
+            echo 'rendered chart contains the retired ingestion listener' >&2
+            exit 1
+          fi
+          if grep -q '^    - name: ingest$' /tmp/kube-memlens.yaml; then
+            echo 'rendered chart contains the retired ingestion Service port' >&2
+            exit 1
+          fi
           grep -q '^kind: APIService$' /tmp/kube-memlens.yaml
           grep -q '^  name: v1alpha1.memory.kubememlens.io$' /tmp/kube-memlens.yaml
           grep -Eq '^  caBundle: "[A-Za-z0-9+/]' /tmp/kube-memlens.yaml
@@ -244,7 +253,10 @@ jobs:
           grep -q '^      port: 443$' /tmp/kube-memlens.yaml
           test "$(grep -c 'automountServiceAccountToken: false' /tmp/kube-memlens.yaml)" -ge 4
           test "$(grep -c 'serviceAccountToken:' /tmp/kube-memlens.yaml)" -eq 3
-          ! grep -q 'audience:' /tmp/kube-memlens.yaml
+          if grep -q 'audience:' /tmp/kube-memlens.yaml; then
+            echo 'rendered chart contains an unsupported token audience' >&2
+            exit 1
+          fi
           grep -q 'name: system:auth-delegator' /tmp/kube-memlens.yaml
           grep -q 'name: extension-apiserver-authentication-reader' /tmp/kube-memlens.yaml
           grep -q 'name: kube-memlens-collector-node-reader' /tmp/kube-memlens.yaml

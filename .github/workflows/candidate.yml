@@ -100,20 +100,19 @@ jobs:
           test "$app_version" = "$GA_VERSION"
           grep -Fq "$GA_TAG" README.md
           grep -Fq "## ${GA_VERSION} - " CHANGELOG.md
-
       - name: Build prospective GA archives
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           distribution: goreleaser
           version: v2.17.0
           args: release --clean --skip=publish
-
       - name: Preserve first archive digests
         run: |
           mkdir -p "${RUNNER_TEMP}/first-archives"
           find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) \
             -exec cp '{}' "${RUNNER_TEMP}/first-archives/" \;
-          (cd "${RUNNER_TEMP}/first-archives" && sha256sum * | sort > checksums.txt)
+          (cd "${RUNNER_TEMP}/first-archives" && \
+            sha256sum -- ./*.tar.gz ./*.zip | sed 's#  \./#  #' | sort > checksums.txt)
 
       - name: Rebuild prospective GA archives
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
@@ -127,7 +126,8 @@ jobs:
           archive_count=$(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')
           test "$archive_count" = 6
           (cd dist && sha256sum --check checksums.txt)
-          (cd dist && sha256sum *.tar.gz *.zip | sort) > "${RUNNER_TEMP}/second-archives.txt"
+          (cd dist && sha256sum -- ./*.tar.gz ./*.zip | sed 's#  \./#  #' | sort) \
+            > "${RUNNER_TEMP}/second-archives.txt"
           cmp "${RUNNER_TEMP}/first-archives/checksums.txt" "${RUNNER_TEMP}/second-archives.txt"
           tar -xOf "dist/kube-memlens_${GA_VERSION}_linux_amd64.tar.gz" kubectl-memlens \
             > "${RUNNER_TEMP}/kubectl-memlens"
@@ -200,7 +200,7 @@ jobs:
             -o "spdx-json=dist/kube-memlens-${GA_VERSION}.image.sbom.json"
           syft "file:dist/kube-memlens-${GA_VERSION}.tgz" \
             -o "spdx-json=dist/kube-memlens-${GA_VERSION}.chart.sbom.json"
-          for sbom in dist/kube-memlens-${GA_VERSION}.*.sbom.json; do
+          for sbom in "dist/kube-memlens-${GA_VERSION}."*.sbom.json; do
             jq -e '.spdxVersion == "SPDX-2.3" and (.packages | length > 0)' "$sbom" >/dev/null
           done
           (
