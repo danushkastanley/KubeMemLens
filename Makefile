@@ -55,6 +55,10 @@ check-provider-contract:
 
 check-terminal-contract:
 	python3 -m unittest discover -s hack/terminal-qualification -p 'test_*.py'
+	@for bundle in docs/qualification-results/terminal-runtime-*; do \
+		[ -d "$$bundle" ] || continue; \
+		python3 hack/terminal-qualification/validate_evidence.py "$$bundle"; \
+	done
 	@output=$$(mktemp); \
 		if hack/qualify-linux-terminals.sh >"$$output" 2>&1; then \
 			echo "Linux terminal qualification ran without explicit acknowledgement"; \

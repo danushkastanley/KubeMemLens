@@ -39,6 +39,10 @@ TERMINAL_LINUX_ARTIFACT_DIR=/tmp/kube-memlens-terminal-evidence \
   hack/qualify-linux-terminals.sh
 ```
 
+Set `TERMINAL_LINUX_SOAK_SECONDS=1800` for the one-time 30-minute Kitty row.
+The runner rejects shorter values so a development smoke cannot be mistaken for
+the required soak.
+
 The runner uses a digest-pinned Ubuntu base and exact package versions. It
 removes the qualification image when the run exits. Its SSH server, host key,
 client key and 80 ms loopback delay exist only inside the disposable container.

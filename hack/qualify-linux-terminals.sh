@@ -8,6 +8,7 @@ cli=${TERMINAL_LINUX_CLI:-}
 kubeconfig=${TERMINAL_LINUX_KUBECONFIG:-}
 context=${TERMINAL_LINUX_CONTEXT:-}
 artifact_dir=${TERMINAL_LINUX_ARTIFACT_DIR:-}
+soak_seconds=${TERMINAL_LINUX_SOAK_SECONDS:-}
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/kube-memlens-linux-terminal.XXXXXX")
 
 fail() { echo "Linux terminal qualification error: $*" >&2; exit 1; }
@@ -24,6 +25,10 @@ esac
 [ -n "${context}" ] || fail "TERMINAL_LINUX_CONTEXT is required"
 [ -d "${artifact_dir}" ] || fail "TERMINAL_LINUX_ARTIFACT_DIR must be an existing directory"
 [ -z "$(find "${artifact_dir}" -mindepth 1 -maxdepth 1 -print -quit)" ] || fail "artifact directory must be empty"
+case "${soak_seconds}" in
+  ""|1800) ;;
+  *) fail "TERMINAL_LINUX_SOAK_SECONDS must be empty or 1800" ;;
+esac
 
 cleanup() {
   status=$?
@@ -77,5 +82,23 @@ docker run --rm --user root --cap-add NET_ADMIN --add-host host.docker.internal:
   /scripts/remote_matrix.sh \
   /evidence /qualification/kubectl-memlens /qualification/kubeconfig.json "${context}" "$(id -u)"
 
-jq -e -s 'length == 11 and all(.[]; .outcome == "passed")' "${artifact_dir}"/*.json >/dev/null
+expected_results=11
+if [ "${soak_seconds}" = 1800 ]; then
+  docker run --rm --add-host host.docker.internal:host-gateway \
+    -e TERMINAL_EMULATOR_DURATION_SECONDS=1800 \
+    -v "${cli}:/qualification/kubectl-memlens:ro" \
+    -v "${work_dir}/kubeconfig.container.json:/qualification/kubeconfig.json:ro" \
+    -v "${PWD}/hack/terminal-qualification:/scripts:ro" \
+    -v "${artifact_dir}:/evidence" \
+    "${image}" \
+    /scripts/linux_emulator_soak.sh /evidence \
+    /qualification/kubectl-memlens \
+    --kubeconfig /qualification/kubeconfig.json \
+    --context "${context}" \
+    --collector-namespace kube-memlens \
+    tui --all-namespaces --refresh 1s
+  expected_results=12
+fi
+
+jq -e -s --argjson expected "${expected_results}" 'length == $expected and all(.[]; .outcome == "passed")' "${artifact_dir}"/*.json >/dev/null
 echo "Linux terminal qualification passed for xterm, Kitty, Alacritty, tmux and delayed SSH"

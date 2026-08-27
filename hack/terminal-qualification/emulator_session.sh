@@ -8,6 +8,7 @@ rows=${3:-}
 result=${4:-}
 screenshot=${5:-}
 shift 5 || true
+duration=${TERMINAL_EMULATOR_DURATION_SECONDS:-8}
 
 case "${emulator}" in
   xterm|kitty|alacritty) ;;
@@ -15,6 +16,7 @@ case "${emulator}" in
 esac
 [[ "${columns}" =~ ^[0-9]+$ ]] && [ "${columns}" -ge 40 ] && [ "${columns}" -le 500 ] || exit 2
 [[ "${rows}" =~ ^[0-9]+$ ]] && [ "${rows}" -ge 10 ] && [ "${rows}" -le 200 ] || exit 2
+[[ "${duration}" =~ ^[0-9]+$ ]] && [ "${duration}" -ge 1 ] && [ "${duration}" -le 3600 ] || exit 2
 [ "$#" -gt 0 ] || exit 2
 [ ! -e "${result}" ] || exit 2
 [ ! -e "${screenshot}" ] || exit 2
@@ -55,10 +57,16 @@ done
 xdotool getwindowname "${window_id}" | grep -Fxq "${title}"
 
 sleep 3
-for key in G s N p question question space space; do
+keys=(G s N p question question space space)
+key_index=0
+input_deadline=$((SECONDS + duration))
+while [ "${SECONDS}" -lt "${input_deadline}" ]; do
+  key=${keys[$((key_index % ${#keys[@]}))]}
   xdotool windowactivate --sync "${window_id}" >/dev/null 2>&1
   xdotool key "${key}"
-  sleep 0.2
+  xdotool getwindowname "${window_id}" | grep -Fxq "${title}"
+  key_index=$((key_index + 1))
+  sleep 1
 done
 xdotool windowactivate --sync "${window_id}" >/dev/null 2>&1 || true
 scrot --focused --overwrite "${screenshot}"
@@ -95,11 +103,13 @@ jq -n \
   --arg emulator "${emulator}" \
   --arg version "${version}" \
   --argjson columns "${columns}" \
-  --argjson rows "${rows}" '
+  --argjson rows "${rows}" \
+  --argjson durationSeconds "${duration}" '
   {
     schemaVersion: 1,
     outcome: "passed",
     terminal: {emulator: $emulator, version: $version, columns: $columns, rows: $rows},
+    run: {refresh: "1s", requestedDurationSeconds: $durationSeconds},
     checks: {
       applicationAcceptedNavigationInput: true,
       cleanExit: true,
