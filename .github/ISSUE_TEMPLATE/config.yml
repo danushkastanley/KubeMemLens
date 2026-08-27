@@ -3,3 +3,6 @@ contact_links:
   - name: Security report
     url: https://github.com/danushkastanley/KubeMemLens/security/advisories/new
     about: Report suspected vulnerabilities privately.
+  - name: Support policy
+    url: https://github.com/danushkastanley/KubeMemLens/blob/main/SUPPORT.md
+    about: Review support scope, safe diagnostic information, and request routing.

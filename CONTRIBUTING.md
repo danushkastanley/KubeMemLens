@@ -70,4 +70,4 @@ New dependencies and privileges require explicit justification. Include maintena
 
 ## Conduct and security
 
-Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report vulnerabilities through [SECURITY.md](SECURITY.md), not a public issue.
+Participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Report vulnerabilities through [SECURITY.md](SECURITY.md), not a public issue. Use [SUPPORT.md](SUPPORT.md) for installation and usage questions, and the privacy-safe [installation feedback form](https://github.com/danushkastanley/KubeMemLens/issues/new?template=adopter_feedback.yml) for an adopter outcome.
