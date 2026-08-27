@@ -30,7 +30,7 @@ Latest accepted workflow: <https://github.com/danushkastanley/KubeMemLens/action
 
 | Release check | Local baseline | First published | Latest main | Reason |
 |---|---:|---:|---:|---|
-| Branch-Protection | 0 | 8 | 8 | `main` requires one CODEOWNER approval, stale-review dismissal, last-push separation, resolved conversations and strict checks. The temporary owner bypass used for the implementation queue was removed after PR #42 merged; the remaining warning is that one approval is not the Scorecard maximum. |
+| Branch-Protection | 0 | 8 | 8 | The accepted run recorded one CODEOWNER approval and the then-active owner bypass, so both the administrator/bypass warning and the one-reviewer warning remain part of that historical result. A later live ruleset readback after PR #42 found no bypass actors; the next signed main run must confirm the updated signal. |
 | Token-Permissions | 10 | 10 | 10 | Workflow tokens follow least privilege |
 | Dangerous-Workflow | 10 | 10 | 10 | No dangerous workflow pattern detected |
 | Pinned-Dependencies | 10 | 10 | 10 | All workflow dependencies are pinned by full commit SHA |
