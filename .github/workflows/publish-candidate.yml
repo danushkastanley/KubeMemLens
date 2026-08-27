@@ -1,0 +1,52 @@
+name: Publish verified candidate draft
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Existing verified vX.Y.Z-rc.N draft to publish
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: publish-candidate-${{ inputs.candidate_tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Validate and publish exact candidate draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: release
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the candidate tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.candidate_tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Validate dispatch identity
+        env:
+          CANDIDATE_TAG_INPUT: ${{ inputs.candidate_tag }}
+        run: |
+          set -Eeuo pipefail
+          test "$GITHUB_REF" = "refs/tags/${CANDIDATE_TAG_INPUT}"
+          case "$CANDIDATE_TAG_INPUT" in
+            v[0-9]*.[0-9]*.[0-9]*-rc.[1-9][0-9]*) ;;
+            *) echo 'candidate tag must be vX.Y.Z-rc.N' >&2; exit 1 ;;
+          esac
+          hack/release/validate_tag.sh "$CANDIDATE_TAG_INPUT" "$GITHUB_SHA"
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.2
+      - name: Validate and publish without asset mutation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BUNDLE_DIR: dist
+          RELEASE_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_CERTIFICATE_IDENTITY: https://github.com/danushkastanley/KubeMemLens/.github/workflows/candidate.yml@refs/tags/${{ inputs.candidate_tag }}
+        run: hack/release/publish_candidate_draft.sh

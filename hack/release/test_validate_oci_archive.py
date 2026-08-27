@@ -22,10 +22,11 @@ BUILD_DATE = "2026-08-27T00:00:00Z"
 
 
 class OCIBuilder:
-    def __init__(self, bad_label=False, platforms=("amd64", "arm64")):
+    def __init__(self, bad_label=False, platforms=("amd64", "arm64"), attestations=True):
         self.blobs = {}
         self.bad_label = bad_label
         self.platforms = platforms
+        self.attestations = attestations
 
     def descriptor(self, document, media_type):
         content = json.dumps(document, separators=(",", ":"), sort_keys=True).encode()
@@ -79,10 +80,11 @@ class OCIBuilder:
 
     def write(self, path):
         images = [self.image(architecture) for architecture in self.platforms]
+        attestations = [self.attestation(image) for image in images] if self.attestations else []
         inner = self.descriptor({
             "schemaVersion": 2,
             "mediaType": "application/vnd.oci.image.index.v1+json",
-            "manifests": images + [self.attestation(image) for image in images],
+            "manifests": images + attestations,
         }, "application/vnd.oci.image.index.v1+json")
         root = {"schemaVersion": 2, "mediaType": "application/vnd.oci.image.index.v1+json",
                 "manifests": [inner]}
@@ -112,12 +114,31 @@ class OCIArchiveTests(unittest.TestCase):
         self.assertEqual(observed, expected)
 
     def test_missing_platform_fails(self):
-        with self.assertRaisesRegex(ArchiveError, "amd64, arm64"):
+        with self.assertRaisesRegex(ArchiveError, "amd64 and arm64"):
             self.validate(OCIBuilder(platforms=("amd64",)))
 
     def test_release_identity_mismatch_fails(self):
         with self.assertRaisesRegex(ArchiveError, "labels"):
             self.validate(OCIBuilder(bad_label=True))
+
+    def test_product_only_archive_passes_without_inline_attestations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "image.tar"
+            builder = OCIBuilder(attestations=False)
+            expected = builder.write(archive)
+            observed = validate_archive(
+                archive, VERSION, COMMIT, BUILD_DATE, require_attestations=False
+            )
+            self.assertEqual(observed, expected)
+
+    def test_inline_attestations_fail_product_only_validation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "image.tar"
+            OCIBuilder().write(archive)
+            with self.assertRaisesRegex(ArchiveError, "must not contain inline attestations"):
+                validate_archive(
+                    archive, VERSION, COMMIT, BUILD_DATE, require_attestations=False
+                )
 
 
 if __name__ == "__main__":

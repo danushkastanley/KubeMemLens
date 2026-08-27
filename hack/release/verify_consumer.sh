@@ -9,9 +9,11 @@ image_digest=${RELEASE_IMAGE_DIGEST:?RELEASE_IMAGE_DIGEST is required}
 chart=${RELEASE_CHART:?RELEASE_CHART is required}
 chart_digest=${RELEASE_CHART_DIGEST:?RELEASE_CHART_DIGEST is required}
 identity=${RELEASE_CERTIFICATE_IDENTITY:?RELEASE_CERTIFICATE_IDENTITY is required}
+bundle_identity=${RELEASE_BUNDLE_CERTIFICATE_IDENTITY:-${identity}}
 issuer=${RELEASE_CERTIFICATE_ISSUER:-https://token.actions.githubusercontent.com}
 repository=${RELEASE_REPOSITORY:-danushkastanley/KubeMemLens}
-node_image=${RELEASE_NODE_IMAGE:-kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5}
+node_image=${RELEASE_NODE_IMAGE:-kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5}
+subjects_name=${RELEASE_SUBJECTS_FILE:-release-subjects.txt}
 
 case "${image_digest}" in sha256:????????????????????????????????????????????????????????????????) ;; *) exit 2 ;; esac
 case "${chart_digest}" in sha256:????????????????????????????????????????????????????????????????) ;; *) exit 2 ;; esac
@@ -48,7 +50,7 @@ bundle=$(cd "${bundle}" && pwd)
 chart_version=${version#v}
 archive="${bundle}/kube-memlens_${chart_version}_linux_amd64.tar.gz"
 chart_package="${bundle}/kube-memlens-${chart_version}.tgz"
-subjects="${bundle}/release-subjects.txt"
+subjects="${bundle}/${subjects_name}"
 
 (
   cd "${bundle}"
@@ -61,7 +63,7 @@ grep -Fxq "tag=${version}" "${subjects}"
 
 cosign verify-blob \
   --bundle "${bundle}/checksums.txt.sigstore.json" \
-  --certificate-identity "${identity}" \
+  --certificate-identity "${bundle_identity}" \
   --certificate-oidc-issuer "${issuer}" \
   "${bundle}/checksums.txt" >/dev/null
 

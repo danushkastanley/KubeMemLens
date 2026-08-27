@@ -19,7 +19,7 @@ KubeMemLens is currently alpha software. The published alpha is for evaluation o
 
 | Profile | v1 contract | Current evidence | Evidence owner | Status |
 | --- | --- | --- | --- | --- |
-| Kubernetes API | The three most recent upstream-maintained minor releases on the release decision date. On 25 August 2026 these are 1.34, 1.35 and 1.36. | Automated kind lifecycle tests cover all three current minors. Provider evidence records, but does not extend, the exact Kubernetes versions it exercised. | PROD-008 and automated compatibility CI | Locally verified |
+| Kubernetes API | The three most recent upstream-maintained minor releases on the release decision date. On 27 August 2026 these are 1.35, 1.36 and 1.37. | Required kind lifecycle CI covers all three current minors. Provider evidence records, but does not extend, the exact Kubernetes versions it exercised. | PROD-008 and automated compatibility CI | Qualification required |
 | Deep-mode node base | Linux, cgroup v2, a readable `/sys/fs/cgroup`, DaemonSet scheduling and an enforcing NetworkPolicy-capable CNI. | Parser, walker and chart tests plus the [reviewed provider/runtime matrix](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md). | PROD-008 | Qualified |
 | GKE Standard | COS with containerd and Ubuntu with containerd on amd64 Linux nodes. Support is limited to the exact recorded GKE, image, kernel, runtime and CNI versions. | Reviewed [COS](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/gke-cos-containerd-amd64/provider-qualification.json) and [Ubuntu](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/gke-ubuntu-containerd-amd64/provider-qualification.json) lifecycle bundles. | PROD-008 | Qualified |
 | EKS managed nodes | AL2023 with containerd on amd64 managed-node-group Linux nodes. Bottlerocket is not claimed. | Reviewed [AL2023 lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/eks-al2023-containerd-amd64/provider-qualification.json). | PROD-008 | Qualified |
@@ -37,7 +37,7 @@ CLI archives exist for Darwin, Linux and Windows on amd64 and arm64. The release
 
 [Kubernetes upstream maintains the latest three minor release branches](https://kubernetes.io/releases/). A new minor enters the general KubeMemLens API contract only after the automated kind matrix passes. Provider claims remain limited to their recorded Kubernetes versions unless a separate, explicitly approved requalification widens them. The oldest minor leaves at the next KubeMemLens release after upstream stops maintaining it. Historical provider evidence never extends an upstream end-of-life date.
 
-Kubernetes 1.37 is still a release candidate on 25 August 2026. It is not part of the current support window. The 1.37 ticket family must verify the GA changelog and move the matrix before any 1.37 support claim appears.
+Kubernetes 1.37 reached GA on 26 August 2026 and is part of the current upstream-maintained window. The v1 candidate remains blocked until the 1.35, 1.36 and 1.37 lifecycle lanes pass on the frozen commit. This general API window does not widen any version-bound provider claim.
 
 ## Unsupported and deferred profiles
 

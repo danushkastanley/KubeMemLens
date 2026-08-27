@@ -1,7 +1,12 @@
 .git
+.github
 charts
+deploy
 docs
 examples
+hack
+local-docs
+qualification-evidence
 *.test
 coverage.out
 dist

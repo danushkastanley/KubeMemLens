@@ -57,9 +57,9 @@ expected_checks=(
   'Go checks'
   'Supply-chain checks'
   'Helm checks'
-  'kind / Kubernetes 1.34.8'
   'kind / Kubernetes 1.35.5'
   'kind / Kubernetes 1.36.1'
+  'kind / Kubernetes 1.37.0'
   'CodeQL analysis'
 )
 for check in "${expected_checks[@]}"; do

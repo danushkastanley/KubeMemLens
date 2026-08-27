@@ -70,6 +70,10 @@ check-terminal-contract:
 check-release-contract:
 	python3 -m unittest discover -s hack/release -p 'test_*.py'
 	hack/release/test_create_draft.sh
+	hack/release/test_publish_candidate_draft.sh
+	hack/release/test_publish_candidate_resume.sh
+	hack/release/test_resume_draft.sh
+	hack/release/test_validate_candidate_manifest.sh
 	hack/release/test_validate_tag.sh
 	hack/check-release-contract.sh
 

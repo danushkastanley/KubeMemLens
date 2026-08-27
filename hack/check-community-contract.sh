@@ -58,7 +58,7 @@ require_text docs/security/openssf-passing-assessment.md "\`test_most\` | Unmet"
 require_text docs/security/maintainer-operations.md 'Synthetic reporting drill'
 require_text docs/security/maintainer-operations.md 'Never overwrite a tag'
 require_text docs/security/reviews/private-reporting-drill-2026-08-27.md 'Final state | Closed privately'
-require_text .goreleaser.yml '      - NOTICE'
+require_text .goreleaser.yml '      - src: NOTICE'
 require_text .github/ISSUE_TEMPLATE/adopter_feedback.yml 'feedback, not a new provider-support qualification'
 require_text .github/ISSUE_TEMPLATE/support_request.yml 'This is not a suspected security vulnerability.'
 

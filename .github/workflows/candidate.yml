@@ -1,0 +1,400 @@
+name: Release candidate
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_tag:
+        description: Annotated vX.Y.Z-rc.N tag to qualify
+        required: true
+        type: string
+permissions: {}
+concurrency:
+  group: candidate-${{ inputs.candidate_tag }}
+  cancel-in-progress: false
+env:
+  SKOPEO_IMAGE: quay.io/skopeo/stable@sha256:4fcfc74eb89ec72dcd8caa7fbbf2a5f77d9fe3e2f5ac9e39192702f49c6d4d1a
+jobs:
+  build:
+    name: Build reproducible prospective GA artefacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    outputs:
+      candidate-tag: ${{ steps.identity.outputs.candidate-tag }}
+      ga-tag: ${{ steps.identity.outputs.ga-tag }}
+      ga-version: ${{ steps.identity.outputs.ga-version }}
+      image-repository: ${{ steps.identity.outputs.image-repository }}
+      chart-repository: ${{ steps.identity.outputs.chart-repository }}
+    steps:
+      - name: Check out the candidate tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ inputs.candidate_tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install Syft
+        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          syft-version: v1.44.0
+      - name: Set up pinned BuildKit
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+        with:
+          driver-opts: image=moby/buildkit:v0.32.2@sha256:28a898719c18a33f4e8000685287fa36fd0dd9560c6440227d3a732d79bb41d8
+      - name: Install pinned Helm
+        run: |
+          tools_dir="${RUNNER_TEMP}/kube-memlens-candidate-tools"
+          hack/release/install_helm.sh "$tools_dir"
+          echo "$tools_dir" >> "$GITHUB_PATH"
+      - name: Resolve candidate and intended GA identities
+        id: identity
+        shell: bash
+        env:
+          CANDIDATE_TAG_INPUT: ${{ inputs.candidate_tag }}
+        run: |
+          set -Eeuo pipefail
+          candidate_tag=${CANDIDATE_TAG_INPUT}
+          if [[ ! "$candidate_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc\.[1-9][0-9]*$ ]]; then
+            echo "candidate tag is not vX.Y.Z-rc.N: ${candidate_tag}" >&2
+            exit 1
+          fi
+          test "$GITHUB_REF" = "refs/tags/${candidate_tag}"
+          test "$GITHUB_SHA" = "$(git rev-parse "refs/tags/${candidate_tag}^{commit}")"
+          hack/release/validate_tag.sh "$candidate_tag" "$GITHUB_SHA"
+          ga_tag=${candidate_tag%%-rc.*}
+          ga_version=${ga_tag#v}
+          candidate_version=${candidate_tag#v}
+          build_date=$(git show -s --format=%cI HEAD)
+          source_date_epoch=$(git show -s --format=%ct HEAD)
+          image_repository="ghcr.io/danushkastanley/candidates/${candidate_version}/kube-memlens"
+          chart_repository="ghcr.io/danushkastanley/candidates/${candidate_version}/charts/kube-memlens"
+          {
+            echo "CANDIDATE_TAG=${candidate_tag}"
+            echo "CANDIDATE_VERSION=${candidate_version}"
+            echo "GA_TAG=${ga_tag}"
+            echo "GA_VERSION=${ga_version}"
+            echo "BUILD_DATE=${build_date}"
+            echo "SOURCE_DATE_EPOCH=${source_date_epoch}"
+            echo "CANDIDATE_IMAGE_REPOSITORY=${image_repository}"
+            echo "CANDIDATE_CHART_REPOSITORY=${chart_repository}"
+            echo "GORELEASER_CURRENT_TAG=${ga_tag}"
+          } >> "$GITHUB_ENV"
+          {
+            echo "candidate-tag=${candidate_tag}"
+            echo "ga-tag=${ga_tag}"
+            echo "ga-version=${ga_version}"
+            echo "image-repository=${image_repository}"
+            echo "chart-repository=${chart_repository}"
+          } >> "$GITHUB_OUTPUT"
+      - name: Check candidate documentation and contracts
+        run: |
+          hack/check-support-contract.sh
+          hack/check-release-contract.sh
+          chart_version=$(awk '$1 == "version:" {print $2; exit}' charts/kube-memlens/Chart.yaml)
+          app_version=$(awk '$1 == "appVersion:" {gsub(/"/, "", $2); print $2; exit}' charts/kube-memlens/Chart.yaml)
+          test "$chart_version" = "$GA_VERSION"
+          test "$app_version" = "$GA_VERSION"
+          grep -Fq "$GA_TAG" README.md
+          grep -Fq "## ${GA_VERSION} - " CHANGELOG.md
+
+      - name: Build prospective GA archives
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          args: release --clean --skip=publish
+
+      - name: Preserve first archive digests
+        run: |
+          mkdir -p "${RUNNER_TEMP}/first-archives"
+          find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) \
+            -exec cp '{}' "${RUNNER_TEMP}/first-archives/" \;
+          (cd "${RUNNER_TEMP}/first-archives" && sha256sum * | sort > checksums.txt)
+
+      - name: Rebuild prospective GA archives
+        uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
+        with:
+          distribution: goreleaser
+          version: v2.17.0
+          args: release --clean --skip=publish
+
+      - name: Verify archive reproducibility and identity
+        run: |
+          archive_count=$(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')
+          test "$archive_count" = 6
+          (cd dist && sha256sum --check checksums.txt)
+          (cd dist && sha256sum *.tar.gz *.zip | sort) > "${RUNNER_TEMP}/second-archives.txt"
+          cmp "${RUNNER_TEMP}/first-archives/checksums.txt" "${RUNNER_TEMP}/second-archives.txt"
+          tar -xOf "dist/kube-memlens_${GA_VERSION}_linux_amd64.tar.gz" kubectl-memlens \
+            > "${RUNNER_TEMP}/kubectl-memlens"
+          chmod +x "${RUNNER_TEMP}/kubectl-memlens"
+          "${RUNNER_TEMP}/kubectl-memlens" version --output json | \
+            jq -e --arg version "$GA_TAG" --arg commit "$GITHUB_SHA" \
+              '.version == $version and .commit == $commit' >/dev/null
+
+      - name: Build prospective GA image first pass
+        id: image-first
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          outputs: type=oci,dest=${{ runner.temp }}/image-first.tar,rewrite-timestamp=true,compatibility-version=30
+          build-args: |
+            VERSION=${{ env.GA_TAG }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
+            SOURCE_DATE_EPOCH=${{ env.SOURCE_DATE_EPOCH }}
+          provenance: false
+          sbom: false
+          no-cache: true
+
+      - name: Build prospective GA image second pass
+        id: image-second
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          outputs: type=oci,dest=${{ runner.temp }}/kube-memlens-image.tar,rewrite-timestamp=true,compatibility-version=30
+          build-args: |
+            VERSION=${{ env.GA_TAG }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
+            SOURCE_DATE_EPOCH=${{ env.SOURCE_DATE_EPOCH }}
+          provenance: false
+          sbom: false
+          no-cache: true
+
+      - name: Verify image reproducibility and identity
+        run: |
+          test "${{ steps.image-first.outputs.digest }}" = "${{ steps.image-second.outputs.digest }}"
+          image_digest=$(hack/release/validate_oci_archive.py \
+            "${RUNNER_TEMP}/kube-memlens-image.tar" \
+            --version "$GA_TAG" --commit "$GITHUB_SHA" --build-date "$BUILD_DATE" \
+            --attestations none)
+          test "$image_digest" = "${{ steps.image-second.outputs.digest }}"
+          printf '%s\n' "$image_digest" > "${RUNNER_TEMP}/image-digest.txt"
+
+      - name: Package reproducible prospective GA chart
+        run: |
+          cp -R charts/kube-memlens "${RUNNER_TEMP}/candidate-chart"
+          sed -i "s#image: ghcr.io/danushkastanley/kube-memlens:.*#image: ghcr.io/danushkastanley/kube-memlens:${GA_VERSION}#" \
+            "${RUNNER_TEMP}/candidate-chart/Chart.yaml"
+          helm lint --strict "${RUNNER_TEMP}/candidate-chart"
+          python3 hack/release/package_chart.py "${RUNNER_TEMP}/candidate-chart" \
+            "dist/kube-memlens-${GA_VERSION}.tgz" --version "$GA_VERSION" \
+            --app-version "$GA_VERSION" --epoch "$SOURCE_DATE_EPOCH"
+          python3 hack/release/package_chart.py "${RUNNER_TEMP}/candidate-chart" \
+            "${RUNNER_TEMP}/chart-second.tgz" --version "$GA_VERSION" \
+            --app-version "$GA_VERSION" --epoch "$SOURCE_DATE_EPOCH"
+          cmp "dist/kube-memlens-${GA_VERSION}.tgz" "${RUNNER_TEMP}/chart-second.tgz"
+          python3 hack/verify_chart_archive.py "dist/kube-memlens-${GA_VERSION}.tgz" \
+            "${RUNNER_TEMP}/candidate-chart"
+
+      - name: Finalise candidate build bundle
+        run: |
+          syft "oci-archive:${RUNNER_TEMP}/kube-memlens-image.tar" \
+            -o "spdx-json=dist/kube-memlens-${GA_VERSION}.image.sbom.json"
+          syft "file:dist/kube-memlens-${GA_VERSION}.tgz" \
+            -o "spdx-json=dist/kube-memlens-${GA_VERSION}.chart.sbom.json"
+          for sbom in dist/kube-memlens-${GA_VERSION}.*.sbom.json; do
+            jq -e '.spdxVersion == "SPDX-2.3" and (.packages | length > 0)' "$sbom" >/dev/null
+          done
+          (
+            cd dist
+            sha256sum "kube-memlens-${GA_VERSION}.tgz" \
+              "kube-memlens-${GA_VERSION}.chart.sbom.json" \
+              "kube-memlens-${GA_VERSION}.image.sbom.json" >> checksums.txt
+            sha256sum --check checksums.txt
+            mkdir -p internal
+            cp "${RUNNER_TEMP}/kube-memlens-image.tar" internal/
+            cp "${RUNNER_TEMP}/image-digest.txt" internal/
+            sha256sum internal/kube-memlens-image.tar internal/image-digest.txt checksums.txt \
+              > internal/transfer-checksums.txt
+            sha256sum --check internal/transfer-checksums.txt
+          )
+
+      - name: Upload candidate build bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: candidate-build-${{ github.sha }}-${{ inputs.candidate_tag }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  publish:
+    name: Publish immutable candidate subjects
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: release
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    outputs:
+      image-digest: ${{ steps.publish.outputs.image-digest }}
+      chart-digest: ${{ steps.publish.outputs.chart-digest }}
+    steps:
+      - name: Check out the candidate tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ needs.build.outputs.candidate-tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download candidate build bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: candidate-build-${{ github.sha }}-${{ needs.build.outputs.candidate-tag }}
+          path: dist
+
+      - name: Install publication tools
+        run: |
+          tools_dir="${RUNNER_TEMP}/candidate-publish-tools"
+          hack/release/install_helm.sh "$tools_dir"
+          hack/release/install_oras.sh "$tools_dir"
+          echo "$tools_dir" >> "$GITHUB_PATH"
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.2
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish candidate subjects and signed manifest
+        id: publish
+        env:
+          CANDIDATE_TAG: ${{ needs.build.outputs.candidate-tag }}
+          GA_TAG: ${{ needs.build.outputs.ga-tag }}
+          GA_VERSION: ${{ needs.build.outputs.ga-version }}
+          CANDIDATE_IMAGE_REPOSITORY: ${{ needs.build.outputs.image-repository }}
+          CANDIDATE_CHART_REPOSITORY: ${{ needs.build.outputs.chart-repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: hack/release/publish_candidate.sh dist
+
+      - name: Attest candidate image
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ needs.build.outputs.image-repository }}
+          subject-digest: ${{ steps.publish.outputs.image-digest }}
+          push-to-registry: true
+
+      - name: Attest candidate chart
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ needs.build.outputs.chart-repository }}
+          subject-digest: ${{ steps.publish.outputs.chart-digest }}
+          push-to-registry: true
+
+      - name: Attest candidate files
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.tgz
+            dist/*.sbom.json
+            dist/checksums.txt
+            dist/candidate-manifest.json
+            dist/release-subjects.txt
+
+      - name: Upload signed candidate bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signed-candidate-${{ github.sha }}-${{ needs.build.outputs.candidate-tag }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.tgz
+            dist/*.sbom.json
+            dist/checksums.txt
+            dist/checksums.txt.sigstore.json
+            dist/candidate-manifest.json
+            dist/candidate-manifest.sigstore.json
+            dist/release-subjects.txt
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  verify:
+    name: Verify candidate as a clean consumer
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+      attestations: read
+    steps:
+      - name: Check out the candidate tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ needs.build.outputs.candidate-tag }}
+          persist-credentials: false
+      - name: Download signed candidate bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: signed-candidate-${{ github.sha }}-${{ needs.build.outputs.candidate-tag }}
+          path: dist
+      - name: Install verification tools
+        run: |
+          tools_dir="${RUNNER_TEMP}/candidate-consumer-tools"
+          hack/release/install_consumer_tools.sh "$tools_dir"
+          echo "$tools_dir" >> "$GITHUB_PATH"
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.2
+      - name: Verify candidate manifest and runtime
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BUNDLE_DIR: dist
+          RELEASE_VERSION: ${{ needs.build.outputs.ga-tag }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_IMAGE: ${{ needs.build.outputs.image-repository }}
+          RELEASE_IMAGE_DIGEST: ${{ needs.publish.outputs.image-digest }}
+          RELEASE_CHART: ${{ needs.build.outputs.chart-repository }}
+          RELEASE_CHART_DIGEST: ${{ needs.publish.outputs.chart-digest }}
+          RELEASE_CERTIFICATE_IDENTITY: https://github.com/danushkastanley/KubeMemLens/.github/workflows/candidate.yml@refs/tags/${{ needs.build.outputs.candidate-tag }}
+          RELEASE_CANDIDATE_TAG: ${{ needs.build.outputs.candidate-tag }}
+        run: hack/release/verify_candidate.sh
+
+  draft:
+    name: Create verified candidate draft
+    needs: [build, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: release
+    permissions:
+      contents: write
+    steps:
+      - name: Check out candidate release helper
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/tags/${{ needs.build.outputs.candidate-tag }}
+          persist-credentials: false
+      - name: Download verified candidate bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: signed-candidate-${{ github.sha }}-${{ needs.build.outputs.candidate-tag }}
+          path: dist
+      - name: Create immutable candidate draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BUNDLE_DIR: dist
+          RELEASE_CANDIDATE_TAG: ${{ needs.build.outputs.candidate-tag }}
+        run: hack/release/create_candidate_draft.sh
