@@ -1,33 +1,43 @@
 # OpenSSF Baseline
 
-Status: pending first merged Scorecard run and Best Practices assessment
+Status: community controls accepted; Best Practices submission deferred
 Recorded: 27 August 2026
 Owner: maintainers named in `MAINTAINERS.md`
 
 Best Practices project: https://www.bestpractices.dev/projects/14259
 
+Owner decision: submission is deferred until the public KubeMemLens domain is
+live so the project record can use the long-lived public site. The GitHub
+repository remains the current project URL. Project 14259 stays `in_progress`;
+the deferred Passing result remains a v1 release blocker and must not be
+presented as achieved.
+
 ## Scorecard
 
 The repository had no published OpenSSF Scorecard result before PROD-011. A
 local OpenSSF Scorecard v5.5.0 run against merged commit `9bdd0aa` on 27 August
-2026 established an overall baseline of 6.1. The ticket adds a pinned,
-least-privilege workflow that runs on `main` and weekly, publishes the signed
-result, retains SARIF for five days, and uploads findings to GitHub code scanning.
+2026 established an overall baseline of 6.1. The first accepted published run
+used merged commit `11dda186`, scored 8.0, and passed the release thresholds.
+The pinned, least-privilege workflow runs on `main` and weekly, publishes the
+signed result, retains SARIF for five days, and uploads findings to GitHub code
+scanning.
 
-| Release check | Baseline | Reason |
-|---|---:|---|
-| Branch-Protection | 0 | The existing ruleset did not target `main` |
-| Token-Permissions | 10 | Workflow tokens follow least privilege |
-| Dangerous-Workflow | 10 | No dangerous workflow pattern detected |
-| Pinned-Dependencies | 10 | All workflow dependencies were pinned |
-| Vulnerabilities | 7 | Three dependency advisories were present; `govulncheck` found zero reachable vulnerabilities |
-| Signed-Releases | 8 | All three detected release artefacts were signed |
+Accepted workflow: <https://github.com/danushkastanley/KubeMemLens/actions/runs/33079572322>
 
-Other closure work from the baseline is explicit: Dependency-Update-Tool was 0
-before `.github/dependabot.yml`; SAST was 0 before the CodeQL workflow; and
-CII-Best-Practices was 0 because no official assessment was registered. Code
-review was 0 because the repository had one maintainer and no approved
-changesets. These are not waived by the aggregate score.
+| Release check | Local baseline | Published result | Reason |
+|---|---:|---:|---|
+| Branch-Protection | 0 | 8 | `main` requires one CODEOWNER approval, stale-review dismissal, last-push separation, resolved conversations and strict checks; the remaining warning is that one approval is not the Scorecard maximum |
+| Token-Permissions | 10 | 10 | Workflow tokens follow least privilege |
+| Dangerous-Workflow | 10 | 10 | No dangerous workflow pattern detected |
+| Pinned-Dependencies | 10 | 10 | All workflow dependencies are pinned by full commit SHA |
+| Vulnerabilities | 7 | 7 | Three dependency advisories remain unreachable; `govulncheck` found zero affected symbols |
+| Signed-Releases | 8 | 8 | Both detected release artefacts have signed subjects |
+
+Other closure work from the local baseline is now visible in the published
+result: Dependency-Update-Tool is 10, SAST is 7, CII-Best-Practices is 2 while
+project 14259 remains in progress, and Code-Review is 2 after one of the five
+changesets sampled by Scorecard had an independent approval. The last two are
+recorded gaps, not release-threshold waivers.
 
 The three dependency results were `GO-2026-6094`, `GO-2026-6107`, and
 `GO-2026-5932`. `govulncheck v1.1.4 -show verbose ./...` reported zero affected
@@ -35,10 +45,9 @@ symbols: two vulnerable imported packages were not called by KubeMemLens and
 the unmaintained `x/crypto/openpgp` package was not used. The dependency policy
 still requires review on every change in reachability or upstream guidance.
 
-Accept the first merged run only when it meets the thresholds in
-[`docs/repository-security.md`](../repository-security.md). Record the workflow
-URL, commit, date, overall score, six release-blocking check scores, and closure
-owner for every gap here. Do not infer a pass from a workflow file alone.
+The accepted merged run meets the thresholds in
+[`docs/repository-security.md`](../repository-security.md). Re-check the
+published result before release; do not infer a pass from a workflow file alone.
 
 ## Best Practices Passing assessment
 
@@ -65,5 +74,6 @@ obtain a badge.
 
 | Evidence | Result | Remaining action |
 |---|---|---|
-| Scorecard | Local baseline 6.1; release checks recorded above | Merge PROD-011, inspect the signed `main` result, and confirm the ruleset, Dependabot and CodeQL improvements meet the threshold |
-| Best Practices | Public project 14259 created; questionnaire pending at 0% | Complete the 67-criterion evidence-backed Passing questionnaire after PROD-011 reaches `main` |
+| Scorecard | Published 8.0 for merged commit `11dda186`; all six release checks meet their thresholds | Re-check before each release and close regressions under the documented policy |
+| Private reporting | Primary receipt and `@legolas296` backup handover passed through two closed synthetic advisories without publication, CVE or private fork | Repeat after a material reporting-policy or maintainer-access change |
+| Best Practices | Public project 14259 created; 67 answers staged locally but not submitted; owner deferred submission until the public domain is live | Add the public domain, obtain explicit submission confirmation, verify the public Passing result, and record the achieved level before the v1 release gate passes |

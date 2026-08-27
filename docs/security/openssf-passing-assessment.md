@@ -97,10 +97,10 @@ with an honest explanation without being converted into an unsupported claim.
 
 | Criterion | Status | Evidence or justification |
 |---|---|---|
-| `static_analysis` | Met after PROD-011 merge | CodeQL, `govulncheck`, Trivy, and `go vet` cover the proposed production release; CodeQL publishes SARIF on pull requests and `main`. |
-| `static_analysis_common_vulnerabilities` | Met after PROD-011 merge | CodeQL, `govulncheck`, and Trivy include vulnerability-focused rules and advisory data. |
+| `static_analysis` | Met | CodeQL, `govulncheck`, Trivy, and `go vet` cover the proposed production release; CodeQL publishes SARIF on pull requests and `main`. |
+| `static_analysis_common_vulnerabilities` | Met | CodeQL, `govulncheck`, and Trivy include vulnerability-focused rules and advisory data. |
 | `static_analysis_fixed` | N/A | No confirmed exploitable medium-or-higher KubeMemLens vulnerability has been found by static analysis. The maintainer runbook makes confirmed findings release blockers until fixed or explicitly contained. |
-| `static_analysis_often` | Met after PROD-011 merge | CodeQL runs on every pull request and `main` update; other static checks run in required CI. |
+| `static_analysis_often` | Met | CodeQL runs on every pull request and `main` update; other static checks run in required CI. |
 | `dynamic_analysis` | Unmet | The test suite executes real behaviour, race detection, lifecycle, and adversarial paths, but it does not claim 80% branch coverage or continuous fuzzing. |
 | `dynamic_analysis_unsafe` | N/A | KubeMemLens is implemented in Go and does not produce C or C++ project code. |
 | `dynamic_analysis_enable_assertions` | Met | Unit, integration, negative, race, Helm, and lifecycle tests execute with their full assertions enabled. |
@@ -108,8 +108,7 @@ with an honest explanation without being converted into an unsupported claim.
 
 ## Remaining Passing actions
 
-1. Merge PROD-011 so CodeQL and the published Scorecard execute on `main`.
-2. Complete public project 14259 from these evidence-backed answers without
+1. Complete public project 14259 from these evidence-backed answers without
    upgrading `Unmet` or `N/A` entries for appearance.
-3. Record the achieved level, published Scorecard result, and any
+2. Record the achieved level and any
    closure work in `openssf-baseline.md`.
