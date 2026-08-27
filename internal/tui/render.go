@@ -15,8 +15,6 @@ import (
 
 var (
 	headerStyle = lipgloss.NewStyle().Bold(true)
-	errorStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
-	helpStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 
 func (m appModel) View() tea.View {
@@ -28,6 +26,9 @@ func (m appModel) View() tea.View {
 func (m appModel) viewString() string {
 	plan := m.layout()
 	width := plan.contentWidth()
+	if !plan.minimumValid {
+		return renderMinimumSize(plan)
+	}
 
 	var b strings.Builder
 	b.WriteString(m.renderHeader(width))
@@ -90,7 +91,7 @@ func (m appModel) renderContent(plan layoutPlan) string {
 	right := truncateLines(viewportWindow(viewport, rightLines), plan.detailWidth)
 	leftPane := lipgloss.NewStyle().Width(plan.tableWidth).Render(left)
 	rightPane := lipgloss.NewStyle().Width(plan.detailWidth).Render(right)
-	divider := helpStyle.Render("│")
+	divider := styleHelp("│")
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftPane, divider, rightPane)
 }
 
@@ -119,7 +120,7 @@ func (m appModel) renderHeader(width int) string {
 		if client.IsForbidden(m.statusErr) {
 			status = "permission denied"
 		}
-		parts = append(parts, errorStyle.Render("status: "+status))
+		parts = append(parts, "status: "+status)
 	}
 	refreshState := "automatic"
 	if m.paused {
@@ -171,7 +172,19 @@ func (m appModel) renderFooter(width int) string {
 	if m.action.mode != actionClosed {
 		footer = "Esc close · action keys shown above"
 	}
-	return helpStyle.Render(truncate(footer, width))
+	return styleHelp(truncate(footer, width))
+}
+
+func renderMinimumSize(plan layoutPlan) string {
+	lines := []string{
+		"KubeMemLens",
+		fmt.Sprintf("Terminal too small: %dx%d.", plan.width, plan.height),
+		"Resize to at least 40x10. Press q to quit.",
+	}
+	if plan.height > 0 && len(lines) > plan.height {
+		lines = lines[:plan.height]
+	}
+	return truncateLines(lines, plan.contentWidth())
 }
 
 func (m appModel) renderHelp(width int) string {
@@ -239,7 +252,7 @@ func (m appModel) renderEmpty(width int) string {
 
 func (m appModel) renderConnectionError(width int) string {
 	lines := strings.Split(statusError(m.opts.ConnectionOptions, m.connectionDescription, m.statusErr), "\n")
-	return errorStyle.Render(truncateLines(lines, width))
+	return styleError(truncateLines(lines, width))
 }
 
 func (m appModel) renderNamespaces(width int) string {

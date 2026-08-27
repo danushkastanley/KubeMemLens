@@ -12,6 +12,8 @@ type terminalTheme struct {
 	warning  lipgloss.Style
 	danger   lipgloss.Style
 	muted    lipgloss.Style
+	error    lipgloss.Style
+	help     lipgloss.Style
 	selected lipgloss.Style
 	border   lipgloss.Color
 	focus    lipgloss.Color
@@ -27,10 +29,20 @@ func currentTheme() terminalTheme {
 		warning:  lipgloss.NewStyle().Foreground(lipgloss.Color("11")),
 		danger:   lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true),
 		muted:    lipgloss.NewStyle().Foreground(lipgloss.Color("8")),
+		error:    lipgloss.NewStyle().Foreground(lipgloss.Color("9")),
+		help:     lipgloss.NewStyle().Foreground(lipgloss.Color("8")),
 		selected: lipgloss.NewStyle().Background(lipgloss.Color("24")).Foreground(lipgloss.Color("15")),
 		border:   lipgloss.Color("8"),
 		focus:    lipgloss.Color("14"),
 	}
+}
+
+func styleError(value string) string {
+	return currentTheme().error.Render(value)
+}
+
+func styleHelp(value string) string {
+	return currentTheme().help.Render(value)
 }
 
 func styleRisk(value string) string {

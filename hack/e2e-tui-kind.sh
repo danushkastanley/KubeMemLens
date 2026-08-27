@@ -47,12 +47,17 @@ write_summary() {
 cleanup() {
   status=$?
   trap - EXIT
+  cleanup_failed=0
   for namespace in "${created_namespaces[@]}"; do
     owner=$(k get namespace "${namespace}" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}' 2>/dev/null || true)
     if [ "${owner}" = kube-memlens-tui-e2e ]; then
-      k delete namespace "${namespace}" --wait=false >/dev/null 2>&1 || true
+      k delete namespace "${namespace}" --wait=true --timeout=2m >/dev/null 2>&1 || cleanup_failed=1
     fi
   done
+  if [ "${cleanup_failed}" -ne 0 ]; then
+    outcome=failed
+    status=1
+  fi
   write_summary
   if [[ "${work_dir}" == "${TMPDIR:-/tmp}/kube-memlens-tui-e2e."* ]]; then
     rm -rf -- "${work_dir}"

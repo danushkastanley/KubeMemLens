@@ -1,4 +1,4 @@
-.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
+.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -53,10 +53,20 @@ check-provider-contract:
 	hack/test-provider-cleanup.sh
 	hack/verify-provider-chart.sh
 
+check-terminal-contract:
+	python3 -m unittest discover -s hack/terminal-qualification -p 'test_*.py'
+	@output=$$(mktemp); \
+		if hack/qualify-linux-terminals.sh >"$$output" 2>&1; then \
+			echo "Linux terminal qualification ran without explicit acknowledgement"; \
+			exit 1; \
+		fi; \
+		grep -q 'TERMINAL_LINUX_ACKNOWLEDGE' "$$output"; \
+		rm -f "$$output"
+
 vuln:
 	go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
 
-check: fmt-check check-support-contract check-scale-contract check-provider-contract test coverage test-race vet vuln build
+check: fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract test coverage test-race vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh
