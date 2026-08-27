@@ -64,11 +64,11 @@ place an unverified badge in the README.
 
 These are project operating checks. They do not promise a response time to users.
 
-## 27 August 2026 control readback
+## 28 August 2026 control readback
 
 | Control | Readback |
 |---|---|
-| `main` ruleset | Targets `refs/heads/main`; one independent CODEOWNER approval, stale-review dismissal, last-push separation, resolved conversations, strict CI and CodeQL checks, deletion protection, and force-push protection are active |
+| `main` ruleset | Targets `refs/heads/main`; one independent CODEOWNER approval remains the normal path, with stale-review dismissal, last-push separation, resolved conversations, strict CI and CodeQL checks, deletion protection, and force-push protection active. `@danushkastanley` currently has a pull-request-only bypass under owner direction for this implementation queue. It does not expire automatically and must be removed or explicitly re-authorised before RC review. |
 | Release tags and environment | `refs/tags/v*` restrictions and the tag-only environment policy are active; `@danushkastanley` and `@legolas296` are reviewers; self-review and admin bypass are disabled |
 | Workflow token | Default `read`; workflows cannot approve pull requests |
 | Vulnerability reporting | Enabled; primary drill `GHSA-9r58-62g3-2v7p` and backup-handover drill `GHSA-wfhm-45q5-8jf6` closed privately without a CVE, private fork, or publication |
@@ -76,6 +76,8 @@ These are project operating checks. They do not promise a response time to users
 | Immutable releases | Enabled |
 | Routing labels | `compatibility`, `diagnosis-feedback`, and `adopter-feedback` created alongside the existing bug, enhancement, question, and dependency labels |
 
-This is a point-in-time record. CODEOWNER enforcement and the published 8.0
-Scorecard result are active. `make check-community-settings` remains the final
-live gate after the OpenSSF Best Practices result is active.
+This is a point-in-time record. CODEOWNER enforcement remains active for
+non-bypassed authors; the owner bypass does not apply to release tags or the
+protected release environment. The latest signed Scorecard result is 8.2.
+`make check-community-settings` remains the final live gate after the OpenSSF
+Best Practices result is active.
