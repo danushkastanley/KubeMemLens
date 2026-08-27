@@ -42,6 +42,8 @@ helm upgrade --install kube-memlens ./charts/kube-memlens \
 
 Do not use `collector.replicas` above `1`; the chart rejects this because each collector has an independent in-memory store.
 
+The chart validates all values strictly. Before upgrading from a pre-v1 chart, remove retired keys such as `agent.ingestionMode`, `agent.collectorURL`, `collector.ingestion.port`, `metrics.serviceAnnotations` and `metrics.serviceMonitor`. Do not use `--reuse-values` across that boundary; supply reviewed current values or use Helm's reset-values path.
+
 The agent targets `kubernetes.io/os: linux`. Node pools with custom taints require explicitly reviewed `agent.tolerations`; the chart does not grant a blanket toleration by default.
 
 ## Release install

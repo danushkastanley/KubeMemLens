@@ -325,9 +325,9 @@ jobs:
             exit 1
           fi
 
-      - name: Keep removed legacy chart values inert
+      - name: Reject removed legacy chart values
         run: |
-          docker run --rm \
+          if docker run --rm \
             -v "$PWD:/work" \
             -w /work \
             alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
@@ -335,14 +335,12 @@ jobs:
             --namespace kube-memlens \
             --set agent.ingestionMode=legacy \
             --set metrics.serviceMonitor.enabled=true \
-            > /tmp/kube-memlens-obsolete-values.yaml
-          test "$(grep -c -- '--ingestion-mode=authenticated' /tmp/kube-memlens-obsolete-values.yaml)" -eq 2
-          ! grep -q -- '--ingestion-mode=legacy' /tmp/kube-memlens-obsolete-values.yaml
-          ! grep -q -- '--collector-url=' /tmp/kube-memlens-obsolete-values.yaml
-          ! grep -q -- '--ingest-listen=' /tmp/kube-memlens-obsolete-values.yaml
-          ! grep -q '^kind: ServiceMonitor$' /tmp/kube-memlens-obsolete-values.yaml
-          test "$(grep -c '^    - name: https-extension$' /tmp/kube-memlens-obsolete-values.yaml)" -eq 1
-          ! grep -q '^    - name: ingest$' /tmp/kube-memlens-obsolete-values.yaml
+            > /tmp/kube-memlens-obsolete-values.out 2>&1; then
+            echo 'chart schema accepted removed legacy values'
+            exit 1
+          fi
+          grep -q 'agent.*ingestionMode' /tmp/kube-memlens-obsolete-values.out
+          grep -q 'metrics.*serviceMonitor' /tmp/kube-memlens-obsolete-values.out
 
       - name: Validate optional Prometheus rules
         run: |
