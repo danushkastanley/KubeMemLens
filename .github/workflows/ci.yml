@@ -95,7 +95,8 @@ jobs:
       - name: Scan reachable vulnerabilities
         run: |
           source hack/lib/retry.sh
-          retry_capture 3 5 go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+          retry_capture 3 5 go install golang.org/x/vuln/cmd/govulncheck@v1.7.0 >/dev/null
+          govulncheck ./...
 
       - name: Build commands
         run: go build ./cmd/...
