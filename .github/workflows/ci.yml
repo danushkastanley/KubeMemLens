@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: Check shell script syntax
-        run: bash -n hack/*.sh hack/lib/*.sh hack/terminal-qualification/*.sh
+        run: bash -n hack/*.sh hack/lib/*.sh hack/release/*.sh hack/terminal-qualification/*.sh
 
       - name: Check shell scripts
         run: >-
@@ -47,7 +47,7 @@ jobs:
           -v "$PWD:/mnt:ro"
           -w /mnt
           koalaman/shellcheck:v0.10.0@sha256:2097951f02e735b613f4a34de20c40f937a6c8f18ecb170612c88c34517221fb
-          hack/*.sh hack/lib/*.sh hack/terminal-qualification/*.sh
+          hack/*.sh hack/lib/*.sh hack/release/*.sh hack/terminal-qualification/*.sh
 
       - name: Test shell helpers
         run: |
@@ -97,23 +97,7 @@ jobs:
           args: check
 
       - name: Check release workflow policy
-        run: |
-          grep -q '^permissions: {}$' .github/workflows/release.yml
-          grep -q 'args: release --clean --skip=publish' .github/workflows/release.yml
-          grep -q 'name: Check release documentation' .github/workflows/release.yml
-          grep -q 'hack/check-support-contract.sh' .github/workflows/release.yml
-          grep -q 'name: Validate representative release image metadata' .github/workflows/release.yml
-          grep -q -- '--bundle=dist/checksums.txt.sigstore.json' .github/workflows/release.yml
-          test "$(grep -c 'dist/checksums.txt.sigstore.json' .github/workflows/release.yml)" -eq 2
-          ! grep -Eq -- '--output-(certificate|signature)' .github/workflows/release.yml
-          grep -Fq 'oci://ghcr.io/danushkastanley/charts 2>&1)' .github/workflows/release.yml
-          grep -q '^      contents: read$' .github/workflows/release.yml
-          grep -q '^      name: release$' .github/workflows/release.yml
-          grep -q '^  disable: true$' .goreleaser.yml
-          if grep -q -- '--clobber' .github/workflows/release.yml; then
-            echo 'release workflow permits asset overwrite'
-            exit 1
-          fi
+        run: hack/check-release-contract.sh
 
       - name: Check Krew manifest renderer
         run: |
@@ -197,7 +181,19 @@ jobs:
           -v "$PWD:/work"
           -w /work
           alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f
-          lint charts/kube-memlens
+          lint --strict charts/kube-memlens
+
+      - name: Reject values outside the chart schema
+        run: |
+          if docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
+            template kube-memlens charts/kube-memlens --set collector.replicas=2 >/tmp/schema.out 2>&1; then
+            echo 'chart schema accepted an unsupported collector replica count'
+            exit 1
+          fi
+          grep -q 'collector.replicas' /tmp/schema.out
 
       - name: Render default chart
         run: >-

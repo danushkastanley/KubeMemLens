@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["image", "namespace", "agent", "collector", "extensionTLS", "metrics", "security", "networkPolicy"],
+  "properties": {
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "tag", "digest", "pullPolicy"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "tag": {"type": "string"},
+        "digest": {"type": "string", "pattern": "^(|sha256:[a-f0-9]{64})$"},
+        "pullPolicy": {"enum": ["Always", "IfNotPresent", "Never"]}
+      }
+    },
+    "namespace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["create", "name"],
+      "properties": {
+        "create": {"type": "boolean"},
+        "name": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 63}
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "nodeSelector", "tolerations", "cgroupRootHostPath", "interval", "tokenExpirationSeconds", "metrics", "resources"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "nodeSelector": {"type": "object", "additionalProperties": {"type": "string"}},
+        "tolerations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "effect": {"enum": ["NoExecute", "NoSchedule", "PreferNoSchedule"]},
+              "key": {"type": "string"},
+              "operator": {"enum": ["Equal", "Exists"]},
+              "tolerationSeconds": {"type": "integer", "minimum": 0},
+              "value": {"type": "string"}
+            }
+          }
+        },
+        "cgroupRootHostPath": {"type": "string", "pattern": "^/"},
+        "interval": {"$ref": "#/definitions/duration"},
+        "tokenExpirationSeconds": {"type": "integer", "minimum": 600, "maximum": 86400},
+        "metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "port"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+          }
+        },
+        "resources": {"$ref": "#/definitions/resources"}
+      }
+    },
+    "collector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "replicas", "snapshotTTL", "read", "history", "ingestion", "store", "maxResponseBytes", "resources", "service"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "replicas": {"const": 1},
+        "snapshotTTL": {"$ref": "#/definitions/duration"},
+        "read": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxConcurrentRequests"],
+          "properties": {"maxConcurrentRequests": {"type": "integer", "minimum": 1}}
+        },
+        "history": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["duration", "maxSeries", "maxPoints", "maxResponseSeries"],
+          "properties": {
+            "duration": {"$ref": "#/definitions/duration"},
+            "maxSeries": {"type": "integer", "minimum": 1},
+            "maxPoints": {"type": "integer", "minimum": 1},
+            "maxResponseSeries": {"type": "integer", "minimum": 1}
+          }
+        },
+        "ingestion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["extensionPort", "maxConcurrentRequests", "requestsPerSecondPerAgent", "burstPerAgent", "maxSnapshotBytes", "maxContainers", "maxSnapshotAge", "maxFutureSkew"],
+          "properties": {
+            "extensionPort": {"type": "integer", "minimum": 1, "maximum": 65535},
+            "maxConcurrentRequests": {"type": "integer", "minimum": 1},
+            "requestsPerSecondPerAgent": {"type": "integer", "minimum": 1},
+            "burstPerAgent": {"type": "integer", "minimum": 1},
+            "maxSnapshotBytes": {"type": "integer", "minimum": 1},
+            "maxContainers": {"type": "integer", "minimum": 1},
+            "maxSnapshotAge": {"$ref": "#/definitions/duration"},
+            "maxFutureSkew": {"$ref": "#/definitions/duration"}
+          }
+        },
+        "store": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxNodes", "maxContainers"],
+          "properties": {
+            "maxNodes": {"type": "integer", "minimum": 1},
+            "maxContainers": {"type": "integer", "minimum": 1}
+          }
+        },
+        "maxResponseBytes": {"type": "integer", "minimum": 1},
+        "resources": {"$ref": "#/definitions/resources"},
+        "service": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["port"],
+          "properties": {"port": {"type": "integer", "minimum": 1, "maximum": 65535}}
+        }
+      }
+    },
+    "extensionTLS": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["secretName", "validityDays", "rotateBefore", "forceRotate"],
+      "properties": {
+        "secretName": {"type": "string", "minLength": 1},
+        "validityDays": {"type": "integer", "minimum": 1},
+        "rotateBefore": {"$ref": "#/definitions/duration"},
+        "forceRotate": {"type": "boolean"}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "includeNamespaces", "includePods", "includeContainers", "includeDiagnosis", "includeEvents", "maxPods", "maxContainers", "prometheusRule", "grafanaDashboard"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "includeNamespaces": {"type": "boolean"},
+        "includePods": {"type": "boolean"},
+        "includeContainers": {"type": "boolean"},
+        "includeDiagnosis": {"type": "boolean"},
+        "includeEvents": {"type": "boolean"},
+        "maxPods": {"type": "integer", "minimum": 1},
+        "maxContainers": {"type": "integer", "minimum": 1},
+        "prometheusRule": {"$ref": "#/definitions/optionalResource"},
+        "grafanaDashboard": {"$ref": "#/definitions/optionalResource"}
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["privileged", "readOnlyRootFilesystem"],
+      "properties": {
+        "privileged": {"const": false},
+        "readOnlyRootFilesystem": {"const": true}
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {"enabled": {"type": "boolean"}}
+    }
+  },
+  "definitions": {
+    "duration": {"type": "string", "pattern": "^[0-9]+(ms|s|m|h)$"},
+    "resources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requests", "limits"],
+      "properties": {
+        "requests": {"$ref": "#/definitions/resourceList"},
+        "limits": {"$ref": "#/definitions/resourceList"}
+      }
+    },
+    "resourceList": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cpu": {"type": ["string", "number"]},
+        "memory": {"type": ["string", "number"]}
+      }
+    },
+    "optionalResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "labels"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "labels": {"type": "object", "additionalProperties": {"type": "string"}},
+        "runbookBaseURL": {"type": "string"}
+      }
+    }
+  }
+}

@@ -10,11 +10,16 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  IMAGE_REPOSITORY: ghcr.io/danushkastanley/kube-memlens
+  CHART_REPOSITORY: ghcr.io/danushkastanley/charts/kube-memlens
+  SKOPEO_IMAGE: quay.io/skopeo/stable@sha256:4fcfc74eb89ec72dcd8caa7fbbf2a5f77d9fe3e2f5ac9e39192702f49c6d4d1a
+
 jobs:
   build:
     name: Build and validate release bundle
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     permissions:
       contents: read
     steps:
@@ -22,6 +27,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -34,14 +40,25 @@ jobs:
         with:
           syft-version: v1.44.0
 
-      - name: Resolve build metadata
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Install pinned Helm
+        run: |
+          tools_dir="${RUNNER_TEMP}/kube-memlens-build-tools"
+          hack/release/install_helm.sh "$tools_dir"
+          echo "$tools_dir" >> "$GITHUB_PATH"
+
+      - name: Resolve and validate release identity
         run: |
           echo "BUILD_DATE=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
           echo "CHART_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          hack/release/validate_tag.sh "$GITHUB_REF_NAME" "$GITHUB_SHA"
 
       - name: Check release documentation
         run: |
           hack/check-support-contract.sh
+          hack/check-release-contract.sh
           chart_version=$(awk '$1 == "version:" {print $2; exit}' charts/kube-memlens/Chart.yaml)
           app_version=$(awk '$1 == "appVersion:" {gsub(/"/, "", $2); print $2; exit}' charts/kube-memlens/Chart.yaml)
           test "$chart_version" = "$CHART_VERSION"
@@ -50,34 +67,7 @@ jobs:
           grep -Fq "## ${CHART_VERSION} - " CHANGELOG.md
           grep -Fq -- "--version ${CHART_VERSION}" docs/installation.md
 
-      - name: Build representative release image
-        run: |
-          docker build \
-            --build-arg VERSION="$GITHUB_REF_NAME" \
-            --build-arg COMMIT="$GITHUB_SHA" \
-            --build-arg BUILD_DATE="$BUILD_DATE" \
-            -t kube-memlens:release-scan .
-
-      - name: Validate representative release image metadata
-        run: |
-          image=kube-memlens:release-scan
-          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = '65532:65532'
-          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.version"}}')" = "$GITHUB_REF_NAME"
-          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
-          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.created"}}')" = "$BUILD_DATE"
-          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.source"}}')" = https://github.com/danushkastanley/KubeMemLens
-          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.licenses"}}')" = Apache-2.0
-
-      - name: Scan representative release image
-        run: >-
-          docker run --rm
-          -v /var/run/docker.sock:/var/run/docker.sock
-          -v "${{ runner.temp }}/trivy-cache:/root/.cache/trivy"
-          ghcr.io/aquasecurity/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f
-          image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln
-          kube-memlens:release-scan
-
-      - name: Build archives and SBOMs without publishing
+      - name: Build archives and per-platform SBOMs without publishing
         uses: goreleaser/goreleaser-action@f06c13b6b1a9625abc9e6e439d9c05a8f2190e94 # v7.2.3
         with:
           distribution: goreleaser
@@ -87,11 +77,11 @@ jobs:
       - name: Validate archives and SBOMs
         run: |
           archive_count=$(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')
-          sbom_count=$(find dist -maxdepth 1 -type f -name '*.sbom.json' | wc -l | tr -d ' ')
+          sbom_count=$(find dist -maxdepth 1 -type f -name 'kube-memlens_*.sbom.json' | wc -l | tr -d ' ')
           test "$archive_count" = 6
           test "$sbom_count" = 6
           (cd dist && sha256sum --check checksums.txt)
-          for sbom in dist/*.sbom.json; do
+          for sbom in dist/kube-memlens_*.sbom.json; do
             jq -e '
               .spdxVersion == "SPDX-2.3" and
               (.packages | type == "array" and length > 0) and
@@ -103,32 +93,94 @@ jobs:
             exit 1
           fi
 
+      - name: Build multi-architecture image once
+        id: image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          outputs: type=oci,dest=${{ runner.temp }}/kube-memlens-image.tar
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            COMMIT=${{ github.sha }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Validate build-once OCI image
+        run: |
+          image_digest=$(hack/release/validate_oci_archive.py \
+            "${RUNNER_TEMP}/kube-memlens-image.tar" \
+            --version "$GITHUB_REF_NAME" \
+            --commit "$GITHUB_SHA" \
+            --build-date "$BUILD_DATE")
+          test "$image_digest" = "${{ steps.image.outputs.digest }}"
+          printf '%s\n' "$image_digest" > "${RUNNER_TEMP}/image-digest.txt"
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${RUNNER_TEMP}:/work:ro" \
+            "$SKOPEO_IMAGE" \
+            copy --override-arch amd64 \
+            oci-archive:/work/kube-memlens-image.tar \
+            docker-daemon:kube-memlens:release-scan
+          image=kube-memlens:release-scan
+          test "$(docker image inspect "$image" --format '{{.Config.User}}')" = '65532:65532'
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.version"}}')" = "$GITHUB_REF_NAME"
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" = "$GITHUB_SHA"
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.created"}}')" = "$BUILD_DATE"
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.source"}}')" = https://github.com/danushkastanley/KubeMemLens
+          test "$(docker image inspect "$image" --format '{{index .Config.Labels "org.opencontainers.image.licenses"}}')" = Apache-2.0
+
+      - name: Scan the exact release image
+        run: >-
+          docker run --rm
+          -v /var/run/docker.sock:/var/run/docker.sock
+          -v "${{ runner.temp }}/trivy-cache:/root/.cache/trivy"
+          ghcr.io/aquasecurity/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f
+          image --exit-code 1 --severity HIGH,CRITICAL --scanners vuln
+          kube-memlens:release-scan
+
       - name: Render Krew manifest
         run: hack/render-krew-manifest.sh "$GITHUB_REF_NAME" dist/checksums.txt dist/memlens.yaml
 
-      - name: Package Helm chart
+      - name: Package and validate Helm chart
         run: |
-          cp -R charts/kube-memlens /tmp/kube-memlens-release-chart
-          sed -i "s#image: ghcr.io/danushkastanley/kube-memlens:.*#image: ghcr.io/danushkastanley/kube-memlens:${CHART_VERSION}#" \
-            /tmp/kube-memlens-release-chart/Chart.yaml
-          grep -F "image: ghcr.io/danushkastanley/kube-memlens:${CHART_VERSION}" \
-            /tmp/kube-memlens-release-chart/Chart.yaml
-          docker run --rm \
-            -v "$PWD:/work" \
-            -v /tmp/kube-memlens-release-chart:/release-chart:ro \
-            -w /work \
-            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
-            package /release-chart \
+          cp -R charts/kube-memlens "${RUNNER_TEMP}/kube-memlens-release-chart"
+          sed -i "s#image: ghcr.io/danushkastanley/kube-memlens:.*#image: ${IMAGE_REPOSITORY}:${CHART_VERSION}#" \
+            "${RUNNER_TEMP}/kube-memlens-release-chart/Chart.yaml"
+          helm lint --strict "${RUNNER_TEMP}/kube-memlens-release-chart"
+          helm template kube-memlens "${RUNNER_TEMP}/kube-memlens-release-chart" \
+            --namespace kube-memlens >/dev/null
+          helm package "${RUNNER_TEMP}/kube-memlens-release-chart" \
             --destination dist \
             --version "$CHART_VERSION" \
             --app-version "$CHART_VERSION"
+          python3 hack/verify_chart_archive.py \
+            "dist/kube-memlens-${CHART_VERSION}.tgz" \
+            "${RUNNER_TEMP}/kube-memlens-release-chart"
 
-      - name: Add chart and Krew checksums
+      - name: Generate chart SBOM and finalise build bundle
         run: |
+          syft "file:dist/kube-memlens-${CHART_VERSION}.tgz" \
+            -o "spdx-json=dist/kube-memlens-${CHART_VERSION}.chart.sbom.json"
+          jq -e '
+            .spdxVersion == "SPDX-2.3" and
+            (.packages | type == "array" and length > 0) and
+            any(.creationInfo.creators[]; . == "Tool: syft-1.44.0")
+          ' "dist/kube-memlens-${CHART_VERSION}.chart.sbom.json" >/dev/null
           (
             cd dist
-            sha256sum "kube-memlens-${CHART_VERSION}.tgz" memlens.yaml >> checksums.txt
+            sha256sum \
+              "kube-memlens-${CHART_VERSION}.tgz" \
+              "kube-memlens-${CHART_VERSION}.chart.sbom.json" \
+              memlens.yaml >> checksums.txt
             sha256sum --check checksums.txt
+            mkdir -p internal
+            cp "${RUNNER_TEMP}/kube-memlens-image.tar" internal/kube-memlens-image.tar
+            cp "${RUNNER_TEMP}/image-digest.txt" internal/image-digest.txt
+            sha256sum internal/kube-memlens-image.tar internal/image-digest.txt checksums.txt \
+              > internal/transfer-checksums.txt
+            sha256sum --check internal/transfer-checksums.txt
           )
 
       - name: Upload validated release bundle
@@ -141,22 +193,26 @@ jobs:
           compression-level: 0
 
   publish:
-    name: Sign and draft release
+    name: Publish and sign immutable subjects
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment:
       name: release
     permissions:
-      contents: write
+      contents: read
       packages: write
       id-token: write
       attestations: write
+    outputs:
+      image-digest: ${{ steps.image.outputs.digest }}
+      chart-digest: ${{ steps.chart.outputs.digest }}
     steps:
-      - name: Check out repository
+      - name: Check out repository without a persisted write credential
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Download validated release bundle
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -169,24 +225,30 @@ jobs:
         with:
           cosign-release: v3.1.2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - name: Install pinned Helm
+        run: |
+          tools_dir="${RUNNER_TEMP}/kube-memlens-publish-tools"
+          hack/release/install_helm.sh "$tools_dir"
+          echo "$tools_dir" >> "$GITHUB_PATH"
 
-      - name: Resolve build metadata
+      - name: Resolve and validate downloaded bundle
         run: |
           echo "BUILD_DATE=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
-          echo "IMAGE_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          echo "CHART_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          hack/release/validate_tag.sh "$GITHUB_REF_NAME" "$GITHUB_SHA"
+          (
+            cd dist
+            sha256sum --check internal/transfer-checksums.txt
+            sha256sum --check checksums.txt
+          )
+          image_digest=$(hack/release/validate_oci_archive.py \
+            dist/internal/kube-memlens-image.tar \
+            --version "$GITHUB_REF_NAME" \
+            --commit "$GITHUB_SHA" \
+            --build-date "$(git show -s --format=%cI HEAD)")
+          test "$image_digest" = "$(cat dist/internal/image-digest.txt)"
 
-      - name: Validate downloaded bundle
-        run: |
-          archive_count=$(find dist -maxdepth 1 -type f \( -name '*.tar.gz' -o -name '*.zip' \) | wc -l | tr -d ' ')
-          sbom_count=$(find dist -maxdepth 1 -type f -name '*.sbom.json' | wc -l | tr -d ' ')
-          test "$archive_count" = 6
-          test "$sbom_count" = 6
-          test -f "dist/kube-memlens-${IMAGE_VERSION}.tgz"
-          (cd dist && sha256sum --check checksums.txt)
-
-      - name: Refuse an existing release
+      - name: Refuse existing release destinations
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -198,8 +260,7 @@ jobs:
             --header 'X-GitHub-Api-Version: 2022-11-28' \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${GITHUB_REF_NAME}")
           case "$status" in
-            404)
-              ;;
+            404) ;;
             200)
               echo "release ${GITHUB_REF_NAME} already exists; use a new version"
               exit 1
@@ -210,6 +271,29 @@ jobs:
               exit 1
               ;;
           esac
+          set +e
+          image_output=$(docker run --rm "$SKOPEO_IMAGE" \
+            inspect "docker://${IMAGE_REPOSITORY}:${CHART_VERSION}" 2>&1)
+          image_status=$?
+          chart_output=$(helm show chart "oci://${CHART_REPOSITORY}" --version "$CHART_VERSION" 2>&1)
+          chart_status=$?
+          set -e
+          if [ "$image_status" -eq 0 ]; then
+            echo "image ${IMAGE_REPOSITORY}:${CHART_VERSION} already exists; use a new version"
+            exit 1
+          fi
+          if ! grep -Eqi 'not found|manifest unknown' <<< "$image_output"; then
+            echo "image preflight failed: ${image_output}"
+            exit 1
+          fi
+          if [ "$chart_status" -eq 0 ]; then
+            echo "chart ${CHART_REPOSITORY}:${CHART_VERSION} already exists; use a new version"
+            exit 1
+          fi
+          if ! grep -Eqi 'not found|manifest unknown' <<< "$chart_output"; then
+            echo "chart preflight failed: ${chart_output}"
+            exit 1
+          fi
 
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
@@ -218,61 +302,85 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Refuse an existing image tag
-        env:
-          IMAGE: ghcr.io/danushkastanley/kube-memlens
-        run: |
-          set +e
-          output=$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_VERSION}" 2>&1)
-          status=$?
-          set -e
-          if [ "$status" -eq 0 ]; then
-            echo "image ${IMAGE}:${IMAGE_VERSION} already exists; use a new version"
-            exit 1
-          fi
-          if ! grep -Eqi 'not found|manifest unknown' <<< "$output"; then
-            echo "image preflight failed: ${output}"
-            exit 1
-          fi
-
       - name: Log Helm in to GHCR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p /tmp/kube-memlens-helm
-          printf '%s' "$GH_TOKEN" | docker run --rm -i \
-            -e HELM_REGISTRY_CONFIG=/helm/config.json \
-            -v /tmp/kube-memlens-helm:/helm \
-            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
-            registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+          mkdir -p "${RUNNER_TEMP}/kube-memlens-helm"
+          printf '%s' "$GH_TOKEN" | helm registry login ghcr.io \
+            --registry-config "${RUNNER_TEMP}/kube-memlens-helm/config.json" \
+            --username "${{ github.actor }}" \
+            --password-stdin
 
-      - name: Refuse an existing chart version
+      - name: Promote exact OCI image archive
+        id: image
         run: |
-          set +e
-          output=$(docker run --rm \
-            -e HELM_REGISTRY_CONFIG=/helm/config.json \
-            -v /tmp/kube-memlens-helm:/helm \
-            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
-            show chart oci://ghcr.io/danushkastanley/charts/kube-memlens \
-            --version "$IMAGE_VERSION" 2>&1)
-          status=$?
-          set -e
-          if [ "$status" -eq 0 ]; then
-            echo "chart kube-memlens:${IMAGE_VERSION} already exists; use a new version"
-            exit 1
-          fi
-          if ! grep -Eqi 'not found|manifest unknown' <<< "$output"; then
-            echo "chart preflight failed: ${output}"
-            exit 1
-          fi
+          expected_digest=$(cat dist/internal/image-digest.txt)
+          docker run --rm \
+            -v "$PWD/dist:/work:ro" \
+            -v "${DOCKER_CONFIG:-$HOME/.docker}:/auth:ro" \
+            "$SKOPEO_IMAGE" \
+            copy --all --preserve-digests \
+            --authfile /auth/config.json \
+            oci-archive:/work/internal/kube-memlens-image.tar \
+            "docker://${IMAGE_REPOSITORY}:${CHART_VERSION}"
+          published_digest=$(docker run --rm \
+            -v "${DOCKER_CONFIG:-$HOME/.docker}:/auth:ro" \
+            "$SKOPEO_IMAGE" \
+            inspect --raw --authfile /auth/config.json \
+            "docker://${IMAGE_REPOSITORY}:${CHART_VERSION}" | sha256sum | awk '{print "sha256:" $1}')
+          test "$published_digest" = "$expected_digest"
+          echo "IMAGE_DIGEST=$published_digest" >> "$GITHUB_ENV"
+          echo "digest=$published_digest" >> "$GITHUB_OUTPUT"
 
-      - name: Sign checksums
+      - name: Sign image
+        run: cosign sign --yes "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}"
+
+      - name: Add GitHub image provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-name: ghcr.io/danushkastanley/kube-memlens
+          subject-digest: ${{ env.IMAGE_DIGEST }}
+          push-to-registry: true
+
+      - name: Push and sign exact Helm package
+        id: chart
         run: |
+          output=$(helm push "dist/kube-memlens-${CHART_VERSION}.tgz" \
+            oci://ghcr.io/danushkastanley/charts \
+            --registry-config "${RUNNER_TEMP}/kube-memlens-helm/config.json" 2>&1)
+          printf '%s\n' "$output"
+          chart_digest=$(grep -Eo 'sha256:[0-9a-f]{64}' <<< "$output" | tail -1)
+          grep -Eq '^sha256:[0-9a-f]{64}$' <<< "$chart_digest"
+          cosign sign --yes "${CHART_REPOSITORY}@${chart_digest}"
+          echo "CHART_DIGEST=$chart_digest" >> "$GITHUB_ENV"
+          echo "digest=$chart_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Add GitHub chart provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-name: ghcr.io/danushkastanley/charts/kube-memlens
+          subject-digest: ${{ env.CHART_DIGEST }}
+          push-to-registry: true
+
+      - name: Finalise and sign release subject inventory
+        run: |
+          {
+            echo "tag=${GITHUB_REF_NAME}"
+            echo "commit=${GITHUB_SHA}"
+            echo "image=${IMAGE_REPOSITORY}@${IMAGE_DIGEST}"
+            echo "chart=${CHART_REPOSITORY}@${CHART_DIGEST}"
+          } > dist/release-subjects.txt
+          (
+            cd dist
+            sha256sum release-subjects.txt >> checksums.txt
+            sha256sum --check checksums.txt
+          )
           cosign sign-blob --yes \
             --bundle=dist/checksums.txt.sigstore.json \
             dist/checksums.txt
 
-      - name: Attest release files
+      - name: Attest final release files
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
           subject-path: |
@@ -282,86 +390,95 @@ jobs:
             dist/*.sbom.json
             dist/checksums.txt
             dist/memlens.yaml
+            dist/release-subjects.txt
 
-      - name: Create unique draft release
+      - name: Upload final signed bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signed-release-bundle-${{ github.sha }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.tgz
+            dist/*.sbom.json
+            dist/checksums.txt
+            dist/checksums.txt.sigstore.json
+            dist/memlens.yaml
+            dist/release-subjects.txt
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  verify:
+    name: Verify as a clean read-only consumer
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+      attestations: read
+    steps:
+      - name: Check out repository without a persisted write credential
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download final signed bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: signed-release-bundle-${{ github.sha }}
+          path: dist
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.2
+
+      - name: Install pinned clean-consumer tools
+        run: |
+          tools_dir="${RUNNER_TEMP}/kube-memlens-consumer-tools"
+          hack/release/install_consumer_tools.sh "$tools_dir"
+          echo "$tools_dir" >> "$GITHUB_PATH"
+
+      - name: Verify as a clean consumer
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ github.ref_name }}
-        run: |
-          release_flags=(--draft --verify-tag --title "$VERSION" --generate-notes)
-          if [[ "$VERSION" == *-* ]]; then
-            release_flags+=(--prerelease)
-          fi
-          gh release create "$VERSION" \
-            dist/kube-memlens_*.tar.gz \
-            dist/kube-memlens_*.zip \
-            dist/*.sbom.json \
-            dist/checksums.txt \
-            dist/checksums.txt.sigstore.json \
-            "dist/kube-memlens-${IMAGE_VERSION}.tgz" \
-            dist/memlens.yaml \
-            "${release_flags[@]}" \
-            --notes 'Verify checksums, signatures and provenance before installation.'
+          RELEASE_BUNDLE_DIR: dist
+          RELEASE_VERSION: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+          RELEASE_IMAGE: ghcr.io/danushkastanley/kube-memlens
+          RELEASE_IMAGE_DIGEST: ${{ needs.publish.outputs.image-digest }}
+          RELEASE_CHART: ghcr.io/danushkastanley/charts/kube-memlens
+          RELEASE_CHART_DIGEST: ${{ needs.publish.outputs.chart-digest }}
+          RELEASE_CERTIFICATE_IDENTITY: https://github.com/danushkastanley/KubeMemLens/.github/workflows/release.yml@${{ github.ref }}
+        run: hack/release/verify_consumer.sh
 
-      - name: Build and push multi-architecture image
-        id: image
-        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+  draft:
+    name: Create complete draft release
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: release
+    permissions:
+      contents: write
+    steps:
+      - name: Check out release helper without a persisted write credential
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          context: .
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ghcr.io/danushkastanley/kube-memlens:${{ env.IMAGE_VERSION }}
-          build-args: |
-            VERSION=${{ github.ref_name }}
-            COMMIT=${{ github.sha }}
-            BUILD_DATE=${{ env.BUILD_DATE }}
-          provenance: mode=max
-          sbom: true
+          persist-credentials: false
 
-      - name: Sign image
-        env:
-          IMAGE: ghcr.io/danushkastanley/kube-memlens
-          DIGEST: ${{ steps.image.outputs.digest }}
-        run: cosign sign --yes "${IMAGE}@${DIGEST}"
-
-      - name: Attest image
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+      - name: Download verified signed bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          subject-name: ghcr.io/danushkastanley/kube-memlens
-          subject-digest: ${{ steps.image.outputs.digest }}
-          push-to-registry: true
+          name: signed-release-bundle-${{ github.sha }}
+          path: dist
 
-      - name: Push and sign Helm chart
-        id: chart
-        env:
-          VERSION: ${{ github.ref_name }}
-        run: |
-          chart_version="${VERSION#v}"
-          output=$(docker run --rm \
-            -e HELM_REGISTRY_CONFIG=/helm/config.json \
-            -v /tmp/kube-memlens-helm:/helm \
-            -v "$PWD:/work" \
-            -w /work \
-            alpine/helm:3.18.4@sha256:e7ecbf4a200dea73d64bfb8cb0936829164945f2b4d02a0274093073ee8d264f \
-            push "dist/kube-memlens-${chart_version}.tgz" \
-            oci://ghcr.io/danushkastanley/charts 2>&1)
-          printf '%s\n' "$output"
-          chart_digest=$(grep -Eo 'sha256:[0-9a-f]{64}' <<< "$output" | tail -1)
-          printf 'Resolved chart digest: %s\n' "$chart_digest"
-          grep -Eq '^sha256:[0-9a-f]{64}$' <<< "$chart_digest"
-          cosign sign --yes "ghcr.io/danushkastanley/charts/kube-memlens@${chart_digest}"
-          echo "digest=${chart_digest}" >> "$GITHUB_OUTPUT"
-
-      - name: Record published subjects
+      - name: Create complete draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CHART_DIGEST: ${{ steps.chart.outputs.digest }}
-          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
-          VERSION: ${{ github.ref_name }}
-        run: |
-          chart_version="${VERSION#v}"
-          {
-            echo "image=ghcr.io/danushkastanley/kube-memlens@${IMAGE_DIGEST}"
-            echo "chart=ghcr.io/danushkastanley/charts/kube-memlens@${CHART_DIGEST}"
-          } > dist/release-subjects.txt
-          gh release upload "$VERSION" dist/release-subjects.txt
+          RELEASE_BUNDLE_DIR: dist
+          RELEASE_VERSION: ${{ github.ref_name }}
+        run: hack/release/create_draft.sh
