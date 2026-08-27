@@ -9,7 +9,9 @@ kubeconfig=${TERMINAL_LINUX_KUBECONFIG:-}
 context=${TERMINAL_LINUX_CONTEXT:-}
 artifact_dir=${TERMINAL_LINUX_ARTIFACT_DIR:-}
 soak_seconds=${TERMINAL_LINUX_SOAK_SECONDS:-}
-work_dir=$(mktemp -d "${TMPDIR:-/tmp}/kube-memlens-linux-terminal.XXXXXX")
+work_root=${TMPDIR:-/tmp}
+work_root=${work_root%/}
+work_dir=
 
 fail() { echo "Linux terminal qualification error: $*" >&2; exit 1; }
 [ "${TERMINAL_LINUX_ACKNOWLEDGE:-}" = "${required_acknowledgement}" ] || fail "set TERMINAL_LINUX_ACKNOWLEDGE=${required_acknowledgement}"
@@ -29,13 +31,14 @@ case "${soak_seconds}" in
   ""|1800) ;;
   *) fail "TERMINAL_LINUX_SOAK_SECONDS must be empty or 1800" ;;
 esac
+work_dir=$(mktemp -d "${work_root}/kube-memlens-linux-terminal.XXXXXX")
 
 cleanup() {
   status=$?
   trap - EXIT
   docker image rm "${image}" >/dev/null 2>&1 || true
   case "${work_dir}" in
-    "${TMPDIR:-/tmp}"/kube-memlens-linux-terminal.*) rm -rf -- "${work_dir}" ;;
+    "${work_root}"/kube-memlens-linux-terminal.*) rm -rf -- "${work_dir}" ;;
   esac
   exit "${status}"
 }
