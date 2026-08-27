@@ -6,7 +6,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.9
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/rivo/uniseg v0.4.7
-	github.com/spf13/cobra v1.10.1
+	github.com/spf13/cobra v1.10.2
 	golang.org/x/time v0.9.0
 	k8s.io/api v0.33.12
 	k8s.io/apimachinery v0.33.12
