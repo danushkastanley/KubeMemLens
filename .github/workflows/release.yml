@@ -337,7 +337,7 @@ jobs:
         run: cosign sign --yes "${IMAGE_REPOSITORY}@${IMAGE_DIGEST}"
 
       - name: Add GitHub image provenance
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/danushkastanley/kube-memlens
           subject-digest: ${{ env.IMAGE_DIGEST }}
@@ -357,7 +357,7 @@ jobs:
           echo "digest=$chart_digest" >> "$GITHUB_OUTPUT"
 
       - name: Add GitHub chart provenance
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/danushkastanley/charts/kube-memlens
           subject-digest: ${{ env.CHART_DIGEST }}
@@ -381,7 +381,7 @@ jobs:
             dist/checksums.txt
 
       - name: Attest final release files
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             dist/*.tar.gz
