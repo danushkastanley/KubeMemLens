@@ -26,10 +26,13 @@ spec:
       imagePullPolicy: IfNotPresent
       command: ["sh", "-ec"]
       args:
-        - >-
-          nc -z -w 5
-          kube-memlens-collector.{{ .Values.namespace.name }}.svc
-          443
+        - |
+          attempt=0
+          until nc -z -w 5 kube-memlens-collector.{{ .Values.namespace.name }}.svc 443; do
+            attempt=$((attempt + 1))
+            [ "${attempt}" -lt 30 ] || exit 1
+            sleep 2
+          done
       securityContext:
         privileged: false
         readOnlyRootFilesystem: true
