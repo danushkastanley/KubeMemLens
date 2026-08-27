@@ -36,7 +36,7 @@ done
 require_text() {
   local path=$1
   local text=$2
-  if ! rg --fixed-strings --quiet "$text" "$path"; then
+  if ! grep -Fq -- "$text" "$path"; then
     echo "$path is missing required text: $text" >&2
     exit 1
   fi
@@ -68,7 +68,7 @@ if [[ "$license_digest" != cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003
   exit 1
 fi
 
-if ! rg --quiet '^Copyright 2026 KubeMemLens contributors$' NOTICE; then
+if ! grep -Eq '^Copyright 2026 KubeMemLens contributors$' NOTICE; then
   echo 'NOTICE is missing the project copyright notice' >&2
   exit 1
 fi
@@ -78,7 +78,7 @@ require_text "$scorecard_workflow" 'permissions: read-all'
 require_text "$scorecard_workflow" 'security-events: write'
 require_text "$scorecard_workflow" 'id-token: write'
 require_text "$scorecard_workflow" 'publish_results: true'
-if rg --quiet 'pull_request_target' "$scorecard_workflow"; then
+if grep -q 'pull_request_target' "$scorecard_workflow"; then
   echo 'Scorecard workflow must not run with pull_request_target' >&2
   exit 1
 fi
@@ -90,7 +90,7 @@ while IFS= read -r action; do
     echo "Scorecard workflow action is not pinned by full commit SHA: $action" >&2
     exit 1
   fi
-done < <(rg --only-matching 'uses: [^[:space:]]+' "$scorecard_workflow")
+done < <(grep -Eo 'uses: [^[:space:]]+' "$scorecard_workflow")
 
 codeql_workflow=.github/workflows/codeql.yml
 require_text "$codeql_workflow" 'security-events: write'
@@ -102,7 +102,7 @@ while IFS= read -r action; do
     echo "CodeQL workflow action is not pinned by full commit SHA: $action" >&2
     exit 1
   fi
-done < <(rg --only-matching 'uses: [^[:space:]]+' "$codeql_workflow")
+done < <(grep -Eo 'uses: [^[:space:]]+' "$codeql_workflow")
 
 for ecosystem in gomod github-actions docker; do
   require_text .github/dependabot.yml "package-ecosystem: $ecosystem"
@@ -115,13 +115,12 @@ for form in \
   require_text "$form" 'required: true'
 done
 
-if rg --quiet --ignore-case \
-  '(^|[^[:alnum:]])(24/7 support|guaranteed support|production certified|certified production)([^[:alnum:]]|$)' \
-  --glob '*.md' \
-  --glob '!local-docs/**' \
-  .; then
-  echo 'public documentation contains an unsupported service or certification claim' >&2
-  exit 1
-fi
+claim_pattern='(^|[^[:alnum:]])(24/7 support|guaranteed support|production certified|certified production)([^[:alnum:]]|$)'
+while IFS= read -r -d '' path; do
+  if grep -Eiq "$claim_pattern" "$path"; then
+    echo "public documentation contains an unsupported service or certification claim: $path" >&2
+    exit 1
+  fi
+done < <(find . -path './local-docs' -prune -o -type f -name '*.md' -print0)
 
 echo 'community operations contract passed'
