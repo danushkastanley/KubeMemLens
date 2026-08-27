@@ -197,9 +197,21 @@ cleanup() {
     status=1
   }
   if [ "${namespace_created}" = true ]; then
-    owner=$(k get namespace "${namespace}" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}' 2>/dev/null || true)
-    if [ "${owner}" = kube-memlens-density-soak ]; then
-      k delete namespace "${namespace}" --wait=false >/dev/null 2>&1 || true
+    namespace_json="${work_dir}/namespace-cleanup.json"
+    namespace_error="${work_dir}/namespace-cleanup.err"
+    if ! k get namespace "${namespace}" -o json >"${namespace_json}" 2>"${namespace_error}"; then
+      if ! grep -Eqi 'not[[:space:]]+found|NotFound' "${namespace_error}"; then
+        echo "density soak could not verify its namespace before cleanup" >&2
+        status=1
+      fi
+    else
+      owner=$(jq -r '.metadata.labels["app.kubernetes.io/managed-by"] // ""' "${namespace_json}")
+      if [ "${owner}" = kube-memlens-density-soak ]; then
+        k delete namespace "${namespace}" --wait=true --timeout=2m >/dev/null 2>&1 || status=1
+      else
+        echo "density soak refused to delete a namespace with different ownership" >&2
+        status=1
+      fi
     fi
   fi
   if [ "${summary_finalised}" = false ]; then
