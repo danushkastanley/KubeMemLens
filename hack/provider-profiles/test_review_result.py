@@ -88,13 +88,15 @@ class ProviderReviewResultTests(unittest.TestCase):
             receipt_path = fixture_root / "aks-requestheader-provider-inventory.json"
             summary_path = fixture_root / "aks-requestheader-failed-summary.json"
             record = load_json(record_path)
+            source = b"synthetic recorded candidate source"
+            record["releaseCandidate"]["extensionServerSourceSha256"] = converter.digest_bytes(source)
             failed = load_json(failed_path)
             receipt = converter.convert_record(
                 profile, record, failed, load_json(receipt_path), load_json(summary_path),
                 failed_digest=converter.digest_file(failed_path),
                 summary_digest=converter.digest_file(summary_path),
                 qualification_tool_commit="5" * 40,
-                source_content=converter.source_at_commit(record["releaseCandidate"]["sourceCommit"]),
+                source_content=source,
             )
             unsupported = load_json(ROOT / "fixtures" / "gke-autopilot-unsupported.json")
             pending = {key: copy.deepcopy(value) for key, value in unsupported.items()

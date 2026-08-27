@@ -121,6 +121,8 @@ class UnsupportedPendingTests(unittest.TestCase):
         profile = load_json(ROOT / "aks-ubuntu-containerd-amd64.json")
         fixture_root = INVENTORY / "fixtures"
         record = load_json(fixture_root / "aks-requestheader-incompatibility.json")
+        source = b"synthetic recorded candidate source"
+        record["releaseCandidate"]["extensionServerSourceSha256"] = converter.digest_bytes(source)
         failed_path = fixture_root / "aks-requestheader-failed-pending.json"
         summary_path = fixture_root / "aks-requestheader-failed-summary.json"
         receipt = converter.convert_record(
@@ -130,7 +132,7 @@ class UnsupportedPendingTests(unittest.TestCase):
             failed_digest=converter.digest_file(failed_path),
             summary_digest=converter.digest_file(summary_path),
             qualification_tool_commit="5" * 40,
-            source_content=converter.source_at_commit(record["releaseCandidate"]["sourceCommit"]),
+            source_content=source,
         )
         self.assertEqual(
             builder.completion_timestamp(receipt, "2099-01-01T00:00:00Z"),

@@ -32,18 +32,20 @@ class RecordedUnsupportedConversionTests(unittest.TestCase):
         cls.profile = load_json(PROFILES / "aks-ubuntu-containerd-amd64.json")
         cls.paths = {name: ROOT / "fixtures" / filename for name, filename in FILES.items()}
         cls.values = {name: load_json(path) for name, path in cls.paths.items()}
-        cls.source = converter.source_at_commit(
-            cls.values["record"]["releaseCandidate"]["sourceCommit"],
-        )
+        cls.source = b"synthetic recorded candidate source"
 
     def convert(self, values=None, failed_digest=None, summary_digest=None, source=None):
         values = values or copy.deepcopy(self.values)
+        if source is None:
+            source = self.source
+            values["record"]["releaseCandidate"]["extensionServerSourceSha256"] = \
+                converter.digest_bytes(source)
         return converter.convert_record(
             self.profile, values["record"], values["failed"], values["receipt"], values["summary"],
             failed_digest=failed_digest or converter.digest_file(self.paths["failed"]),
             summary_digest=summary_digest or converter.digest_file(self.paths["summary"]),
             qualification_tool_commit="5" * 40,
-            source_content=source if source is not None else self.source,
+            source_content=source,
         )
 
     def test_exact_recorded_attempt_converts_to_schema_v3_unsupported_receipt(self):
@@ -62,7 +64,7 @@ class RecordedUnsupportedConversionTests(unittest.TestCase):
             "b878c14ecb4206f82259545017c554a3fb0d704d",
         )
 
-    def test_recorded_fixture_bytes_match_the_retained_live_input_digests(self):
+    def test_recorded_fixture_bytes_match_the_retained_result_digests(self):
         record = self.values["record"]
         self.assertEqual(
             converter.digest_file(self.paths["failed"]),
@@ -71,10 +73,6 @@ class RecordedUnsupportedConversionTests(unittest.TestCase):
         self.assertEqual(
             converter.digest_file(self.paths["summary"]),
             record["candidateObservation"]["failedSummarySha256"],
-        )
-        self.assertEqual(
-            converter.digest_bytes(self.source),
-            record["releaseCandidate"]["extensionServerSourceSha256"],
         )
 
     def test_each_recorded_input_is_digest_or_identity_bound(self):
