@@ -32,7 +32,7 @@ The chart uses the version-aligned release image by default. Qualification and p
 
 ## TUI 2.0
 
-![KubeMemLens TUI 2.0 showing namespaces, risk-ordered Pods, selected Pod evidence, node memory context and current cgroup signals](docs/images/kube-memlens-tui-2.0.jpg)
+![KubeMemLens TUI 2.0 in the qualified Kitty 180x50 terminal row, showing namespaces, risk-ordered Pods, selected Pod evidence, node memory context and current cgroup signals](docs/qualification-results/terminal-runtime-e631f20/screenshots/kitty-soak-180x50.png)
 
 The terminal interface is an incident-focused memory cockpit rather than a generic Kubernetes browser. Its current workflow includes:
 
@@ -46,6 +46,8 @@ The terminal interface is an incident-focused memory cockpit rather than a gener
 - Kubernetes aggregated-API connectivity by default, with no port-forward required for normal use.
 
 The summary deliberately says **observed Pod charge**: it is the sum of mapped Pod cgroups, not total cluster or node memory usage. Colours reinforce text labels but are not required; set `NO_COLOR=1` for monochrome output.
+
+The one-time [terminal qualification record](docs/qualification-results/terminal-runtime-e631f20/README.md) covers the exact xterm, Kitty, Alacritty, tmux and delayed SSH rows it exercised. Apple Terminal and Ghostty were installed but could not be driven through the host automation boundary; iTerm2 and Warp were absent. Those macOS emulators remain unqualified rather than inferred from a pseudo-terminal.
 
 ## Example
 

@@ -58,6 +58,13 @@ with open(target, "x", encoding="utf-8") as handle:
     json.dump(config, handle)
 PY
 chmod 600 "${work_dir}/kubeconfig.container.json"
+container_cli=(
+  /qualification/kubectl-memlens
+  --kubeconfig /qualification/kubeconfig.json
+  --context "${context}"
+  --collector-namespace kube-memlens
+  tui --all-namespaces --refresh 1s
+)
 
 docker build --quiet \
   --build-arg "QUALIFICATION_UID=$(id -u)" \
@@ -69,12 +76,7 @@ docker run --rm --add-host host.docker.internal:host-gateway \
   -v "${PWD}/hack/terminal-qualification:/scripts:ro" \
   -v "${artifact_dir}:/evidence" \
   "${image}" \
-  /scripts/linux_matrix.sh /evidence \
-  /qualification/kubectl-memlens \
-  --kubeconfig /qualification/kubeconfig.json \
-  --context "${context}" \
-  --collector-namespace kube-memlens \
-  tui --all-namespaces --refresh 1s
+  /scripts/linux_matrix.sh /evidence "${container_cli[@]}"
 
 docker run --rm --user root --cap-add NET_ADMIN --add-host host.docker.internal:host-gateway \
   -v "${cli}:/qualification/kubectl-memlens:ro" \
@@ -94,12 +96,7 @@ if [ "${soak_seconds}" = 1800 ]; then
     -v "${PWD}/hack/terminal-qualification:/scripts:ro" \
     -v "${artifact_dir}:/evidence" \
     "${image}" \
-    /scripts/linux_emulator_soak.sh /evidence \
-    /qualification/kubectl-memlens \
-    --kubeconfig /qualification/kubeconfig.json \
-    --context "${context}" \
-    --collector-namespace kube-memlens \
-    tui --all-namespaces --refresh 1s
+    /scripts/linux_emulator_soak.sh /evidence "${container_cli[@]}"
   expected_results=12
 fi
 

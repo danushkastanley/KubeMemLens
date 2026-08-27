@@ -21,6 +21,9 @@ when a release widens a terminal claim, changes the Bubble Tea renderer or
 input handling, or fixes a terminal-specific defect. The unit and safety
 contracts remain in `make check`.
 
+The reviewed PROD-009 record is in
+[`qualification-results/terminal-runtime-e631f20`](qualification-results/terminal-runtime-e631f20/README.md).
+
 ## Linux emulator matrix
 
 Build the Linux CLI for Docker's architecture first. The runner rejects an

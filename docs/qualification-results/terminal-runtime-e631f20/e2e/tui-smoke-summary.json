@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "outcome": "passed",
+  "completedAt": "2026-08-27T09:43:32Z",
+  "workload": {
+    "pods": 20,
+    "namespaces": 3,
+    "workloadKinds": [
+      "Deployment",
+      "StatefulSet"
+    ],
+    "multiContainerPods": 3
+  },
+  "terminalSizesCoveredByLivePTY": [
+    "80x24",
+    "120x30",
+    "180x50"
+  ],
+  "checks": [
+    "open",
+    "long-list navigation",
+    "risk sort",
+    "node view",
+    "filter",
+    "Pod detail",
+    "live history refresh",
+    "detail scroll",
+    "pause/resume",
+    "manual refresh",
+    "read-only recommendation",
+    "clean exit"
+  ],
+  "privacy": {
+    "rawPTYRetained": false,
+    "clusterIdentifiersIncluded": false,
+    "workloadPodNamesIncluded": false
+  }
+}

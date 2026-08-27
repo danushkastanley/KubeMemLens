@@ -14,6 +14,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Narrowed the intended self-managed containerd qualification row to amd64 so one reviewed provider record cannot be misrepresented as arm64 evidence.
 - Published one-time, digest-bound provider/runtime evidence for the exact GKE Standard, EKS managed-node, self-managed containerd and CRI-O combinations, with freshness reported as advisory rather than a scheduled or per-release cloud gate.
 - Classified standard AKS as unsupported for the recorded candidate because AKS supplied no request-header proxy client-name constraint and the candidate correctly failed closed; GKE Autopilot, EKS Fargate, AKS virtual nodes, Windows nodes and cgroup v1 remain explicit unsupported rows.
+- Qualified xterm, Kitty, Alacritty, tmux and delayed SSH for the exact terminal candidate, with 30-minute PTY and real-emulator runs; named macOS emulators remain unqualified until a real permitted run exists.
 
 ### Security
 

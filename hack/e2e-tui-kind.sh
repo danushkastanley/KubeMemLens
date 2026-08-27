@@ -49,9 +49,20 @@ cleanup() {
   trap - EXIT
   cleanup_failed=0
   for namespace in "${created_namespaces[@]}"; do
-    owner=$(k get namespace "${namespace}" -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}' 2>/dev/null || true)
+    namespace_json="${work_dir}/${namespace}-cleanup.json"
+    namespace_error="${work_dir}/${namespace}-cleanup.err"
+    if ! k get namespace "${namespace}" -o json >"${namespace_json}" 2>"${namespace_error}"; then
+      if grep -Eqi 'not[[:space:]]+found|NotFound' "${namespace_error}"; then
+        continue
+      fi
+      cleanup_failed=1
+      continue
+    fi
+    owner=$(jq -r '.metadata.labels["app.kubernetes.io/managed-by"] // ""' "${namespace_json}")
     if [ "${owner}" = kube-memlens-tui-e2e ]; then
       k delete namespace "${namespace}" --wait=true --timeout=2m >/dev/null 2>&1 || cleanup_failed=1
+    else
+      cleanup_failed=1
     fi
   done
   if [ "${cleanup_failed}" -ne 0 ]; then

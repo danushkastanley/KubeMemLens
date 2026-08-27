@@ -146,6 +146,11 @@ def validate_bundle(bundle: Path) -> dict[str, object]:
         raise ValueError("representative screenshots must cover all supported sizes")
     for value in screenshots.values():
         validate_png(bundle, value)
+    digest_path = bundle / "bundle.sha256"
+    if digest_path.is_symlink() or not digest_path.is_file():
+        raise ValueError("bundle.sha256 is missing")
+    if digest_path.read_text(encoding="ascii").strip() != bundle_digest(bundle):
+        raise ValueError("bundle.sha256 does not match the evidence bundle")
     return matrix
 
 

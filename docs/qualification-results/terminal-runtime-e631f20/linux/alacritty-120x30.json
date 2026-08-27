@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "outcome": "passed",
+  "terminal": {
+    "emulator": "alacritty",
+    "version": "alacritty 0.13.2",
+    "columns": 120,
+    "rows": 30
+  },
+  "run": {
+    "refresh": "1s",
+    "requestedDurationSeconds": 8
+  },
+  "checks": {
+    "applicationAcceptedNavigationInput": true,
+    "cleanExit": true,
+    "terminalModeRestored": true,
+    "titleUnchanged": true,
+    "screenshotCaptured": true
+  },
+  "privacy": {
+    "rawTerminalOutputRetained": false,
+    "credentialPathsRetained": false,
+    "clusterIdentifiersRetained": false
+  }
+}

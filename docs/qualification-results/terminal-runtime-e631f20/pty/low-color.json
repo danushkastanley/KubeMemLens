@@ -1,0 +1,43 @@
+{
+  "checks": {
+    "alternateScreenRestored": true,
+    "applicationRendered": true,
+    "captureComplete": true,
+    "cursorRestored": true,
+    "noColourCodes": true,
+    "outputBounded": true,
+    "terminalModeRestored": true,
+    "titleUnchanged": true,
+    "utf8Valid": true
+  },
+  "metrics": {
+    "averageBytesPerSecond": 2227.359,
+    "colourSGRSequences": 0,
+    "outputBytes": 11423,
+    "titleSequences": 0
+  },
+  "outcome": "passed",
+  "privacy": {
+    "clusterIdentifiersRetained": false,
+    "credentialPathsRetained": false,
+    "rawTerminalOutputRetained": false
+  },
+  "run": {
+    "elapsedSeconds": 5.128,
+    "exitCode": 0,
+    "exitMode": "normal",
+    "expectedScreen": "dashboard",
+    "refresh": "1s",
+    "requestedDurationSeconds": 5,
+    "transport": "direct"
+  },
+  "schemaVersion": 1,
+  "terminal": {
+    "colourMode": "low-color",
+    "columns": 120,
+    "profile": "darwin-low-color",
+    "rows": 30,
+    "term": "vt100",
+    "version": "vt100-terminfo"
+  }
+}

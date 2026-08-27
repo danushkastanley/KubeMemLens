@@ -49,6 +49,7 @@ class ValidateEvidenceTest(unittest.TestCase):
                 "screenshots": {"80x24": "frame.png", "120x30": "frame.png", "180x50": "frame.png"},
             }
             (bundle / "terminal-matrix.json").write_text(json.dumps(matrix), encoding="utf-8")
+            (bundle / "bundle.sha256").write_text(VALIDATE.bundle_digest(bundle) + "\n", encoding="ascii")
             self.assertEqual(VALIDATE.validate_bundle(bundle), matrix)
 
     def test_private_path_is_rejected(self):
