@@ -84,7 +84,7 @@ check-community-settings:
 	hack/community/check_repository_settings.sh
 
 vuln:
-	go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+	go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
 check: fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test coverage test-race vet vuln build
 
