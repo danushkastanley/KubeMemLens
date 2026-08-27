@@ -1,0 +1,43 @@
+{
+  "checks": {
+    "alternateScreenRestored": true,
+    "applicationRendered": true,
+    "captureComplete": true,
+    "cursorRestored": true,
+    "noColourCodes": true,
+    "outputBounded": true,
+    "terminalModeRestored": true,
+    "titleUnchanged": true,
+    "utf8Valid": true
+  },
+  "metrics": {
+    "averageBytesPerSecond": 2844.829,
+    "colourSGRSequences": 57152,
+    "outputBytes": 5121083,
+    "titleSequences": 0
+  },
+  "outcome": "passed",
+  "privacy": {
+    "clusterIdentifiersRetained": false,
+    "credentialPathsRetained": false,
+    "rawTerminalOutputRetained": false
+  },
+  "run": {
+    "elapsedSeconds": 1800.137,
+    "exitCode": 0,
+    "exitMode": "normal",
+    "expectedScreen": "dashboard",
+    "refresh": "1s",
+    "requestedDurationSeconds": 1800,
+    "transport": "direct"
+  },
+  "schemaVersion": 1,
+  "terminal": {
+    "colourMode": "native",
+    "columns": 180,
+    "profile": "darwin-pty-soak",
+    "rows": 50,
+    "term": "xterm-256color",
+    "version": "bubbletea-v2.0.9"
+  }
+}

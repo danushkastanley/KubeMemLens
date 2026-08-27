@@ -1,0 +1,43 @@
+{
+  "checks": {
+    "alternateScreenRestored": true,
+    "applicationRendered": true,
+    "captureComplete": true,
+    "cursorRestored": true,
+    "noColourCodes": true,
+    "outputBounded": true,
+    "terminalModeRestored": true,
+    "titleUnchanged": true,
+    "utf8Valid": true
+  },
+  "metrics": {
+    "averageBytesPerSecond": 277.572,
+    "colourSGRSequences": 0,
+    "outputBytes": 1707,
+    "titleSequences": 0
+  },
+  "outcome": "passed",
+  "privacy": {
+    "clusterIdentifiersRetained": false,
+    "credentialPathsRetained": false,
+    "rawTerminalOutputRetained": false
+  },
+  "run": {
+    "elapsedSeconds": 6.15,
+    "exitCode": 0,
+    "exitMode": "normal",
+    "expectedScreen": "connection-error",
+    "refresh": "1s",
+    "requestedDurationSeconds": 6,
+    "transport": "direct"
+  },
+  "schemaVersion": 1,
+  "terminal": {
+    "colourMode": "no-color",
+    "columns": 80,
+    "profile": "connection-error",
+    "rows": 24,
+    "term": "xterm-256color",
+    "version": "bubbletea-v2.0.9"
+  }
+}

@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: Check shell script syntax
-        run: bash -n hack/*.sh hack/lib/*.sh
+        run: bash -n hack/*.sh hack/lib/*.sh hack/terminal-qualification/*.sh
 
       - name: Check shell scripts
         run: >-
@@ -47,13 +47,14 @@ jobs:
           -v "$PWD:/mnt:ro"
           -w /mnt
           koalaman/shellcheck:v0.10.0@sha256:2097951f02e735b613f4a34de20c40f937a6c8f18ecb170612c88c34517221fb
-          hack/*.sh hack/lib/*.sh
+          hack/*.sh hack/lib/*.sh hack/terminal-qualification/*.sh
 
       - name: Test shell helpers
         run: |
           hack/test-retry.sh
           make check-scale-contract
           make check-provider-contract
+          make check-terminal-contract
 
       - name: Check density soak safety gate
         run: |

@@ -1,0 +1,43 @@
+{
+  "checks": {
+    "alternateScreenRestored": true,
+    "applicationRendered": true,
+    "captureComplete": true,
+    "cursorRestored": true,
+    "noColourCodes": true,
+    "outputBounded": true,
+    "terminalModeRestored": true,
+    "titleUnchanged": true,
+    "utf8Valid": true
+  },
+  "metrics": {
+    "averageBytesPerSecond": 1898.867,
+    "colourSGRSequences": 22,
+    "outputBytes": 57274,
+    "titleSequences": 0
+  },
+  "outcome": "passed",
+  "privacy": {
+    "clusterIdentifiersRetained": false,
+    "credentialPathsRetained": false,
+    "rawTerminalOutputRetained": false
+  },
+  "run": {
+    "elapsedSeconds": 30.162,
+    "exitCode": 0,
+    "exitMode": "normal",
+    "expectedScreen": "dashboard",
+    "refresh": "1s",
+    "requestedDurationSeconds": 30,
+    "transport": "tmux"
+  },
+  "schemaVersion": 1,
+  "terminal": {
+    "colourMode": "native",
+    "columns": 120,
+    "profile": "tmux-linux",
+    "rows": 30,
+    "term": "xterm-256color",
+    "version": "3.4"
+  }
+}

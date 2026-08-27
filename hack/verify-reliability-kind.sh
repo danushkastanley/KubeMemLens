@@ -180,6 +180,27 @@ cluster_status_retry() {
   return 1
 }
 
+stable_ready_baseline() {
+  local deadline=$((SECONDS + 45)) output signature previous_signature='' stable_samples=0
+  while [ "${SECONDS}" -lt "${deadline}" ]; do
+    output=$(cluster_status_retry "${deadline}")
+    signature=$(jq -er '[.store.reliability.state, .store.totalContainers, .store.reliability.expectedNodes] | @tsv' <<<"${output}")
+    if [ "${signature}" = "${previous_signature}" ] && [[ "${signature}" == ready$'\t'* ]]; then
+      stable_samples=$((stable_samples + 1))
+    else
+      stable_samples=1
+    fi
+    if [ "${stable_samples}" -ge 3 ]; then
+      printf '%s' "${output}"
+      return 0
+    fi
+    previous_signature=${signature}
+    sleep 3
+  done
+  echo "collector baseline did not settle across one agent scan interval" >&2
+  return 1
+}
+
 collector_pod() {
   "${kc[@]}" get pod -n "${namespace}" -l app.kubernetes.io/name=kube-memlens-collector \
     -o jsonpath='{.items[0].metadata.name}'
@@ -230,7 +251,7 @@ wait_for_collector_ready() {
 }
 
 write_phase baseline
-baseline=$(cluster_status_retry)
+baseline=$(stable_ready_baseline)
 baseline_state=$(jq -r '.store.reliability.state' <<<"${baseline}")
 [ "${baseline_state}" = ready ] || {
   echo "collector baseline state is ${baseline_state}, want ready" >&2
@@ -294,7 +315,7 @@ minimum_outage_containers=$((baseline_containers - baseline_expected_nodes))
 if [ "${outage_containers}" -le 0 ] ||
   [ "${outage_containers}" -lt "${minimum_outage_containers}" ] ||
   [ "${outage_containers}" -gt "${baseline_containers}" ]; then
-  echo "collector outage boundary has an invalid retained-container count" >&2
+  echo "collector outage boundary has invalid retained-container count: baseline=${baseline_containers} expectedNodes=${baseline_expected_nodes} outage=${outage_containers} minimum=${minimum_outage_containers}" >&2
   exit 1
 fi
 write_phase agent_outage_stale
