@@ -35,7 +35,7 @@ require_text "$contract" 'Shared multi-tenant clusters are a mandatory v1 threat
 require_text "$contract" 'exactly one collector replica holds independent in-memory state'
 require_text "$contract" 'Default Pod history is retained in collector memory for at most 15 minutes'
 require_text "$contract" 'Configured store ceilings are rejection bounds, not scale claims.'
-require_text "$contract" '`reviewDueAt` reports advisory freshness'
+require_text "$contract" "\`reviewDueAt\` reports advisory freshness"
 require_text "$contract" 'Live-cloud qualification is not scheduled, run in CI or repeated automatically for releases.'
 require_text "$contract" 'PROD-002 to PROD-005'
 require_text "$contract" 'PROD-006'
