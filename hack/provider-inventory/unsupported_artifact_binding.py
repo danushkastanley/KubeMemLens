@@ -41,10 +41,16 @@ def verify_binding(source_commit, chart_archive, chart_digest):
         raise ValueError("source commit must be 40 lowercase hexadecimal characters")
     if DIGEST_PATTERN.fullmatch(chart_digest or "") is None:
         raise ValueError("chart digest must be an exact lowercase SHA-256 digest")
-    if run(["git", "rev-parse", "HEAD"]).strip() != source_commit:
-        raise ValueError("source commit is not checked out")
+    qualification_tool_commit = run(["git", "rev-parse", "HEAD"]).strip()
+    if COMMIT_PATTERN.fullmatch(qualification_tool_commit) is None:
+        raise ValueError("qualification tool commit is invalid")
     if run(["git", "status", "--porcelain", "--untracked-files=all"]).strip():
         raise ValueError("repository must be clean before observing unsupported evidence")
+    try:
+        run(["git", "cat-file", "-e", f"{source_commit}^{{commit}}"])
+        run(["git", "diff", "--quiet", source_commit, "--", "charts/kube-memlens"])
+    except ValueError as error:
+        raise ValueError("checked-out chart differs from the release-candidate source commit") from error
     archive = Path(chart_archive)
     if digest_file(archive) != chart_digest:
         raise ValueError("chart archive digest does not match")
@@ -53,4 +59,8 @@ def verify_binding(source_commit, chart_archive, chart_digest):
         verify_chart_metadata(archive, REPOSITORY / "charts" / "kube-memlens")
     except ArchiveError as error:
         raise ValueError(str(error)) from error
-    return {"sourceCommit": source_commit, "chartDigest": chart_digest}
+    return {
+        "sourceCommit": source_commit,
+        "chartDigest": chart_digest,
+        "qualificationToolCommit": qualification_tool_commit,
+    }

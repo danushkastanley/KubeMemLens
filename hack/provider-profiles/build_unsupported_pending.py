@@ -70,6 +70,17 @@ def tracked_at_commit(path, source_commit):
         raise EvaluationInputError(f"tracked qualification input differs from source commit: {relative}")
 
 
+def tree_at_commit(path, source_commit):
+    try:
+        relative = path.resolve().relative_to(REPOSITORY).as_posix()
+    except ValueError as error:
+        raise EvaluationInputError("tracked qualification input is outside the repository") from error
+    try:
+        run(["git", "diff", "--quiet", source_commit, "--", relative])
+    except EvaluationInputError as error:
+        raise EvaluationInputError(f"tracked qualification tree differs from source commit: {relative}") from error
+
+
 def chart_version(archive):
     for line in run(["helm", "show", "chart", str(archive)]).splitlines():
         if line.startswith("version:"):
@@ -84,8 +95,10 @@ def verify_inputs(profile_path, receipt_path, chart_archive, expected_chart_dige
     require_digest(image_digest, "image digest")
     if COMMIT_PATTERN.fullmatch(source_commit) is None:
         raise EvaluationInputError("source commit must be 40 lowercase hexadecimal characters")
-    if run(["git", "rev-parse", "HEAD"]).strip() != source_commit:
-        raise EvaluationInputError("source commit is not checked out")
+    try:
+        run(["git", "cat-file", "-e", f"{source_commit}^{{commit}}"])
+    except EvaluationInputError as error:
+        raise EvaluationInputError("release-candidate source commit does not exist") from error
     if run(["git", "status", "--porcelain", "--untracked-files=all"]).strip():
         raise EvaluationInputError("repository must be clean before recording unsupported evidence")
     profile = load_json(profile_path)
@@ -96,8 +109,19 @@ def verify_inputs(profile_path, receipt_path, chart_archive, expected_chart_dige
     canonical_values = ROOT / "provider-values" / f"{profile['id']}.yaml"
     if Path(values_path).resolve() != canonical_values.resolve():
         raise EvaluationInputError("values must be the canonical unsupported-profile values")
-    tracked_at_commit(canonical_profile, source_commit)
+    receipt = load_json(receipt_path)
+    try:
+        validate_unsupported_receipt(profile, receipt)
+    except ReceiptError as error:
+        raise EvaluationInputError(str(error)) from error
+    qualification_tool_commit = receipt.get(
+        "qualificationToolCommit", receipt["artefacts"]["sourceCommit"],
+    )
+    if run(["git", "rev-parse", "HEAD"]).strip() != qualification_tool_commit:
+        raise EvaluationInputError("qualification tool commit is not checked out")
+    tracked_at_commit(canonical_profile, qualification_tool_commit)
     tracked_at_commit(canonical_values, source_commit)
+    tree_at_commit(ROOT.parent / "charts" / "kube-memlens", source_commit)
     if digest_file(chart_archive) != expected_chart_digest:
         raise EvaluationInputError("chart archive digest does not match")
     if digest_file(canonical_values) != expected_values_digest:
@@ -106,11 +130,6 @@ def verify_inputs(profile_path, receipt_path, chart_archive, expected_chart_dige
         verify_archive(chart_archive, ROOT.parent / "charts" / "kube-memlens")
         verify_chart_metadata(chart_archive, ROOT.parent / "charts" / "kube-memlens")
     except ArchiveError as error:
-        raise EvaluationInputError(str(error)) from error
-    receipt = load_json(receipt_path)
-    try:
-        validate_unsupported_receipt(profile, receipt)
-    except ReceiptError as error:
         raise EvaluationInputError(str(error)) from error
     artefacts = {
         "imageDigest": image_digest,

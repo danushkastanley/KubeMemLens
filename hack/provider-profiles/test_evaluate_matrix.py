@@ -104,9 +104,10 @@ class ProviderMatrixTests(unittest.TestCase):
         }
         environment = pending["environment"]
         receipt = {
-            "schemaVersion": 1,
+            "schemaVersion": 2,
             "profile": {"id": profile["id"], "digest": profile["profileDigest"]},
             "observedAt": "2026-08-26T11:59:00Z",
+            "qualificationToolCommit": "5" * 40,
             "provider": environment["provider"],
             "nodeImage": environment["nodeImage"],
             "cniName": environment["cniName"],
@@ -143,7 +144,11 @@ class ProviderMatrixTests(unittest.TestCase):
         source = read_json(INVENTORY_ROOT / "fixtures" / UNSUPPORTED_SOURCES[profile["id"]])
         receipt = observer.build_receipt(
             profile, source, "2026-08-26T11:30:00Z",
-            {"sourceCommit": "3" * 40, "chartDigest": "sha256:" + "2" * 64},
+            {
+                "sourceCommit": "3" * 40,
+                "chartDigest": "sha256:" + "2" * 64,
+                "qualificationToolCommit": "5" * 40,
+            },
         )
         pending = {key: copy.deepcopy(value) for key, value in record.items()
                    if key not in {"reviewedAt", "reviewDueAt"}}
@@ -178,6 +183,7 @@ class ProviderMatrixTests(unittest.TestCase):
         self.assertEqual(report["result"], "pass", report["failures"])
         self.assertEqual(len(report["rows"]), 11)
         self.assertEqual(set(report["release"]), set(RELEASE_FIELDS))
+        self.assertNotIn("qualificationToolCommit", report["release"])
 
     def test_canonical_matrix_has_exact_supported_and_unsupported_rows(self):
         self.assertEqual(len(SUPPORTED_PROFILE_IDS), 6)

@@ -13,17 +13,21 @@
   "nodes": {"items": [{
     "metadata": {
       "uid": "private-virtual-node-uid",
-      "labels": {"kubernetes.io/os": "linux", "type": "virtual-kubelet"}
+      "labels": {
+        "kubernetes.io/os": "linux",
+        "kubernetes.io/arch": "amd64",
+        "type": "virtual-kubelet"
+      }
     },
     "spec": {"taints": [{"key": "virtual-kubelet.io/provider", "value": "azure"}]},
     "status": {
       "conditions": [{"type": "Ready", "status": "True"}],
       "nodeInfo": {
-        "osImage": "Ubuntu 22.04.5 LTS",
-        "containerRuntimeVersion": "virtual-kubelet://1.11.0",
-        "architecture": "amd64",
-        "kernelVersion": "virtual-kubelet",
-        "kubeletVersion": "v1.36.1"
+        "osImage": "",
+        "containerRuntimeVersion": "",
+        "architecture": "",
+        "kernelVersion": "",
+        "kubeletVersion": "v1.25.0-vk-azure-aci-"
       }
     }
   }]}

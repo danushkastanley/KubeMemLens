@@ -22,7 +22,11 @@ import kubectl_dry_run  # noqa: E402
 import unsupported_live as live  # noqa: E402
 
 
-ARTEFACT_BINDING = {"sourceCommit": "4" * 40, "chartDigest": "sha256:" + "2" * 64}
+ARTEFACT_BINDING = {
+    "sourceCommit": "4" * 40,
+    "chartDigest": "sha256:" + "2" * 64,
+    "qualificationToolCommit": "5" * 40,
+}
 
 
 def fixture(name):

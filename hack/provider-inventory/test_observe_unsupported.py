@@ -24,7 +24,11 @@ CASES = {
     ),
     "cgroup-v1": ("cgroup-v1-observation.json", "cgroup_v1_not_supported", "cgroup_v1_observed"),
 }
-ARTEFACT_BINDING = {"sourceCommit": "4" * 40, "chartDigest": "sha256:" + "2" * 64}
+ARTEFACT_BINDING = {
+    "sourceCommit": "4" * 40,
+    "chartDigest": "sha256:" + "2" * 64,
+    "qualificationToolCommit": "5" * 40,
+}
 
 
 def read_json(path):
@@ -55,7 +59,8 @@ class UnsupportedObservationTests(unittest.TestCase):
                 profile = self.profile(profile_id)
                 receipt = self.receipt(profile_id)
                 observer.validate_unsupported_receipt(profile, receipt)
-                self.assertEqual(receipt["schemaVersion"], 2)
+                self.assertEqual(receipt["schemaVersion"], 3)
+                self.assertEqual(receipt["qualificationToolCommit"], "5" * 40)
                 self.assertEqual(receipt["unsupportedObservation"]["reasonCode"], reason)
                 self.assertEqual(receipt["unsupportedObservation"]["state"], state)
                 self.assertTrue(all(receipt["providerChecks"].values()))
@@ -71,8 +76,52 @@ class UnsupportedObservationTests(unittest.TestCase):
         self.assertEqual(gke["environment"]["cgroupVersion"], "unreported")
         self.assertEqual(eks["environment"]["nodeImage"], "AWS Fargate managed runtime")
         self.assertEqual(eks["environment"]["cgroupVersion"], "unreported")
-        self.assertTrue(aks["environment"]["runtime"].startswith("virtual-kubelet://"))
+        self.assertEqual(aks["environment"]["osImage"], "unreported")
+        self.assertEqual(aks["environment"]["runtime"], "unreported")
+        self.assertEqual(aks["environment"]["architecture"], "amd64")
+        self.assertEqual(aks["environment"]["kernelVersion"], "unreported")
+        self.assertEqual(aks["environment"]["kubeletVersion"], "v1.25.0-vk-azure-aci-")
         self.assertEqual(aks["environment"]["cgroupVersion"], "unreported")
+
+    def test_schema_v2_receipts_remain_valid(self):
+        profile = self.profile("gke-autopilot")
+        binding = {name: ARTEFACT_BINDING[name] for name in observer.ARTEFACT_KEYS}
+        receipt = observer.build_receipt(
+            profile, self.source("gke-autopilot"), "2026-08-26T11:30:00Z", binding,
+        )
+        self.assertEqual(receipt["schemaVersion"], 2)
+        self.assertNotIn("qualificationToolCommit", receipt)
+        observer.validate_unsupported_receipt(profile, receipt)
+
+    def test_schema_v3_tool_commit_is_strict_and_digest_bound(self):
+        profile = self.profile("aks-virtual-nodes")
+        receipt = self.receipt("aks-virtual-nodes")
+        changed = copy.deepcopy(receipt)
+        changed["qualificationToolCommit"] = "6" * 40
+        with self.assertRaisesRegex(observer.ReceiptError, "receiptDigest"):
+            observer.validate_unsupported_receipt(profile, changed)
+        changed["qualificationToolCommit"] = "invalid"
+        self.redigest(changed)
+        with self.assertRaisesRegex(observer.ReceiptError, "qualificationToolCommit"):
+            observer.validate_unsupported_receipt(profile, changed)
+
+    def test_aks_virtual_node_architecture_is_label_bound(self):
+        profile = self.profile("aks-virtual-nodes")
+        for mutation in ("missing", "conflict", "non-linux"):
+            with self.subTest(mutation=mutation):
+                source = self.source("aks-virtual-nodes")
+                labels = source["nodes"]["items"][0]["metadata"]["labels"]
+                if mutation == "missing":
+                    labels.pop("kubernetes.io/arch")
+                    message = "architecture label"
+                elif mutation == "conflict":
+                    source["nodes"]["items"][0]["status"]["nodeInfo"]["architecture"] = "arm64"
+                    message = "conflicts"
+                else:
+                    labels["kubernetes.io/os"] = "windows"
+                    message = "Linux label"
+                with self.assertRaisesRegex(observer.ReceiptError, message):
+                    self.build(profile, source)
 
     def test_gke_requires_specific_hostpath_admission_evidence(self):
         source = self.source("gke-autopilot")

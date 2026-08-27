@@ -57,6 +57,9 @@ cluster unsuitable for an exact qualification row.
 - An exact kubeconfig context and enough RBAC to create the dedicated namespace and chart resources.
 - A release-candidate image repository plus its immutable digest, source commit,
   packaged chart and chart-package digest.
+- A clean qualification-tool checkout. Its commit may follow the candidate when
+  only qualification code changes; the receipt records it separately and the
+  candidate chart, profile values and release identity remain source-bound.
 - A checked-in profile from `hack/provider-profiles/`.
 - The exact `linux/amd64` probe in `hack/provider-probe-image.json`; its
   repository and digest are source-bound and its digest must match every
@@ -122,7 +125,10 @@ provider receipt before continuing.
 
 The script refuses an existing namespace, pre-existing KubeMemLens cluster
 RBAC, a non-empty or unsafe evidence directory, mutable artefacts, a dirty
-source commit or a missing acknowledgement. It cleans up its release, exact
+qualification-tool checkout or a missing acknowledgement. It verifies the
+candidate chart, supported profile, values and probe contract against
+`QUALIFY_SOURCE_COMMIT`; a later tool-only commit does not change that release
+identity. It cleans up its release, exact
 chart RBAC and namespace on success. Failure cleanup distinguishes NotFound
 from API, authentication and transport errors, verifies exact absence and marks
 the run failed when cleanup cannot be proved.
@@ -152,16 +158,17 @@ python3 hack/provider-inventory/observe_unsupported.py \
   --output qualification-evidence/<unsupported-profile>/provider-inventory.json
 ```
 
-The observation command first requires a clean checkout at the exact source
-commit and verifies that the chart archive matches both its digest and that
-checkout. All managed observations require `QUALIFY_CONTEXT` plus the provider selectors
+The observation command requires a clean qualification-tool checkout, records
+its commit, and verifies that the chart archive matches its digest and the
+separate release-candidate source commit. All managed observations require
+`QUALIFY_CONTEXT` plus the provider selectors
 used by the supported collector. Add the profile-specific private inputs:
 
 | Profile | Additional live input |
 |---|---|
 | GKE Autopilot | `QUALIFY_OBSERVATION_NAMESPACE` naming an existing authorised namespace. The collector checks `auth can-i`, accepts the exact baseline server dry-run and requires the exact cgroup-hostPath Status denial. |
 | EKS Fargate | `QUALIFY_EKS_FARGATE_PROFILE` naming an active profile with at least one Ready Fargate Node in its scope. |
-| AKS virtual nodes | An enabled ACI connector and at least one Ready Azure virtual-kubelet Node in the selected AKS cluster. |
+| AKS virtual nodes | An enabled ACI connector and at least one Ready Azure virtual-kubelet Node in the selected AKS cluster. The receipt retains the real kubelet version, derives amd64 only from `kubernetes.io/arch`, and records blank virtual-node OS image, runtime and kernel fields as `unreported`. |
 | Windows deep mode | `QUALIFY_AKS_WINDOWS_NODE_POOL` naming a current AKS Windows pool. The live Nodes, provider-owned pool, configured Azure CNI with Calico and rendered candidate agent contract must agree. Cilium is Linux-only and is rejected for this row. The receipt records configuration only and does not claim Windows policy enforcement. |
 | cgroup v1 | `QUALIFY_SSH_USER`, `QUALIFY_SSH_ADDRESS_TYPE`, `QUALIFY_SSH_KEY` and `QUALIFY_SSH_KNOWN_HOSTS`. The key must be mode `0600`; strict-host-key, BatchMode SSH checks every Linux Node UID for no `cgroup.controllers` file and a real cgroup v1 mount. |
 
@@ -170,8 +177,9 @@ provider response is copied into the receipt. Keep the private command and
 cleanup transcript until review, then retain it outside Git according to the
 operator's security policy.
 
-Bind the live receipt to the same clean source commit, candidate image, chart
-archive and checked-in profile values:
+Bind the live receipt to the candidate source commit, image, chart archive and
+checked-in profile values. The receipt digest separately binds the clean
+qualification-tool commit and its canonical unsupported profile:
 
 ```sh
 python3 hack/provider-profiles/build_unsupported_pending.py \
@@ -197,7 +205,7 @@ A passing directory contains mode-`0600` JSON:
 | File | Purpose |
 |---|---|
 | `provider-qualification.pending.json` | Unreviewed strict run result with release identity, environment, lifecycle/recovery checks and privacy assertions |
-| `provider-inventory.json` | Sanitised provider-owned inventory receipt and canonical receipt digest |
+| `provider-inventory.json` | Sanitised provider-owned inventory receipt, qualification-tool commit and canonical receipt digest |
 | `evidence-manifest.json` | Exact digests for every retained run file plus the digest-pinned policy probe image |
 | `qualification-summary.json` | Compatibility summary for older result consumers |
 | `environment.json` | Kubernetes, provider, node image, OS, kernel, runtime, architecture, cgroup, CNI and Linux/Windows counts |
@@ -232,7 +240,9 @@ The provider matrix is complete only when
 `hack/provider-profiles/evaluate_matrix.py` passes all six supported and five
 unsupported reviewed records together. It requires one release identity across
 the matrix and at least one supported mixed Linux/Windows run whose scheduling
-check passed.
+check passed. `qualificationToolCommit` is receipt provenance, not a release
+identity field. Existing supported receipt schema v1 and unsupported receipt
+schema v2 remain valid; new receipts use supported v2 and unsupported v3.
 
 ```sh
 python3 hack/provider-profiles/evaluate_matrix.py \

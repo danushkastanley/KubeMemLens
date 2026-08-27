@@ -55,11 +55,13 @@ SPECS = {
         "state": "cgroup_v1_observed", "source": "bounded-node-host-observation",
     },
 }
-RECEIPT_KEYS = {
+RECEIPT_KEYS_V2 = {
     "schemaVersion", "profile", "observedAt", "environment", "controlPlaneVersion",
     "artefacts", "proof", "providerChecks", "unsupportedObservation", "receiptDigest",
 }
+RECEIPT_KEYS_V3 = RECEIPT_KEYS_V2 | {"qualificationToolCommit"}
 ARTEFACT_KEYS = {"sourceCommit", "chartDigest"}
+ARTEFACT_BINDING_KEYS_V3 = ARTEFACT_KEYS | {"qualificationToolCommit"}
 PROOF_KEYS = {"source", "sourceDigest", "observationSpecDigest"}
 PROVIDER_CHECK_KEYS = {"profileCanonical", "providerMode", "nodeImage", "cni", "controlPlaneVersion"}
 OBSERVATION_KEYS = {"reasonCode", "method", "state", "subjectCount", "checks"}
@@ -199,10 +201,36 @@ def parse_aks(source):
     if provider.get("provisioningState") != "Succeeded" or addon.get("enabled") is not True \
             or network.get("networkPlugin") != "azure":
         raise ReceiptError("AKS observation requires enabled Azure virtual nodes")
+    def selected(item):
+        return item.get("metadata", {}).get("labels", {}).get("type") == "virtual-kubelet" \
+            and any(taint.get("key") == "virtual-kubelet.io/provider" and taint.get("value") == "azure"
+                    for taint in item.get("spec", {}).get("taints", []))
+
+    normalised = copy.deepcopy(source)
+    nodes = require_object(normalised["nodes"], "AKS virtual Nodes")
+    items = nodes.get("items", [])
+    if not isinstance(items, list) or any(not isinstance(item, dict) for item in items):
+        raise ReceiptError("AKS virtual Nodes must contain a bounded item list")
+    for item in items:
+        if not selected(item):
+            continue
+        labels = require_object(item.get("metadata", {}).get("labels"), "AKS virtual Node labels")
+        if labels.get("kubernetes.io/os") != "linux":
+            raise ReceiptError("AKS virtual Nodes must report the standard Linux label")
+        label_architecture = require_text(
+            labels.get("kubernetes.io/arch"), "AKS virtual Node architecture label",
+        )
+        info = require_object(item.get("status", {}).get("nodeInfo"), "AKS virtual Node nodeInfo")
+        reported_architecture = info.get("architecture")
+        if reported_architecture not in (None, "") and reported_architecture != label_architecture:
+            raise ReceiptError("AKS virtual Node architecture conflicts with its standard label")
+        info["architecture"] = label_architecture
+        for field in ("osImage", "containerRuntimeVersion", "kernelVersion"):
+            if info.get(field) in (None, ""):
+                info[field] = "unreported"
+
     environment, count = node_environment(
-        source, lambda item: item.get("metadata", {}).get("labels", {}).get("type") == "virtual-kubelet"
-        and any(taint.get("key") == "virtual-kubelet.io/provider" and taint.get("value") == "azure"
-                for taint in item.get("spec", {}).get("taints", [])),
+        normalised, selected,
         "aks-virtual-nodes", "AKS virtual-node ACI", "Azure CNI virtual nodes", "unreported", False,
     )
     return environment, require_text(
@@ -292,8 +320,14 @@ def validate_unsupported_receipt(profile, receipt):
     if profile["id"] not in SPECS or profile["expectedOutcome"] != "unsupported":
         raise ReceiptError("unsupported receipt requires a canonical unsupported profile")
     reject_sensitive_content(receipt, ReceiptError)
-    if not isinstance(receipt, dict) or set(receipt) != RECEIPT_KEYS or receipt.get("schemaVersion") != 2:
-        raise ReceiptError("unsupported receipt fields do not match schema version 2")
+    version = receipt.get("schemaVersion") if isinstance(receipt, dict) else None
+    expected_keys = {2: RECEIPT_KEYS_V2, 3: RECEIPT_KEYS_V3}.get(version)
+    if expected_keys is None or set(receipt) != expected_keys:
+        raise ReceiptError("unsupported receipt fields do not match supported schema version 2 or 3")
+    if version == 3:
+        tool_commit = receipt["qualificationToolCommit"]
+        if not isinstance(tool_commit, str) or re.fullmatch(r"[a-f0-9]{40}", tool_commit) is None:
+            raise ReceiptError("unsupported receipt qualificationToolCommit is invalid")
     if receipt["profile"] != {"id": profile["id"], "digest": profile["profileDigest"]}:
         raise ReceiptError("unsupported receipt profile identity does not match")
     parse_timestamp(receipt["observedAt"])
@@ -335,15 +369,19 @@ def validate_unsupported_receipt(profile, receipt):
 
 def build_receipt(profile, source, observed_at=None, artefact_binding=None):
     validate_source(profile["id"], source)
-    if not isinstance(artefact_binding, dict) or set(artefact_binding) != ARTEFACT_KEYS:
+    binding_keys = set(artefact_binding) if isinstance(artefact_binding, dict) else set()
+    version = {frozenset(ARTEFACT_KEYS): 2, frozenset(ARTEFACT_BINDING_KEYS_V3): 3}.get(
+        frozenset(binding_keys),
+    )
+    if version is None:
         raise ReceiptError("unsupported receipt requires an exact artefact binding")
     environment, control_plane, count = PARSERS[profile["id"]](source)
     spec = SPECS[profile["id"]]
     receipt = {
-        "schemaVersion": 2, "profile": {"id": profile["id"], "digest": profile["profileDigest"]},
+        "schemaVersion": version, "profile": {"id": profile["id"], "digest": profile["profileDigest"]},
         "observedAt": observed_at or datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "environment": environment, "controlPlaneVersion": control_plane,
-        "artefacts": dict(artefact_binding),
+        "artefacts": {name: artefact_binding[name] for name in ARTEFACT_KEYS},
         "proof": {"source": spec["source"], "sourceDigest": canonical_digest(source, "unused"),
                   "observationSpecDigest": canonical_digest(spec, "unused")},
         "providerChecks": dict.fromkeys(PROVIDER_CHECK_KEYS, True),
@@ -352,6 +390,8 @@ def build_receipt(profile, source, observed_at=None, artefact_binding=None):
             "subjectCount": count, "checks": dict.fromkeys(OBSERVATION_CHECK_KEYS, True),
         },
     }
+    if version == 3:
+        receipt["qualificationToolCommit"] = artefact_binding["qualificationToolCommit"]
     receipt["receiptDigest"] = canonical_digest(receipt, "receiptDigest")
     validate_unsupported_receipt(profile, receipt)
     return receipt

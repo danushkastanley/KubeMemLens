@@ -3,8 +3,10 @@
 import copy
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parent
@@ -12,6 +14,7 @@ INVENTORY = ROOT.parent / "provider-inventory"
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(INVENTORY))
 
+import build_unsupported_pending as builder  # noqa: E402
 from build_unsupported_pending import build_pending  # noqa: E402
 from observe_unsupported import build_receipt  # noqa: E402
 from profile_contract import EvaluationInputError, load_json, validate_pending_evidence  # noqa: E402
@@ -22,7 +25,11 @@ class UnsupportedPendingTests(unittest.TestCase):
     def setUpClass(cls):
         cls.profile = load_json(ROOT / "gke-autopilot.json")
         source = json.loads((INVENTORY / "fixtures" / "gke-autopilot-observation.json").read_text())
-        binding = {"sourceCommit": "4" * 40, "chartDigest": "sha256:" + "2" * 64}
+        binding = {
+            "sourceCommit": "4" * 40,
+            "chartDigest": "sha256:" + "2" * 64,
+            "qualificationToolCommit": "5" * 40,
+        }
         cls.receipt = build_receipt(
             cls.profile, source, "2026-08-26T11:59:00Z", binding,
         )
@@ -50,6 +57,8 @@ class UnsupportedPendingTests(unittest.TestCase):
             if name != "prerequisites"
         ))
         self.assertIsNone(pending["artefacts"]["evidenceManifestDigest"])
+        self.assertEqual(self.receipt["qualificationToolCommit"], "5" * 40)
+        self.assertEqual(pending["artefacts"]["sourceCommit"], "4" * 40)
 
     def test_stale_or_future_observation_is_rejected(self):
         for completed in ("2026-08-26T13:00:01Z", "2026-08-26T11:58:59Z"):
@@ -70,6 +79,42 @@ class UnsupportedPendingTests(unittest.TestCase):
                 changed[field] = value
                 with self.assertRaisesRegex(EvaluationInputError, "candidate source and chart"):
                     build_pending(self.profile, self.receipt, changed, "2026-08-26T12:00:00Z")
+
+    def test_input_verification_separates_tool_and_candidate_commits(self):
+        profile = load_json(ROOT / "aks-virtual-nodes.json")
+        source = json.loads((INVENTORY / "fixtures" / "aks-virtual-nodes-observation.json").read_text())
+        receipt = build_receipt(
+            profile, source, "2026-08-26T11:59:00Z",
+            {
+                "sourceCommit": "4" * 40,
+                "chartDigest": "sha256:" + "2" * 64,
+                "qualificationToolCommit": "5" * 40,
+            },
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            bundle = Path(directory)
+            receipt_path = bundle / "provider-inventory.json"
+            archive = bundle / "candidate.tgz"
+            receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+            archive.write_bytes(b"candidate")
+            with patch.object(builder, "run", side_effect=["", "", "5" * 40 + "\n", "version: 0.0.1\n"]), \
+                    patch.object(builder, "tracked_at_commit") as tracked, \
+                    patch.object(builder, "tree_at_commit") as tree, \
+                    patch.object(builder, "digest_file", side_effect=[
+                        "sha256:" + "2" * 64, "sha256:" + "3" * 64,
+                    ]), patch.object(builder, "verify_archive"), \
+                    patch.object(builder, "verify_chart_metadata"):
+                _, _, artefacts = builder.verify_inputs(
+                    ROOT / "aks-virtual-nodes.json", receipt_path, archive,
+                    "sha256:" + "2" * 64,
+                    ROOT.parent / "provider-values" / "aks-virtual-nodes.yaml",
+                    "sha256:" + "3" * 64, "4" * 40, "sha256:" + "1" * 64,
+                )
+        self.assertEqual(artefacts["sourceCommit"], "4" * 40)
+        self.assertEqual(receipt["qualificationToolCommit"], "5" * 40)
+        self.assertEqual(tracked.call_args_list[0].args[1], "5" * 40)
+        self.assertEqual(tracked.call_args_list[1].args[1], "4" * 40)
+        self.assertEqual(tree.call_args.args[1], "4" * 40)
 
 
 if __name__ == "__main__":

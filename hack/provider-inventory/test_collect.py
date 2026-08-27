@@ -158,6 +158,8 @@ class ProviderInventoryTests(unittest.TestCase):
         self.assertEqual(receipt["provider"], "aks-node-pools")
         self.assertEqual(receipt["cniName"], "Azure CNI Cilium")
         self.assertTrue(receipt["nodeImage"].startswith("AKSUbuntu-2404"))
+        self.assertEqual(receipt["schemaVersion"], 2)
+        self.assertRegex(receipt["qualificationToolCommit"], r"^[a-f0-9]{40}$")
         self.assertEqual(len(delegate.calls), 4)
         encoded = json.dumps(receipt)
         for forbidden in environment.values():
@@ -173,6 +175,37 @@ class ProviderInventoryTests(unittest.TestCase):
                     collect.collect_receipt(
                         self.profile("aks-ubuntu-containerd-amd64"),
                         self.aks_environment(), runner,
+                    )
+
+    def test_aks_pool_type_accepts_current_and_exact_legacy_fields(self):
+        current = fixture("aks-node-pool.json")
+        legacy = copy.deepcopy(current)
+        legacy.pop("typePropertiesType")
+        legacy["type"] = "VirtualMachineScaleSets"
+        both = copy.deepcopy(current)
+        both["type"] = "VirtualMachineScaleSets"
+        for name, pool in (("current", current), ("legacy", legacy), ("both", both)):
+            with self.subTest(name=name):
+                runner, _ = self.aks_runner(pool=pool)
+                receipt = collect.collect_receipt(
+                    self.profile("aks-ubuntu-containerd-amd64"), self.aks_environment(), runner,
+                )
+                self.assertEqual(receipt["provider"], "aks-node-pools")
+
+    def test_aks_pool_type_rejects_missing_or_wrong_mode_fields(self):
+        cases = {}
+        missing = fixture("aks-node-pool.json")
+        missing.pop("typePropertiesType")
+        cases["missing"] = missing
+        wrong = fixture("aks-node-pool.json")
+        wrong["typePropertiesType"] = "AvailabilitySet"
+        cases["wrong"] = wrong
+        for name, pool in cases.items():
+            with self.subTest(name=name):
+                runner, _ = self.aks_runner(pool=pool)
+                with self.assertRaisesRegex(collect.ReceiptError, "managed Ubuntu Linux row"):
+                    collect.collect_receipt(
+                        self.profile("aks-ubuntu-containerd-amd64"), self.aks_environment(), runner,
                     )
 
     def test_self_managed_profiles_use_live_bounded_kubectl_inventory(self):
@@ -359,6 +392,26 @@ class ProviderInventoryTests(unittest.TestCase):
             collect.validate_receipt(changed)
         forbidden_keys = {"cluster", "nodegroup", "project", "subscription", "resourceGroup", "rawResponse"}
         self.assertTrue(forbidden_keys.isdisjoint(receipt))
+
+        legacy = copy.deepcopy(receipt)
+        legacy["schemaVersion"] = 1
+        legacy.pop("qualificationToolCommit")
+        legacy["receiptDigest"] = collect.canonical_digest(legacy, "receiptDigest")
+        collect.validate_receipt(legacy)
+
+        changed = copy.deepcopy(receipt)
+        changed["qualificationToolCommit"] = "not-a-commit"
+        changed["receiptDigest"] = collect.canonical_digest(changed, "receiptDigest")
+        with self.assertRaisesRegex(collect.ReceiptError, "qualificationToolCommit"):
+            collect.validate_receipt(changed)
+
+    def test_production_tool_binding_requires_a_clean_checkout(self):
+        runner = Mock(side_effect=[
+            subprocess.CompletedProcess(["git"], 0, "5" * 40 + "\n", ""),
+            subprocess.CompletedProcess(["git"], 0, " M hack/provider-inventory/collect.py\n", ""),
+        ])
+        with self.assertRaisesRegex(collect.ReceiptError, "must be clean"):
+            collect.current_tool_commit(runner, require_clean=True)
 
     def test_command_errors_do_not_echo_private_selectors_or_raw_stderr(self):
         runner = Mock(return_value=subprocess.CompletedProcess(

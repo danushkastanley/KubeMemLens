@@ -52,8 +52,16 @@ Delete qualification-created external Services and Ingresses before cluster dele
 
 - The narrow row is an amd64 Linux node pool whose recorded OS SKU and node image resolve to Ubuntu with containerd. Ubuntu is the default Linux node image, but the exact Ubuntu release can change with Kubernetes version and regional image rollout; for example, the unversioned `Ubuntu` SKU moves to Ubuntu 24.04 with Kubernetes 1.35 or later. Record `nodeImageVersion` rather than publishing a floating `Ubuntu` claim. [AKS node images](https://learn.microsoft.com/en-us/azure/aks/node-images)
 - AKS Linux node pools on Kubernetes 1.19 and later use containerd. Live Node status must still record the exact runtime version. [AKS security concepts](https://learn.microsoft.com/en-us/azure/aks/concepts-security#node-security)
+- The provider inventory accepts only VM scale-set pools. Current Azure CLI
+  output reports `typePropertiesType=VirtualMachineScaleSets` alongside the
+  resource envelope's `type`; the exact legacy pool `type` remains accepted
+  only when `typePropertiesType` is absent.
 - Record the actual NetworkPolicy engine. AKS documents different platform constraints for Cilium, Azure NPM and Calico, and records retirement dates for Azure NPM. Merely creating a NetworkPolicy does not prove enforcement. [AKS NetworkPolicy options](https://learn.microsoft.com/en-us/azure/aks/use-network-policies)
 - AKS virtual nodes run Pods on Azure Container Instances. DaemonSets do not deploy to virtual nodes, and virtual-node networking has NetworkPolicy limitations, so they cannot satisfy the deep agent row. [AKS virtual nodes](https://learn.microsoft.com/en-us/azure/aks/virtual-nodes#limitations)
+- Azure virtual-kubelet Nodes may leave OS image, container runtime and kernel
+  fields blank. Qualification records those facts as `unreported`, retains the
+  reported kubelet version and uses only the standard architecture label for
+  amd64 evidence.
 
 ### Exact inventory to retain
 

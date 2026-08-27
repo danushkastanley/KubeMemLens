@@ -24,6 +24,7 @@ image_digest=${QUALIFY_IMAGE_DIGEST:-}
 chart_archive=${QUALIFY_CHART_ARCHIVE:-}
 chart_digest=${QUALIFY_CHART_DIGEST:-}
 source_commit=${QUALIFY_SOURCE_COMMIT:-}
+qualification_tool_commit=
 probe_image=${QUALIFY_PROBE_IMAGE:-}
 artifact_dir=${QUALIFY_ARTIFACT_DIR:-}
 node_replacement_timeout=${QUALIFY_NODE_REPLACEMENT_TIMEOUT_SECONDS:-1800}
@@ -67,7 +68,7 @@ Required environment:
   QUALIFY_IMAGE_DIGEST        Exact sha256:<64 lowercase hex> image digest
   QUALIFY_CHART_ARCHIVE       Exact packaged release-candidate chart
   QUALIFY_CHART_DIGEST        SHA-256 digest of that chart package
-  QUALIFY_SOURCE_COMMIT       Exact 40-character source commit
+  QUALIFY_SOURCE_COMMIT       Exact 40-character release-candidate source commit
   QUALIFY_PROBE_IMAGE         Digest-pinned image containing /bin/sh and wget
   QUALIFY_ARTIFACT_DIR        New or empty local evidence directory
   QUALIFY_ACKNOWLEDGE         install-test-and-remove-kube-memlens
@@ -106,6 +107,7 @@ esac
 [ -f "${chart_archive}" ] || fail "QUALIFY_CHART_ARCHIVE must be an immutable chart package"
 [[ "${chart_digest}" =~ ^sha256:[a-f0-9]{64}$ ]] || fail "QUALIFY_CHART_DIGEST must be an exact lowercase sha256 digest"
 [[ "${source_commit}" =~ ^[a-f0-9]{40}$ ]] || fail "QUALIFY_SOURCE_COMMIT must be an exact commit"
+git cat-file -e "${source_commit}^{commit}" >/dev/null 2>&1 || fail "QUALIFY_SOURCE_COMMIT does not exist"
 [[ "${probe_image}" =~ @sha256:[a-f0-9]{64}$ ]] || fail "QUALIFY_PROBE_IMAGE must be digest-pinned"
 probe_contract=${repo_root}/hack/provider-probe-image.json
 [ -f "${probe_contract}" ] || fail "approved provider probe contract is missing"
@@ -151,12 +153,15 @@ values_path="${repo_root}/hack/provider-values/${profile_id}.yaml"
 [ -f "${values_path}" ] || fail "provider profile has no checked-in values file"
 python3 hack/verify_chart_archive.py "${chart_archive}" charts/kube-memlens >/dev/null ||
   fail "chart archive differs from the checked-out source commit"
+git diff --quiet "${source_commit}" -- charts/kube-memlens ||
+  fail "checked-out chart differs from the release-candidate source commit"
 actual_chart_digest=sha256:$(python3 -c 'import hashlib,sys; h=hashlib.sha256(); f=open(sys.argv[1], "rb"); [h.update(chunk) for chunk in iter(lambda: f.read(65536), b"")]; print(h.hexdigest())' "${chart_archive}")
 [ "${actual_chart_digest}" = "${chart_digest}" ] || fail "chart archive digest does not match"
 chart_version=$(helm show chart "${chart_archive}" | awk '$1 == "version:" {print $2; exit}')
 [[ "${chart_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]] ||
   fail "chart package version is invalid"
-[ "$(git rev-parse HEAD)" = "${source_commit}" ] || fail "source commit is not checked out"
+qualification_tool_commit=$(git rev-parse HEAD)
+[[ "${qualification_tool_commit}" =~ ^[a-f0-9]{40}$ ]] || fail "qualification tool commit is invalid"
 profile_relative=${profile_path#"${repo_root}/"}
 values_relative=${values_path#"${repo_root}/"}
 probe_contract_relative=${probe_contract#"${repo_root}/"}
@@ -197,6 +202,8 @@ trap cleanup EXIT
 
 k config get-contexts "${context}" -o name | grep -Fxq "${context}" || fail "kubeconfig context not found: ${context}"
 collect_provider_receipt || fail "provider-owned inventory did not match the selected profile"
+[ "$(jq -r '.qualificationToolCommit' "${artifact_dir}/provider-inventory.json")" = \
+  "${qualification_tool_commit}" ] || fail "provider receipt is not bound to the qualification tool commit"
 provider_name=$(jq -r '.provider' "${artifact_dir}/provider-inventory.json")
 node_image=$(jq -r '.nodeImage' "${artifact_dir}/provider-inventory.json")
 cni_name=$(jq -r '.cniName' "${artifact_dir}/provider-inventory.json")

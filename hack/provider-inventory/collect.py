@@ -27,8 +27,9 @@ EKS_PROFILES = {"eks-al2023-containerd-amd64"}
 AKS_PROFILES = {"aks-ubuntu-containerd-amd64"}
 SELF_MANAGED_PROFILES = {"self-managed-containerd", "self-managed-crio-amd64"}
 SUPPORTED_PROFILES = set(GKE_PROFILES) | EKS_PROFILES | AKS_PROFILES | SELF_MANAGED_PROFILES
-RECEIPT_KEYS = {"schemaVersion", "profile", "observedAt", "provider", "nodeImage", "cniName",
-                "controlPlaneVersion", "proofSource", "providerChecks", "receiptDigest"}
+RECEIPT_KEYS_V1 = {"schemaVersion", "profile", "observedAt", "provider", "nodeImage", "cniName",
+                   "controlPlaneVersion", "proofSource", "providerChecks", "receiptDigest"}
+RECEIPT_KEYS_V2 = RECEIPT_KEYS_V1 | {"qualificationToolCommit"}
 CHECK_KEYS = {"profileCanonical", "providerMode", "nodeImage", "cni", "controlPlaneVersion",
               "contextBinding", "nodePoolBinding"}
 PROOF_SOURCES = {"gcloud:control-plane+node-pool", "aws:control-plane+nodegroup+vpc-cni-addon",
@@ -36,6 +37,7 @@ PROOF_SOURCES = {"gcloud:control-plane+node-pool", "aws:control-plane+nodegroup+
                  "bounded-kubernetes-inventory"}
 SELECTOR_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._() -]{0,127}")
 DIGEST_PATTERN = re.compile(r"sha256:[a-f0-9]{64}")
+COMMIT_PATTERN = re.compile(r"[a-f0-9]{40}")
 TIMESTAMP_PATTERN = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
 TEXT_PATTERN = re.compile(r"[A-Za-z0-9][-A-Za-z0-9 ._()+/@:=]{0,159}")
 MAX_COMMAND_OUTPUT_BYTES = 2 * 1024 * 1024
@@ -86,6 +88,31 @@ def run_json(command, runner=subprocess.run):
         return require_object(json.loads(result.stdout), f"{command[0]} inventory response")
     except json.JSONDecodeError as error:
         raise ReceiptError(f"{command[0]} inventory response was not JSON") from error
+
+
+def current_tool_commit(runner=subprocess.run, require_clean=False):
+    try:
+        result = runner(
+            ["git", "rev-parse", "HEAD"], check=False, capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ReceiptError("qualification tool commit could not be read") from error
+    commit = result.stdout.strip() if result.returncode == 0 and isinstance(result.stdout, str) else ""
+    if COMMIT_PATTERN.fullmatch(commit) is None:
+        raise ReceiptError("qualification tool commit is invalid")
+    if require_clean:
+        try:
+            status = runner(
+                ["git", "status", "--porcelain", "--untracked-files=all"], check=False,
+                capture_output=True, text=True, timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ReceiptError("qualification tool checkout could not be inspected") from error
+        if status.returncode != 0 or not isinstance(status.stdout, str):
+            raise ReceiptError("qualification tool checkout could not be inspected")
+        if status.stdout.strip():
+            raise ReceiptError("qualification tool checkout must be clean")
+    return commit
 
 
 def load_canonical_profile(path):
@@ -208,8 +235,9 @@ def collect_aks(profile, environment, runner):
     power = require_object(cluster.get("powerState", {}), "AKS power state")
     if cluster.get("provisioningState") != "Succeeded" or power.get("code") != "Running":
         raise ReceiptError("AKS profile requires a running managed cluster")
+    pool_type = pool.get("typePropertiesType", pool.get("type"))
     if pool.get("provisioningState") != "Succeeded" or pool.get("osType") != "Linux" \
-            or pool.get("osSku") != "Ubuntu" or pool.get("type") != "VirtualMachineScaleSets":
+            or pool.get("osSku") != "Ubuntu" or pool_type != "VirtualMachineScaleSets":
         raise ReceiptError("AKS node pool is not the claimed managed Ubuntu Linux row")
     if pool.get("enableAutoScaling") is not False or pool.get("count") != 3:
         raise ReceiptError("AKS qualification requires a fixed three-Node pool with autoscaling disabled")
@@ -304,8 +332,13 @@ def collect_self_managed(profile_id, environment, runner):
 
 
 def validate_receipt(receipt):
-    if not isinstance(receipt, dict) or set(receipt) != RECEIPT_KEYS or receipt.get("schemaVersion") != 1:
-        raise ReceiptError("receipt fields do not match schema version 1")
+    version = receipt.get("schemaVersion") if isinstance(receipt, dict) else None
+    expected_keys = {1: RECEIPT_KEYS_V1, 2: RECEIPT_KEYS_V2}.get(version)
+    if expected_keys is None or set(receipt) != expected_keys:
+        raise ReceiptError("receipt fields do not match supported schema version 1 or 2")
+    tool_commit = receipt.get("qualificationToolCommit")
+    if version == 2 and (not isinstance(tool_commit, str) or COMMIT_PATTERN.fullmatch(tool_commit) is None):
+        raise ReceiptError("receipt qualificationToolCommit is invalid")
     profile = receipt["profile"]
     valid_profile = isinstance(profile, dict) and set(profile) == {"id", "digest"}
     valid_profile = valid_profile and profile["id"] in SUPPORTED_PROFILES
@@ -328,7 +361,8 @@ def validate_receipt(receipt):
         raise ReceiptError("receiptDigest does not match canonical receipt content")
 
 
-def collect_receipt(profile, environment, runner=subprocess.run, observed_at=None):
+def collect_receipt(profile, environment, runner=subprocess.run, observed_at=None,
+                    qualification_tool_commit=None):
     profile_id = profile["id"]
     if profile_id in GKE_PROFILES:
         values = collect_gke(profile, environment, runner)
@@ -348,9 +382,10 @@ def collect_receipt(profile, environment, runner=subprocess.run, observed_at=Non
         if re.fullmatch(pattern, value) is None:
             raise ReceiptError(f"observed {name} does not match the selected canonical profile")
     receipt = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "profile": {"id": profile_id, "digest": profile["profileDigest"]},
         "observedAt": observed_at or datetime.now(timezone.utc).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "qualificationToolCommit": qualification_tool_commit or current_tool_commit(),
         "provider": provider,
         "nodeImage": node_image,
         "cniName": cni,
@@ -370,7 +405,9 @@ def main():
     arguments = parser.parse_args()
     try:
         profile = load_canonical_profile(arguments.profile)
-        receipt = collect_receipt(profile, os.environ)
+        receipt = collect_receipt(
+            profile, os.environ, qualification_tool_commit=current_tool_commit(require_clean=True),
+        )
         encoded = json.dumps(receipt, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
         if arguments.output:
             output = Path(arguments.output)

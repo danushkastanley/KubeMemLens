@@ -16,11 +16,15 @@ class UnsupportedArtifactBindingTests(unittest.TestCase):
             archive = Path(directory) / "candidate.tgz"
             archive.write_bytes(b"exact-chart")
             digest = "sha256:" + hashlib.sha256(b"exact-chart").hexdigest()
-            with patch.object(binding, "run", side_effect=["4" * 40 + "\n", ""]), \
+            with patch.object(binding, "run", side_effect=["5" * 40 + "\n", "", "", ""]), \
                     patch.object(binding, "verify_archive") as verify_archive, \
                     patch.object(binding, "verify_chart_metadata") as verify_metadata:
                 result = binding.verify_binding("4" * 40, archive, digest)
-            self.assertEqual(result, {"sourceCommit": "4" * 40, "chartDigest": digest})
+            self.assertEqual(result, {
+                "sourceCommit": "4" * 40,
+                "chartDigest": digest,
+                "qualificationToolCommit": "5" * 40,
+            })
             verify_archive.assert_called_once()
             verify_metadata.assert_called_once()
 
@@ -32,9 +36,19 @@ class UnsupportedArtifactBindingTests(unittest.TestCase):
             with patch.object(binding, "run", side_effect=["4" * 40 + "\n", " M chart"]):
                 with self.assertRaisesRegex(ValueError, "repository must be clean"):
                     binding.verify_binding("4" * 40, archive, digest)
-            with patch.object(binding, "run", side_effect=["4" * 40 + "\n", ""]):
+            with patch.object(binding, "run", side_effect=["5" * 40 + "\n", "", "", ""]):
                 with self.assertRaisesRegex(ValueError, "chart archive digest"):
                     binding.verify_binding("4" * 40, archive, "sha256:" + "9" * 64)
+
+    def test_candidate_chart_must_match_the_later_tool_checkout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "candidate.tgz"
+            archive.write_bytes(b"exact-chart")
+            digest = "sha256:" + hashlib.sha256(b"exact-chart").hexdigest()
+            with patch.object(
+                    binding, "run", side_effect=["5" * 40 + "\n", "", "", ValueError("different")]):
+                with self.assertRaisesRegex(ValueError, "release-candidate source commit"):
+                    binding.verify_binding("4" * 40, archive, digest)
 
 
 if __name__ == "__main__":
