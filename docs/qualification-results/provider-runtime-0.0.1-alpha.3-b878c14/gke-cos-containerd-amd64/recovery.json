@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "installToFirstValidExplanationSeconds": 86,
+  "agentRestartRecoverySeconds": 26,
+  "collectorRestartRecoverySeconds": 15,
+  "nodeReplacementRecoverySeconds": 40
+}

@@ -1,0 +1,23 @@
+{
+  "cniName": "Amazon VPC CNI v1.22.4-eksbuild.3 network-policy=enabled",
+  "controlPlaneVersion": "1.36",
+  "nodeImage": "AL2023_x86_64_STANDARD@1.36.2-20260818",
+  "observedAt": "2026-08-27T04:01:37Z",
+  "profile": {
+    "digest": "sha256:6ac2f859300a80525a9b7678ca96e9258c5e9814a7ed9864d5a0fd61a74eac8e",
+    "id": "eks-al2023-containerd-amd64"
+  },
+  "proofSource": "aws:control-plane+nodegroup+vpc-cni-addon",
+  "provider": "eks-managed-nodes",
+  "providerChecks": {
+    "cni": true,
+    "contextBinding": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "nodePoolBinding": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "receiptDigest": "sha256:6e47700e37520ff97833c0b210a53e852bbced51717b972d3f937805ca6faa7f",
+  "schemaVersion": 1
+}

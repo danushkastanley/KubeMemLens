@@ -1,0 +1,53 @@
+{
+  "artefacts": {
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d"
+  },
+  "controlPlaneVersion": "1.35.7",
+  "environment": {
+    "architecture": "amd64",
+    "cgroupVersion": "unreported",
+    "cniEnforced": false,
+    "cniName": "Azure CNI Calico",
+    "kernelVersion": "10.0.20348.5499",
+    "kubeletVersion": "v1.35.7",
+    "kubernetesVersion": "v1.35.7",
+    "linuxNodeCount": 0,
+    "nodeImage": "AKSWindows-2022-containerd-gen2-20348.5499.260812",
+    "osImage": "Windows Server 2022 Datacenter",
+    "provider": "aks-node-pools",
+    "runtime": "containerd://1.7.20+azure",
+    "windowsNodeCount": 1
+  },
+  "observedAt": "2026-08-27T07:36:58Z",
+  "profile": {
+    "digest": "sha256:ed48685ee50537826d12fccc5a261f6e474d396fa538e85b0ca364a52b76cb9c",
+    "id": "windows-deep-mode"
+  },
+  "proof": {
+    "observationSpecDigest": "sha256:d3904ff292b70fdbc3418920e29c5b6208660883aff327f0a04c77cfcb289a80",
+    "source": "bounded-provider-node-observation",
+    "sourceDigest": "sha256:6151737ad4b4aa32d4a18a2c11304db9bd93dc710c396df7a6b5f94866174d82"
+  },
+  "providerChecks": {
+    "cni": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "receiptDigest": "sha256:a04d06bd7a2a910795a94a3153c3604e625a2f21cffef76af9797b0e2b7d96eb",
+  "schemaVersion": 2,
+  "unsupportedObservation": {
+    "checks": {
+      "liveSubjectObserved": true,
+      "reasonMatched": true,
+      "sourceBound": true,
+      "unsupportedConditionObserved": true
+    },
+    "method": "node_and_chart_capability",
+    "reasonCode": "windows_nodes_not_supported",
+    "state": "windows_cgroup_agent_incompatible",
+    "subjectCount": 1
+  }
+}

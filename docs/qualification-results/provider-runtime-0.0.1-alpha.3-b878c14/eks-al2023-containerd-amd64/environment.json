@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "provider": "eks-managed-nodes",
+  "kubernetesVersion": "v1.36.2-eks-bca9cf6",
+  "nodeImage": "AL2023_x86_64_STANDARD@1.36.2-20260818",
+  "osImage": "Amazon Linux 2023.12.20260817",
+  "kernelVersion": "6.18.41-94.142.amzn2023.x86_64",
+  "kubeletVersion": "v1.36.2-eks-b3f9404",
+  "runtime": "containerd://2.2.5+unknown",
+  "architecture": "amd64",
+  "cgroupVersion": "v2",
+  "cniName": "Amazon VPC CNI v1.22.4-eksbuild.3 network-policy=enabled",
+  "cniEnforced": true,
+  "linuxNodeCount": 2,
+  "windowsNodeCount": 0
+}

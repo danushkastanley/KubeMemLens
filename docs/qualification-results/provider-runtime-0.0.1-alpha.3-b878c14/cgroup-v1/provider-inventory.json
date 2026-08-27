@@ -1,0 +1,53 @@
+{
+  "artefacts": {
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d"
+  },
+  "controlPlaneVersion": "v1.36.4",
+  "environment": {
+    "architecture": "amd64",
+    "cgroupVersion": "v1",
+    "cniEnforced": false,
+    "cniName": "Calico v3.32.1",
+    "kernelVersion": "6.8.0-1066-gcp",
+    "kubeletVersion": "v1.36.4",
+    "kubernetesVersion": "v1.36.4",
+    "linuxNodeCount": 1,
+    "nodeImage": "Ubuntu 22.04.5 LTS",
+    "osImage": "Ubuntu 22.04.5 LTS",
+    "provider": "self-managed",
+    "runtime": "containerd://2.3.3",
+    "windowsNodeCount": 0
+  },
+  "observedAt": "2026-08-27T03:25:05Z",
+  "profile": {
+    "digest": "sha256:ebd68d06373b71b6ca3f8e90aa2bb1570fb09140aa00cab3ea028e85e0e894a9",
+    "id": "cgroup-v1"
+  },
+  "proof": {
+    "observationSpecDigest": "sha256:7b868289a18e3673be2c85220a87fe6f303dcb8b22813d897b803f9fd33ea337",
+    "source": "bounded-node-host-observation",
+    "sourceDigest": "sha256:c25398eaa05c86a6b1d633efa57f3d168264aa4c18926bc8dce1cda46afdaac3"
+  },
+  "providerChecks": {
+    "cni": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "receiptDigest": "sha256:eeb70ffd0b35a35355970e291e2475563add97cf9e48b4d5dc2bc84217a4ddb8",
+  "schemaVersion": 2,
+  "unsupportedObservation": {
+    "checks": {
+      "liveSubjectObserved": true,
+      "reasonMatched": true,
+      "sourceBound": true,
+      "unsupportedConditionObserved": true
+    },
+    "method": "node_host_read",
+    "reasonCode": "cgroup_v1_not_supported",
+    "state": "cgroup_v1_observed",
+    "subjectCount": 1
+  }
+}

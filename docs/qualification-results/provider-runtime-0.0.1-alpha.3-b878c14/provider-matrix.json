@@ -1,0 +1,148 @@
+{
+  "failures": [],
+  "freshness": "current",
+  "release": {
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "chartVersion": "0.0.1-alpha.3",
+    "imageDigest": "sha256:12b1b244ceed8c956cd2e3433d0c18f80c0f891b9bbc54b7c4079ec16c4e6b1b",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d"
+  },
+  "result": "pass",
+  "rows": [
+    {
+      "bundlePath": "aks-ubuntu-containerd-amd64/provider-qualification.json",
+      "evidenceManifestDigest": null,
+      "freshness": "current",
+      "id": "aks-ubuntu-containerd-amd64",
+      "outcome": "unsupported_confirmed",
+      "providerReceiptDigest": "sha256:71703f618959434ec156015db968e29e37b59cfafda48b0f392f55de8d18ed4f",
+      "recordDigest": "sha256:8f4a71453c159e6d1260bf7a2b5a4076409f8bf8f2a9bea239627e307fba3177",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    },
+    {
+      "bundlePath": "aks-virtual-nodes/provider-qualification.json",
+      "evidenceManifestDigest": null,
+      "freshness": "current",
+      "id": "aks-virtual-nodes",
+      "outcome": "unsupported_confirmed",
+      "providerReceiptDigest": "sha256:b156704c01cbe6c24ae0849e0121709fbd8da82b6a44c0af126ce39266c8e5e0",
+      "recordDigest": "sha256:92aa040af421ade88d6c09c98ef193b645dd8484be63be3f75155260fe8838b0",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    },
+    {
+      "bundlePath": "cgroup-v1/provider-qualification.json",
+      "evidenceManifestDigest": null,
+      "freshness": "current",
+      "id": "cgroup-v1",
+      "outcome": "unsupported_confirmed",
+      "providerReceiptDigest": "sha256:eeb70ffd0b35a35355970e291e2475563add97cf9e48b4d5dc2bc84217a4ddb8",
+      "recordDigest": "sha256:d3f89fdd2d35ed1e2e85105cc7fa8c7b10fe11fdec6dc6af7eb01010883b2b43",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    },
+    {
+      "bundlePath": "eks-al2023-containerd-amd64/provider-qualification.json",
+      "evidenceManifestDigest": "sha256:a373bc86844bb599ccf69492bf9e148b25baf8d0273402593f4a54f9dc7308b4",
+      "freshness": "current",
+      "id": "eks-al2023-containerd-amd64",
+      "outcome": "passed",
+      "providerReceiptDigest": "sha256:6e47700e37520ff97833c0b210a53e852bbced51717b972d3f937805ca6faa7f",
+      "recordDigest": "sha256:1421d8f1e0ab5e4b0eae1f8fb6b777a6f9b6f3c2a5f7ae2022a9a318c7e33498",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    },
+    {
+      "bundlePath": "eks-fargate/provider-qualification.json",
+      "evidenceManifestDigest": null,
+      "freshness": "current",
+      "id": "eks-fargate",
+      "outcome": "unsupported_confirmed",
+      "providerReceiptDigest": "sha256:2929fab363e2756b7a88bdd0e0f5f9273f5f42c12bac7ad9391432faaf037d05",
+      "recordDigest": "sha256:698e92645775c34afbdcaf79bc15a5e0cdb1d1916bf13ba5bf8a9a9fdb328d90",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    },
+    {
+      "bundlePath": "gke-autopilot/provider-qualification.json",
+      "evidenceManifestDigest": null,
+      "freshness": "current",
+      "id": "gke-autopilot",
+      "outcome": "unsupported_confirmed",
+      "providerReceiptDigest": "sha256:f07f9f3de136a47d9c2890c8e61197c68af6a7280fd8d563438b9312a8e7b9b6",
+      "recordDigest": "sha256:0402804bde08b1277ed68f492e0a193278548c8651b97bf068b7861d600089ae",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    },
+    {
+      "bundlePath": "gke-cos-containerd-amd64/provider-qualification.json",
+      "evidenceManifestDigest": "sha256:d7fc517f116f5f19bdf035bee03805da5c74fd0c4cf91058ba552d53c10de657",
+      "freshness": "current",
+      "id": "gke-cos-containerd-amd64",
+      "outcome": "passed",
+      "providerReceiptDigest": "sha256:e72fd1a163d232197a1ded91ab4c40f7214419c9a8798095c4bd7f4e03e6e39f",
+      "recordDigest": "sha256:829ede3b41f7b5d3b9e710d9f3dc675df87b37cf85e4fcc599a9bea72aabf7f0",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    },
+    {
+      "bundlePath": "gke-ubuntu-containerd-amd64/provider-qualification.json",
+      "evidenceManifestDigest": "sha256:2ee7724f20926ed03cf1b1ee6d249e11cc32743256c3009c9c90d39443f9683e",
+      "freshness": "current",
+      "id": "gke-ubuntu-containerd-amd64",
+      "outcome": "passed",
+      "providerReceiptDigest": "sha256:9c44264388209dd763dae23bb61d25f12e73c8c3f76d2b6dc8492558672ccd0c",
+      "recordDigest": "sha256:14097564f8f4465eae04c031dca9a66e772b8b389acabad5c83aa7e2a9f81b8a",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    },
+    {
+      "bundlePath": "self-managed-containerd/provider-qualification.json",
+      "evidenceManifestDigest": "sha256:03650b9882b12f539059c70e33b293353be8a25160bdb1554b55c5a8b08bcefa",
+      "freshness": "current",
+      "id": "self-managed-containerd",
+      "outcome": "passed",
+      "providerReceiptDigest": "sha256:7b32c435dbe9f6315cc464ddbbbbcab26848a33fe06869f136908241302d7268",
+      "recordDigest": "sha256:6aac04d4a41efb37a7a46013242a055bd6ed0db1ef83d0ab04260003296cb08c",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    },
+    {
+      "bundlePath": "self-managed-crio-amd64/provider-qualification.json",
+      "evidenceManifestDigest": "sha256:71c613fc346f1689ee75d425fb7ec0e985d4ab509537ae40c8e9bb5fa75e593a",
+      "freshness": "current",
+      "id": "self-managed-crio-amd64",
+      "outcome": "passed",
+      "providerReceiptDigest": "sha256:4252f1e181677d7cb593d553f2346bfd7047c38fbf329ae7197ca8f32d5eae60",
+      "recordDigest": "sha256:0a06985663bbd8047aa7d095ad62bf7f0c4ae09cff67dc078fb76b0a8ead3c74",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    },
+    {
+      "bundlePath": "windows-deep-mode/provider-qualification.json",
+      "evidenceManifestDigest": null,
+      "freshness": "current",
+      "id": "windows-deep-mode",
+      "outcome": "unsupported_confirmed",
+      "providerReceiptDigest": "sha256:a04d06bd7a2a910795a94a3153c3604e625a2f21cffef76af9797b0e2b7d96eb",
+      "recordDigest": "sha256:338b172ada5e05651128c1805de6ae960b7de1c37f44b2b9c2673b0860cb1f68",
+      "reviewDueAt": "2026-11-25",
+      "reviewedAt": "2026-08-27",
+      "warnings": []
+    }
+  ],
+  "schemaVersion": 1,
+  "supportedProbeImageDigest": "sha256:7a3ebe5bfd1a4a19797d20b0c0bb39d44393e9a03fd852c0865b0f540d868df0",
+  "warnings": []
+}

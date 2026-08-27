@@ -1,0 +1,54 @@
+{
+  "artefacts": {
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d"
+  },
+  "controlPlaneVersion": "1.35.7",
+  "environment": {
+    "architecture": "amd64",
+    "cgroupVersion": "unreported",
+    "cniEnforced": false,
+    "cniName": "Azure CNI Calico",
+    "kernelVersion": "6.8.0-1064-azure",
+    "kubeletVersion": "v1.35.7",
+    "kubernetesVersion": "v1.35.7",
+    "linuxNodeCount": 3,
+    "nodeImage": "AKSUbuntu-2404gen2containerd-202608.14.0",
+    "osImage": "Ubuntu 24.04.4 LTS",
+    "provider": "aks-node-pools",
+    "runtime": "containerd://2.3.3-2",
+    "windowsNodeCount": 1
+  },
+  "observedAt": "2026-08-27T08:05:01Z",
+  "profile": {
+    "digest": "sha256:4b373681613f603b9a5e8abdfe264fa2b8ce7ffbe15d00547a5ee0f8d6a8f5f4",
+    "id": "aks-ubuntu-containerd-amd64"
+  },
+  "proof": {
+    "observationSpecDigest": "sha256:25a0feb7e166c16de19ecdf0da55bbf384e09eaa3d6b791fcfde2502bb97a469",
+    "source": "recorded-live-conversion",
+    "sourceDigest": "sha256:046d8085fcf999ad66caab10d67ab9cc6a5f9d9ef62afbfcd3f00ea727ec8db4"
+  },
+  "providerChecks": {
+    "cni": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "qualificationToolCommit": "20c9f2ab7d20e47634652c7b2b57f19ce1dfd978",
+  "receiptDigest": "sha256:71703f618959434ec156015db968e29e37b59cfafda48b0f392f55de8d18ed4f",
+  "schemaVersion": 3,
+  "unsupportedObservation": {
+    "checks": {
+      "liveSubjectObserved": true,
+      "reasonMatched": true,
+      "sourceBound": true,
+      "unsupportedConditionObserved": true
+    },
+    "method": "recorded_live_candidate_incompatibility",
+    "reasonCode": "requestheader_proxy_identity_unavailable",
+    "state": "requestheader_proxy_identity_unavailable",
+    "subjectCount": 4
+  }
+}

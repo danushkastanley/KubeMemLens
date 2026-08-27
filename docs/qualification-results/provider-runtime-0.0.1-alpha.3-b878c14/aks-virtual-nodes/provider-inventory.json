@@ -1,0 +1,54 @@
+{
+  "artefacts": {
+    "chartDigest": "sha256:908b3a05270d8cdd873c10be2871bee8bf64b9f9fb37d5271003f323a1806f9c",
+    "sourceCommit": "b878c14ecb4206f82259545017c554a3fb0d704d"
+  },
+  "controlPlaneVersion": "1.35.7",
+  "environment": {
+    "architecture": "unreported",
+    "cgroupVersion": "unreported",
+    "cniEnforced": false,
+    "cniName": "Azure CNI virtual nodes",
+    "kernelVersion": "unreported",
+    "kubeletVersion": "v1.25.0-vk-azure-aci-",
+    "kubernetesVersion": "v1.35.7",
+    "linuxNodeCount": 1,
+    "nodeImage": "AKS virtual-node ACI",
+    "osImage": "unreported",
+    "provider": "aks-virtual-nodes",
+    "runtime": "unreported",
+    "windowsNodeCount": 0
+  },
+  "observedAt": "2026-08-27T08:03:44Z",
+  "profile": {
+    "digest": "sha256:e47980a7fabfe00d558016df1c1128ec4e89e064ca769fc163411d176de597bc",
+    "id": "aks-virtual-nodes"
+  },
+  "proof": {
+    "observationSpecDigest": "sha256:767fb54f37cb998bb115968478909c1ed44b0b4183ea3dc9eef773e267f32021",
+    "source": "az:virtual-kubelet+nodes",
+    "sourceDigest": "sha256:32ad29cd26de0c648ac0dc6e335ebd66bc2ab699642222846da9f8039051e6cf"
+  },
+  "providerChecks": {
+    "cni": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "qualificationToolCommit": "e17c793e60e0e7aa3063bd386f18652316b43bc4",
+  "receiptDigest": "sha256:b156704c01cbe6c24ae0849e0121709fbd8da82b6a44c0af126ce39266c8e5e0",
+  "schemaVersion": 3,
+  "unsupportedObservation": {
+    "checks": {
+      "liveSubjectObserved": true,
+      "reasonMatched": true,
+      "sourceBound": true,
+      "unsupportedConditionObserved": true
+    },
+    "method": "provider_capability",
+    "reasonCode": "virtual_nodes_not_supported",
+    "state": "virtual_node_daemonset_absent",
+    "subjectCount": 1
+  }
+}

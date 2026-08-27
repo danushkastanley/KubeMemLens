@@ -1,0 +1,23 @@
+{
+  "cniName": "GKE Dataplane V2",
+  "controlPlaneVersion": "1.35.6-gke.1250000",
+  "nodeImage": "UBUNTU_CONTAINERD",
+  "observedAt": "2026-08-27T01:48:39Z",
+  "profile": {
+    "digest": "sha256:34e27f4110d12c3883e0efdca8dbd1c1b1b1dcb1eb9833aabceb2e3b4aa938dc",
+    "id": "gke-ubuntu-containerd-amd64"
+  },
+  "proofSource": "gcloud:control-plane+node-pool",
+  "provider": "gke-standard",
+  "providerChecks": {
+    "cni": true,
+    "contextBinding": true,
+    "controlPlaneVersion": true,
+    "nodeImage": true,
+    "nodePoolBinding": true,
+    "profileCanonical": true,
+    "providerMode": true
+  },
+  "receiptDigest": "sha256:9c44264388209dd763dae23bb61d25f12e73c8c3f76d2b6dc8492558672ccd0c",
+  "schemaVersion": 1
+}

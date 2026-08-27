@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "provider": "self-managed",
+  "kubernetesVersion": "v1.36.4",
+  "nodeImage": "Ubuntu 24.04.4 LTS",
+  "osImage": "Ubuntu 24.04.4 LTS",
+  "kernelVersion": "6.17.0-1022-gcp",
+  "kubeletVersion": "v1.36.4",
+  "runtime": "cri-o://1.36.4",
+  "architecture": "amd64",
+  "cgroupVersion": "v2",
+  "cniName": "Calico v3.32.1",
+  "cniEnforced": true,
+  "linuxNodeCount": 2,
+  "windowsNodeCount": 0
+}
