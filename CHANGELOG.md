@@ -18,6 +18,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Changed release publication to build the multi-architecture image once, promote its OCI archive without digest change, sign the final subject inventory and create a draft only after clean-consumer verification.
 - Added strict Helm values schema validation and a non-privileged chart test hook exercised across install, upgrade and rollback.
 - Moved required CI lifecycle coverage to the current upstream-supported Kubernetes 1.35, 1.36 and 1.37 minor releases after Kubernetes 1.37 reached GA.
+- Aligned local, CI, release and container builds on Go 1.27 and raised the Darwin archive baseline to macOS 13.
 
 ### Security
 

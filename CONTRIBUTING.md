@@ -13,7 +13,7 @@ Thank you for helping make Kubernetes memory incidents easier to understand.
 
 Requirements:
 
-- Go 1.25 or newer;
+- Go 1.27;
 - Docker for image and container-based Helm checks;
 - kubectl, Helm, and a disposable Kubernetes cluster for end-to-end changes.
 

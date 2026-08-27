@@ -1,6 +1,6 @@
 module github.com/danushkastanley/kube-memlens
 
-go 1.26.6
+go 1.27.0
 
 require (
 	charm.land/bubbletea/v2 v2.0.9
