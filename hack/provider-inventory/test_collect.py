@@ -142,71 +142,81 @@ class ProviderInventoryTests(unittest.TestCase):
                 self.profile("eks-al2023-containerd-amd64"), self.eks_environment(), runner,
             )
 
-    def test_aks_receipt_requires_managed_ubuntu_and_azure_cni(self):
-        environment = {
-            "QUALIFY_CONTEXT": "private-context",
-            "QUALIFY_AKS_SUBSCRIPTION": "00000000-1111-2222-3333-444444444444",
-            "QUALIFY_AKS_RESOURCE_GROUP": "private-resource-group",
-            "QUALIFY_AKS_CLUSTER": "private-aks-name",
-            "QUALIFY_AKS_NODE_POOL": "userpool",
-        }
+    def test_reclassified_aks_profile_is_not_collectable_as_a_supported_row(self):
+        profile_path = collect.PROFILES / "aks-ubuntu-containerd-amd64.json"
+        with self.assertRaisesRegex(collect.ReceiptError, "no provider inventory driver"):
+            collect.load_canonical_profile(profile_path)
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
         runner, delegate = self.aks_runner()
-        receipt = collect.collect_receipt(
-            self.profile("aks-ubuntu-containerd-amd64"), environment, runner,
-            observed_at="2026-08-26T12:00:00Z",
-        )
-        self.assertEqual(receipt["provider"], "aks-node-pools")
-        self.assertEqual(receipt["cniName"], "Azure CNI Cilium")
-        self.assertTrue(receipt["nodeImage"].startswith("AKSUbuntu-2404"))
-        self.assertEqual(receipt["schemaVersion"], 2)
-        self.assertRegex(receipt["qualificationToolCommit"], r"^[a-f0-9]{40}$")
-        self.assertEqual(len(delegate.calls), 4)
-        encoded = json.dumps(receipt)
-        for forbidden in environment.values():
-            self.assertNotIn(forbidden, encoded)
+        with self.assertRaisesRegex(collect.ReceiptError, "not an active supported"):
+            collect.collect_receipt(profile, self.aks_environment(), runner)
+        self.assertEqual(delegate.calls, [])
+        collect.validate_receipt(fixture("aks-requestheader-provider-inventory.json"))
 
-    def test_aks_qualification_requires_fixed_three_node_pool(self):
-        for field, value in (("enableAutoScaling", True), ("count", 2)):
-            with self.subTest(field=field):
+    def test_reclassified_aks_inventory_driver_remains_strict(self):
+        profile = json.loads(
+            (collect.PROFILES / "aks-ubuntu-containerd-amd64.json").read_text(encoding="utf-8"),
+        )
+        runner, delegate = self.aks_runner()
+        provider, image, cni, version, proof = collect.collect_aks(
+            profile, self.aks_environment(), runner,
+        )
+        self.assertEqual(provider, "aks-node-pools")
+        self.assertTrue(image.startswith("AKSUbuntu-2404"))
+        self.assertEqual(cni, "Azure CNI Cilium")
+        self.assertEqual(version, "1.36.1")
+        self.assertEqual(proof, "az:control-plane+node-pool")
+        self.assertEqual(len(delegate.calls), 4)
+
+    def test_reclassified_aks_inventory_requires_fixed_vmss_pool(self):
+        profile = json.loads(
+            (collect.PROFILES / "aks-ubuntu-containerd-amd64.json").read_text(encoding="utf-8"),
+        )
+        cases = (
+            ("autoscaling", "enableAutoScaling", True, "fixed three-Node pool"),
+            ("count", "count", 2, "fixed three-Node pool"),
+            ("pool type", "typePropertiesType", "AvailabilitySet", "managed Ubuntu Linux row"),
+        )
+        for name, field, value, message in cases:
+            with self.subTest(name=name):
                 pool = fixture("aks-node-pool.json")
                 pool[field] = value
                 runner, _ = self.aks_runner(pool=pool)
-                with self.assertRaisesRegex(collect.ReceiptError, "fixed three-Node pool"):
-                    collect.collect_receipt(
-                        self.profile("aks-ubuntu-containerd-amd64"),
-                        self.aks_environment(), runner,
-                    )
+                with self.assertRaisesRegex(collect.ReceiptError, message):
+                    collect.collect_aks(profile, self.aks_environment(), runner)
 
-    def test_aks_pool_type_accepts_current_and_exact_legacy_fields(self):
-        current = fixture("aks-node-pool.json")
-        legacy = copy.deepcopy(current)
-        legacy.pop("typePropertiesType")
-        legacy["type"] = "VirtualMachineScaleSets"
-        both = copy.deepcopy(current)
-        both["type"] = "VirtualMachineScaleSets"
-        for name, pool in (("current", current), ("legacy", legacy), ("both", both)):
-            with self.subTest(name=name):
-                runner, _ = self.aks_runner(pool=pool)
-                receipt = collect.collect_receipt(
-                    self.profile("aks-ubuntu-containerd-amd64"), self.aks_environment(), runner,
-                )
-                self.assertEqual(receipt["provider"], "aks-node-pools")
+    def test_reclassified_aks_inventory_accepts_exact_legacy_pool_type(self):
+        profile = json.loads(
+            (collect.PROFILES / "aks-ubuntu-containerd-amd64.json").read_text(encoding="utf-8"),
+        )
+        pool = fixture("aks-node-pool.json")
+        pool.pop("typePropertiesType")
+        pool["type"] = "VirtualMachineScaleSets"
+        runner, _ = self.aks_runner(pool=pool)
+        self.assertEqual(
+            collect.collect_aks(profile, self.aks_environment(), runner)[0],
+            "aks-node-pools",
+        )
 
-    def test_aks_pool_type_rejects_missing_or_wrong_mode_fields(self):
-        cases = {}
-        missing = fixture("aks-node-pool.json")
-        missing.pop("typePropertiesType")
-        cases["missing"] = missing
-        wrong = fixture("aks-node-pool.json")
-        wrong["typePropertiesType"] = "AvailabilitySet"
-        cases["wrong"] = wrong
-        for name, pool in cases.items():
-            with self.subTest(name=name):
-                runner, _ = self.aks_runner(pool=pool)
-                with self.assertRaisesRegex(collect.ReceiptError, "managed Ubuntu Linux row"):
-                    collect.collect_receipt(
-                        self.profile("aks-ubuntu-containerd-amd64"), self.aks_environment(), runner,
-                    )
+    def test_reclassified_aks_inventory_keeps_context_pool_and_cni_binding(self):
+        profile = json.loads(
+            (collect.PROFILES / "aks-ubuntu-containerd-amd64.json").read_text(encoding="utf-8"),
+        )
+        cluster = fixture("aks-cluster.json")
+        cluster["networkProfile"]["networkPlugin"] = "kubenet"
+        runner, _ = self.aks_runner(cluster=cluster)
+        with self.assertRaisesRegex(collect.ReceiptError, "Azure CNI"):
+            collect.collect_aks(profile, self.aks_environment(), runner)
+        context = fixture("aks-context.json")
+        context["clusters"][0]["cluster"]["server"] = "https://wrong.example.test"
+        runner, _ = self.aks_runner(context=context)
+        with self.assertRaisesRegex(collect.ReceiptError, "cluster endpoint"):
+            collect.collect_aks(profile, self.aks_environment(), runner)
+        nodes = fixture("aks-nodes.json")
+        nodes["items"][0]["metadata"]["labels"].pop("kubernetes.azure.com/agentpool")
+        runner, _ = self.aks_runner(nodes=nodes)
+        with self.assertRaisesRegex(collect.ReceiptError, "no live Nodes"):
+            collect.collect_aks(profile, self.aks_environment(), runner)
 
     def test_self_managed_profiles_use_live_bounded_kubectl_inventory(self):
         cases = (
@@ -262,12 +272,6 @@ class ProviderInventoryTests(unittest.TestCase):
         with self.assertRaisesRegex(collect.ReceiptError, "not enabled"):
             collect.collect_receipt(self.profile("eks-al2023-containerd-amd64"), self.eks_environment(), runner)
 
-        aks = fixture("aks-cluster.json")
-        aks["networkProfile"]["networkPlugin"] = "kubenet"
-        runner, _ = self.aks_runner(cluster=aks)
-        with self.assertRaisesRegex(collect.ReceiptError, "Azure CNI"):
-            collect.collect_receipt(self.profile("aks-ubuntu-containerd-amd64"), self.aks_environment(), runner)
-
     def test_managed_profiles_require_the_live_context(self):
         environment = self.gke_environment()
         environment.pop("QUALIFY_CONTEXT")
@@ -279,7 +283,6 @@ class ProviderInventoryTests(unittest.TestCase):
         cases = (
             ("gke-cos-containerd-amd64", self.gke_environment, self.gke_runner, "gke-context.json"),
             ("eks-al2023-containerd-amd64", self.eks_environment, self.eks_runner, "eks-context.json"),
-            ("aks-ubuntu-containerd-amd64", self.aks_environment, self.aks_runner, "aks-context.json"),
         )
         for profile_id, environment, runner_factory, context_fixture in cases:
             with self.subTest(profile=profile_id):
@@ -293,7 +296,6 @@ class ProviderInventoryTests(unittest.TestCase):
         cases = (
             ("gke-cos-containerd-amd64", self.gke_environment, self.gke_runner, "gke-nodes.json"),
             ("eks-al2023-containerd-amd64", self.eks_environment, self.eks_runner, "eks-nodes.json"),
-            ("aks-ubuntu-containerd-amd64", self.aks_environment, self.aks_runner, "aks-nodes.json"),
         )
         for profile_id, environment, runner_factory, nodes_fixture in cases:
             with self.subTest(profile=profile_id):

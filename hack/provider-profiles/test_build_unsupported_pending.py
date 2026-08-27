@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(INVENTORY))
 
 import build_unsupported_pending as builder  # noqa: E402
+import convert_recorded_unsupported as converter  # noqa: E402
 from build_unsupported_pending import build_pending  # noqa: E402
 from observe_unsupported import build_receipt  # noqa: E402
 from profile_contract import EvaluationInputError, load_json, validate_pending_evidence  # noqa: E402
@@ -115,6 +116,40 @@ class UnsupportedPendingTests(unittest.TestCase):
         self.assertEqual(tracked.call_args_list[0].args[1], "5" * 40)
         self.assertEqual(tracked.call_args_list[1].args[1], "4" * 40)
         self.assertEqual(tree.call_args.args[1], "4" * 40)
+
+    def test_recorded_live_receipt_reuses_observation_time_deterministically(self):
+        profile = load_json(ROOT / "aks-ubuntu-containerd-amd64.json")
+        fixture_root = INVENTORY / "fixtures"
+        record = load_json(fixture_root / "aks-requestheader-incompatibility.json")
+        failed_path = fixture_root / "aks-requestheader-failed-pending.json"
+        summary_path = fixture_root / "aks-requestheader-failed-summary.json"
+        receipt = converter.convert_record(
+            profile, record, load_json(failed_path),
+            load_json(fixture_root / "aks-requestheader-provider-inventory.json"),
+            load_json(summary_path),
+            failed_digest=converter.digest_file(failed_path),
+            summary_digest=converter.digest_file(summary_path),
+            qualification_tool_commit="5" * 40,
+            source_content=converter.source_at_commit(record["releaseCandidate"]["sourceCommit"]),
+        )
+        self.assertEqual(
+            builder.completion_timestamp(receipt, "2099-01-01T00:00:00Z"),
+            receipt["observedAt"],
+        )
+        artefacts = {
+            "imageDigest": record["releaseCandidate"]["imageDigest"],
+            "chartDigest": record["releaseCandidate"]["chartDigest"],
+            "valuesDigest": "sha256:" + "3" * 64,
+            "providerReceiptDigest": receipt["receiptDigest"],
+            "evidenceManifestDigest": None,
+            "probeImageDigest": None,
+            "sourceCommit": record["releaseCandidate"]["sourceCommit"],
+            "chartVersion": "0.0.1-alpha.3",
+        }
+        pending = build_pending(profile, receipt, artefacts, receipt["observedAt"])
+        self.assertEqual(pending["reasonCode"], "requestheader_proxy_identity_unavailable")
+        with self.assertRaisesRegex(EvaluationInputError, "must equal"):
+            build_pending(profile, receipt, artefacts, "2026-08-27T08:05:02Z")
 
 
 if __name__ == "__main__":

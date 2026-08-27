@@ -105,6 +105,11 @@ class UnsupportedObservationTests(unittest.TestCase):
         with self.assertRaisesRegex(observer.ReceiptError, "qualificationToolCommit"):
             observer.validate_unsupported_receipt(profile, changed)
 
+    def test_recorded_aks_incompatibility_cannot_use_a_synthetic_live_source(self):
+        profile = self.profile("aks-ubuntu-containerd-amd64")
+        with self.assertRaisesRegex(observer.ReceiptError, "recorded-live conversion"):
+            observer.build_receipt(profile, {}, artefact_binding=ARTEFACT_BINDING)
+
     def test_aks_virtual_node_architecture_uses_label_or_unreported(self):
         profile = self.profile("aks-virtual-nodes")
         labelled = self.source("aks-virtual-nodes")
