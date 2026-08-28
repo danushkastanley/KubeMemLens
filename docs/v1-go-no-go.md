@@ -79,7 +79,7 @@ widen a provider-support claim by itself.
 | OpenSSF project 14259 has a verified Passing result | GO at pre-candidate baseline | The public [Passing record](https://www.bestpractices.dev/en/projects/14259/passing) reached 100% of required Passing criteria on 28 August 2026 and uses `https://kubememlens.com` as the homepage. This is a self-assessment, not certification. |
 | Current Kubernetes 1.35 through 1.37 lifecycle matrix passes | NO-GO | The pre-candidate matrix passed on merged main commit `1f88026cca474b93739d3d7144014e4861d9cbad` in [run 33186603536](https://github.com/danushkastanley/KubeMemLens/actions/runs/33186603536); retain or repeat it for the frozen candidate. |
 | ProjectV2 and release-blocking work queues are reconciled | GO at pre-candidate baseline | An authenticated repository `projectsV2(first: 20)` query returned `totalCount: 0` and no nodes on 28 August 2026. Release blockers remain recorded in the evidence register. |
-| Dependency, advisory, CodeQL, secret and Scorecard queues are reviewed | NO-GO | The 28 August merged-main readback found zero open dependency-update pull requests, Dependabot alerts, private advisories, secret alerts or CodeQL-origin alerts. Five Scorecard SARIF findings remain recorded; the signed overall result is 8.3, but Vulnerabilities is 6 and fails the required threshold of 7 after `GO-2026-6303` appeared. |
+| Dependency, advisory, CodeQL, secret and Scorecard queues are reviewed | GO at pre-candidate baseline | The 28 August merged-main readback found zero open dependency-update pull requests, Dependabot alerts, private advisories, secret alerts or CodeQL-origin alerts. Three Scorecard SARIF findings remain as posture signals. Signed run 33192629650 scored 8.9; Vulnerabilities is 7, Fuzzing is 10 and SAST is 10, so every explicit release threshold is met. |
 | Fresh install, supported upgrade, rollback and uninstall pass | NO-GO | Not recorded |
 | Three independent adopter reports are accepted | NO-GO | 0/3 |
 | Provider, runtime, scale and terminal claims match evidence | NO-GO | Not recorded |
@@ -96,7 +96,7 @@ widen a provider-support claim by itself.
 | Decision timestamp | Not recorded |
 | Primary decision and evidence link | Not recorded |
 | Backup review and evidence link | Not recorded |
-| Remaining blockers | V1-B02, V1-B05, V1-B06, V1-B07 and V1-B08; V1-B01, V1-B03 and V1-B04 are closed at the pre-candidate readback |
+| Remaining blockers | V1-B02, V1-B05, V1-B06 and V1-B08; V1-B01, V1-B03, V1-B04 and V1-B07 are closed at the pre-candidate readback |
 | Exact annotated tag approved | No |
 | Publication approved | No |
 | Rollback target | Not recorded |
@@ -116,6 +116,6 @@ Complete this section before changing the final decision.
 | --- | --- | --- | --- |
 | Release observation | Danushka Stanley | `@legolas296` | Not recorded |
 | Vulnerability response | Danushka Stanley | `@legolas296` | [Security policy](../SECURITY.md) and [maintainer operations](security/maintainer-operations.md); live readiness not recorded |
-| Dependency and Scorecard review | Danushka Stanley | `@legolas296` | [Repository security policy](repository-security.md); merged-main Scorecard is 8.3 overall but Vulnerabilities 6 reopens V1-B07 pending `GO-2026-6303` closure |
+| Dependency and Scorecard review | Danushka Stanley | `@legolas296` | [Repository security policy](repository-security.md); merged-main Scorecard is 8.9 overall, Vulnerabilities is 7, Fuzzing is 10 and SAST is 10, closing V1-B07 at the pre-candidate readback |
 | Rollback decision | Danushka Stanley | `@legolas296` | [Release rollback process](release-process.md); candidate target not recorded |
 | Adopter follow-up | Danushka Stanley | `@legolas296` | [Community feedback policy](community-feedback.md); reports not recorded |
