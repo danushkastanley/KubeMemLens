@@ -4,6 +4,10 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Added
+
+- Added bounded native Go fuzzing for cgroup parsing, tenant-scoped pagination and snapshot decoding, with a dedicated pull-request and `main` CI job.
+
 ### Changed
 
 - Defined one canonical v1 support and release contract covering exact target profiles, evidence owners, multi-tenant security, best-effort availability, bounded history, metadata exposure, unsupported environments and deprecation rules.
