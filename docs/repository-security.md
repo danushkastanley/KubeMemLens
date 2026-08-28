@@ -78,8 +78,8 @@ These are project operating checks. They do not promise a response time to users
 
 This is a point-in-time record. CODEOWNER enforcement is active and the `main`
 ruleset has no bypass actor. Release tags and the protected release environment
-remain separately protected. Signed [Scorecard run 33192629650](https://github.com/danushkastanley/KubeMemLens/actions/runs/33192629650)
-scored 8.9 on merged commit `d40ffe07dcc99eba8ee58c721d0f0370d8960c7a`,
+remain separately protected. Signed [Scorecard run 33193569645](https://github.com/danushkastanley/KubeMemLens/actions/runs/33193569645)
+scored 8.9 on merged commit `050115351a31066e7bb64d14591e25d013e8f323`,
 and OpenSSF Best Practices project 14259 has a verified Passing self-assessment.
 The Vulnerabilities check is 7, Fuzzing is 10 and SAST is 10. `GO-2026-6303`
 is no longer reported, and the accepted `govulncheck` run found zero affected
