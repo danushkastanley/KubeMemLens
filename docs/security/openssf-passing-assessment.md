@@ -1,8 +1,12 @@
 # OpenSSF Best Practices Passing Assessment
 
-Assessment date: 27 August 2026
+Assessment date: 28 August 2026
 Criteria: OpenSSF Best Practices Passing
-Public project record: <https://www.bestpractices.dev/projects/14259>
+Public project record: <https://www.bestpractices.dev/en/projects/14259/passing>
+
+Submission result: `passing`, achieved at `2026-08-28T13:50:42.757Z`, with
+<https://kubememlens.com> recorded as the public homepage. The badge is a
+project self-assessment rather than certification.
 
 This is the evidence map for the public OpenSSF questionnaire. `Met` means the
 repository or live project state directly supports the answer. `N/A` is used
@@ -22,7 +26,7 @@ with an honest explanation without being converted into an unsupported claim.
 | `license_location` | Met | `LICENSE` is the byte-for-byte Apache-2.0 text; project attribution is in `NOTICE`. |
 | `documentation_basics` | Met | `README.md`, `docs/installation.md`, `docs/security-model.md`, and `docs/compatibility.md` cover installation, use, security, and limitations. |
 | `documentation_interface` | Met | `README.md`, command help, `docs/explanation-schema.md`, `docs/metrics.md`, and the aggregated API documentation describe inputs and outputs. |
-| `sites_https` | Met | The public repository, releases, packages, and documentation use GitHub HTTPS endpoints. |
+| `sites_https` | Met | The public website, repository, releases, packages, and documentation use HTTPS endpoints. |
 | `discussion` | Met | Public GitHub issues and pull requests are searchable, linkable, and open to new participants. |
 | `english` | Met | Public documentation, issues, contribution guidance, and product copy use English. |
 | `maintained` | Met | Recent reviewed commits, releases, qualification work, dependency triage, and the named primary and backup maintainers demonstrate active maintenance. |
@@ -106,9 +110,9 @@ with an honest explanation without being converted into an unsupported claim.
 | `dynamic_analysis_enable_assertions` | Met | Unit, integration, negative, race, Helm, and lifecycle tests execute with their full assertions enabled. |
 | `dynamic_analysis_fixed` | N/A | No exploitable medium-or-higher project vulnerability has been found through dynamic analysis. |
 
-## Remaining Passing actions
+## Recorded outcome
 
-1. Complete public project 14259 from these evidence-backed answers without
-   upgrading `Unmet` or `N/A` entries for appearance.
-2. Record the achieved level and any
-   closure work in `openssf-baseline.md`.
+Project 14259 reports 58 `Met`, 6 permitted `N/A` and 3 suggested `Unmet`
+criteria. The remaining `Unmet` entries are `version_tags`, `test_most` and
+`dynamic_analysis`; they remain visible rather than being upgraded for
+appearance. The live result closes V1-B01 without changing those gaps.

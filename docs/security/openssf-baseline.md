@@ -1,16 +1,16 @@
 # OpenSSF Baseline
 
-Status: community controls accepted; Best Practices submission deferred
-Recorded: 27 August 2026
+Status: OpenSSF Best Practices Passing self-assessment achieved
+Recorded: 28 August 2026
 Owner: maintainers named in `MAINTAINERS.md`
 
-Best Practices project: https://www.bestpractices.dev/projects/14259
+Best Practices project: https://www.bestpractices.dev/en/projects/14259/passing
 
-Owner decision: submission is deferred until the public KubeMemLens domain is
-live so the project record can use the long-lived public site. The GitHub
-repository remains the current project URL. Project 14259 stays `in_progress`;
-the deferred Passing result remains a v1 release blocker and must not be
-presented as achieved.
+The owner approved submission after <https://kubememlens.com> became the
+long-lived public homepage. Project 14259 reached `passing` at
+`2026-08-28T13:50:42.757Z`; the public record reports 100% of required Passing
+criteria. This is a project self-assessment badge, not certification or a
+guarantee that vulnerabilities are absent.
 
 ## Scorecard
 
@@ -19,18 +19,18 @@ local OpenSSF Scorecard v5.5.0 run against merged commit `9bdd0aa` on 27 August
 2026 established an overall baseline of 6.1. The first accepted published run
 used merged commit `11dda186`, scored 8.0, and passed the release thresholds.
 The latest accepted signed run used merged commit
-`1d81e1551772b84307dc7c32c7302fe33db459c2`, scored 8.2, and also passed every
+`a897b962b2fc5772804eac93d7b7c44359d4c51c`, scored 8.3, and also passed every
 release threshold. The pinned, least-privilege workflow runs on `main` and
 weekly, publishes the signed result, retains SARIF for five days, and uploads
 findings to GitHub code scanning.
 
 Accepted workflow: <https://github.com/danushkastanley/KubeMemLens/actions/runs/33079572322>
 
-Latest accepted workflow: <https://github.com/danushkastanley/KubeMemLens/actions/runs/33105669019>
+Latest accepted workflow: <https://github.com/danushkastanley/KubeMemLens/actions/runs/33111267079>
 
 | Release check | Local baseline | First published | Latest main | Reason |
 |---|---:|---:|---:|---|
-| Branch-Protection | 0 | 8 | 8 | The accepted run recorded one CODEOWNER approval and the then-active owner bypass, so both the administrator/bypass warning and the one-reviewer warning remain part of that historical result. A later live ruleset readback after PR #42 found no bypass actors; the next signed main run must confirm the updated signal. |
+| Branch-Protection | 0 | 8 | 8 | The current ruleset has no bypass actors and requires one CODEOWNER approval, stale-review dismissal, last-push approval, resolved conversations and seven strict checks. Scorecard still records the one-reviewer limitation. |
 | Token-Permissions | 10 | 10 | 10 | Workflow tokens follow least privilege |
 | Dangerous-Workflow | 10 | 10 | 10 | No dangerous workflow pattern detected |
 | Pinned-Dependencies | 10 | 10 | 10 | All workflow dependencies are pinned by full commit SHA |
@@ -38,10 +38,11 @@ Latest accepted workflow: <https://github.com/danushkastanley/KubeMemLens/action
 | Signed-Releases | 8 | 8 | 8 | Both detected release artefacts have signed subjects |
 
 Other closure work from the local baseline is now visible in the published
-result: Dependency-Update-Tool is 10, SAST is 8, CII-Best-Practices is 2 while
-project 14259 remains in progress, and Code-Review is 5 after five of the nine
-changesets sampled by Scorecard had independent approval. The latter two are
-recorded gaps, not release-threshold waivers.
+result: Dependency-Update-Tool is 10, SAST is 9, and Code-Review is 5 after five
+of the ten changesets sampled by Scorecard had independent approval. The
+Scorecard run predates the Passing submission and still records
+CII-Best-Practices as 2. These are transparent signals, not release-threshold
+waivers.
 
 The three dependency results were `GO-2026-6094`, `GO-2026-6107`, and
 `GO-2026-5932`. `govulncheck v1.1.4 -show verbose ./...` reported zero affected
@@ -70,16 +71,14 @@ areas:
 | Secure development | Threat model, tenant-isolation review, `govulncheck`, Trivy, secret scanning, push protection and dependency policy |
 | Delivery integrity | HTTPS/SSH distribution, checksums, signatures, attestations, SBOMs and immutable image/chart digests |
 
-Before marking the Passing target met, review every required questionnaire item,
-provide its exact URL or allowed justification, and confirm that report-response
-criteria are supported by the repository's actual issue history. Any unmet
-required criterion remains a v1 blocker; it must not be marked `N/A` merely to
-obtain a badge.
+The submitted record keeps `version_tags`, `test_most` and `dynamic_analysis`
+as `Unmet`, and uses `N/A` only where the criterion permits it. Passing does not
+upgrade those suggested criteria or widen the release support contract.
 
 ## Closure record
 
 | Evidence | Result | Remaining action |
 |---|---|---|
-| Scorecard | Latest signed result is 8.2 for merged commit `1d81e1551772b84307dc7c32c7302fe33db459c2`; all six release checks meet their thresholds | Re-check before each release and close regressions under the documented policy |
+| Scorecard | Latest signed result is 8.3 for merged commit `a897b962b2fc5772804eac93d7b7c44359d4c51c`; all six release checks meet their thresholds | Re-check before each release and close regressions under the documented policy |
 | Private reporting | Primary receipt and `@legolas296` backup handover passed through two closed synthetic advisories without publication, CVE or private fork | Repeat after a material reporting-policy or maintainer-access change |
-| Best Practices | Public project 14259 created; 67 answers staged locally but not submitted; owner deferred submission until the public domain is live | Add the public domain, obtain explicit submission confirmation, verify the public Passing result, and record the achieved level before the v1 release gate passes |
+| Best Practices | Public project 14259 uses `https://kubememlens.com`, reports `passing`, and reached 100% of required Passing criteria on 28 August 2026 | Keep the public answers aligned with repository and live project evidence; do not describe the self-assessment as certification |
