@@ -81,9 +81,10 @@ verification.
 
 ## Blocker register
 
-Open blockers have no waiver path. V1-B01, V1-B03 and V1-B04 are closed at this
-pre-candidate snapshot. V1-B07 is reopened because the merged-main Scorecard
-Vulnerabilities result regressed below the repository threshold.
+Open blockers have no waiver path. V1-B01, V1-B03, V1-B04 and V1-B07 are closed
+at this pre-candidate snapshot. The merged-main Scorecard Vulnerabilities result
+has returned to the repository threshold, and the new fuzz targets are visible
+in the signed result.
 V1-B02 starts after candidate publication; V1-B05 and V1-B06 require
 candidate-bound execution evidence. Stable v1 remains blocked until every
 remaining blocker closes. If a requirement changes, record the product
@@ -97,7 +98,7 @@ decision and update the release contract before asking for go/no-go review.
 | V1-B04 | P1 | **Closed at the pre-candidate readback.** An authenticated repository `projectsV2(first: 20)` query returned `totalCount: 0` and an empty node list on 28 August 2026. There is no hidden ProjectV2 queue to reconcile; release blockers remain in this register and the public roadmap. | [Public roadmap](roadmap.md), [this blocker register](#blocker-register) | Repeat the authenticated query before the exact candidate decision. A newly created project or release-blocking item reopens this blocker. |
 | V1-B05 | P0 | The exact RC-to-v1 promotion controls are implemented but unexercised. The candidate workflow creates prospective stable bytes in version-scoped candidate repositories, and the separate stable workflow is statically prohibited from rebuilding them. No signed candidate manifest or post-copy equality result exists yet. | [Candidate workflow](../.github/workflows/candidate.yml), [promotion workflow](../.github/workflows/promote.yml), [manifest validator](../hack/release/validate_candidate_manifest.sh), [release process](release-process.md) | Run the authorised candidate workflow, publish the reviewed prerelease, then prove that promotion reuses every archive byte and preserves the image and chart digests before changing this blocker. |
 | V1-B06 | P0 | Deterministic build controls are implemented but have no candidate-bound run. GoReleaser uses commit-time metadata, chart packaging normalises order and metadata, and the candidate workflow compares two archive, image and chart builds. | [GoReleaser configuration](../.goreleaser.yml), [deterministic chart packager](../hack/release/package_chart.py), [candidate workflow](../.github/workflows/candidate.yml) | Record matching archive checksums, image digest and chart package checksum from the authorised candidate workflow. Treat any mismatch as a blocker; do not waive or rebuild around it. |
-| V1-B07 | P1 | **Reopened at the merged-main readback.** Zero dependency-update pull requests and zero Dependabot alerts remain, but signed [Scorecard run 33186603491](https://github.com/danushkastanley/KubeMemLens/actions/runs/33186603491) reports four dependency advisories and a Vulnerabilities score of 6 on `1f88026cca474b93739d3d7144014e4861d9cbad`. `GO-2026-6303` is the new advisory. The accepted `govulncheck` v1.7.0 run found zero affected symbols among three findings but did not record the new advisory, so it cannot waive the required score of 7 or the advisory-count regression. | [Dependabot policy](../.github/dependabot.yml), [Scorecard workflow](../.github/workflows/scorecard.yml), [OpenSSF baseline](security/openssf-baseline.md), [queue policy](repository-security.md) | Triage and close the `GO-2026-6303` regression, obtain a signed Scorecard result at or above the threshold, and repeat the finding-queue readback. |
+| V1-B07 | P1 | **Closed at the pre-candidate readback.** Zero dependency-update pull requests and zero Dependabot alerts remain. Signed [Scorecard run 33192629650](https://github.com/danushkastanley/KubeMemLens/actions/runs/33192629650) scored 8.9 on merged commit `d40ffe07dcc99eba8ee58c721d0f0370d8960c7a`; Vulnerabilities is 7, Fuzzing is 10 and SAST is 10. `GO-2026-6303` is no longer reported. The accepted `govulncheck` v1.7.0 run found zero affected symbols among the three remaining advisories. | [Dependabot policy](../.github/dependabot.yml), [Scorecard workflow](../.github/workflows/scorecard.yml), [OpenSSF baseline](security/openssf-baseline.md), [queue policy](repository-security.md) | Repeat the dependency, advisory, code-scanning and signed Scorecard readback against the frozen candidate; reopen if the required threshold or advisory count regresses. |
 | V1-B08 | P0 | No release tag or publication is authorised. This preparation branch does not grant that authority. RC and stable publication require separate fresh approvals. | [Release process](release-process.md), [tag validator](../hack/release/validate_tag.sh) | Close the pre-candidate blockers before seeking exact RC approval. After candidate and adopter evidence passes, complete the go/no-go record and obtain separate approval for the exact stable tag and publication. |
 
 ## Point-in-time live readback
@@ -109,13 +110,13 @@ copying this snapshot into the final decision.
 | --- | --- | --- |
 | Open public issues | 0 | Re-read labels and severity before go/no-go. An empty issue queue does not close the blockers in this register. |
 | Adopter feedback issues | 0 | V1-B02 remains open for stable v1. Collection starts after candidate publication. |
-| Dependabot pull requests | 0; all #26 through #36 were closed, and accepted changes were merged through replacement PRs #38 to #41 | The queue itself is empty, but the Scorecard vulnerability regression keeps V1-B07 open. |
+| Dependabot pull requests | 0; all #26 through #36 were closed, and accepted changes were merged through replacement PRs #38 to #41 | The queue is empty and the signed Scorecard result restores the required Vulnerabilities score, so V1-B07 is closed at this snapshot. |
 | Dependabot security alerts | 0 open | Re-read reachability before go/no-go. |
 | Private security advisories | 0 open drafts | Re-read before go/no-go; closed synthetic drills are not findings. |
 | Secret-scanning alerts | 0 open | Re-read before go/no-go. |
-| Code-scanning alerts | 5 open Scorecard SARIF findings; 0 CodeQL-origin findings | Branch-Protection 8, Vulnerabilities 6, Fuzzing 0, SAST 9 and Code-Review 5 are recorded policy gaps or signals, not five source-code vulnerabilities. Vulnerabilities is below the release threshold. |
+| Code-scanning alerts | 3 open Scorecard SARIF findings; 0 CodeQL-origin findings | Branch-Protection 8, Vulnerabilities 7 and Code-Review 5 are transparent posture signals, not source-code vulnerabilities. Fuzzing and SAST are now 10. Every explicit release threshold is met at this snapshot. |
 | Repository ProjectV2 | Authenticated query returned `totalCount: 0` and no nodes | V1-B04 is closed at this snapshot; repeat before the exact candidate decision. |
-| Accepted published Scorecard | 8.3 in [run 33186603491](https://github.com/danushkastanley/KubeMemLens/actions/runs/33186603491) on merged commit `1f88026cca474b93739d3d7144014e4861d9cbad` | Vulnerabilities is 6 and fails the [required threshold](repository-security.md) of 7; V1-B07 is open. |
+| Accepted published Scorecard | 8.9 in [run 33192629650](https://github.com/danushkastanley/KubeMemLens/actions/runs/33192629650) on merged commit `d40ffe07dcc99eba8ee58c721d0f0370d8960c7a` | Vulnerabilities is 7 and meets the [required threshold](repository-security.md); Fuzzing and SAST are 10; V1-B07 is closed at this snapshot. |
 | Merged-main CI and CodeQL | [CI run 33186603536](https://github.com/danushkastanley/KubeMemLens/actions/runs/33186603536) and [CodeQL run 33186603528](https://github.com/danushkastanley/KubeMemLens/actions/runs/33186603528) passed on `1f88026cca474b93739d3d7144014e4861d9cbad` | Retain as pre-candidate evidence; repeat or confirm it for the frozen candidate. |
 | OpenSSF Best Practices | Project 14259 is `passing`; the required Passing criteria report 100% | V1-B01 is closed at this snapshot. The self-assessment retains three suggested `Unmet` criteria. |
 
@@ -138,8 +139,8 @@ The authorised candidate run must first record:
 After candidate publication, append three privacy-reviewed adopter summaries
 and the completed [go/no-go record](v1-go-no-go.md), including separate fresh
 approval for the exact stable tag. The current pre-candidate decision remains
-**NO-GO** because V1-B07 is open and fresh approval naming the exact RC tag and
-candidate publication is not recorded under V1-B08. V1-B01, V1-B03 and V1-B04
+**NO-GO** because fresh approval naming the exact RC tag and candidate
+publication is not recorded under V1-B08. V1-B01, V1-B03, V1-B04 and V1-B07
 are closed only for the current pre-candidate snapshot and must be re-read after
 the candidate is frozen. The 0/3 adopter count does not contribute to the RC
 decision. Stable v1 remains **NO-GO** until every remaining item is linked and

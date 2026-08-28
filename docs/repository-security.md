@@ -68,7 +68,7 @@ These are project operating checks. They do not promise a response time to users
 
 | Control | Readback |
 |---|---|
-| `main` ruleset | Targets `refs/heads/main`; one independent CODEOWNER approval is required, with stale-review dismissal, last-push separation, resolved conversations, strict CI and CodeQL checks, deletion protection, and force-push protection active. The temporary pull-request-only owner bypass used for the implementation queue was removed after PR #42 merged. |
+| `main` ruleset | Targets `refs/heads/main`; one independent CODEOWNER approval is required, with stale-review dismissal, last-push separation, resolved conversations, strict CI and CodeQL checks, deletion protection, and force-push protection active. The temporary pull-request-only repository-administrator bypass used for the explicitly authorised maintenance queue was removed after the final readback PR merged. |
 | Release tags and environment | `refs/tags/v*` restrictions and the tag-only environment policy are active; `@danushkastanley` and `@legolas296` are reviewers; self-review and admin bypass are disabled |
 | Workflow token | Default `read`; workflows cannot approve pull requests |
 | Vulnerability reporting | Enabled; primary drill `GHSA-9r58-62g3-2v7p` and backup-handover drill `GHSA-wfhm-45q5-8jf6` closed privately without a CVE, private fork, or publication |
@@ -78,10 +78,11 @@ These are project operating checks. They do not promise a response time to users
 
 This is a point-in-time record. CODEOWNER enforcement is active and the `main`
 ruleset has no bypass actor. Release tags and the protected release environment
-remain separately protected. The latest signed Scorecard result is 8.3, and
-OpenSSF Best Practices project 14259 has a verified Passing self-assessment.
-The Scorecard Vulnerabilities check is 6, below the required threshold of 7,
-after `GO-2026-6303` increased the recorded advisory count. V1-B07 remains open
-because the accepted merged-main `govulncheck` run reported zero affected
-symbols among three detected findings but did not record the new advisory.
+remain separately protected. Signed [Scorecard run 33192629650](https://github.com/danushkastanley/KubeMemLens/actions/runs/33192629650)
+scored 8.9 on merged commit `d40ffe07dcc99eba8ee58c721d0f0370d8960c7a`,
+and OpenSSF Best Practices project 14259 has a verified Passing self-assessment.
+The Vulnerabilities check is 7, Fuzzing is 10 and SAST is 10. `GO-2026-6303`
+is no longer reported, and the accepted `govulncheck` run found zero affected
+symbols among the three remaining advisories. V1-B07 is closed at this
+pre-candidate readback.
 `make check-community-settings` remains the final live gate for an exact candidate decision.
