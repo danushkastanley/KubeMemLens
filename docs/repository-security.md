@@ -80,5 +80,8 @@ This is a point-in-time record. CODEOWNER enforcement is active and the `main`
 ruleset has no bypass actor. Release tags and the protected release environment
 remain separately protected. The latest signed Scorecard result is 8.3, and
 OpenSSF Best Practices project 14259 has a verified Passing self-assessment.
-`make check-community-settings` remains the final live gate for an exact
-candidate decision.
+The Scorecard Vulnerabilities check is 6, below the required threshold of 7,
+after `GO-2026-6303` increased the recorded advisory count. V1-B07 remains open
+because the accepted merged-main `govulncheck` run reported zero affected
+symbols among three detected findings but did not record the new advisory.
+`make check-community-settings` remains the final live gate for an exact candidate decision.
