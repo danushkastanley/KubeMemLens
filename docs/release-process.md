@@ -17,8 +17,9 @@ For a v1 RC, these checks are the pre-candidate gate. The gate includes every
 non-adopter security, correctness, privacy, compatibility and release-integrity
 prerequisite. It also includes the current dependency and finding queues, the
 release documentation, the prepared candidate path, and fresh approval naming
-the exact RC tag. The deferred OpenSSF Best Practices Passing result remains a
-pre-candidate blocker under the recorded project decision.
+the exact RC tag. OpenSSF Best Practices Passing and the empty ProjectV2
+readback are recorded pre-candidate evidence; repeat their live readback if the
+external state changes before the exact candidate decision.
 
 Adopter evidence is not a pre-candidate gate. The three reports must identify
 one immutable published candidate, so collecting them before that candidate

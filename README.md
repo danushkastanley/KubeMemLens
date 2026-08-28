@@ -2,6 +2,10 @@
 
 KubeMemLens is a terminal-first Kubernetes memory inspector.
 
+[Public website](https://kubememlens.com) · [OpenSSF Best Practices Passing self-assessment](https://www.bestpractices.dev/en/projects/14259/passing)
+
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14259/badge)](https://www.bestpractices.dev/en/projects/14259)
+
 It helps answer:
 
 > Why is this pod's memory high?

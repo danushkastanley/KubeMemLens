@@ -76,10 +76,10 @@ widen a provider-support claim by itself.
 | Candidate commit and all artefact identities are frozen | NO-GO | Not recorded |
 | Candidate rebuild is reproducible | NO-GO | Not recorded |
 | No P0/P1 security, correctness, data-leakage or release-integrity blocker remains | NO-GO | Not recorded |
-| OpenSSF project 14259 has a verified Passing result | NO-GO | Deferred; no Passing result recorded |
-| Current Kubernetes 1.35 through 1.37 lifecycle matrix passes | NO-GO | The pre-candidate matrix passed on merged main commit `1d81e1551772b84307dc7c32c7302fe33db459c2` in [run 33105669045](https://github.com/danushkastanley/KubeMemLens/actions/runs/33105669045); retain or repeat it for the frozen candidate. |
-| ProjectV2 and release-blocking work queues are reconciled | NO-GO | Current token lacks `read:project` |
-| Dependency, advisory, CodeQL, secret and Scorecard queues are reviewed | NO-GO | The 28 August pre-candidate readback found zero open dependency-update pull requests, Dependabot alerts, private advisories, secret alerts or CodeQL-origin alerts. Six Scorecard SARIF findings remain recorded; the signed main result was 8.2 and passed every release threshold. Repeat against the frozen candidate. |
+| OpenSSF project 14259 has a verified Passing result | GO at pre-candidate baseline | The public [Passing record](https://www.bestpractices.dev/en/projects/14259/passing) reached 100% of required Passing criteria on 28 August 2026 and uses `https://kubememlens.com` as the homepage. This is a self-assessment, not certification. |
+| Current Kubernetes 1.35 through 1.37 lifecycle matrix passes | NO-GO | The pre-candidate matrix passed on merged main commit `a897b962b2fc5772804eac93d7b7c44359d4c51c` in [run 33111267174](https://github.com/danushkastanley/KubeMemLens/actions/runs/33111267174); retain or repeat it for the frozen candidate. |
+| ProjectV2 and release-blocking work queues are reconciled | GO at pre-candidate baseline | An authenticated repository `projectsV2(first: 20)` query returned `totalCount: 0` and no nodes on 28 August 2026. Release blockers remain recorded in the evidence register. |
+| Dependency, advisory, CodeQL, secret and Scorecard queues are reviewed | NO-GO | The 28 August pre-candidate readback found zero open dependency-update pull requests, Dependabot alerts, private advisories, secret alerts or CodeQL-origin alerts. Six Scorecard SARIF findings remain recorded; the signed main result was 8.3 and passed every release threshold. Repeat against the frozen candidate. |
 | Fresh install, supported upgrade, rollback and uninstall pass | NO-GO | Not recorded |
 | Three independent adopter reports are accepted | NO-GO | 0/3 |
 | Provider, runtime, scale and terminal claims match evidence | NO-GO | Not recorded |
@@ -96,7 +96,7 @@ widen a provider-support claim by itself.
 | Decision timestamp | Not recorded |
 | Primary decision and evidence link | Not recorded |
 | Backup review and evidence link | Not recorded |
-| Remaining blockers | V1-B01, V1-B02, V1-B04, V1-B05, V1-B06 and V1-B08; V1-B03 and V1-B07 are closed at the pre-candidate readback |
+| Remaining blockers | V1-B02, V1-B05, V1-B06 and V1-B08; V1-B01, V1-B03, V1-B04 and V1-B07 are closed at the pre-candidate readback |
 | Exact annotated tag approved | No |
 | Publication approved | No |
 | Rollback target | Not recorded |
@@ -116,6 +116,6 @@ Complete this section before changing the final decision.
 | --- | --- | --- | --- |
 | Release observation | Danushka Stanley | `@legolas296` | Not recorded |
 | Vulnerability response | Danushka Stanley | `@legolas296` | [Security policy](../SECURITY.md) and [maintainer operations](security/maintainer-operations.md); live readiness not recorded |
-| Dependency and Scorecard review | Danushka Stanley | `@legolas296` | [Repository security policy](repository-security.md); pre-candidate queue and signed 8.2 Scorecard readback completed on 28 August 2026, candidate readback not recorded |
+| Dependency and Scorecard review | Danushka Stanley | `@legolas296` | [Repository security policy](repository-security.md); pre-candidate queue and signed 8.3 Scorecard readback completed on 28 August 2026, candidate readback not recorded |
 | Rollback decision | Danushka Stanley | `@legolas296` | [Release rollback process](release-process.md); candidate target not recorded |
 | Adopter follow-up | Danushka Stanley | `@legolas296` | [Community feedback policy](community-feedback.md); reports not recorded |

@@ -4,7 +4,7 @@ Status: **NO-GO for RC; NO-GO for stable v1**
 
 Snapshot date: 28 August 2026
 
-Preparation baseline: `1d81e1551772b84307dc7c32c7302fe33db459c2`
+Preparation baseline: `a897b962b2fc5772804eac93d7b7c44359d4c51c`
 
 This register maps the PROD-012 release gates to evidence that can be reviewed
 from the repository. It is a preparation record, not approval to create a tag,
@@ -67,7 +67,7 @@ verification.
 
 | Gate | Phase | State | Evidence needed to close |
 | --- | --- | --- | --- |
-| Dependency implementation and earlier evidence reviewed | Pre-candidate | Complete at snapshot | The PROD-010 candidate machinery and dependency queue were reviewed and merged through PRs #38 to #41. The deferred PROD-011 OpenSSF result remains separately tracked by V1-B01; the real candidate run remains candidate-stage evidence, not a prerequisite for itself. |
+| Dependency implementation and earlier evidence reviewed | Pre-candidate | Complete at snapshot | The PROD-010 candidate machinery and dependency queue were reviewed and merged through PRs #38 to #41. OpenSSF project 14259 now has a verified Passing result and V1-B01 is closed. The real candidate run remains candidate-stage evidence, not a prerequisite for itself. |
 | No existing P0/P1 blocker remains | Pre-candidate | Blocked | Close the pre-candidate items below and repeat the live issue, advisory, code-scanning, secret and dependency queue readback. |
 | Claims and limitations are ready | Pre-candidate | Complete at snapshot | Kubernetes 1.37 GA, the current supported minor window, provider rows, terminal rows, scale wording, the [support contract](compatibility.md), [installation guide](installation.md), [README](../README.md) and [security policy](../SECURITY.md) are reconciled. No provider qualification was rerun or widened. Repeat the claim audit against the frozen candidate. |
 | RC approval names the exact tag | Pre-candidate | Not approved | Close every pre-candidate blocker, then obtain fresh explicit approval for the exact annotated RC tag and candidate publication. |
@@ -81,9 +81,9 @@ verification.
 
 ## Blocker register
 
-Open blockers have no waiver path. V1-B01 and V1-B04 must close before fresh
-approval is sought for the RC under V1-B08. V1-B03 and V1-B07 are closed at
-this pre-candidate snapshot but must be re-read against the frozen candidate.
+Open blockers have no waiver path. V1-B01 and V1-B04 are closed at this
+pre-candidate snapshot. V1-B03 and V1-B07 are also closed at this snapshot but
+must be re-read against the frozen candidate.
 V1-B02 starts after candidate publication; V1-B05 and V1-B06 require
 candidate-bound execution evidence. Stable v1 remains blocked until every
 remaining blocker closes. If a requirement changes, record the product
@@ -91,13 +91,13 @@ decision and update the release contract before asking for go/no-go review.
 
 | ID | Severity | Blocker | Evidence | Required closure |
 | --- | --- | --- | --- | --- |
-| V1-B01 | P0 | OpenSSF Best Practices project 14259 remains `in_progress`. Submission is deferred until the public domain is live, so the required Passing result is absent. | [OpenSSF baseline](security/openssf-baseline.md), [Passing assessment](security/openssf-passing-assessment.md), [repository thresholds](repository-security.md) | Put the public site live, add it to project 14259, obtain explicit submission approval, submit the evidence-backed answers, verify the public Passing result and record it. |
+| V1-B01 | P0 | **Closed at the pre-candidate readback.** [KubeMemLens.com](https://kubememlens.com) is live, project 14259 records it as the homepage, and the public OpenSSF Best Practices record reached `passing` at `2026-08-28T13:50:42.757Z`. The 100% Passing result is a project self-assessment and retains three suggested `Unmet` criteria. | [OpenSSF baseline](security/openssf-baseline.md), [Passing assessment](security/openssf-passing-assessment.md), [public Passing record](https://www.bestpractices.dev/en/projects/14259/passing) | Re-read the public result against the frozen candidate and reopen this blocker if the level regresses or the answers no longer match repository evidence. |
 | V1-B02 | P0 | No independent adopter has submitted candidate evidence. The live `adopter-feedback` issue readback returned 0 reports, against a requirement of 3. This is a post-candidate, pre-GA blocker. | [Feedback policy](community-feedback.md), [adopter form](../.github/ISSUE_TEMPLATE/adopter_feedback.yml) | Publish the authorised immutable candidate first, then obtain and privacy-review three reports that identify it and cover installation, useful diagnostic output, upgrade or rollback, and uninstall. |
-| V1-B03 | P0 | **Closed at the pre-candidate readback.** Kubernetes 1.35.5, 1.36.1 and 1.37.0 passed on merged main commit `1d81e1551772b84307dc7c32c7302fe33db459c2` in [CI run 33105669045](https://github.com/danushkastanley/KubeMemLens/actions/runs/33105669045). The support contract and checksum-pinned matrix cover the current upstream-supported window without widening or rerunning provider claims. | [CI matrix](../.github/workflows/ci.yml), [compatibility policy](compatibility.md), [release gate](release-process.md), [upstream release page](https://kubernetes.io/releases/) | Re-read the three lanes against the frozen candidate and reopen this blocker if a required lane, pin or claim changes. Provider evidence remains limited to its recorded versions. |
-| V1-B04 | P1 | The repository ProjectV2 state cannot be audited with the current GitHub token. Repository `projectsV2` queries fail because the token lacks `read:project`. | [Public roadmap](roadmap.md) | Refresh the GitHub CLI token with `read:project`, read the repository project and reconcile every release-blocking item with this register. Do not infer an empty project from an unreadable response. |
+| V1-B03 | P0 | **Closed at the pre-candidate readback.** Kubernetes 1.35.5, 1.36.1 and 1.37.0 passed on merged main commit `a897b962b2fc5772804eac93d7b7c44359d4c51c` in [CI run 33111267174](https://github.com/danushkastanley/KubeMemLens/actions/runs/33111267174). The support contract and checksum-pinned matrix cover the current upstream-supported window without widening or rerunning provider claims. | [CI matrix](../.github/workflows/ci.yml), [compatibility policy](compatibility.md), [release gate](release-process.md), [upstream release page](https://kubernetes.io/releases/) | Re-read the three lanes against the frozen candidate and reopen this blocker if a required lane, pin or claim changes. Provider evidence remains limited to its recorded versions. |
+| V1-B04 | P1 | **Closed at the pre-candidate readback.** An authenticated repository `projectsV2(first: 20)` query returned `totalCount: 0` and an empty node list on 28 August 2026. There is no hidden ProjectV2 queue to reconcile; release blockers remain in this register and the public roadmap. | [Public roadmap](roadmap.md), [this blocker register](#blocker-register) | Repeat the authenticated query before the exact candidate decision. A newly created project or release-blocking item reopens this blocker. |
 | V1-B05 | P0 | The exact RC-to-v1 promotion controls are implemented but unexercised. The candidate workflow creates prospective stable bytes in version-scoped candidate repositories, and the separate stable workflow is statically prohibited from rebuilding them. No signed candidate manifest or post-copy equality result exists yet. | [Candidate workflow](../.github/workflows/candidate.yml), [promotion workflow](../.github/workflows/promote.yml), [manifest validator](../hack/release/validate_candidate_manifest.sh), [release process](release-process.md) | Run the authorised candidate workflow, publish the reviewed prerelease, then prove that promotion reuses every archive byte and preserves the image and chart digests before changing this blocker. |
 | V1-B06 | P0 | Deterministic build controls are implemented but have no candidate-bound run. GoReleaser uses commit-time metadata, chart packaging normalises order and metadata, and the candidate workflow compares two archive, image and chart builds. | [GoReleaser configuration](../.goreleaser.yml), [deterministic chart packager](../hack/release/package_chart.py), [candidate workflow](../.github/workflows/candidate.yml) | Record matching archive checksums, image digest and chart package checksum from the authorised candidate workflow. Treat any mismatch as a blocker; do not waive or rebuild around it. |
-| V1-B07 | P1 | **Closed at the pre-candidate readback.** PR #38 superseded #34; #39 superseded #27, #33, #35 and #36; #40 superseded #28 through #32; and #41 superseded #26. This leaves zero open dependency-update pull requests and zero open Dependabot alerts. The signed [Scorecard run 33105669019](https://github.com/danushkastanley/KubeMemLens/actions/runs/33105669019) scored 8.2 on merged commit `1d81e1551772b84307dc7c32c7302fe33db459c2`; every release-threshold check passed, Code-Review improved to 5, and `govulncheck` v1.7.0 reported zero reachable vulnerabilities. | [Dependabot policy](../.github/dependabot.yml), [Scorecard workflow](../.github/workflows/scorecard.yml), [OpenSSF baseline](security/openssf-baseline.md), [queue policy](repository-security.md) | Repeat the pull-request, advisory, dependency, secret, code-scanning and Scorecard readback against the frozen candidate. Any threshold or reachability regression reopens this blocker. |
+| V1-B07 | P1 | **Closed at the pre-candidate readback.** PR #38 superseded #34; #39 superseded #27, #33, #35 and #36; #40 superseded #28 through #32; and #41 superseded #26. This leaves zero open dependency-update pull requests and zero open Dependabot alerts. The signed [Scorecard run 33111267079](https://github.com/danushkastanley/KubeMemLens/actions/runs/33111267079) scored 8.3 on merged commit `a897b962b2fc5772804eac93d7b7c44359d4c51c`; every release-threshold check passed, Code-Review remained 5, and `govulncheck` v1.7.0 reported zero reachable vulnerabilities. | [Dependabot policy](../.github/dependabot.yml), [Scorecard workflow](../.github/workflows/scorecard.yml), [OpenSSF baseline](security/openssf-baseline.md), [queue policy](repository-security.md) | Repeat the pull-request, advisory, dependency, secret, code-scanning and Scorecard readback against the frozen candidate. Any threshold or reachability regression reopens this blocker. |
 | V1-B08 | P0 | No release tag or publication is authorised. This preparation branch does not grant that authority. RC and stable publication require separate fresh approvals. | [Release process](release-process.md), [tag validator](../hack/release/validate_tag.sh) | Close the pre-candidate blockers before seeking exact RC approval. After candidate and adopter evidence passes, complete the go/no-go record and obtain separate approval for the exact stable tag and publication. |
 
 ## Point-in-time live readback
@@ -113,11 +113,11 @@ copying this snapshot into the final decision.
 | Dependabot security alerts | 0 open | Re-read reachability before go/no-go. |
 | Private security advisories | 0 open drafts | Re-read before go/no-go; closed synthetic drills are not findings. |
 | Secret-scanning alerts | 0 open | Re-read before go/no-go. |
-| Code-scanning alerts | 6 open Scorecard SARIF findings; 0 CodeQL-origin findings | Branch-Protection 8, Vulnerabilities 7, Fuzzing 0, SAST 8, Code-Review 5 and CII-Best-Practices 2 are recorded policy gaps or signals, not six source-code vulnerabilities. |
-| Repository ProjectV2 | Unreadable with the current token because `read:project` is absent | V1-B04 remains open. |
-| Accepted published Scorecard | 8.2 in [run 33105669019](https://github.com/danushkastanley/KubeMemLens/actions/runs/33105669019) on merged commit `1d81e1551772b84307dc7c32c7302fe33db459c2` | The [recorded thresholds](repository-security.md) passed. The result closes the current Scorecard portion of V1-B07 but does not close OpenSSF Best Practices. |
-| Merged-main CI and CodeQL | [CI run 33105669045](https://github.com/danushkastanley/KubeMemLens/actions/runs/33105669045) and [CodeQL run 33105668988](https://github.com/danushkastanley/KubeMemLens/actions/runs/33105668988) passed on `1d81e1551772b84307dc7c32c7302fe33db459c2` | Retain as pre-candidate evidence; repeat or confirm it for the frozen candidate. |
-| OpenSSF Best Practices | Project 14259 is `in_progress` | V1-B01 remains open. |
+| Code-scanning alerts | 6 open Scorecard SARIF findings; 0 CodeQL-origin findings | Branch-Protection 8, Vulnerabilities 7, Fuzzing 0, SAST 9, Code-Review 5 and CII-Best-Practices 2 are recorded policy gaps or signals, not six source-code vulnerabilities. |
+| Repository ProjectV2 | Authenticated query returned `totalCount: 0` and no nodes | V1-B04 is closed at this snapshot; repeat before the exact candidate decision. |
+| Accepted published Scorecard | 8.3 in [run 33111267079](https://github.com/danushkastanley/KubeMemLens/actions/runs/33111267079) on merged commit `a897b962b2fc5772804eac93d7b7c44359d4c51c` | The [recorded thresholds](repository-security.md) passed. The result remains a signal rather than certification. |
+| Merged-main CI and CodeQL | [CI run 33111267174](https://github.com/danushkastanley/KubeMemLens/actions/runs/33111267174) and [CodeQL run 33111267110](https://github.com/danushkastanley/KubeMemLens/actions/runs/33111267110) passed on `a897b962b2fc5772804eac93d7b7c44359d4c51c` | Retain as pre-candidate evidence; repeat or confirm it for the frozen candidate. |
+| OpenSSF Best Practices | Project 14259 is `passing`; the required Passing criteria report 100% | V1-B01 is closed at this snapshot. The self-assessment retains three suggested `Unmet` criteria. |
 
 ## Candidate and stable evidence bundle
 
@@ -138,8 +138,9 @@ The authorised candidate run must first record:
 After candidate publication, append three privacy-reviewed adopter summaries
 and the completed [go/no-go record](v1-go-no-go.md), including separate fresh
 approval for the exact stable tag. The current pre-candidate decision remains
-**NO-GO** because V1-B01, V1-B04 and the RC approval in V1-B08 are open.
-V1-B03 and V1-B07 are closed only for the current pre-candidate snapshot and
-must be re-read after the candidate is frozen. The 0/3 adopter count does not
-contribute to the RC decision. Stable v1 remains **NO-GO** until every remaining
-item is linked and reviewed.
+**NO-GO** because fresh approval naming the exact RC tag and candidate
+publication is not recorded under V1-B08. V1-B01, V1-B03, V1-B04 and V1-B07
+are closed only for the current pre-candidate snapshot and must be re-read after
+the candidate is frozen. The 0/3 adopter count does not contribute to the RC
+decision. Stable v1 remains **NO-GO** until every remaining item is linked and
+reviewed.

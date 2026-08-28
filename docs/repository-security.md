@@ -78,6 +78,7 @@ These are project operating checks. They do not promise a response time to users
 
 This is a point-in-time record. CODEOWNER enforcement is active and the `main`
 ruleset has no bypass actor. Release tags and the protected release environment
-remain separately protected. The latest signed Scorecard result is 8.2.
-`make check-community-settings` remains the final live gate after the OpenSSF
-Best Practices result is active.
+remain separately protected. The latest signed Scorecard result is 8.3, and
+OpenSSF Best Practices project 14259 has a verified Passing self-assessment.
+`make check-community-settings` remains the final live gate for an exact
+candidate decision.
