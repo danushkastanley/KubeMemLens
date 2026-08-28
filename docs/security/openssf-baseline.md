@@ -19,14 +19,15 @@ local OpenSSF Scorecard v5.5.0 run against merged commit `9bdd0aa` on 27 August
 2026 established an overall baseline of 6.1. The first accepted published run
 used merged commit `11dda186`, scored 8.0, and passed the release thresholds.
 The latest accepted signed run used merged commit
-`a897b962b2fc5772804eac93d7b7c44359d4c51c`, scored 8.3, and also passed every
-release threshold. The pinned, least-privilege workflow runs on `main` and
+`1f88026cca474b93739d3d7144014e4861d9cbad` and scored 8.3. Its Vulnerabilities
+check regressed to 6, below the required threshold of 7, after a fourth
+dependency advisory appeared. The pinned, least-privilege workflow runs on `main` and
 weekly, publishes the signed result, retains SARIF for five days, and uploads
 findings to GitHub code scanning.
 
 Accepted workflow: <https://github.com/danushkastanley/KubeMemLens/actions/runs/33079572322>
 
-Latest accepted workflow: <https://github.com/danushkastanley/KubeMemLens/actions/runs/33111267079>
+Latest accepted workflow: <https://github.com/danushkastanley/KubeMemLens/actions/runs/33186603491>
 
 | Release check | Local baseline | First published | Latest main | Reason |
 |---|---:|---:|---:|---|
@@ -34,27 +35,27 @@ Latest accepted workflow: <https://github.com/danushkastanley/KubeMemLens/action
 | Token-Permissions | 10 | 10 | 10 | Workflow tokens follow least privilege |
 | Dangerous-Workflow | 10 | 10 | 10 | No dangerous workflow pattern detected |
 | Pinned-Dependencies | 10 | 10 | 10 | All workflow dependencies are pinned by full commit SHA |
-| Vulnerabilities | 7 | 7 | 7 | Three dependency advisories remain unreachable; `govulncheck` found zero affected symbols |
+| Vulnerabilities | 7 | 7 | 6 | Scorecard records four dependency advisories. The accepted merged-main `govulncheck` run detected three and found zero affected symbols; `GO-2026-6303` remains separately untriaged |
 | Signed-Releases | 8 | 8 | 8 | Both detected release artefacts have signed subjects |
 
 Other closure work from the local baseline is now visible in the published
-result: Dependency-Update-Tool is 10, SAST is 9, and Code-Review is 5 after five
-of the ten changesets sampled by Scorecard had independent approval. The
-Scorecard run predates the Passing submission and still records
-CII-Best-Practices as 2. These are transparent signals, not release-threshold
+result: Dependency-Update-Tool is 10, SAST is 9, CII-Best-Practices is 5, and
+Code-Review is 5 after six of the eleven changesets sampled by Scorecard had
+independent approval. These are transparent signals, not release-threshold
 waivers.
 
-The three dependency results were `GO-2026-6094`, `GO-2026-6107`, and
-`GO-2026-5932`. `govulncheck v1.1.4 -show verbose ./...` reported zero affected
-symbols. The current Go 1.27 gate uses `govulncheck` v1.7.0 and reports the same
-zero-reachable result: two vulnerable imported packages are not called by
-KubeMemLens and the unmaintained `x/crypto/openpgp` package is not used. The
-dependency policy still requires review on every change in reachability or
-upstream guidance.
+The four Scorecard results are `GO-2026-6094`, `GO-2026-6107`,
+`GO-2026-5932`, and `GO-2026-6303`. The accepted merged-main Go 1.27 gate used
+`govulncheck` v1.7.0 and found zero affected symbols among the three findings it
+detected: two imported-package vulnerabilities and one required-module
+vulnerability. That run did not record `GO-2026-6303`; the new advisory remains
+separately untriaged. The zero-affected result does not waive the Scorecard
+threshold or advisory-count regression.
 
-The accepted merged run meets the thresholds in
-[`docs/repository-security.md`](../repository-security.md). Re-check the
-published result before release; do not infer a pass from a workflow file alone.
+The merged run does not meet the Vulnerabilities threshold in
+[`docs/repository-security.md`](../repository-security.md). V1-B07 is reopened
+until the new advisory is dispositioned and a signed result restores the
+required score. Do not infer a pass from overall score or workflow success.
 
 ## Best Practices Passing assessment
 
@@ -79,6 +80,6 @@ upgrade those suggested criteria or widen the release support contract.
 
 | Evidence | Result | Remaining action |
 |---|---|---|
-| Scorecard | Latest signed result is 8.3 for merged commit `a897b962b2fc5772804eac93d7b7c44359d4c51c`; all six release checks meet their thresholds | Re-check before each release and close regressions under the documented policy |
+| Scorecard | Latest signed result is 8.3 for merged commit `1f88026cca474b93739d3d7144014e4861d9cbad`; Vulnerabilities is 6 and fails the required threshold of 7 | Triage `GO-2026-6303`, restore the threshold, and retain the signed closure result before release |
 | Private reporting | Primary receipt and `@legolas296` backup handover passed through two closed synthetic advisories without publication, CVE or private fork | Repeat after a material reporting-policy or maintainer-access change |
 | Best Practices | Public project 14259 uses `https://kubememlens.com`, reports `passing`, and reached 100% of required Passing criteria on 28 August 2026 | Keep the public answers aligned with repository and live project evidence; do not describe the self-assessment as certification |
