@@ -22,6 +22,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ### Security
 
+- Updated `golang.org/x/crypto` and its coordinated `golang.org/x/*` module set to releases that address `GO-2026-6303`.
 - Expanded the threat model to cover shared-cluster authentication, delegated authorisation, agent token theft, replay, confused-deputy paths, certificate lifecycle and collector compromise.
 - Added an opt-in kind feasibility check for aggregation configuration, Pod-bound identity claims and least-privilege namespace, cluster, agent and metrics RBAC.
 - Removed the default plaintext ingestion Service port and added projected rotating tokens, exact delegated-auth RBAC and fail-closed ingestion diagnostics.
