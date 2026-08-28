@@ -126,6 +126,37 @@ jobs:
           grep -q 'version: "v0.0.0"' "$manifest"
           grep -q 'sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"' "$manifest"
 
+  fuzz:
+    name: Go fuzzing
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules with bounded retry
+        run: |
+          source hack/lib/retry.sh
+          retry_capture 3 5 go mod download >/dev/null
+
+      - name: Fuzz cgroup key-value parsing
+        run: go test ./internal/cgroup -run='^$' -fuzz='^FuzzParseCgroupKeyValues$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
+
+      - name: Fuzz memory-pressure parsing
+        run: go test ./internal/cgroup -run='^$' -fuzz='^FuzzParseMemoryPressure$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
+
+      - name: Fuzz scoped pagination
+        run: go test ./internal/collector -run='^$' -fuzz='^FuzzPaginateKeys$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
+
+      - name: Fuzz snapshot decoding
+        run: go test ./internal/collector -run='^$' -fuzz='^FuzzDecodeSnapshot$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
+
   security:
     name: Supply-chain checks
     runs-on: ubuntu-latest
