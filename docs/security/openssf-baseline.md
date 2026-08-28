@@ -19,7 +19,7 @@ local OpenSSF Scorecard v5.5.0 run against merged commit `9bdd0aa` on 27 August
 2026 established an overall baseline of 6.1. The first accepted published run
 used merged commit `11dda186`, scored 8.0, and passed the release thresholds.
 The latest accepted signed run used merged commit
-`d40ffe07dcc99eba8ee58c721d0f0370d8960c7a` and scored 8.9. Its Vulnerabilities
+`050115351a31066e7bb64d14591e25d013e8f323` and scored 8.9. Its Vulnerabilities
 check returned to the required score of 7 after `GO-2026-6303` was removed, and
 the native Go fuzz targets raised Fuzzing from 0 to 10. The pinned,
 least-privilege workflow runs on `main` and weekly, publishes the signed result,
@@ -27,11 +27,11 @@ retains SARIF for five days, and uploads findings to GitHub code scanning.
 
 Accepted workflow: <https://github.com/danushkastanley/KubeMemLens/actions/runs/33079572322>
 
-Latest accepted workflow: <https://github.com/danushkastanley/KubeMemLens/actions/runs/33192629650>
+Latest accepted workflow: <https://github.com/danushkastanley/KubeMemLens/actions/runs/33193569645>
 
 | Release check | Local baseline | First published | Latest main | Reason |
 |---|---:|---:|---:|---|
-| Branch-Protection | 0 | 8 | 8 | The accepted run observed the temporary pull-request-only repository-administrator bypass used for the authorised maintenance queue. That bypass was removed after the final readback PR merged; the ruleset otherwise requires one CODEOWNER approval, stale-review dismissal, last-push approval, resolved conversations and seven strict checks. Scorecard records the one-reviewer limitation. |
+| Branch-Protection | 0 | 8 | 8 | The final accepted run confirms that the ruleset has no bypass actor and applies to administrators. It requires one CODEOWNER approval, stale-review dismissal, last-push approval, resolved conversations and seven strict checks. Scorecard records only the one-reviewer limitation. |
 | Token-Permissions | 10 | 10 | 10 | Workflow tokens follow least privilege |
 | Dangerous-Workflow | 10 | 10 | 10 | No dangerous workflow pattern detected |
 | Pinned-Dependencies | 10 | 10 | 10 | All workflow dependencies are pinned by full commit SHA |
@@ -76,6 +76,6 @@ upgrade those suggested criteria or widen the release support contract.
 
 | Evidence | Result | Remaining action |
 |---|---|---|
-| Scorecard | Latest signed result is 8.9 for merged commit `d40ffe07dcc99eba8ee58c721d0f0370d8960c7a`; Vulnerabilities is 7, Fuzzing is 10 and SAST is 10 | Retain this signed pre-candidate result and repeat the queue readback against the frozen candidate |
+| Scorecard | Latest signed result is 8.9 for merged commit `050115351a31066e7bb64d14591e25d013e8f323`; Vulnerabilities is 7, Fuzzing is 10 and SAST is 10 | Retain this signed pre-candidate result and repeat the queue readback against the frozen candidate |
 | Private reporting | Primary receipt and `@legolas296` backup handover passed through two closed synthetic advisories without publication, CVE or private fork | Repeat after a material reporting-policy or maintainer-access change |
 | Best Practices | Public project 14259 uses `https://kubememlens.com`, reports `passing`, and reached 100% of required Passing criteria on 28 August 2026 | Keep the public answers aligned with repository and live project evidence; do not describe the self-assessment as certification |

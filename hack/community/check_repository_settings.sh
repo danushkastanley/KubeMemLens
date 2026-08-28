@@ -173,7 +173,7 @@ jq -e '
 }
 
 best_practices_line=$(rg '^Best Practices project: ' docs/security/openssf-baseline.md)
-best_practices_id=$(sed -E 's#.*bestpractices\.dev/projects/([0-9]+).*#\1#' <<<"$best_practices_line")
+best_practices_id=$(sed -nE 's#^Best Practices project: https://www\.bestpractices\.dev/(en/)?projects/([0-9]+)(/passing)?$#\2#p' <<<"$best_practices_line")
 if [[ -z "$best_practices_id" || "$best_practices_id" == "$best_practices_line" ]]; then
   echo 'OpenSSF baseline does not record the Best Practices project URL' >&2
   exit 1
