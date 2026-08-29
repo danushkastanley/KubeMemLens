@@ -60,7 +60,9 @@ require_text "${candidate_workflow}" 'package_chart.py'
 require_text "${candidate_workflow}" 'publish_candidate.sh'
 require_text "${candidate_workflow}" 'verify_candidate.sh'
 require_text "${candidate_workflow}" 'name: release'
+# shellcheck disable=SC2016 # Workflow variables are matched literally.
 require_text "${candidate_workflow}" 'candidates/${CANDIDATE_VERSION}/charts/kube-memlens'
+# shellcheck disable=SC2016 # Workflow variables are matched literally.
 require_text "${candidate_workflow}" 'candidates/${CANDIDATE_VERSION}/kube-memlens'
 require_text "${promotion_workflow}" 'workflow_dispatch:'
 require_text "${promotion_workflow}" 'name: Copy exact candidate subjects'
