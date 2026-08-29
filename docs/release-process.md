@@ -57,7 +57,9 @@ reviewed `main` commit. The stable tag must not exist yet. After every
 pre-candidate blocker closes and fresh approval names that exact RC tag,
 dispatch `.github/workflows/candidate.yml` from the RC tag and pass the same tag
 as `candidate_tag`. The workflow derives the intended stable identity
-`vX.Y.Z` from `vX.Y.Z-rc.N` and:
+`vX.Y.Z` from `vX.Y.Z-rc.N`, creates that prospective stable tag only inside
+the credential-free build runner so GoReleaser can validate the intended
+identity, and:
 
 - builds prospective `vX.Y.Z` CLI archives twice and compares all six SHA-256 values;
 - builds the multi-architecture image twice with a pinned BuildKit, commit-time metadata, `SOURCE_DATE_EPOCH`, timestamp rewriting and no digest-changing inline attestations, then requires identical OCI digests;
