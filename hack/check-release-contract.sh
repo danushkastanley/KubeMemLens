@@ -88,6 +88,15 @@ require_text "${candidate_publish_workflow}" 'workflow_dispatch:'
 require_text "${candidate_publish_workflow}" 'name: Validate and publish exact candidate draft'
 require_text "${candidate_publish_workflow}" 'name: release'
 require_text "${candidate_publish_workflow}" 'persist-credentials: false'
+# shellcheck disable=SC2016 # Workflow variables are matched literally.
+require_text "${candidate_publish_workflow}" 'test "$GITHUB_REF" = "refs/heads/main"'
+# shellcheck disable=SC2016 # Workflow variables are matched literally.
+require_text "${candidate_publish_workflow}" 'test "$GITHUB_REF_PROTECTED" = "true"'
+require_text "${candidate_publish_workflow}" '^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc\.[1-9][0-9]*$'
+# shellcheck disable=SC2016 # Workflow command substitution is matched literally.
+require_text "${candidate_publish_workflow}" 'release_commit=$(git rev-parse HEAD)'
+# shellcheck disable=SC2016 # Workflow variables are matched literally.
+require_text "${candidate_publish_workflow}" 'echo "RELEASE_COMMIT=${release_commit}" >> "$GITHUB_ENV"'
 require_text "${candidate_publish_workflow}" 'publish_candidate_draft.sh'
 require_text "${candidate_draft_publisher}" 'gh api --method PATCH'
 require_text "${candidate_draft_publisher}" "'{draft: false, prerelease: true}'"

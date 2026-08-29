@@ -10,7 +10,7 @@ of truth for live settings.
 |---|---|
 | `main` | Ruleset targets `refs/heads/main`; pull request required; required CI checks pass; force push and deletion blocked; review conversations resolved |
 | Release tags | Active ruleset targets `refs/tags/v*`; creation, update, deletion, and non-fast-forward changes restricted to the release operator path |
-| Release environment | Tag policy `v*`; primary and backup review ownership; self-review and ordinary admin bypass disabled where GitHub supports it |
+| Release environment | Tag policy `v*` plus protected branch policy `main` for candidate-draft publication; primary and backup review ownership; self-review and ordinary admin bypass disabled where GitHub supports it |
 | Actions | Default workflow token permission is read-only; workflows grant scoped job permissions; actions are pinned by full commit SHA |
 | Vulnerability reporting | Private vulnerability reporting enabled; synthetic drill closed privately without publication or CVE request |
 | Dependencies | Dependabot security updates enabled; bounded weekly Go, Actions, and Docker update configuration; no automatic merge |
@@ -69,7 +69,7 @@ These are project operating checks. They do not promise a response time to users
 | Control | Readback |
 |---|---|
 | `main` ruleset | Targets `refs/heads/main`; one independent CODEOWNER approval is required, with stale-review dismissal, last-push separation, resolved conversations, strict CI and CodeQL checks, deletion protection, and force-push protection active. The temporary pull-request-only repository-administrator bypass used for the explicitly authorised maintenance queue was removed after the final readback PR merged. |
-| Release tags and environment | `refs/tags/v*` restrictions and the tag-only environment policy are active; `@danushkastanley` and `@legolas296` are reviewers; self-review and admin bypass are disabled |
+| Release tags and environment | `refs/tags/v*` restrictions are active; the environment admits `v*` tags plus protected `main` for candidate-draft publication; `@danushkastanley` and `@legolas296` are reviewers; self-review and admin bypass are disabled |
 | Workflow token | Default `read`; workflows cannot approve pull requests |
 | Vulnerability reporting | Enabled; primary drill `GHSA-9r58-62g3-2v7p` and backup-handover drill `GHSA-wfhm-45q5-8jf6` closed privately without a CVE, private fork, or publication |
 | Dependencies and secrets | Dependabot security updates, secret scanning, and push protection enabled; zero open Dependabot or secret-scanning alerts at readback |
