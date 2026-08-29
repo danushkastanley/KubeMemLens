@@ -2,8 +2,8 @@ apiVersion: v2
 name: kube-memlens
 description: Terminal-first Kubernetes memory inspector components
 type: application
-version: 0.0.1-alpha.3
-appVersion: "0.0.1-alpha.3"
+version: 1.0.0
+appVersion: "1.0.0"
 home: https://github.com/danushkastanley/KubeMemLens
 sources:
   - https://github.com/danushkastanley/KubeMemLens
@@ -15,7 +15,7 @@ annotations:
   artifacthub.io/category: monitoring-logging
   artifacthub.io/images: |
     - name: kube-memlens
-      image: ghcr.io/danushkastanley/kube-memlens:0.0.1-alpha.3
+      image: ghcr.io/danushkastanley/kube-memlens:1.0.0
   artifacthub.io/links: |
     - name: Source
       url: https://github.com/danushkastanley/KubeMemLens

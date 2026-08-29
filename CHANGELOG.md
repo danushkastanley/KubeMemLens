@@ -4,8 +4,11 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+## 1.0.0 - candidate frozen as v1.0.0-rc.1 on 2026-08-29
+
 ### Added
 
+- Froze prospective `v1.0.0` artefacts under the `v1.0.0-rc.1` candidate identity for no-rebuild stable promotion after adopter and go/no-go evidence passes.
 - Added bounded native Go fuzzing for cgroup parsing, tenant-scoped pagination and snapshot decoding, with a dedicated pull-request and `main` CI job.
 
 ### Changed
@@ -34,6 +37,23 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Added a disposable-cluster adversarial isolation gate covering direct reachability, NetworkPolicy removal, delegated-authorisation failure, denial timing, bounded read abuse, least privilege and retained-evidence privacy.
 - Bound agent operational metrics to loopback and sanitised cgroup scan failures so node-local density and runtime identifiers do not escape through the Pod network or logs.
 - Protected `v*` release tags and the reviewed release environment, enabled immutable GitHub releases, and removed persisted write credentials from the publication checkout.
+
+### Upgrade
+
+- Remove retired pre-v1 Helm values before upgrading. Do not use `--reuse-values` across this boundary; render reviewed current values or use Helm's reset-values path.
+- Expect one collector restart and loss of its in-memory snapshots, recent history and event-delta baselines. The new generation reports `rebuilding` until agents post fresh evidence.
+- Grant the unbound namespace-viewer, cluster-viewer and metrics-reader roles explicitly. The chart does not choose users or service accounts on the operator's behalf.
+
+### Rollback
+
+- In a shared cluster, roll back only to a revision that retains authenticated ingestion and delegated reads. If that boundary cannot be restored, disable KubeMemLens instead of restoring `v0.0.1-alpha.3`.
+- The chart has no CRDs, persistent volumes or data migration. Helm rollback restores workloads and configuration but cannot restore discarded in-memory evidence.
+
+### Known limitations
+
+- The collector is one best-effort in-memory replica. High availability and durable history remain deferred.
+- Standard AKS, GKE Autopilot, EKS Fargate, AKS virtual nodes, Windows workers and cgroup v1 remain unsupported for deep mode. Provider support never extends beyond the recorded environment versions.
+- macOS terminal emulators remain unqualified. The recorded Linux terminal rows and local 5,000-container result do not imply broader terminal or managed-provider scale coverage.
 
 ## 0.0.1-alpha.3 - 2026-08-22
 

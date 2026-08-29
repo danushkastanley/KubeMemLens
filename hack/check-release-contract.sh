@@ -13,6 +13,7 @@ candidate_manifest=hack/release/validate_candidate_manifest.sh
 candidate_publisher=hack/release/publish_candidate.sh
 promotion=hack/release/promote_candidate.sh
 candidate_draft_publisher=hack/release/publish_candidate_draft.sh
+release_process=docs/release-process.md
 
 require_text() {
   local file=$1 text=$2
@@ -59,6 +60,8 @@ require_text "${candidate_workflow}" 'package_chart.py'
 require_text "${candidate_workflow}" 'publish_candidate.sh'
 require_text "${candidate_workflow}" 'verify_candidate.sh'
 require_text "${candidate_workflow}" 'name: release'
+require_text "${candidate_workflow}" 'candidates/${CANDIDATE_VERSION}/charts/kube-memlens'
+require_text "${candidate_workflow}" 'candidates/${CANDIDATE_VERSION}/kube-memlens'
 require_text "${promotion_workflow}" 'workflow_dispatch:'
 require_text "${promotion_workflow}" 'name: Copy exact candidate subjects'
 require_text "${promotion_workflow}" 'promote_candidate.sh'
@@ -75,6 +78,7 @@ require_text "${candidate_manifest}" 'candidate and intended GA tags do not shar
 require_text "${candidate_publisher}" 'candidate-manifest.sigstore.json'
 require_text "${promotion}" 'oras cp --recursive'
 require_text "${promotion}" 'candidate and GA tags do not target the same commit'
+require_text "${release_process}" 'release evidence issue #50'
 test -f hack/release/candidate-manifest.schema.json
 test -x hack/release/install_oras.sh
 test -x hack/release/package_chart.py

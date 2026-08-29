@@ -33,7 +33,7 @@ gh api repos/danushkastanley/KubeMemLens/actions/permissions/workflow
 ## OpenSSF thresholds
 
 The scheduled Scorecard workflow publishes a signed result and uploads SARIF to
-GitHub code scanning. Before v1:
+GitHub code scanning. For v1 and every later supported release:
 
 - the overall Scorecard must be at least 7.0;
 - Branch-Protection, Token-Permissions, Dangerous-Workflow,

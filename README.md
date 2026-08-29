@@ -16,23 +16,41 @@ The goal is to make incidents like "kubectl top says memory is high, but the app
 
 ## Status
 
-KubeMemLens is in alpha. `v0.0.1-alpha.3` is intended for evaluation on disposable or explicitly authorised clusters and does not carry a production stability or support guarantee. The published alpha is not suitable for shared multi-tenant clusters. Current `main` authenticates node-bound writes and tenant-scoped reads through the Kubernetes aggregation layer and has passed the local adversarial isolation gate; provider-specific claims remain limited to the exact reviewed combinations below. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI uses the caller's kubeconfig and the aggregated API by default. Conservative Prometheus/OpenMetrics output is available through a separately authorised metrics resource.
+`v1.0.0-rc.1` is the approved immutable candidate for `v1.0.0`. The candidate is a prerelease for evaluation on disposable or explicitly authorised clusters, not a production stability or support guarantee. Stable `v1.0.0`, when published, reuses the candidate's exact archives, image digest and chart digest without rebuilding them. The v1 code authenticates node-bound writes and tenant-scoped reads through the Kubernetes aggregation layer and has passed the local adversarial isolation gate. The legacy `v0.0.1-alpha.3` release is not suitable for shared multi-tenant clusters. Provider claims remain limited to the exact reviewed combinations below. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI uses the caller's kubeconfig and the aggregated API by default. Conservative Prometheus/OpenMetrics output is available through a separately authorised metrics resource.
 
-The required lifecycle gate targets the current upstream-supported Kubernetes 1.35, 1.36 and 1.37 minors. A v1 candidate remains NO-GO until all three lanes pass on its frozen commit. The [local `rc-5000` result](docs/qualification-results/rc-5000-local-kind-2026-08-26.md) passed for 5,000 containers over 30 minutes on the recorded four-Node kind `v1.35.5` environment. The one-time [provider/runtime qualification record](docs/qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md) supports the exact recorded GKE Standard, EKS managed-node, self-managed containerd and CRI-O combinations. Standard AKS, GKE Autopilot, EKS Fargate, AKS virtual nodes, Windows nodes and cgroup v1 are unsupported for that candidate. This evidence is historical and version-bound; its freshness date is advisory rather than a recurring release gate. Configured store ceilings above the measured profile remain rejection bounds, not live-scale claims.
+The required lifecycle gate targets the current upstream-supported Kubernetes 1.35, 1.36 and 1.37 minors. All three lanes must pass on the frozen candidate commit. The [local `rc-5000` result](docs/qualification-results/rc-5000-local-kind-2026-08-26.md) passed for 5,000 containers over 30 minutes on the recorded four-Node kind `v1.35.5` environment. The one-time [provider/runtime qualification record](docs/qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md) supports the exact recorded GKE Standard, EKS managed-node, self-managed containerd and CRI-O combinations. Standard AKS, GKE Autopilot, EKS Fargate, AKS virtual nodes, Windows nodes and cgroup v1 are unsupported for deep mode. This evidence is historical and version-bound; its freshness date is advisory rather than a recurring release gate. Configured store ceilings above the measured profile remain rejection bounds, not live-scale claims.
 
-## Install the alpha
+## Install candidate or stable
 
-Use the exact alpha version. Review the [installation guide](docs/installation.md), [support and compatibility contract](docs/compatibility.md), and [release assets](https://github.com/danushkastanley/KubeMemLens/releases) before installing it.
+### Candidate prerelease
+
+Use the version-scoped candidate repository and exact prospective stable chart version. Review the [installation guide](docs/installation.md), [support and compatibility contract](docs/compatibility.md), and [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) before installing it.
+
+```sh
+helm upgrade --install kube-memlens \
+  oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.1/charts/kube-memlens \
+  --version 1.0.0 \
+  --namespace kube-memlens \
+  --create-namespace \
+  --set-string image.repository=ghcr.io/danushkastanley/candidates/1.0.0-rc.1/kube-memlens \
+  --set-string image.digest=<complete-.image.digest-value-from-candidate-manifest.json>
+```
+
+The candidate chart uses prospective stable metadata but the candidate workflow publishes it only under the version-scoped candidate repository. Candidate installs must override both the image repository and digest with the values in the signed `candidate-manifest.json`. The digest value already includes its `sha256:` prefix. `release-subjects.txt` records the same immutable image and chart subjects.
+
+### Stable release
+
+The production repositories become valid only when GitHub lists `v1.0.0` as a
+published stable release:
 
 ```sh
 helm upgrade --install kube-memlens \
   oci://ghcr.io/danushkastanley/charts/kube-memlens \
-  --version 0.0.1-alpha.3 \
+  --version 1.0.0 \
   --namespace kube-memlens \
-  --create-namespace
+  --create-namespace \
+  --set-string image.digest=<complete-promoted-image-digest>
 ```
-
-The chart uses the version-aligned release image by default. Qualification and policy-controlled installs should pin the image digest recorded in `release-subjects.txt`.
 
 ## TUI 2.0
 
@@ -236,7 +254,7 @@ Run the dashboard:
 go run ./cmd/kubectl-memlens tui
 ```
 
-Future installed usage:
+Installed usage:
 
 ```sh
 kubectl memlens tui
@@ -365,7 +383,7 @@ See the [tenant-scoped read runbook](docs/runbooks/tenant-scoped-reads.md) for e
 
 ## Security Posture
 
-The alpha release reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. Current `main` uses Kubernetes request-header authentication, exact delegated authorisation, server-side namespace filtering and node-bound ingestion. The secure Service exposes only TLS port `443`; the Pod's `8080` listener is health-only. Metrics use a separate cluster permission. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. The [support contract](docs/compatibility.md) records the v1 tenant boundary, exposed metadata and unsupported environments. The boundary passed the local [PROD-005 adversarial gate](docs/security/tenant-isolation-validation.md); provider and enforcing-CNI qualification remain separate. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
+The candidate reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. It uses Kubernetes request-header authentication, exact delegated authorisation, server-side namespace filtering and node-bound ingestion. The secure Service exposes only TLS port `443`; the Pod's `8080` listener is health-only. Metrics use a separate cluster permission. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. The [support contract](docs/compatibility.md) records the v1 tenant boundary, exposed metadata and unsupported environments. The boundary passed the local [PROD-005 adversarial gate](docs/security/tenant-isolation-validation.md); provider and enforcing-CNI qualification remain separate. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
 
 ## Contributing
 

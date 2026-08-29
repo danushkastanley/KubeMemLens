@@ -6,25 +6,44 @@ KubeMemLens is a terminal-first Kubernetes memory incident explainer. The standa
 
 ## Install
 
-Create the namespace and install an immutable release image:
+### Candidate prerelease
+
+For `v1.0.0-rc.1`, create the namespace and install the prospective stable chart
+from its version-scoped candidate repository. Pin the candidate image repository
+and digest from the signed `candidate-manifest.json`:
 
 ```sh
 kubectl create namespace kube-memlens
 
 helm upgrade --install kube-memlens \
-  oci://ghcr.io/danushkastanley/charts/kube-memlens \
-  --version <version> \
+  oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.1/charts/kube-memlens \
+  --version 1.0.0 \
   --namespace kube-memlens \
-  --set-string image.digest=sha256:<release-image-digest> \
+  --set-string image.repository=ghcr.io/danushkastanley/candidates/1.0.0-rc.1/kube-memlens \
+  --set-string image.digest=<complete-.image.digest-value-from-candidate-manifest.json> \
   --wait
 ```
 
-The digest must be 64 lowercase hexadecimal characters. It takes precedence over `image.tag`.
+The manifest digest already includes its `sha256:` prefix. It takes precedence over `image.tag` and must resolve to 64 lowercase hexadecimal characters after the prefix.
 
-The current alpha is not yet supported as a shared multi-tenant service. Current
-`main` has passed the local adversarial isolation gate for authenticated writes
-and exactly delegated reads; exact provider and enforcing-CNI qualification
-still remains before that support claim changes. Run the qualification
+### Stable release
+
+The production repository becomes valid only when GitHub lists stable `v1.0.0`
+as published. It contains the same chart bytes:
+
+```sh
+helm upgrade --install kube-memlens \
+  oci://ghcr.io/danushkastanley/charts/kube-memlens \
+  --version 1.0.0 \
+  --namespace kube-memlens \
+  --set-string image.digest=<complete-promoted-image-digest> \
+  --wait
+```
+
+The legacy `v0.0.1-alpha.3` release is not supported as a shared multi-tenant
+service. The candidate has passed the local adversarial isolation gate for
+authenticated writes and exactly delegated reads. Exact provider and
+enforcing-CNI evidence still bounds that support claim. Run the qualification
 procedure before evaluating the chart on a managed cluster. The chart targets
 compatible Linux cgroup v2 nodes; provider-restricted, serverless, Windows, and
 cgroup v1 nodes are not silently treated as supported.
