@@ -5,7 +5,7 @@ Status: v1 authenticated API and local tenant-isolation gate validated; optional
 
 ## Executive summary
 
-KubeMemLens reads node cgroup v2 data, maps it to Kubernetes identities and serves bounded in-memory diagnostics. The published alpha limits network reachability but does not authenticate agent writes or authorise reads by tenant. It is therefore not suitable for a shared multi-tenant cluster.
+KubeMemLens reads node cgroup v2 data, maps it to Kubernetes identities and serves bounded in-memory diagnostics. The legacy `v0.0.1-alpha.3` release limits network reachability but does not authenticate agent writes or authorise reads by tenant. It is therefore not suitable for a shared multi-tenant cluster.
 
 The implemented v1 interface makes the Kubernetes API server the only production entry point. It uses an aggregated API, exact uncached `SubjectAccessReview` decisions, Pod-bound node-agent identity and collector epochs for replay resistance. The production chart does not expose legacy read, write or metrics listeners. The design is recorded in [ADR 0004](../adr/0004-use-kubernetes-aggregation-for-authentication.md), the [endpoint policy](authentication-and-authorisation.md) and the [tenant isolation plan](tenant-isolation-validation.md).
 
@@ -33,7 +33,7 @@ Out of scope:
 
 Confirmed product decisions:
 
-- Shared multi-tenancy is mandatory for v1. The alpha does not claim it.
+- Shared multi-tenancy is mandatory for v1. The candidate has local application-boundary evidence; provider and enforcing-CNI claims remain exact and version-bound.
 - The v1 secure path uses Kubernetes-native authentication and posts node data into the collector.
 - Deep mode reaches v1 before a restricted mode is shipped.
 - Identifiable workload names appear in authorised interactive output, aggregated workload metrics and default redacted captures. They stay within the principal's authorised scope. Security-decision telemetry, agent operational metrics and denied responses omit them.
@@ -203,7 +203,7 @@ Existing eBPF threat IDs TM-001 through TM-010 retain their original meanings. A
 - Every entry point maps to a threat or documented non-sensitive path.
 - Every critical or high threat has a named prevention control and verification owner.
 - NetworkPolicy is treated only as defence in depth.
-- The current alpha limitation and future design are labelled separately.
+- The legacy alpha limitation, v1 candidate boundary and future design are labelled separately.
 - No credential, tenant identifier or sensitive runtime value is included in this document.
 
 Design baselines include Kubernetes [aggregation-layer authentication](https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/), [authorisation and SubjectAccessReview](https://kubernetes.io/docs/reference/access-authn-authz/authorization/), [ServiceAccount token administration](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/), Linux [BPF verifier](https://docs.kernel.org/bpf/verifier.html) and Kubernetes [RBAC good practices](https://kubernetes.io/docs/concepts/security/rbac-good-practices/). These mechanisms support the controls, but do not replace KubeMemLens route, payload, lifecycle and tenant-isolation tests.

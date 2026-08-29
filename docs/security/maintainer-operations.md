@@ -5,7 +5,7 @@ dependency and secret findings, private vulnerability reports, and release
 handover. It does not create a support service-level agreement.
 
 The named primary and backup owners are in [MAINTAINERS.md](../../MAINTAINERS.md).
-Both roles must be filled before a v1 release. The backup is an active operator,
+Both roles must remain filled for a v1 release. The backup is an active operator,
 not an emergency credential or an unmonitored account.
 
 ## Account and repository controls
@@ -21,8 +21,8 @@ change.
 
 ## Private vulnerability reporting drill
 
-Exercise the path with a synthetic draft advisory before v1 and after a material
-GitHub reporting-policy change:
+Exercise the path with a synthetic draft advisory for v1 readiness and repeat it
+after a material GitHub reporting-policy change:
 
 1. Confirm private vulnerability reporting is enabled.
 2. Create a draft advisory whose title starts `Synthetic reporting drill` and

@@ -1,6 +1,6 @@
 # Roadmap
 
-The milestone labels below describe capability sequencing. They are not published release tag versions; public pre-release tags use the `v<major>.<minor>.<patch>-alpha.<number>` format.
+The milestone labels below describe capability sequencing. They are not published release tag versions; public prerelease tags use SemVer identifiers such as `v1.0.0-rc.1`.
 
 ## v0.1: Local Parser And Sample CLI
 

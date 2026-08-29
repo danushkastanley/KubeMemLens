@@ -50,7 +50,7 @@ GoReleaser cannot publish directly because `.goreleaser.yml` disables its releas
 
 ## v1 candidate and exact promotion
 
-PROD-012 uses [the candidate evidence register](v1-candidate-evidence.md) and [go/no-go record](v1-go-no-go.md). Their current status is authoritative: preparation does not authorise a tag, workflow dispatch, package publication or release.
+PROD-012 uses [the candidate evidence register](v1-candidate-evidence.md) and [go/no-go record](v1-go-no-go.md) for the pre-freeze decision. After the candidate tag freezes the source commit, signed manifests and workflow runs become the artefact authority. Append post-freeze evidence and dated decisions to [release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50); do not rewrite or delete earlier evidence comments. Preparation alone does not authorise a tag, workflow dispatch, package publication or release.
 
 At the candidate stage, create only the annotated `vX.Y.Z-rc.N` tag on the
 reviewed `main` commit. The stable tag must not exist yet. After every
@@ -83,6 +83,13 @@ clean-consumer lifecycle results and the immutable version adopters must test.
 The real candidate run also closes the deferred execution evidence from
 PROD-010. It must not be treated as a missing prerequisite for its own launch.
 
+Post the candidate workflow URL, published prerelease URL, signed manifest,
+checksums, image and chart digests, reproducibility result and clean-consumer
+result as a new comment on release evidence issue #50. Each adopter report must
+link the same candidate identity. The repository documents remain the frozen
+pre-candidate snapshot because stable promotion requires the candidate and GA
+tags to target the same commit.
+
 After the time-boxed adopter path and every go/no-go field passes, obtain fresh
 approval for the exact stable tag and publication. Only then create the
 annotated `vX.Y.Z` tag on the same commit as the published candidate. Dispatch
@@ -95,6 +102,12 @@ stable publication envelopes; and repeats clean-consumer verification before
 creating a stable draft.
 
 Promotion is exact-idempotent. An absent destination is copied. A destination already bound to the expected digest is accepted for safe resumption. Any different digest fails closed. Candidate and promotion Actions artefacts are temporary transport only; the published candidate prerelease and its signed manifest are the durable promotion source.
+
+Before approving either protected promotion job, the environment reviewer must
+read release evidence issue #50 and confirm three accepted adopter reports, the
+dated primary and backup reviews, exact stable-tag approval and unchanged
+candidate subjects. Add the stable workflow and draft-release results to the
+issue before publishing the stable draft.
 
 No RC or stable workflow is automatic. Run each manual dispatch against the selected tag ref so the keyless certificate identity is bound to that immutable tag. The protected `release` environment and independent reviewer remain required for candidate subject publication, candidate-draft publication, digest promotion and final draft creation.
 

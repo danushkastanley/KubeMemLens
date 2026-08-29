@@ -2,11 +2,11 @@
 
 KubeMemLens is privacy-first and local-first.
 
-## Current alpha
+## Current candidate
 
-The current alpha reads local cgroup sample files, node cgroup v2 memory files, Kubernetes pod/node metadata, and collector snapshots from the in-cluster collector. It does not send telemetry and does not include SaaS behaviour.
+The `v1.0.0-rc.1` candidate reads local cgroup sample files, node cgroup v2 memory files, Kubernetes pod/node metadata, and collector snapshots from the in-cluster collector. It does not send telemetry and does not include SaaS behaviour.
 
-The published alpha is not suitable for shared multi-tenant clusters. Current `main` authenticates node agents and operator reads through the Kubernetes aggregated API and enforces namespace or explicit cluster scope at the collector. The separate adversarial isolation gate still must pass before the [support and compatibility contract](compatibility.md#multi-tenant-security-boundary) changes that claim.
+The legacy `v0.0.1-alpha.3` release is not suitable for shared multi-tenant clusters. The candidate authenticates node agents and operator reads through the Kubernetes aggregated API and enforces namespace or explicit cluster scope at the collector. Its local adversarial isolation result does not widen the exact provider and enforcing-CNI claims in the [support and compatibility contract](compatibility.md#multi-tenant-security-boundary).
 
 The implemented v1 security interface validates the aggregation proxy, delegates an uncached exact `SubjectAccessReview`, filters namespace data before aggregation and binds writes to Pod and node identity. It is documented in [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md), the [authentication and authorisation architecture](security/authentication-and-authorisation.md), the [tenant read runbook](runbooks/tenant-scoped-reads.md) and the [threat model](security/KubeMemLens-threat-model.md).
 
@@ -16,7 +16,7 @@ DaemonSet mode uses a read-only hostPath mount for `/sys/fs/cgroup`. This path i
 
 ## Permissions
 
-The alpha is intended to stay cgroup-read focused. It should not require privileged containers unless a specific environment requires different host access. The agent ServiceAccount needs `get`, `list`, and `watch` access for Pods across namespaces so it can map cgroups to Kubernetes metadata. It also has `get` on Nodes so each agent can read only its scheduled node's MemoryPressure condition; the client caches that GET for 30 seconds. Kubernetes RBAC cannot restrict a ClusterRole's `get` verb dynamically to the Pod's node name, so a compromised agent token could read another Node object. The agent code never lists or watches Nodes. The collector receives a separate projected token that can read the aggregation authentication ConfigMap, create SubjectAccessReviews and list core Nodes for expected-agent coverage. It cannot read Pods, Secrets or workload objects.
+The candidate stays cgroup-read focused. It does not require privileged containers in its qualified profiles. The agent ServiceAccount needs `get`, `list`, and `watch` access for Pods across namespaces so it can map cgroups to Kubernetes metadata. It also has `get` on Nodes so each agent can read only its scheduled node's MemoryPressure condition; the client caches that GET for 30 seconds. Kubernetes RBAC cannot restrict a ClusterRole's `get` verb dynamically to the Pod's node name, so a compromised agent token could read another Node object. The agent code never lists or watches Nodes. The collector receives a separate projected token that can read the aggregation authentication ConfigMap, create SubjectAccessReviews and list core Nodes for expected-agent coverage. It cannot read Pods, Secrets or workload objects.
 
 Top-level workload resolution adds `get` only for ReplicaSets and Jobs. The agent follows only direct owner references from Pods already scheduled on its node: ReplicaSet to Deployment and Job to CronJob. Successful lookups are cached for five minutes in a bounded 2,000-entry cache. It does not list or watch these workload resources. Kubernetes RBAC cannot constrain these `get` permissions to only names referenced by local Pods, so this is an explicit metadata-read trade-off surfaced by `doctor`.
 
@@ -38,7 +38,7 @@ The aggregated metrics resource exposes namespace names, pod names, container na
 
 Agent metrics contain only scan outcome, duration, mapping totals, post outcomes, and metadata-cache size. They do not contain workload or node identifiers, but their node-local aggregate counts can still reveal workload density. The chart therefore binds this endpoint to Pod-local loopback, does not advertise a metrics port and adds no scrape annotations. An explicit non-loopback CLI override is a reviewed local-development choice, not part of the shared-cluster profile.
 
-The endpoint intentionally does not export pod UID, container ID, cgroup path, image, file path, owner references, or arbitrary Kubernetes labels in the alpha release. Container metrics are disabled by default to reduce metric cardinality.
+The endpoint intentionally does not export pod UID, container ID, cgroup path, image, file path, owner references, or arbitrary Kubernetes labels in the v1 candidate. Container metrics are disabled by default to reduce metric cardinality.
 
 Metrics require `get` on the cluster-scoped KubeMemLens metrics resource. The cluster-viewer role does not include that permission. The production chart exposes no direct collector `/metrics` route or `ServiceMonitor`.
 

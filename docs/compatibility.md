@@ -2,7 +2,7 @@
 
 This is the canonical support contract for KubeMemLens. Other documents link here instead of defining their own provider, runtime, availability or retention promises.
 
-KubeMemLens is currently alpha software. The published alpha is for evaluation on disposable or explicitly authorised clusters. Provider support below is limited to the immutable artefacts and environment versions in the one-time reviewed evidence; it is not a promise that every later provider or KubeMemLens version has been rerun.
+`v1.0.0-rc.1` is the evaluation candidate for `v1.0.0`; it is not a stable production-support promise. A published stable `v1.0.0` reuses the candidate's exact product bytes. Provider support below is limited to the immutable artefacts and environment versions in the one-time reviewed evidence; it is not a promise that every later provider or KubeMemLens version has been rerun.
 
 ## Status terms
 
@@ -19,14 +19,14 @@ KubeMemLens is currently alpha software. The published alpha is for evaluation o
 
 | Profile | v1 contract | Current evidence | Evidence owner | Status |
 | --- | --- | --- | --- | --- |
-| Kubernetes API | The three most recent upstream-maintained minor releases on the release decision date. On 27 August 2026 these are 1.35, 1.36 and 1.37. | Required kind lifecycle CI covers all three current minors. Provider evidence records, but does not extend, the exact Kubernetes versions it exercised. | PROD-008 and automated compatibility CI | Qualification required |
+| Kubernetes API | The three most recent upstream-maintained minor releases on the release decision date. On 27 August 2026 these are 1.35, 1.36 and 1.37. | Required kind lifecycle CI covers all three current minors. Provider evidence records, but does not extend, the exact Kubernetes versions it exercised. | PROD-008 and automated compatibility CI | Locally verified |
 | Deep-mode node base | Linux, cgroup v2, a readable `/sys/fs/cgroup`, DaemonSet scheduling and an enforcing NetworkPolicy-capable CNI. | Parser, walker and chart tests plus the [reviewed provider/runtime matrix](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md). | PROD-008 | Qualified |
 | GKE Standard | COS with containerd and Ubuntu with containerd on amd64 Linux nodes. Support is limited to the exact recorded GKE, image, kernel, runtime and CNI versions. | Reviewed [COS](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/gke-cos-containerd-amd64/provider-qualification.json) and [Ubuntu](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/gke-ubuntu-containerd-amd64/provider-qualification.json) lifecycle bundles. | PROD-008 | Qualified |
 | EKS managed nodes | AL2023 with containerd on amd64 managed-node-group Linux nodes. Bottlerocket is not claimed. | Reviewed [AL2023 lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/eks-al2023-containerd-amd64/provider-qualification.json). | PROD-008 | Qualified |
 | AKS node pools | Standard Ubuntu/containerd node pools are not supported by the recorded candidate. Azure Linux is also unclaimed. | The reviewed [AKS result](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/aks-ubuntu-containerd-amd64/provider-qualification.json) confirms that AKS supplied an empty request-header allowed-name list while the candidate required a named aggregation proxy and failed closed. | PROD-008 | Unsupported |
 | Self-managed containerd | Linux cgroup v2 on amd64 with containerd and the documented mount, scheduling and NetworkPolicy prerequisites. Support is limited to the recorded distribution, kernel and runtime. | Reviewed [containerd lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/self-managed-containerd/provider-qualification.json). | PROD-008 | Qualified |
 | Self-managed CRI-O | One real amd64 Linux cgroup v2 CRI-O distribution. Recognising a CRI-O cgroup path in a fixture is not qualification. | Reviewed [CRI-O lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/self-managed-crio-amd64/provider-qualification.json). | PROD-008 | Qualified |
-| Shared multi-tenant clusters | Supported only when authenticated agent writes, tenant-scoped reads and adversarial isolation tests pass. | The authenticated boundary and PROD-005 adversarial suite passed on local kind `v1.35.5`, including NetworkPolicy removal. The published alpha does not have this boundary. | PROD-002 to PROD-005; PROD-008 qualifies exact providers and CNIs. | Locally verified |
+| Shared multi-tenant clusters | Supported only when authenticated agent writes, tenant-scoped reads and adversarial isolation tests pass. | The candidate contains the authenticated boundary, and the PROD-005 adversarial suite passed on local kind `v1.35.5`, including NetworkPolicy removal. The legacy `v0.0.1-alpha.3` release does not have this boundary. | PROD-002 to PROD-005; PROD-008 qualifies exact providers and CNIs. | Locally verified |
 | Collector availability | One best-effort, single-replica, in-memory collector with visible restart, partial, stale and history-loss states. | Automated state, retry, readiness and shutdown tests plus the local kind `v1.35.5` failure harness: API recovery 9s, stale transition 29s, agent recovery 7s, partial-rollout detection 4s, removed-Node recovery 15s and graceful shutdown 5s. Provider timing remains unqualified. | PROD-006 | Locally verified |
 | Live scale | Only the live container, node and refresh profile measured and published for the release candidate. Configured store ceilings are rejection bounds, not scale claims. | The [local `rc-5000` record](qualification-results/rc-5000-local-kind-2026-08-26.md) passed with 5,000 containers for 30 minutes on four-Node kind `v1.35.5`. Provider qualification does not turn this local density into a managed-provider scale claim. | PROD-007 and the [scale gate](scale-qualification.md) | Locally verified |
 | Linux terminal UI | xterm 390, Kitty 0.32.2 and Alacritty 0.13.2 on Ubuntu 24.04 arm64 at 80x24, 120x30 and 180x50; tmux 3.4 and OpenSSH 9.6p1 at 120x30. | The reviewed [terminal runtime matrix](qualification-results/terminal-runtime-e631f20/README.md), including 30-minute PTY and Kitty runs. | PROD-009 | Qualified |
@@ -39,7 +39,7 @@ KubeMemLens builds with Go 1.27. Darwin archives therefore require macOS 13 or l
 
 [Kubernetes upstream maintains the latest three minor release branches](https://kubernetes.io/releases/). A new minor enters the general KubeMemLens API contract only after the automated kind matrix passes. Provider claims remain limited to their recorded Kubernetes versions unless a separate, explicitly approved requalification widens them. The oldest minor leaves at the next KubeMemLens release after upstream stops maintaining it. Historical provider evidence never extends an upstream end-of-life date.
 
-Kubernetes 1.37 reached GA on 26 August 2026 and is part of the current upstream-maintained window. The v1 candidate remains blocked until the 1.35, 1.36 and 1.37 lifecycle lanes pass on the frozen commit. This general API window does not widen any version-bound provider claim.
+Kubernetes 1.37 reached GA on 26 August 2026 and is part of the current upstream-maintained window. The 1.35, 1.36 and 1.37 lifecycle lanes must remain green on the frozen candidate commit. This general API window does not widen any version-bound provider claim.
 
 ## Unsupported and deferred profiles
 
@@ -61,11 +61,11 @@ The provider restrictions above are sourced and exercised by the [qualification 
 
 ## Multi-tenant security boundary
 
-Shared multi-tenant clusters are a mandatory v1 threat environment. They are not supported by the current alpha.
+Shared multi-tenant clusters are a mandatory v1 threat environment. The candidate has local application-boundary evidence; provider and enforcing-CNI claims remain limited to their exact qualification rows.
 
-The published alpha separates read and ingestion ports but does not provide the complete boundary. Current `main` routes production reads and writes through the Kubernetes aggregated API, validates forwarded identity, delegates exact authorisation and filters namespace data before aggregation. The production chart exposes only TLS port `443`; it has no legacy direct workload-read or collector-metrics Service path.
+The legacy `v0.0.1-alpha.3` release separates read and ingestion ports but does not provide the complete boundary. The candidate routes production reads and writes through the Kubernetes aggregated API, validates forwarded identity, delegates exact authorisation and filters namespace data before aggregation. The production chart exposes only TLS port `443`; it has no legacy direct workload-read or collector-metrics Service path.
 
-Before v1 can claim shared-cluster support:
+The v1 shared-cluster claim requires all of the following:
 
 - every collector read must have an authenticated principal and a server-side namespace or cluster-scope decision;
 - every snapshot write must authenticate the agent, bind it to the expected node and reject replay or forged-node data;
@@ -99,12 +99,12 @@ Kubernetes names and runtime identifiers can reveal tenant and workload structur
 
 | Surface | Data present | Retention and visibility rules |
 | --- | --- | --- |
-| Agent ingestion | Node, namespace, Pod, Pod UID, container, container ID, cgroup path, bounded labels, resource and owner context, sample times, memory composition, boundaries, pressure and event counters. | Current state and selected Pod history stay in collector memory. The writable endpoint requires authenticated, node-bound ingestion before v1. |
-| Collector read API | Container, Pod, namespace, workload and node names; raw runtime identifiers and cgroup paths on container records; Kubernetes context; current memory evidence; bounded Pod history. | Current `main` requires namespaced or explicit cluster RBAC through the aggregated API. The published alpha remains cluster-wide for any caller that can reach it. |
+| Agent ingestion | Node, namespace, Pod, Pod UID, container, container ID, cgroup path, bounded labels, resource and owner context, sample times, memory composition, boundaries, pressure and event counters. | Current state and selected Pod history stay in collector memory. The candidate requires authenticated, node-bound ingestion. |
+| Collector read API | Container, Pod, namespace, workload and node names; raw runtime identifiers and cgroup paths on container records; Kubernetes context; current memory evidence; bounded Pod history. | The candidate requires namespaced or explicit cluster RBAC through the aggregated API. The legacy `v0.0.1-alpha.3` release remains cluster-wide for any caller that can reach it. |
 | CLI and TUI | Authorised API data needed for the selected view, including Kubernetes names and memory evidence. | Interactive views may show identifiable names. They must not broaden the caller's server-authorised scope. |
 | Collector metrics | Namespace, Pod and node names by default; container names only when container metrics are enabled. Memory, diagnosis, event and freshness values are exported. | The secure profile requires the separate metrics-reader role. No KubeMemLens persistence. The operator's metrics system controls retention. Pod UID, container ID, cgroup path, image, file path, owner reference and arbitrary labels are excluded. |
 | Agent metrics | Scan, post, mapping, duration and cache counts. | No namespace, Pod, container, cgroup or node labels. |
-| Logs | Node names, bounded counts, operational errors and configured limits may appear. | Current alpha error text requires review before sharing. Before v1, tests must prove that credentials, Pod UIDs, container IDs, raw label maps, cgroup paths and file paths stay out of logs. |
+| Logs | Node names, bounded counts, operational errors and configured limits may appear. | Candidate error text requires review before sharing. Tests prove that credentials, Pod UIDs, container IDs, raw label maps, cgroup paths and file paths stay out of logs. |
 | Default incident capture | Pod, namespace, node, container and workload display names; memory evidence; optional bounded history. | Pod UIDs, container IDs, cgroup paths and label maps are removed. The result is redacted, not anonymous. |
 | Sensitive incident capture | The default fields plus Pod UID, container ID, cgroup path and bounded labels. | Requires `--include-sensitive`, stays local and must not be attached to a public issue without manual redaction. |
 | File, process and volume names | File and process names are not collected. Volume names are not collected by the current deep-mode model. | Future authorised volume views and direct traces require their own contracts. Names remain excluded from default metrics, logs and redacted captures. |
@@ -116,7 +116,7 @@ KubeMemLens does not send product telemetry or copy cluster data to a hosted ser
 - Stable v1 CLI flags, collector API paths, schema fields and Helm values follow semantic versioning.
 - A v1 schema may add optional fields. Removing a field, changing its meaning or changing its type requires a new schema or API major version.
 - A public v1 interface is deprecated in the changelog and documentation for at least one KubeMemLens minor release before removal. A critical security fix may remove an unsafe path sooner, with a release note and migration instruction.
-- Alpha interfaces may still change before v1. Each alpha or release candidate must state incompatible changes in its release notes.
+- The release candidate may still change before stable promotion. Any replacement candidate must state incompatible changes in its release notes.
 - Kubernetes, provider and runtime evidence applies only to the recorded combination. `reviewDueAt` reports advisory freshness; passing evidence does not expire into a release failure. A change to the Kubernetes version, node image family, kernel, runtime major, cgroup mode, CNI policy behaviour, chart privileges, authentication boundary or collection path must narrow the affected claim unless maintainers explicitly approve a new opt-in qualification run.
 
 ## Changing this contract

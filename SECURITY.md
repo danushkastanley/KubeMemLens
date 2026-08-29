@@ -2,14 +2,14 @@
 
 ## Supported versions
 
-KubeMemLens is in alpha. Alpha versions and the `main` branch receive fixes on a best-effort basis but do not carry a production stability or support guarantee.
+`v1.0.0-rc.1` is a prerelease candidate and receives fixes on a best-effort basis. It does not carry a production stability or support guarantee. Published stable `1.0.x` releases receive security fixes under this policy.
 
-The [support and compatibility contract](docs/compatibility.md) is the canonical source for environment, tenant, availability and data-exposure claims. The current alpha is not supported as a shared multi-tenant service.
-
-This table will be updated when the first supported release is published:
+The [support and compatibility contract](docs/compatibility.md) is the canonical source for environment, tenant, availability and data-exposure claims. The candidate's shared-cluster claim remains limited to its recorded security and provider evidence.
 
 | Version | Supported |
 |---|---|
+| Published stable `1.0.x` | Security fixes |
+| `1.0.0-rc.x` | Best effort, pre-release |
 | `0.0.1-alpha.x` | Best effort, pre-release |
 | Unreleased `main` | Best effort |
 
@@ -31,7 +31,7 @@ Do not include real cluster credentials, tokens, Pod data, logs containing ident
 
 ## Response expectations
 
-Until a supported release and response team exist, reports are handled on a best-effort basis. The maintainer will aim to acknowledge a complete report within seven days, coordinate remediation and disclosure with the reporter, and credit the reporter if requested. This is a target, not a contractual service-level agreement.
+Reports are handled on a best-effort basis. The maintainer will aim to acknowledge a complete report within seven days, coordinate remediation and disclosure with the reporter, and credit the reporter if requested. This is a target, not a contractual service-level agreement.
 
 The primary security maintainer owns initial triage. The backup security maintainer
 named in [MAINTAINERS.md](MAINTAINERS.md) owns acknowledgement and handover when
