@@ -7,6 +7,8 @@ import stat
 import tarfile
 from pathlib import Path, PurePosixPath
 
+from release.package_chart import chart_fields
+
 
 class ArchiveError(ValueError):
     pass
@@ -29,7 +31,10 @@ def source_files(chart_directory):
 def verify_archive(archive_path, chart_directory):
     archive_path = Path(archive_path)
     chart_directory = Path(chart_directory).resolve()
-    expected_root = chart_directory.name
+    try:
+        expected_root = chart_fields(chart_directory / "Chart.yaml")["name"]
+    except (OSError, ValueError) as error:
+        raise ArchiveError("checked-out chart metadata is invalid") from error
     expected = source_files(chart_directory)
     observed = {}
     try:

@@ -27,13 +27,14 @@ class ChartArchiveTests(unittest.TestCase):
     def test_exact_archive_passes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            chart = root / "chart"
+            chart = root / "candidate-chart"
             chart.mkdir()
-            (chart / "Chart.yaml").write_text("name: chart\n", encoding="utf-8")
+            metadata = "name: kube-memlens\nversion: 1.0.0\nappVersion: 1.0.0\n"
+            (chart / "Chart.yaml").write_text(metadata, encoding="utf-8")
             (chart / "values.yaml").write_text("{}\n", encoding="utf-8")
             archive = self.make_archive(root, [
-                ("chart/Chart.yaml", b"name: chart\n"),
-                ("chart/values.yaml", b"{}\n"),
+                ("kube-memlens/Chart.yaml", metadata.encode()),
+                ("kube-memlens/values.yaml", b"{}\n"),
             ])
             verify_archive(archive, chart)
 
@@ -42,10 +43,11 @@ class ChartArchiveTests(unittest.TestCase):
             root = Path(directory)
             chart = root / "chart"
             chart.mkdir()
-            (chart / "Chart.yaml").write_text("name: chart\n", encoding="utf-8")
+            metadata = "name: chart\nversion: 1.0.0\nappVersion: 1.0.0\n"
+            (chart / "Chart.yaml").write_text(metadata, encoding="utf-8")
             (chart / "values.yaml").write_text("{}\n", encoding="utf-8")
             cases = (
-                [("chart/Chart.yaml", b"name: chart\n"), ("chart/values.yaml", b"changed\n")],
+                [("chart/Chart.yaml", metadata.encode()), ("chart/values.yaml", b"changed\n")],
                 [("chart/values.yaml", b"{}\n")],
                 [("chart/../outside", b"unsafe")],
             )
