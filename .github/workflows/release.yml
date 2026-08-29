@@ -15,7 +15,7 @@ concurrency:
 env:
   IMAGE_REPOSITORY: ghcr.io/danushkastanley/kube-memlens
   CHART_REPOSITORY: ghcr.io/danushkastanley/charts/kube-memlens
-  SKOPEO_IMAGE: quay.io/skopeo/stable@sha256:4fcfc74eb89ec72dcd8caa7fbbf2a5f77d9fe3e2f5ac9e39192702f49c6d4d1a
+  SKOPEO_IMAGE: quay.io/skopeo/stable:v1.22.2@sha256:0f75798d450d0cc0ea3700c79d929ae7609fb7d0e627673c14be8a484587c9b1
 
 jobs:
   build:

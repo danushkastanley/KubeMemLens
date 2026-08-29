@@ -14,6 +14,7 @@ candidate_publisher=hack/release/publish_candidate.sh
 promotion=hack/release/promote_candidate.sh
 candidate_draft_publisher=hack/release/publish_candidate_draft.sh
 release_process=docs/release-process.md
+skopeo_image='quay.io/skopeo/stable:v1.22.2@sha256:0f75798d450d0cc0ea3700c79d929ae7609fb7d0e627673c14be8a484587c9b1'
 
 require_text() {
   local file=$1 text=$2
@@ -24,6 +25,7 @@ require_text() {
 }
 
 require_text "${workflow}" 'permissions: {}'
+require_text "${workflow}" "SKOPEO_IMAGE: ${skopeo_image}"
 require_text "${workflow}" "- 'v*-alpha.*'"
 require_text "${workflow}" "- 'v*-beta.*'"
 require_text "${workflow}" 'contents: read'
@@ -55,6 +57,7 @@ require_text "${consumer}" 'RELEASE_BUNDLE_CERTIFICATE_IDENTITY'
 require_text "${ci}" 'lint --strict charts/kube-memlens'
 require_text "${ci}" 'github.com/rhysd/actionlint/cmd/actionlint@v1.7.7'
 require_text "${candidate_workflow}" 'workflow_dispatch:'
+require_text "${candidate_workflow}" "SKOPEO_IMAGE: ${skopeo_image}"
 require_text "${candidate_workflow}" 'name: Build reproducible prospective GA artefacts'
 # shellcheck disable=SC2016 # Workflow variables are matched literally.
 require_text "${candidate_workflow}" 'GORELEASER_CURRENT_TAG=${ga_tag}'
@@ -75,6 +78,7 @@ require_text "${candidate_workflow}" 'candidates/${CANDIDATE_VERSION}/charts/kub
 # shellcheck disable=SC2016 # Workflow variables are matched literally.
 require_text "${candidate_workflow}" 'candidates/${CANDIDATE_VERSION}/kube-memlens'
 require_text "${promotion_workflow}" 'workflow_dispatch:'
+require_text "${promotion_workflow}" "SKOPEO_IMAGE: ${skopeo_image}"
 require_text "${promotion_workflow}" 'name: Copy exact candidate subjects'
 require_text "${promotion_workflow}" 'promote_candidate.sh'
 require_text "${promotion_workflow}" 'verify_promotion.sh'

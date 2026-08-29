@@ -117,6 +117,8 @@ Trivy runs from the official `0.72.0` image pinned by immutable digest. KubeMemL
 
 The Syft installer action is commit-pinned and requests Syft `v1.49.0` explicitly. This release adds support for selecting images from a multi-platform OCI index. The workflow produces separate `linux/amd64` and `linux/arm64` image SBOMs, while the release archives retain platform-specific SBOMs for every published CLI build. Upgrade Syft only after checking the official immutable release and verifying that every archive produces a non-empty SPDX 2.3 SBOM without local build paths.
 
+Registry inspection and digest-preserving copies use the official Skopeo `v1.22.2` container pinned by its multi-platform manifest digest. A pin update must prove that the image is still retrievable, report the expected Skopeo version, inspect the candidate OCI index and preserve its digest through an offline copy before it enters a protected workflow.
+
 The Dockerfile frontend and multi-architecture Go builder image are also pinned by manifest-list digest. Toolchain upgrades must update both the human-readable tag and digest, build both release architectures, and repeat the runtime-image scan.
 
 Candidate and legacy builds use BuildKit `v0.32.2` pinned by manifest-list digest. Stable chart promotion uses ORAS `v1.3.3` from the official release archive with its exact SHA-256 verified before extraction. Upgrade either tool only after reviewing its official security advisories and immutable release, updating the release-contract checks, and repeating the two-build or digest-preserving copy proof.
