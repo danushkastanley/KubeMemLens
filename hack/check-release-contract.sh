@@ -54,6 +54,7 @@ require_text "${workflow}" 'image-linux-amd64.sbom.json'
 require_text "${workflow}" 'image-linux-arm64.sbom.json'
 require_text "${consumer}" 'helm test'
 require_text "${consumer}" 'RELEASE_BUNDLE_CERTIFICATE_IDENTITY'
+test "$(grep -c '^wait_for_doctor$' "${consumer}")" -eq 2
 require_text "${ci}" 'lint --strict charts/kube-memlens'
 require_text "${ci}" 'github.com/rhysd/actionlint/cmd/actionlint@v1.7.7'
 require_text "${candidate_workflow}" 'workflow_dispatch:'
