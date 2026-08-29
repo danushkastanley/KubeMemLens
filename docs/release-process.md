@@ -115,7 +115,7 @@ No RC or stable workflow is automatic. Run each manual dispatch against the sele
 
 Trivy runs from the official `0.72.0` image pinned by immutable digest. KubeMemLens does not use mutable Trivy action tags: Aqua Security's [March 2026 advisory](https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23) documented compromised action tags and explicitly identifies digest-pinned images as unaffected. Version and digest upgrades require reviewing the official immutable release and rerunning all three scans locally or in CI.
 
-The Syft installer action is commit-pinned and requests Syft `v1.44.0` explicitly. Upgrade it only after checking the official immutable release and verifying that every archive produces a non-empty SPDX 2.3 SBOM without local build paths.
+The Syft installer action is commit-pinned and requests Syft `v1.49.0` explicitly. This release adds support for selecting images from a multi-platform OCI index. The workflow produces separate `linux/amd64` and `linux/arm64` image SBOMs, while the release archives retain platform-specific SBOMs for every published CLI build. Upgrade Syft only after checking the official immutable release and verifying that every archive produces a non-empty SPDX 2.3 SBOM without local build paths.
 
 The Dockerfile frontend and multi-architecture Go builder image are also pinned by manifest-list digest. Toolchain upgrades must update both the human-readable tag and digest, build both release architectures, and repeat the runtime-image scan.
 
