@@ -50,9 +50,10 @@ The agent targets `kubernetes.io/os: linux`. Node pools with custom taints requi
 
 ### Candidate prerelease
 
-The candidate chart carries prospective stable metadata. Install it from the
+After `v1.0.0-rc.2` is approved and published, install its chart from the
 version-scoped candidate repositories and pin the image digest from the signed
-`candidate-manifest.json`:
+`candidate-manifest.json`. The candidate chart will carry prospective stable
+metadata:
 
 ```sh
 helm upgrade --install kube-memlens \
@@ -67,7 +68,7 @@ helm upgrade --install kube-memlens \
 Both overrides are required because candidate chart bytes must remain identical
 to the later stable chart. The manifest digest already includes its `sha256:`
 prefix. Do not substitute the stable image repository before promotion. Release
-archives, checksums, SBOMs, signatures and provenance are attached to the
+archives, checksums, SBOMs, signatures and provenance will be attached to the
 candidate release.
 
 ### Stable release

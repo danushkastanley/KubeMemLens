@@ -8,7 +8,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ### Added
 
-- Prepared prospective `v1.0.0` artefacts under the replacement `v1.0.0-rc.2` candidate identity for no-rebuild stable promotion after fresh approval, adopter evidence and go/no-go evidence pass.
+- Prepared the repository to build prospective `v1.0.0` artefacts under the replacement `v1.0.0-rc.2` candidate identity for no-rebuild stable promotion after fresh approval, adopter evidence and go/no-go evidence pass.
 - Retained the failed `v1.0.0-rc.1` workflow record; it stopped before publication and its immutable tag was not moved.
 - Added bounded native Go fuzzing for cgroup parsing, tenant-scoped pagination and snapshot decoding, with a dedicated pull-request and `main` CI job.
 
