@@ -2,7 +2,7 @@
 
 This is the canonical support contract for KubeMemLens. Other documents link here instead of defining their own provider, runtime, availability or retention promises.
 
-`v1.0.0-rc.1` is the approved first public evaluation candidate for `v1.0.0`; publication remains pending and it is not a stable production-support promise. A published stable `v1.0.0` reuses the candidate's exact product bytes. Provider support below is limited to the immutable artefacts and environment versions in the one-time reviewed evidence; it is not a promise that every later provider or KubeMemLens version has been rerun.
+[`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public evaluation candidate for `v1.0.0`. It is an immutable prerelease, not a stable production-support promise. Stable `v1.0.0` is not approved or published. Provider support below is limited to the immutable artefacts and environment versions in the one-time reviewed evidence; it is not a promise that every later provider or KubeMemLens version has been rerun.
 
 ## Status terms
 
@@ -31,7 +31,7 @@ This is the canonical support contract for KubeMemLens. Other documents link her
 | Live scale | Only the live container, node and refresh profile measured and published for the release candidate. Configured store ceilings are rejection bounds, not scale claims. | The [local `rc-5000` record](qualification-results/rc-5000-local-kind-2026-08-26.md) passed with 5,000 containers for 30 minutes on four-Node kind `v1.35.5`. Provider qualification does not turn this local density into a managed-provider scale claim. | PROD-007 and the [scale gate](scale-qualification.md) | Locally verified |
 | Linux terminal UI | xterm 390, Kitty 0.32.2 and Alacritty 0.13.2 on Ubuntu 24.04 arm64 at 80x24, 120x30 and 180x50; tmux 3.4 and OpenSSH 9.6p1 at 120x30. | The reviewed [terminal runtime matrix](qualification-results/terminal-runtime-e631f20/README.md), including 30-minute PTY and Kitty runs. | PROD-009 | Qualified |
 | macOS terminal UI | Apple Terminal, Ghostty, iTerm2 and Warp on supported Darwin CLI builds. | The Darwin arm64 PTY lifecycle passed, but no named macOS emulator completed the required real-emulator run. | PROD-009 | Qualification required |
-| Release artefacts | Signed CLI archives, a non-root multi-architecture Linux image and an OCI Helm chart, all tied to one immutable release identity. | Alpha.3 consumer verification and CI supply-chain checks. | PROD-010 and PROD-012 | Qualification required |
+| Release artefacts | Signed CLI archives, a non-root multi-architecture Linux image and an OCI Helm chart, all tied to one immutable release identity. | The immutable [`v1.0.0-rc.1` release](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) contains six checked archives, per-platform SBOMs, signed checksums, image/chart provenance and the signed candidate manifest. The clean consumer verified the exact image and chart digests through install, test, upgrade, rollback and uninstall. | PROD-010 and PROD-012 | Qualified |
 
 CLI archives exist for Darwin, Linux and Windows on amd64 and arm64. The release workflow checks their construction, checksums and SBOMs. Archive availability does not prove every operating system and terminal combination. PROD-009 owns the interactive client claim. The deep-mode agent remains Linux-only.
 
