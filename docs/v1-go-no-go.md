@@ -1,14 +1,16 @@
 # v1 go/no-go and adopter record
 
-Status: **`v1.0.0-rc.1` approved as the first public candidate; publication pending; stable `v1.0.0` NO-GO**
+Status: **`v1.0.0-rc.1` published as the first immutable public candidate; stable `v1.0.0` deferred and not approved**
 
 Prepared: 29 August 2026
 
 Evidence register: [v1 candidate evidence and blocker register](v1-candidate-evidence.md)
 
-This file is the pre-freeze stable-promotion template. After the candidate tag
-freezes the source commit, append candidate results, adopter links and dated
-decisions to [release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50).
+This file is the pre-freeze stable-promotion template. The published candidate
+result and owner decision are recorded in
+[release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50).
+The point-in-time tables below intentionally preserve the pre-freeze snapshot.
+Any stable promotion requires a new decision and exact-tag approval.
 Do not delete failed or partial results. A named maintainer role does not mean
 that person has reviewed or approved the stable release.
 

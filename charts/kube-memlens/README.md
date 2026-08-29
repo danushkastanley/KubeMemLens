@@ -8,9 +8,9 @@ KubeMemLens is a terminal-first Kubernetes memory incident explainer. The standa
 
 ### Candidate prerelease
 
-After `v1.0.0-rc.1` is published, create the namespace and install the prospective stable chart
-from its version-scoped candidate repository. Pin the candidate image repository
-and digest from the signed `candidate-manifest.json`:
+Create the namespace and install the published `v1.0.0-rc.1` prospective stable
+chart from its version-scoped candidate repository. Pin the candidate image
+repository and digest from the signed `candidate-manifest.json`:
 
 ```sh
 kubectl create namespace kube-memlens
@@ -20,16 +20,17 @@ helm upgrade --install kube-memlens \
   --version 1.0.0 \
   --namespace kube-memlens \
   --set-string image.repository=ghcr.io/danushkastanley/candidates/1.0.0-rc.1/kube-memlens \
-  --set-string image.digest=<complete-.image.digest-value-from-candidate-manifest.json> \
+  --set-string image.digest=sha256:a5963f8bb8e68359cd3648cf9c6064309772b3794a5bf51547ff314ba559e809 \
   --wait
 ```
 
 The manifest digest already includes its `sha256:` prefix. It takes precedence over `image.tag` and must resolve to 64 lowercase hexadecimal characters after the prefix.
 
-### Stable release
+### Stable release (not published)
 
-The production repository becomes valid only when GitHub lists stable `v1.0.0`
-as published. It contains the same chart bytes:
+The production repository is not valid yet. Stable `v1.0.0` requires a separate
+decision and exact-tag approval. If it is later published, it must contain the
+same chart bytes:
 
 ```sh
 helm upgrade --install kube-memlens \

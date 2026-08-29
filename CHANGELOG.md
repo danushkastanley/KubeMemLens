@@ -4,11 +4,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
-## 1.0.0 - first public candidate prepared as v1.0.0-rc.1 on 2026-08-29
+## 1.0.0 - first public candidate published as v1.0.0-rc.1 on 2026-08-29
 
 ### Added
 
 - Prepared the repository to build prospective `v1.0.0` artefacts under the approved `v1.0.0-rc.1` candidate identity for no-rebuild stable promotion after adopter evidence and go/no-go evidence pass.
+- Published immutable prerelease `v1.0.0-rc.1` with six CLI archives, SBOMs, signed checksums, provenance, exact candidate image/chart digests and a passing clean-consumer lifecycle. Stable `v1.0.0` remains unapproved and unpublished.
 - Retained the two unpublished candidate workflow failures in release evidence issue #50 before resetting the public candidate identity to `v1.0.0-rc.1`.
 - Added bounded native Go fuzzing for cgroup parsing, tenant-scoped pagination and snapshot decoding, with a dedicated pull-request and `main` CI job.
 

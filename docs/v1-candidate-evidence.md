@@ -1,6 +1,12 @@
 # v1 candidate evidence and blocker register
 
-Status: **`v1.0.0-rc.1` approved as the first public candidate; publication pending; NO-GO for stable v1**
+Status: **`v1.0.0-rc.1` published as the first immutable public candidate; stable `v1.0.0` deferred and not approved**
+
+Post-freeze result: the authoritative candidate identities, successful workflow
+runs, lifecycle evidence and owner stop decision are recorded in
+[release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50).
+The point-in-time tables below intentionally preserve the pre-freeze snapshot;
+their earlier pending fields are not stable-release evidence.
 
 Snapshot date: 29 August 2026
 

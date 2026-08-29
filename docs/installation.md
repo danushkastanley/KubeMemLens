@@ -1,6 +1,6 @@
 # Installation, Upgrade, and Uninstall
 
-`v1.0.0-rc.1` is the approved first public evaluation candidate for `v1.0.0`; publication remains pending and it is not a supported production release. A published stable `v1.0.0` reuses the candidate's exact product bytes. Use exact versions and digests, and review the [support and compatibility contract](compatibility.md) and release assets before installation.
+[`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public evaluation candidate for `v1.0.0`. It is an immutable prerelease, not a supported production release. Stable `v1.0.0` is not approved or published. Use exact versions and digests, and review the [support and compatibility contract](compatibility.md) and release assets before installation.
 
 Do not turn the local tenant-isolation result into a generic shared-cluster
 support claim. Exact provider and enforcing-CNI evidence still bounds that
@@ -50,9 +50,9 @@ The agent targets `kubernetes.io/os: linux`. Node pools with custom taints requi
 
 ### Candidate prerelease
 
-After `v1.0.0-rc.1` is published, install its chart from the
-version-scoped candidate repositories and pin the image digest from the signed
-`candidate-manifest.json`. The candidate chart will carry prospective stable
+Install the published `v1.0.0-rc.1` chart from the version-scoped candidate
+repositories and pin the image digest from the signed
+`candidate-manifest.json`. The candidate chart carries prospective stable
 metadata:
 
 ```sh
@@ -62,20 +62,20 @@ helm upgrade --install kube-memlens \
   --namespace kube-memlens \
   --create-namespace \
   --set-string image.repository=ghcr.io/danushkastanley/candidates/1.0.0-rc.1/kube-memlens \
-  --set-string image.digest=<complete-.image.digest-value-from-candidate-manifest.json>
+  --set-string image.digest=sha256:a5963f8bb8e68359cd3648cf9c6064309772b3794a5bf51547ff314ba559e809
 ```
 
 Both overrides are required because candidate chart bytes must remain identical
 to the later stable chart. The manifest digest already includes its `sha256:`
 prefix. Do not substitute the stable image repository before promotion. Release
-archives, checksums, SBOMs, signatures and provenance will be attached to the
-candidate release.
+archives, checksums, SBOMs, signatures and provenance are attached to the
+immutable candidate release.
 
-### Stable release
+### Stable release (not published)
 
-The production repositories are valid only when GitHub lists `v1.0.0` as a
-published stable release. They contain the same chart and image bytes as the
-candidate:
+The production repositories are not valid yet. Stable `v1.0.0` requires a
+separate decision and exact-tag approval. If it is later published, it must
+contain the same chart and image bytes as the candidate:
 
 ```sh
 helm upgrade --install kube-memlens \
