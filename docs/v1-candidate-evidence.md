@@ -1,6 +1,6 @@
 # v1 candidate evidence and blocker register
 
-Status: **GO to tag and build `v1.0.0-rc.1`; NO-GO for stable v1**
+Status: **`v1.0.0-rc.1` stopped before publication; fresh `v1.0.0-rc.2` approval pending; NO-GO for stable v1**
 
 Snapshot date: 29 August 2026
 
@@ -8,23 +8,24 @@ Pre-alignment baseline: `c7eb76c0d79a3537ef24f2ea47b80ea8d0663c86`
 
 This register maps the PROD-012 release gates to evidence that can be reviewed
 from the repository. Danushka Stanley approved the exact `v1.0.0-rc.1` tag and
-candidate publication on 29 August 2026. That approval does not approve stable
-`v1.0.0`. After the tag freezes this source snapshot, append workflow evidence,
-adopter links and later decisions to [release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50).
+candidate publication on 29 August 2026. Its workflow stopped before publication
+and the immutable tag was not moved. The planned replacement `v1.0.0-rc.2` needs
+fresh exact-tag approval. Neither approval covers stable `v1.0.0`. Append
+workflow evidence, adopter links and later decisions to [release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50).
 
 ## Candidate identity
 
-The exact candidate is authorised but not yet frozen or built.
+The replacement candidate identity is prepared but not authorised, frozen or built.
 
 | Field | Current value |
 | --- | --- |
-| Candidate version | `v1.0.0-rc.1` |
-| Annotated RC tag | Approved; not created |
+| Candidate version | Planned `v1.0.0-rc.2` |
+| Annotated RC tag | Fresh approval required; not created |
 | Source commit | Not frozen |
 | CLI archive checksums | Not recorded |
 | Image digest | Not recorded |
 | Helm chart digest | Not recorded |
-| Release workflow run | Not run for this candidate |
+| Release workflow run | RC1 [run 33230688425](https://github.com/danushkastanley/KubeMemLens/actions/runs/33230688425) failed before publication; not run for RC2 |
 | Clean-consumer result | Not run for this candidate |
 | v1 promotion identity | Prospective stable `v1.0.0`; promotion remains unapproved |
 
@@ -38,10 +39,11 @@ missing candidate values above; only an authorised, reviewed run can do that.
 ## Release sequence
 
 The pre-candidate gate covers every non-adopter safety and release prerequisite,
-including OpenSSF Passing under the current recorded decision. Exact RC approval
-is recorded for `v1.0.0-rc.1`. Candidate-bound values such as
-digests, reproducibility results and clean-consumer output are produced by that
-authorised run; they cannot be prerequisites for starting the same run.
+including OpenSSF Passing under the current recorded decision. Exact approval
+was consumed by the failed `v1.0.0-rc.1` attempt; `v1.0.0-rc.2` requires fresh
+approval. Candidate-bound values such as digests, reproducibility results and
+clean-consumer output are produced by an authorised run; they cannot be
+prerequisites for starting the same run.
 
 The published immutable candidate then starts the adopter path. Three accepted
 reports are required before stable v1 promotion. The current 0/3 count is a
@@ -71,7 +73,7 @@ verification.
 | Dependency implementation and earlier evidence reviewed | Pre-candidate | Complete at snapshot | The PROD-010 candidate machinery and dependency queue were reviewed and merged through PRs #38 to #41. OpenSSF project 14259 now has a verified Passing result and V1-B01 is closed. The real candidate run remains candidate-stage evidence, not a prerequisite for itself. |
 | No existing P0/P1 blocker remains | Pre-candidate | Complete at snapshot | Required CI, CodeQL, OpenSSF, dependency, advisory, secret, ProjectV2 and support-contract readbacks passed. Issue #50 is the intentional release evidence record, not an untriaged product finding. Repeat the queues on the frozen candidate. |
 | Claims and limitations are ready | Pre-candidate | Complete at snapshot | Kubernetes 1.37 GA, the current supported minor window, provider rows, terminal rows, scale wording, the [support contract](compatibility.md), [installation guide](installation.md), [README](../README.md) and [security policy](../SECURITY.md) are reconciled. No provider qualification was rerun or widened. Repeat the claim audit against the frozen candidate. |
-| RC approval names the exact tag | Pre-candidate | Approved | Danushka Stanley approved the exact annotated `v1.0.0-rc.1` tag and candidate publication on 29 August 2026. The protected release environment still requires its independent reviewer before write-capable jobs run. |
+| RC approval names the exact tag | Pre-candidate | Pending | Danushka Stanley approved the exact annotated `v1.0.0-rc.1` tag and candidate publication on 29 August 2026. That attempt stopped before publication. The planned `v1.0.0-rc.2` tag requires fresh approval, and the protected release environment still requires its independent reviewer before write-capable jobs run. |
 | Candidate commit and artefacts frozen and reproducible | Candidate run | Pending | Record the annotated tag, commit, archive checksums, image digest, chart digest and two-build equality results from the authorised workflow. |
 | Install, upgrade, rollback and uninstall | Candidate run | Pending | Retain the sanitised clean-consumer lifecycle result for the frozen candidate. |
 | Three independent adopters | Post-candidate, pre-GA | Blocked, 0/3 | Link three complete, privacy-reviewed reports for the published immutable candidate. |
@@ -82,8 +84,9 @@ verification.
 
 ## Blocker register
 
-Open blockers have no waiver path. V1-B01, V1-B03, V1-B04, V1-B07 and the
-candidate-approval half of V1-B08 are closed at this pre-candidate snapshot.
+Open blockers have no waiver path. V1-B01, V1-B03, V1-B04 and V1-B07 are
+closed at this pre-candidate snapshot. The replacement-candidate half of V1-B08
+is open until fresh exact-tag approval is recorded.
 The merged-main Scorecard Vulnerabilities result has returned to the repository
 threshold, and the new fuzz targets are visible in the signed result.
 V1-B02 starts after candidate publication; V1-B05 and V1-B06 require
@@ -100,7 +103,7 @@ decision and update the release contract before asking for go/no-go review.
 | V1-B05 | P0 | The exact RC-to-v1 promotion controls are implemented but unexercised. The candidate workflow creates prospective stable bytes in version-scoped candidate repositories, and the separate stable workflow is statically prohibited from rebuilding them. No signed candidate manifest or post-copy equality result exists yet. | [Candidate workflow](../.github/workflows/candidate.yml), [promotion workflow](../.github/workflows/promote.yml), [manifest validator](../hack/release/validate_candidate_manifest.sh), [release process](release-process.md) | Run the authorised candidate workflow, publish the reviewed prerelease, then prove that promotion reuses every archive byte and preserves the image and chart digests before changing this blocker. |
 | V1-B06 | P0 | Deterministic build controls are implemented but have no candidate-bound run. GoReleaser uses commit-time metadata, chart packaging normalises order and metadata, and the candidate workflow compares two archive, image and chart builds. | [GoReleaser configuration](../.goreleaser.yml), [deterministic chart packager](../hack/release/package_chart.py), [candidate workflow](../.github/workflows/candidate.yml) | Record matching archive checksums, image digest and chart package checksum from the authorised candidate workflow. Treat any mismatch as a blocker; do not waive or rebuild around it. |
 | V1-B07 | P1 | **Closed at the pre-candidate readback.** Zero dependency-update pull requests and zero Dependabot alerts remain. Signed [Scorecard run 33194300199](https://github.com/danushkastanley/KubeMemLens/actions/runs/33194300199) scored 8.8 on merged commit `c7eb76c0d79a3537ef24f2ea47b80ea8d0663c86`; Vulnerabilities is 7, Fuzzing is 10 and SAST is 10. `GO-2026-6303` is no longer reported. The accepted `govulncheck` v1.7.0 run found zero affected symbols among the three remaining advisories. | [Dependabot policy](../.github/dependabot.yml), [Scorecard workflow](../.github/workflows/scorecard.yml), [OpenSSF baseline](security/openssf-baseline.md), [queue policy](repository-security.md) | Repeat the dependency, advisory, code-scanning and signed Scorecard readback against the frozen candidate; reopen if the required threshold or advisory count regresses. |
-| V1-B08 | P0 | **Candidate approval recorded; stable approval remains open.** Danushka Stanley approved the exact `v1.0.0-rc.1` tag and candidate publication on 29 August 2026. This does not approve `v1.0.0`, stable promotion or stable publication. | [Release process](release-process.md), [tag validator](../hack/release/validate_tag.sh), [release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50) | Build and publish the candidate through its protected workflows. After candidate and adopter evidence passes, record the dated go/no-go reviews in issue #50 and obtain separate approval for the exact stable tag and publication. |
+| V1-B08 | P0 | **Replacement candidate approval remains open; stable approval remains open.** Danushka Stanley approved the exact `v1.0.0-rc.1` tag and candidate publication on 29 August 2026, but that workflow stopped before publication. The planned `v1.0.0-rc.2` replacement and stable `v1.0.0` each require separate fresh approval. | [Release process](release-process.md), [tag validator](../hack/release/validate_tag.sh), [release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50) | Obtain exact `v1.0.0-rc.2` approval, then build and publish it through the protected workflows. After candidate and adopter evidence passes, record the dated go/no-go reviews in issue #50 and obtain separate approval for the exact stable tag and publication. |
 
 ## Point-in-time live readback
 
@@ -140,8 +143,9 @@ The authorised candidate run must first record:
 After candidate publication, append three privacy-reviewed adopter summaries
 and dated go/no-go reviews to [release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50),
 including separate fresh approval for the exact stable tag. The current
-pre-candidate decision is **GO** for the approved `v1.0.0-rc.1` tag and candidate
-workflows. V1-B01, V1-B03, V1-B04 and V1-B07 are closed only for this snapshot
+pre-candidate decision for `v1.0.0-rc.1` was consumed by its failed workflow.
+The planned `v1.0.0-rc.2` replacement is **NO-GO** until fresh approval names
+that exact tag. V1-B01, V1-B03, V1-B04 and V1-B07 are closed only for this snapshot
 and must be re-read after the candidate is frozen. The 0/3 adopter count does
 not contribute to the RC decision. Stable v1 remains **NO-GO** until every
 remaining item is linked and reviewed.

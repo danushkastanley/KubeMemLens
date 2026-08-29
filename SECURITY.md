@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-`v1.0.0-rc.1` is a prerelease candidate and receives fixes on a best-effort basis. It does not carry a production stability or support guarantee. Published stable `1.0.x` releases receive security fixes under this policy.
+`v1.0.0-rc.2` is the planned replacement prerelease candidate and receives fixes on a best-effort basis. It does not carry a production stability or support guarantee. Published stable `1.0.x` releases receive security fixes under this policy.
 
 The [support and compatibility contract](docs/compatibility.md) is the canonical source for environment, tenant, availability and data-exposure claims. The candidate's shared-cluster claim remains limited to its recorded security and provider evidence.
 

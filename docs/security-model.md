@@ -4,7 +4,7 @@ KubeMemLens is privacy-first and local-first.
 
 ## Current candidate
 
-The `v1.0.0-rc.1` candidate reads local cgroup sample files, node cgroup v2 memory files, Kubernetes pod/node metadata, and collector snapshots from the in-cluster collector. It does not send telemetry and does not include SaaS behaviour.
+The planned `v1.0.0-rc.2` candidate reads local cgroup sample files, node cgroup v2 memory files, Kubernetes pod/node metadata, and collector snapshots from the in-cluster collector. It does not send telemetry and does not include SaaS behaviour.
 
 The legacy `v0.0.1-alpha.3` release is not suitable for shared multi-tenant clusters. The candidate authenticates node agents and operator reads through the Kubernetes aggregated API and enforces namespace or explicit cluster scope at the collector. Its local adversarial isolation result does not widen the exact provider and enforcing-CNI claims in the [support and compatibility contract](compatibility.md#multi-tenant-security-boundary).
 

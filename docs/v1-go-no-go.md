@@ -1,6 +1,6 @@
 # v1 go/no-go and adopter record
 
-Status: **`v1.0.0-rc.1` owner approval recorded; stable `v1.0.0` NO-GO**
+Status: **`v1.0.0-rc.1` stopped before publication; `v1.0.0-rc.2` approval pending; stable `v1.0.0` NO-GO**
 
 Prepared: 29 August 2026
 
@@ -16,10 +16,10 @@ that person has reviewed or approved the stable release.
 
 | Field | Result |
 | --- | --- |
-| Candidate version | `v1.0.0-rc.1` approved; not yet built |
-| Annotated RC tag | `v1.0.0-rc.1` approved; not yet created |
+| Candidate version | Planned `v1.0.0-rc.2`; fresh approval pending |
+| Annotated RC tag | `v1.0.0-rc.1` exists and was not moved; `v1.0.0-rc.2` not created |
 | Source commit | Not recorded |
-| Release workflow run | Not recorded |
+| Release workflow run | RC1 [run 33230688425](https://github.com/danushkastanley/KubeMemLens/actions/runs/33230688425) failed before publication; RC2 not run |
 | Archive checksum inventory | Not recorded |
 | Image digest | Not recorded |
 | Chart digest | Not recorded |
@@ -35,7 +35,7 @@ They record responsibility only.
 
 | Responsibility | Named person | Review state | Dated evidence |
 | --- | --- | --- | --- |
-| Primary release decision | Danushka Stanley, `@danushkastanley` | `v1.0.0-rc.1` candidate approved; stable not reviewed | [Release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50), 29 August 2026 |
+| Primary release decision | Danushka Stanley, `@danushkastanley` | `v1.0.0-rc.1` approved and attempted; `v1.0.0-rc.2` and stable not reviewed | [Release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50), 29 August 2026 |
 | Backup release review | `@legolas296` | Not reviewed | Not recorded |
 | Security blocker readback | Danushka Stanley, primary; `@legolas296`, backup | Not reviewed | Not recorded |
 | Rollback owner | Danushka Stanley, primary; `@legolas296`, backup | Not activated for a candidate | Not recorded |
@@ -98,16 +98,16 @@ widen a provider-support claim by itself.
 | Primary decision and evidence link | Not recorded |
 | Backup review and evidence link | Not recorded |
 | Remaining blockers | V1-B02, V1-B05, V1-B06 and V1-B08; V1-B01, V1-B03, V1-B04 and V1-B07 are closed at the pre-candidate readback |
-| Exact annotated tag approved | Candidate `v1.0.0-rc.1`: yes, 29 August 2026. Stable `v1.0.0`: no |
-| Publication approved | Candidate prerelease: yes, 29 August 2026. Stable release: no |
+| Exact annotated tag approved | Candidate `v1.0.0-rc.1`: yes, 29 August 2026, consumed by failed run. Candidate `v1.0.0-rc.2`: no. Stable `v1.0.0`: no |
+| Publication approved | RC1 prerelease: yes, 29 August 2026, but not published. RC2 prerelease: no. Stable release: no |
 | Rollback target | Not recorded |
 | Post-release observation window | Not recorded |
 
 Stable `GO` requires every gate above to read `GO`, with dated evidence for the
-exact candidate in issue #50. Candidate owner approval is recorded, but the
-protected release environment still requires its independent reviewer before
-write-capable jobs run. Stable promotion needs fresh approval for the exact
-`v1.0.0` tag and publication.
+exact candidate in issue #50. The planned replacement candidate needs fresh
+owner approval, and the protected release environment still requires its
+independent reviewer before write-capable jobs run. Stable promotion needs
+fresh approval for the exact `v1.0.0` tag and publication.
 
 ## Post-release ownership
 
