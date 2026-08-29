@@ -4,11 +4,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
-## 1.0.0 - candidate frozen as v1.0.0-rc.1 on 2026-08-29
+## 1.0.0 - replacement candidate prepared as v1.0.0-rc.2 on 2026-08-29
 
 ### Added
 
-- Froze prospective `v1.0.0` artefacts under the `v1.0.0-rc.1` candidate identity for no-rebuild stable promotion after adopter and go/no-go evidence passes.
+- Prepared prospective `v1.0.0` artefacts under the replacement `v1.0.0-rc.2` candidate identity for no-rebuild stable promotion after fresh approval, adopter evidence and go/no-go evidence pass.
+- Retained the failed `v1.0.0-rc.1` workflow record; it stopped before publication and its immutable tag was not moved.
 - Added bounded native Go fuzzing for cgroup parsing, tenant-scoped pagination and snapshot decoding, with a dedicated pull-request and `main` CI job.
 
 ### Changed

@@ -2,7 +2,7 @@
 
 This is the canonical support contract for KubeMemLens. Other documents link here instead of defining their own provider, runtime, availability or retention promises.
 
-`v1.0.0-rc.1` is the evaluation candidate for `v1.0.0`; it is not a stable production-support promise. A published stable `v1.0.0` reuses the candidate's exact product bytes. Provider support below is limited to the immutable artefacts and environment versions in the one-time reviewed evidence; it is not a promise that every later provider or KubeMemLens version has been rerun.
+`v1.0.0-rc.2` is the planned replacement evaluation candidate for `v1.0.0`; its exact tag still requires fresh approval and it is not a stable production-support promise. A published stable `v1.0.0` reuses the candidate's exact product bytes. Provider support below is limited to the immutable artefacts and environment versions in the one-time reviewed evidence; it is not a promise that every later provider or KubeMemLens version has been rerun.
 
 ## Status terms
 

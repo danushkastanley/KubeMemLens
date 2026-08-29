@@ -8,7 +8,7 @@ KubeMemLens is a terminal-first Kubernetes memory incident explainer. The standa
 
 ### Candidate prerelease
 
-For `v1.0.0-rc.1`, create the namespace and install the prospective stable chart
+After `v1.0.0-rc.2` is approved and published, create the namespace and install the prospective stable chart
 from its version-scoped candidate repository. Pin the candidate image repository
 and digest from the signed `candidate-manifest.json`:
 
@@ -16,10 +16,10 @@ and digest from the signed `candidate-manifest.json`:
 kubectl create namespace kube-memlens
 
 helm upgrade --install kube-memlens \
-  oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.1/charts/kube-memlens \
+  oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.2/charts/kube-memlens \
   --version 1.0.0 \
   --namespace kube-memlens \
-  --set-string image.repository=ghcr.io/danushkastanley/candidates/1.0.0-rc.1/kube-memlens \
+  --set-string image.repository=ghcr.io/danushkastanley/candidates/1.0.0-rc.2/kube-memlens \
   --set-string image.digest=<complete-.image.digest-value-from-candidate-manifest.json> \
   --wait
 ```
