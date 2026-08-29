@@ -126,18 +126,18 @@ helm upgrade --install kube-memlens "${chart_package}" \
 helm test kube-memlens --kubeconfig "${kubeconfig}" --namespace kube-memlens --timeout 1m
 
 cli_args=(--kubeconfig "${kubeconfig}" --context "kind-${cluster_name}" --collector-namespace kube-memlens)
-doctor_ok=false
-for _ in $(seq 1 24); do
-  if "${cli}" "${cli_args[@]}" doctor --strict > "${work_dir}/doctor.txt" 2>&1; then
-    doctor_ok=true
-    break
-  fi
-  sleep 5
-done
-[ "${doctor_ok}" = true ] || {
+wait_for_doctor() {
+  for _ in $(seq 1 24); do
+    if "${cli}" "${cli_args[@]}" doctor --strict > "${work_dir}/doctor.txt" 2>&1; then
+      return 0
+    fi
+    sleep 5
+  done
   cat "${work_dir}/doctor.txt" >&2
-  exit 1
+  return 1
 }
+
+wait_for_doctor
 
 helm upgrade kube-memlens "${chart_package}" \
   --kubeconfig "${kubeconfig}" --namespace kube-memlens \
@@ -146,7 +146,7 @@ helm test kube-memlens --kubeconfig "${kubeconfig}" --namespace kube-memlens --t
 helm rollback kube-memlens 1 \
   --kubeconfig "${kubeconfig}" --namespace kube-memlens --wait --timeout 3m
 helm test kube-memlens --kubeconfig "${kubeconfig}" --namespace kube-memlens --timeout 1m
-"${cli}" "${cli_args[@]}" doctor --strict >/dev/null
+wait_for_doctor
 
 helm uninstall kube-memlens --kubeconfig "${kubeconfig}" --namespace kube-memlens --wait
 for resource in \
