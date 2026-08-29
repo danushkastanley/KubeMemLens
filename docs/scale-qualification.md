@@ -115,7 +115,7 @@ export SOAK_ACKNOWLEDGE='run-and-remove-kube-memlens-density-soak'
 make soak-live-density
 ```
 
-The normal kind CI path uses this profile with its own temporary context and evidence directory.
+The latest-minor kind CI lane uses this profile with its own temporary context and evidence directory when a runtime-sensitive path changes. The two older supported minors keep the core install, diagnosis, upgrade, rollback and uninstall lifecycle without repeating the same density probe.
 
 ## Run RC 5,000 qualification
 

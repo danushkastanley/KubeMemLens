@@ -13,6 +13,40 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  ci-scope:
+    name: Classify CI scope
+    runs-on: ubuntu-latest
+    outputs:
+      run-kind: ${{ steps.scope.outputs.run-kind }}
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Classify runtime-sensitive changes
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base_sha=${PUSH_BEFORE_SHA}
+          if [ "${EVENT_NAME}" = pull_request ]; then
+            base_sha=${PR_BASE_SHA}
+          fi
+          if [ -z "${base_sha}" ] || [ "${base_sha}" = 0000000000000000000000000000000000000000 ]; then
+            base_sha=$(git rev-parse "${GITHUB_SHA}^")
+          fi
+          git diff --name-only "${base_sha}" "${GITHUB_SHA}" > "${RUNNER_TEMP}/changed-files.txt"
+          if grep -Eq '^(Dockerfile|go\.(mod|sum)|cmd/|internal/|charts/kube-memlens/|hack/(e2e-kind\.sh|e2e-tui-kind\.sh|soak-live-density\.sh|verify-.*-kind\.sh|observe_kind_telemetry\.py|measure-tui-latency\.exp|lib/|scale-profiles/)|\.github/workflows/ci\.yml)$' \
+            "${RUNNER_TEMP}/changed-files.txt"; then
+            echo 'run-kind=true' >> "${GITHUB_OUTPUT}"
+          else
+            echo 'run-kind=false' >> "${GITHUB_OUTPUT}"
+          fi
+
   go:
     name: Go checks
     runs-on: ubuntu-latest
@@ -434,6 +468,7 @@ jobs:
 
   kind-e2e:
     name: kind / Kubernetes ${{ matrix.kubernetes }}
+    needs: ci-scope
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -444,6 +479,8 @@ jobs:
             node-image: kindest/node:v1.35.5@sha256:ce977ae6d65918d0b58a5f8b5e940429c2ce42fa3a5619ec2bbc60b949c0ac95
             kubectl-version: v1.35.5
             kubectl-sha256: 90f75ea6ecc9ea5633262e1c0b83a40560003b30fc94a04cb099404fcef0c224
+            density_benchmarks: false
+            density_smoke: false
             tui_smoke: false
             authenticated_ingestion_smoke: false
             tenant_scoped_read_smoke: false
@@ -452,6 +489,8 @@ jobs:
             node-image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
             kubectl-version: v1.36.1
             kubectl-sha256: 629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7
+            density_benchmarks: false
+            density_smoke: false
             tui_smoke: false
             authenticated_ingestion_smoke: false
             tenant_scoped_read_smoke: false
@@ -460,21 +499,26 @@ jobs:
             node-image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
             kubectl-version: v1.37.0
             kubectl-sha256: 6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
+            density_benchmarks: true
+            density_smoke: true
             tui_smoke: true
             authenticated_ingestion_smoke: true
             tenant_scoped_read_smoke: true
             tenant_isolation_smoke: true
     steps:
       - name: Check out repository
+        if: needs.ci-scope.outputs.run-kind == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
+        if: needs.ci-scope.outputs.run-kind == 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
 
       - name: Validate version-aligned matrix row
+        if: needs.ci-scope.outputs.run-kind == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -488,6 +532,7 @@ jobs:
           esac
 
       - name: Install pinned cluster tools
+        if: needs.ci-scope.outputs.run-kind == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -510,17 +555,18 @@ jobs:
           echo "${tools_dir}" >> "${GITHUB_PATH}"
 
       - name: Install TUI smoke dependency
-        if: matrix.tui_smoke
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.tui_smoke
         run: |
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends expect
 
       - name: Run install, diagnosis, upgrade, rollback, and uninstall
+        if: needs.ci-scope.outputs.run-kind == 'true'
         env:
           E2E_NODE_IMAGE: ${{ matrix.node-image }}
           E2E_ARTIFACT_DIR: ${{ runner.temp }}/kube-memlens-e2e
-          E2E_RUN_DENSITY_BENCHMARKS: "true"
-          E2E_RUN_LIVE_DENSITY_SMOKE: "true"
+          E2E_RUN_DENSITY_BENCHMARKS: ${{ matrix.density_benchmarks }}
+          E2E_RUN_LIVE_DENSITY_SMOKE: ${{ matrix.density_smoke }}
           E2E_RUN_TUI_SMOKE: ${{ matrix.tui_smoke }}
           E2E_RUN_AUTHENTICATED_INGESTION_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
           E2E_RUN_TENANT_SCOPED_READ_SMOKE: ${{ matrix.tenant_scoped_read_smoke }}
@@ -529,6 +575,7 @@ jobs:
         run: hack/e2e-kind.sh
 
       - name: Upload sanitised density smoke evidence
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.density_smoke
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: density-smoke-kubernetes-${{ matrix.kubernetes }}

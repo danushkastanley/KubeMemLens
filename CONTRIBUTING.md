@@ -38,6 +38,8 @@ For chart work, follow the local-cluster smoke test in [README.md](README.md).
 
 Match verification to the change. A normal pull request does not require a cloud account, a managed cluster, or a large workload.
 
+CI provisions the three supported kind clusters only when a pull request changes runtime code, the chart, the runtime image, or the kind harness. Documentation, community files and release-only helpers retain their named required checks without starting disposable clusters. The latest-minor lane owns the density, TUI, authenticated-ingestion, tenant-isolation and reliability extensions; the two older minors exercise the install, diagnosis, upgrade, rollback and uninstall lifecycle.
+
 - Run focused package tests while developing, then `make check` when the local toolchain and network allow it. CI runs the full repository checks.
 - Use kind or minikube for changes to the agent, collector, chart, RBAC, NetworkPolicy, or live TUI behaviour.
 - Use synthetic fixtures for parser, aggregation, API-boundary and presentation changes.
