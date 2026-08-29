@@ -40,7 +40,7 @@ jobs:
             base_sha=$(git rev-parse "${GITHUB_SHA}^")
           fi
           git diff --name-only "${base_sha}" "${GITHUB_SHA}" > "${RUNNER_TEMP}/changed-files.txt"
-          if grep -Eq '^(Dockerfile|go\.(mod|sum)|cmd/|internal/|charts/kube-memlens/|hack/(e2e-kind\.sh|e2e-tui-kind\.sh|soak-live-density\.sh|verify-.*-kind\.sh|observe_kind_telemetry\.py|measure-tui-latency\.exp|lib/|scale-profiles/)|\.github/workflows/ci\.yml)$' \
+          if grep -Eq '^(Dockerfile|go\.(mod|sum)|cmd/|internal/|charts/kube-memlens/|hack/(e2e-kind\.sh|e2e-tui-kind\.sh|soak-live-density\.sh|verify-.*-kind\.sh|observe_kind_telemetry\.py|measure-tui-latency\.exp|tui-smoke\.exp|lib/|scale-profiles/)|\.github/workflows/ci\.yml)$' \
             "${RUNNER_TEMP}/changed-files.txt"; then
             echo 'run-kind=true' >> "${GITHUB_OUTPUT}"
           else
@@ -469,6 +469,7 @@ jobs:
   kind-e2e:
     name: kind / Kubernetes ${{ matrix.kubernetes }}
     needs: ci-scope
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -506,6 +507,12 @@ jobs:
             tenant_scoped_read_smoke: true
             tenant_isolation_smoke: true
     steps:
+      - name: Require successful scope classification
+        if: needs.ci-scope.result != 'success'
+        run: |
+          echo 'CI scope classification failed' >&2
+          exit 1
+
       - name: Check out repository
         if: needs.ci-scope.outputs.run-kind == 'true'
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
