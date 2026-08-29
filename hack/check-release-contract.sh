@@ -54,6 +54,8 @@ require_text "${candidate_workflow}" 'workflow_dispatch:'
 require_text "${candidate_workflow}" 'name: Build reproducible prospective GA artefacts'
 # shellcheck disable=SC2016 # Workflow variables are matched literally.
 require_text "${candidate_workflow}" 'GORELEASER_CURRENT_TAG=${ga_tag}'
+# shellcheck disable=SC2016 # Workflow variables are matched literally.
+require_text "${candidate_workflow}" 'git tag "$GA_TAG" "$GITHUB_SHA"'
 # shellcheck disable=SC2016 # Workflow expressions are matched literally.
 require_text "${candidate_workflow}" 'test "${{ steps.image-first.outputs.digest }}" = "${{ steps.image-second.outputs.digest }}"'
 require_text "${candidate_workflow}" 'package_chart.py'

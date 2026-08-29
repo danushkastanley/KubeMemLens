@@ -90,6 +90,11 @@ jobs:
             echo "image-repository=${image_repository}"
             echo "chart-repository=${chart_repository}"
           } >> "$GITHUB_OUTPUT"
+      - name: Create runner-local prospective GA tag
+        run: |
+          test -z "$(git tag --list "$GA_TAG")"
+          git tag "$GA_TAG" "$GITHUB_SHA"
+          test "$(git rev-parse "${GA_TAG}^{commit}")" = "$GITHUB_SHA"
       - name: Check candidate documentation and contracts
         run: |
           hack/check-support-contract.sh
