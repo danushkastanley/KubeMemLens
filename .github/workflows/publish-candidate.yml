@@ -32,12 +32,15 @@ jobs:
           CANDIDATE_TAG_INPUT: ${{ inputs.candidate_tag }}
         run: |
           set -Eeuo pipefail
-          test "$GITHUB_REF" = "refs/tags/${CANDIDATE_TAG_INPUT}"
-          case "$CANDIDATE_TAG_INPUT" in
-            v[0-9]*.[0-9]*.[0-9]*-rc.[1-9][0-9]*) ;;
-            *) echo 'candidate tag must be vX.Y.Z-rc.N' >&2; exit 1 ;;
-          esac
-          hack/release/validate_tag.sh "$CANDIDATE_TAG_INPUT" "$GITHUB_SHA"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$GITHUB_REF_PROTECTED" = "true"
+          if [[ ! "$CANDIDATE_TAG_INPUT" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-rc\.[1-9][0-9]*$ ]]; then
+            echo 'candidate tag must be vX.Y.Z-rc.N' >&2
+            exit 1
+          fi
+          release_commit=$(git rev-parse HEAD)
+          hack/release/validate_tag.sh "$CANDIDATE_TAG_INPUT" "$release_commit"
+          echo "RELEASE_COMMIT=${release_commit}" >> "$GITHUB_ENV"
       - name: Install Cosign
         uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
         with:
@@ -47,6 +50,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_BUNDLE_DIR: dist
           RELEASE_CANDIDATE_TAG: ${{ inputs.candidate_tag }}
-          RELEASE_COMMIT: ${{ github.sha }}
           RELEASE_CERTIFICATE_IDENTITY: https://github.com/danushkastanley/KubeMemLens/.github/workflows/candidate.yml@refs/tags/${{ inputs.candidate_tag }}
         run: hack/release/publish_candidate_draft.sh

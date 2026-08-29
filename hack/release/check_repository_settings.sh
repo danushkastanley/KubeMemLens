@@ -14,7 +14,8 @@ jq -e '
 ' <<< "${environment}" >/dev/null
 
 jq -e '
-  any(.branch_policies[]; .name == "v*" and .type == "tag")
+  any(.branch_policies[]; .name == "v*" and .type == "tag") and
+  any(.branch_policies[]; .name == "main" and .type == "branch")
 ' <<< "${policies}" >/dev/null
 
 tag_ruleset_id=$(jq -r '

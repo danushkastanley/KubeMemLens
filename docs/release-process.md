@@ -29,7 +29,7 @@ blocks stable v1 promotion, not creation of the reviewed RC.
 
 A support-contract change is a release decision. A new or widened claim must name the exact profile, link reviewed evidence, update the changelog and pass the release documentation gate before a tag is created. Historical provider evidence is never scheduled, run in CI or made a per-release requirement; stale rows are advisory and malformed or tampered rows still fail validation.
 
-The repository has three release-side protections: the `release` environment requires maintainer review and accepts only `v*` tags, the active release-tag ruleset prevents ordinary tag creation, movement or deletion, and repository release immutability protects published assets and their tags. Verify the live configuration before tagging:
+The repository has three release-side protections: the `release` environment requires maintainer review and accepts `v*` tags plus protected `main` solely for candidate-draft publication, the active release-tag ruleset prevents ordinary tag creation, movement or deletion, and repository release immutability protects published assets and their tags. Verify the live configuration before tagging:
 
 ```sh
 hack/release/check_repository_settings.sh
@@ -69,13 +69,15 @@ identity, and:
 - signs and attests the candidate subjects, verifies them as a clean consumer, and creates a draft prerelease for review.
 
 The candidate workflow stops at that draft. After the draft asset inventory has
-been reviewed, dispatch `.github/workflows/publish-candidate.yml` from the same
-RC tag with the same `candidate_tag`. Its protected job downloads every draft
-asset by release-asset ID, verifies the candidate-workflow signatures, canonical
-manifest, checksums, exact subject inventory and complete asset set, re-reads the
-unchanged draft, then changes only `draft` to `false`. It has no build, upload,
-replacement or package-write path. A partial, changed, duplicate or already
-published release fails closed.
+been reviewed, dispatch `.github/workflows/publish-candidate.yml` from protected
+`main` with the same `candidate_tag`. The job checks out and validates that
+annotated RC tag, derives the signed source commit from the frozen tag rather
+than the workflow-dispatch commit, downloads every draft asset by release-asset
+ID, verifies the candidate-workflow signatures, canonical manifest, checksums,
+exact subject inventory and complete asset set, re-reads the unchanged draft,
+then changes only `draft` to `false`. It has no build, upload, replacement or
+package-write path. A partial, changed, duplicate or already published release
+fails closed.
 
 The candidate bytes deliberately carry the intended stable identity. Their RC status comes from the candidate repository path, signed manifest, prerelease tag and GitHub prerelease, not from changing the product bytes. This is the only supported way to keep correct stable metadata while later preserving every CLI archive byte, image digest and chart digest. If that identity model is rejected, update the PROD-012 contract before creating a candidate; do not relabel RC bytes as stable or call a rebuild an exact promotion.
 
@@ -111,7 +113,7 @@ dated primary and backup reviews, exact stable-tag approval and unchanged
 candidate subjects. Add the stable workflow and draft-release results to the
 issue before publishing the stable draft.
 
-No RC or stable workflow is automatic. Run each manual dispatch against the selected tag ref so the keyless certificate identity is bound to that immutable tag. The protected `release` environment and independent reviewer remain required for candidate subject publication, candidate-draft publication, digest promotion and final draft creation.
+No RC or stable workflow is automatic. Run candidate builds and stable promotion against the selected tag ref so the keyless certificate identity is bound to that immutable tag. Run candidate-draft publication from protected `main`; it executes the frozen tag's reviewed helper and verifies the candidate workflow's tag-bound identity before publication. The protected `release` environment and independent reviewer remain required for candidate subject publication, candidate-draft publication, digest promotion and final draft creation.
 
 Trivy runs from the official `0.72.0` image pinned by immutable digest. KubeMemLens does not use mutable Trivy action tags: Aqua Security's [March 2026 advisory](https://github.com/aquasecurity/trivy/security/advisories/GHSA-69fq-xp46-6x23) documented compromised action tags and explicitly identifies digest-pinned images as unaffected. Version and digest upgrades require reviewing the official immutable release and rerunning all three scans locally or in CI.
 
