@@ -1,6 +1,6 @@
 # Installation, Upgrade, and Uninstall
 
-`v1.0.0-rc.2` is the planned replacement evaluation candidate for `v1.0.0`; its exact tag still requires fresh approval and it is not a supported production release. A published stable `v1.0.0` reuses the candidate's exact product bytes. Use exact versions and digests, and review the [support and compatibility contract](compatibility.md) and release assets before installation.
+`v1.0.0-rc.1` is the approved first public evaluation candidate for `v1.0.0`; publication remains pending and it is not a supported production release. A published stable `v1.0.0` reuses the candidate's exact product bytes. Use exact versions and digests, and review the [support and compatibility contract](compatibility.md) and release assets before installation.
 
 Do not turn the local tenant-isolation result into a generic shared-cluster
 support claim. Exact provider and enforcing-CNI evidence still bounds that
@@ -50,18 +50,18 @@ The agent targets `kubernetes.io/os: linux`. Node pools with custom taints requi
 
 ### Candidate prerelease
 
-After `v1.0.0-rc.2` is approved and published, install its chart from the
+After `v1.0.0-rc.1` is published, install its chart from the
 version-scoped candidate repositories and pin the image digest from the signed
 `candidate-manifest.json`. The candidate chart will carry prospective stable
 metadata:
 
 ```sh
 helm upgrade --install kube-memlens \
-  oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.2/charts/kube-memlens \
+  oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.1/charts/kube-memlens \
   --version 1.0.0 \
   --namespace kube-memlens \
   --create-namespace \
-  --set-string image.repository=ghcr.io/danushkastanley/candidates/1.0.0-rc.2/kube-memlens \
+  --set-string image.repository=ghcr.io/danushkastanley/candidates/1.0.0-rc.1/kube-memlens \
   --set-string image.digest=<complete-.image.digest-value-from-candidate-manifest.json>
 ```
 
