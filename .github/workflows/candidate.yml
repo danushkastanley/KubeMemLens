@@ -40,7 +40,7 @@ jobs:
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
         with:
-          syft-version: v1.44.0
+          syft-version: v1.49.0
       - name: Set up pinned BuildKit
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
         with:
@@ -207,18 +207,38 @@ jobs:
 
       - name: Finalise candidate build bundle
         run: |
-          syft "oci-archive:${RUNNER_TEMP}/kube-memlens-image.tar" \
-            -o "spdx-json=dist/kube-memlens-${GA_VERSION}.image.sbom.json"
+          for platform in linux/amd64 linux/arm64; do
+            platform_name=${platform//\//-}
+            syft "oci-archive:${RUNNER_TEMP}/kube-memlens-image.tar" \
+              --platform "$platform" \
+              --source-name "kube-memlens-${platform_name}" \
+              --source-version "$GA_TAG" \
+              -o "spdx-json=dist/kube-memlens-${GA_VERSION}.image-${platform_name}.sbom.json"
+          done
           syft "file:dist/kube-memlens-${GA_VERSION}.tgz" \
+            --source-name kube-memlens-chart \
+            --source-version "$GA_TAG" \
             -o "spdx-json=dist/kube-memlens-${GA_VERSION}.chart.sbom.json"
+          sbom_count=$(find dist -maxdepth 1 -type f \
+            -name "kube-memlens-${GA_VERSION}.*.sbom.json" | wc -l | tr -d ' ')
+          test "$sbom_count" = 3
           for sbom in "dist/kube-memlens-${GA_VERSION}."*.sbom.json; do
-            jq -e '.spdxVersion == "SPDX-2.3" and (.packages | length > 0)' "$sbom" >/dev/null
+            jq -e '
+              .spdxVersion == "SPDX-2.3" and
+              (.packages | type == "array" and length > 0) and
+              any(.creationInfo.creators[]; . == "Tool: syft-1.49.0")
+            ' "$sbom" >/dev/null
+            if grep -Fq "$RUNNER_TEMP" "$sbom" || grep -Fq "$GITHUB_WORKSPACE" "$sbom"; then
+              echo "SBOM contains a runner-local path: ${sbom}" >&2
+              exit 1
+            fi
           done
           (
             cd dist
             sha256sum "kube-memlens-${GA_VERSION}.tgz" \
               "kube-memlens-${GA_VERSION}.chart.sbom.json" \
-              "kube-memlens-${GA_VERSION}.image.sbom.json" >> checksums.txt
+              "kube-memlens-${GA_VERSION}.image-linux-amd64.sbom.json" \
+              "kube-memlens-${GA_VERSION}.image-linux-arm64.sbom.json" >> checksums.txt
             sha256sum --check checksums.txt
             mkdir -p internal
             cp "${RUNNER_TEMP}/kube-memlens-image.tar" internal/
