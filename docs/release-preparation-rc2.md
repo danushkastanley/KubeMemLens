@@ -107,8 +107,30 @@ A fresh local Kubernetes 1.35.5 lifecycle and 30 isolated connection-hook
 repetitions passed using Helm 3.18.4 and the unchanged chart. Those arm64 runs
 do not establish the cause of the hosted amd64 failure. CI now reports the
 failed hook's phase and container exit reason without exporting credentials.
-No resource limit, assertion or timeout was relaxed. A passing rerun is
-verification evidence, not a claim that this intermittent failure is fixed.
+At that stage, no resource limit, assertion or timeout changed. Those passing
+reruns did not establish the cause.
+
+The failure recurred in [PR #77's Kubernetes 1.37 rollback](https://github.com/danushkastanley/KubeMemLens/actions/runs/34319179111/job/102361880878) and [merged-main Kubernetes 1.36 initial install](https://github.com/danushkastanley/KubeMemLens/actions/runs/34321528429/job/102369066684). Both reported `StartError` with exit code 128 before the application check started. The unchanged PR retry passed, but recurrence across phases and minors required a targeted startup reproduction.
+
+A disposable local Kubernetes 1.36.1 arm64 cluster using runc 1.4.2 reproduced
+the same `StartError`/128. The runtime reported that container initialisation
+was OOM-killed because the memory limit was too low. A probe rendered the real
+chart's test Pod, retained its security settings and replaced only the network
+check with a startup marker and two-second process lifetime. Ten concurrent
+starts per batch produced four startup OOM failures in 100 attempts at 8 MiB.
+Changing only the memory limit to 16 MiB produced zero failures in 100 attempts.
+Returning to 8 MiB reproduced four startup OOM failures in another 100 attempts.
+The node reported sufficient memory and its local OOM counters were zero.
+
+The fix raises only this short-lived test Pod's memory limit to 16 MiB. Its
+4 MiB request, connectivity assertions, retries, timeout, non-root identity,
+read-only filesystem and dropped capabilities remain unchanged. Agent and
+collector limits are unchanged. CI checks the rendered allowance and security
+settings explicitly; that regression check failed against the 8 MiB chart
+before the fix. The original connectivity hook then passed 30 repetitions,
+upgrade, rollback and uninstall with the fixed chart in that disposable cluster.
+The hosted lifecycle lanes must still pass on the reviewed fix
+before RC2 is tagged. This does not widen provider or runtime support claims.
 
 ## Publication gates
 
