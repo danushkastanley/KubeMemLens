@@ -68,6 +68,7 @@ check-terminal-contract:
 		rm -f "$$output"
 
 check-release-contract:
+	hack/release/test_check_skopeo.sh
 	python3 -m unittest discover -s hack/release -p 'test_*.py'
 	hack/release/test_create_draft.sh
 	hack/release/test_publish_candidate_draft.sh

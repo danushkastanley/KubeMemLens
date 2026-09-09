@@ -15,7 +15,7 @@ concurrency:
   group: promote-${{ inputs.ga_tag }}
   cancel-in-progress: false
 env:
-  SKOPEO_IMAGE: quay.io/skopeo/stable:v1.22.2@sha256:0f75798d450d0cc0ea3700c79d929ae7609fb7d0e627673c14be8a484587c9b1
+  SKOPEO_IMAGE: quay.io/skopeo/stable:v1.22.2-immutable@sha256:4a16d57b37617a04b3d643079a477a2848efe892dffcdf0ce56df4262b65f810
 
 jobs:
   promote:

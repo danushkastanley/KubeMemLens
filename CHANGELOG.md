@@ -6,6 +6,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ### Prepared for v1.0.0-rc.2
 
+- Repair the unavailable Skopeo container pin using upstream's digest-pinned immutable tag. Check tool availability/version before release builds and registry operations, and distinguish a tool-pull failure from a missing destination image.
 - Cancel superseded Pod history requests and isolate dependency diagnostics from the terminal renderer.
 - Restore complete dashboard borders and height, distinguish namespace context from keyboard focus, and set a fixed terminal title without cluster identifiers.
 - Update gRPC to 1.83.2 for its HTTP/2 fragmented-frame memory-exhaustion and missing-authority denial-of-service advisories, and golang.org/x/time to 0.15.0.

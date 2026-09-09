@@ -37,6 +37,15 @@ cat > "${fake_bin}/docker" <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
 args=" $* "
+if [[ "${args}" == *' copy '* ]]; then touch "${FAKE_STATE}/copy-attempt"; fi
+if [ "${FAKE_IMAGE_STATE}" = tool-unavailable ]; then
+  echo 'docker: tool image manifest unknown' >&2
+  exit 125
+fi
+if [[ "${args}" == *' --version '* ]]; then
+  echo 'skopeo version 1.22.2 commit: test'
+  exit 0
+fi
 if [[ "${args}" == *' copy '* ]]; then touch "${FAKE_STATE}/image-published"; exit 0; fi
 if [[ "${args}" == *' inspect '* ]]; then
   state=${FAKE_IMAGE_STATE}
@@ -116,5 +125,13 @@ fi
 if run_publish same different >/dev/null 2>&1; then
   echo 'candidate publication accepted an occupied chart with different bytes' >&2; exit 1
 fi
+
+if run_publish tool-unavailable absent >"${work}/tool-failure.log" 2>&1; then
+  echo 'candidate publication accepted an unavailable registry tool' >&2; exit 1
+fi
+if [ -e "${work}/state-tool-unavailable-absent/copy-attempt" ]; then
+  echo 'candidate publication attempted a copy after the registry tool failed' >&2; exit 1
+fi
+grep -q 'pinned Skopeo image is unavailable or cannot start' "${work}/tool-failure.log"
 
 echo 'candidate publication resume tests passed'

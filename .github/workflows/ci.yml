@@ -143,7 +143,12 @@ jobs:
           args: check
 
       - name: Check release workflow policy
-        run: hack/check-release-contract.sh
+        run: make check-release-contract
+
+      - name: Verify pinned registry tool
+        run: |
+          SKOPEO_IMAGE=$(awk '$1 == "SKOPEO_IMAGE:" {print $2; exit}' .github/workflows/candidate.yml) \
+            hack/release/check_skopeo.sh
 
       - name: Check Krew manifest renderer
         run: |

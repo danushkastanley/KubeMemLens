@@ -18,6 +18,8 @@ for tool in cosign docker helm jq oras sha256sum; do
   }
 done
 
+"$(dirname "${BASH_SOURCE[0]}")/check_skopeo.sh"
+
 expected_version=${candidate_tag#v}
 expected_image="ghcr.io/danushkastanley/candidates/${expected_version}/kube-memlens"
 expected_chart="ghcr.io/danushkastanley/candidates/${expected_version}/charts/kube-memlens"
