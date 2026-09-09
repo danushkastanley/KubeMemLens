@@ -20,8 +20,8 @@ if [[ "$backup_maintainer" == danushkastanley ]]; then
   echo 'backup maintainer must be independent from the primary maintainer' >&2
   exit 1
 fi
-if ! rg --quiet --fixed-strings "@${backup_maintainer}" .github/CODEOWNERS; then
-  echo 'backup maintainer is absent from CODEOWNERS' >&2
+if ! rg --quiet '^\* @danushkastanley$' .github/CODEOWNERS; then
+  echo 'default code ownership must route PRs to the primary maintainer' >&2
   exit 1
 fi
 
@@ -39,17 +39,8 @@ for rule in deletion non_fast_forward pull_request required_status_checks; do
   fi
 done
 
-jq -e '
-  any(.[];
-    .type == "pull_request" and
-    .parameters.required_approving_review_count >= 1 and
-    .parameters.dismiss_stale_reviews_on_push == true and
-    .parameters.require_code_owner_review == true and
-    .parameters.require_last_push_approval == true and
-    .parameters.required_review_thread_resolution == true
-  )
-' <<<"$main_rules" >/dev/null || {
-  echo 'main pull-request review policy is incomplete' >&2
+jq -e -f hack/community/main_pr_policy.jq <<<"$main_rules" >/dev/null || {
+  echo 'main pull-request policy differs from checks-only integration' >&2
   exit 1
 }
 
