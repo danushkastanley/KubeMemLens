@@ -286,6 +286,9 @@ jobs:
           template kube-memlens charts/kube-memlens --namespace kube-memlens
           > /tmp/kube-memlens.yaml
 
+      - name: Check test hook startup resources and security
+        run: ruby hack/check-helm-test-hook.rb /tmp/kube-memlens.yaml
+
       - name: Validate rendered Kubernetes resources
         run: >-
           docker run --rm -i

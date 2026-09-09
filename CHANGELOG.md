@@ -6,6 +6,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ### Prepared for v1.0.0-rc.2
 
+- Give the Helm connection-test hook a tested 16 MiB startup allowance instead of 8 MiB, which could OOM-kill container initialisation before the connectivity test ran. Keep its security settings, retry policy and application resource limits unchanged.
 - Repair the unavailable Skopeo container pin using upstream's digest-pinned immutable tag. Check tool availability/version before release builds and registry operations, and distinguish a tool-pull failure from a missing destination image.
 - Cancel superseded Pod history requests and isolate dependency diagnostics from the terminal renderer.
 - Restore complete dashboard borders and height, distinguish namespace context from keyboard focus, and set a fixed terminal title without cluster identifiers.
