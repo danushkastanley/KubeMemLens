@@ -30,6 +30,30 @@ gh api repos/danushkastanley/KubeMemLens/immutable-releases
 gh api repos/danushkastanley/KubeMemLens/actions/permissions/workflow
 ```
 
+## Feature integration and release approval
+
+On 9 September 2026 the maintainer selected checks-only PR integration.
+Every change to `main` still requires a PR, the seven strict required checks,
+resolved conversations and normal merge protection. Required approving reviews,
+code-owner approval and last-push approval are disabled for PR integration.
+`CODEOWNERS` routes ordinary PRs to the primary maintainer without requesting
+Legolas. This policy applies to all `main` PRs, including R2 feature work.
+
+Actual publication retains the protected `release` environment, including the
+backup reviewer, prevention of self-review and disabled administrator bypass.
+Release tag restrictions, exact-tag authorisation and release evidence gates
+remain required. No administrator bypass is added to `main`.
+
+This deliberately removes mandatory independent review before code reaches
+`main`. The earlier Branch-Protection score below is historical and does not
+prove the new policy's score. Existing OpenSSF release thresholds remain in
+force; a future regression must be reviewed at the release gate rather than
+silently treating old evidence as current. This change does not claim a fresh
+Scorecard result or waive a release threshold.
+
+Rollback restores the previous three PR-review settings and default ownership
+entry, together with the policy checker. The release environment is unchanged.
+
 ## OpenSSF thresholds
 
 The scheduled Scorecard workflow publishes a signed result and uploads SARIF to

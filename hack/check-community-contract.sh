@@ -24,6 +24,7 @@ required_files=(
   docs/security/openssf-passing-assessment.md
   docs/security/reviews/private-reporting-drill-2026-08-27.md
   hack/community/check_repository_settings.sh
+  hack/community/main_pr_policy.jq
 )
 
 for path in "${required_files[@]}"; do
@@ -124,3 +125,5 @@ while IFS= read -r -d '' path; do
 done < <(find . -path './local-docs' -prune -o -type f -name '*.md' -print0)
 
 echo 'community operations contract passed'
+
+python3 -m unittest discover -s hack/community -p 'test_*.py'

@@ -12,6 +12,14 @@ long-lived public homepage. Project 14259 reached `passing` at
 criteria. This is a project self-assessment badge, not certification or a
 guarantee that vulnerabilities are absent.
 
+## Policy update, 9 September 2026
+
+The [repository policy](../repository-security.md#feature-integration-and-release-approval)
+now uses checks-only PR integration and independent approval for actual releases.
+The scores below are the recorded August baseline, not verification of the new
+PR policy. Recheck them before a release; no score or release threshold has been
+changed by this policy update.
+
 ## Scorecard
 
 The repository had no published OpenSSF Scorecard result before PROD-011. A
