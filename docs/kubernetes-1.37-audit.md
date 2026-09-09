@@ -146,3 +146,7 @@ rejects requests above node allocatable before persisting the resize. The live
 negative case checks that rejection and the unchanged applied budget. Mapper
 fixtures separately verify pending, deferred, infeasible, errored and unknown
 conditions, including simultaneous allocation/application generations.
+
+The optional [resource-metrics source](resource-metrics-source.md) discovers served
+versions. Metrics Server v0.9.0 still registers v1beta1; local controlled fixtures
+verify the v1 and transition contracts without installing a provider.

@@ -4,6 +4,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Optional Metrics API source
+
+- Add caller-authorised, namespace-scoped resource-metrics discovery and bounded reads, preferring served v1 with a discovery-driven v1beta1 transition path.
+- Preserve working-set memory, CPU nanocores, source times and identities; distinguish missing, denied, partial, stale and unavailable data. Existing cgroup paths do not depend on this source.
+- Verify both API versions and namespace denial through a local TLS fixture. Correct CI path classification so source and fixture directory changes trigger kind checks.
+
 ### MemoryQoS diagnostics
 
 - Interpret observed reclaim protection, throttle and hard-limit controls, with separate freshness, resize, resource-correlation and pressure evidence.
