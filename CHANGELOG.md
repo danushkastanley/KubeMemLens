@@ -4,6 +4,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Optional CSI volume-health source
+
+- Add caller-authorised, Pod-scoped CSI health reads with separate Pod, PVC and node-backend observations, bounded requests and aggregate-only exports.
+- Keep missing alpha data unreported and unknown conditions adverse. Existing memory collection, permissions and persisted schemas are unchanged.
+- Verify alpha-off, degradation, recovery and namespace isolation on disposable local Kubernetes 1.37 clusters with a pinned upstream CSI driver.
+
 ### Optional Metrics API source
 
 - Add caller-authorised, namespace-scoped resource-metrics discovery and bounded reads, preferring served v1 with a discovery-driven v1beta1 transition path.

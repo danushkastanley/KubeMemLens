@@ -150,3 +150,7 @@ conditions, including simultaneous allocation/application generations.
 The optional [resource-metrics source](resource-metrics-source.md) discovers served
 versions. Metrics Server v0.9.0 still registers v1beta1; local controlled fixtures
 verify the v1 and transition contracts without installing a provider.
+
+The optional [CSI volume-health source](volume-health-source.md) keeps Pod, PVC
+and node-backend reports separate and requires caller-authorised object reads.
+Its local alpha qualification does not establish managed-driver support.

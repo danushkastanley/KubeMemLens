@@ -1,0 +1,7 @@
+# Only the pinned upstream test driver in disposable kind clusters needs these
+# privileges. Never broaden these exact paths to the chart or product images.
+misconfigurations:
+  - id: AVD-KSV-0017
+    paths:
+      - hack/fixtures/csi-health/driver.yaml
+    statement: The upstream hostpath test driver requires mount privileges and bidirectional propagation inside a disposable kind node. No product container receives these privileges.
