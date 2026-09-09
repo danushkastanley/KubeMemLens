@@ -9,6 +9,9 @@ updates:
       timezone: Etc/UTC
     open-pull-requests-limit: 5
     labels: [dependencies, go]
+    groups:
+      kubernetes:
+        patterns: ["k8s.io/*"]
 
   - package-ecosystem: github-actions
     directory: /
@@ -19,6 +22,9 @@ updates:
       timezone: Etc/UTC
     open-pull-requests-limit: 5
     labels: [dependencies]
+    groups:
+      codeql:
+        patterns: ["github/codeql-action*"]
 
   - package-ecosystem: docker
     directory: /

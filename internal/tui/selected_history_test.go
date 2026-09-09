@@ -8,7 +8,21 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/client"
+	"github.com/danushkastanley/kube-memlens/internal/model"
 )
+
+type cancellableHistoryReader struct {
+	*fakeSnapshotReader
+	started   chan string
+	cancelled chan string
+}
+
+func (reader *cancellableHistoryReader) PodHistory(ctx context.Context, _, podName string) ([]api.PodHistory, error) {
+	reader.started <- podName
+	<-ctx.Done()
+	reader.cancelled <- podName
+	return nil, ctx.Err()
+}
 
 func TestSelectedHistoryRejectsLateResponseForPreviousPod(t *testing.T) {
 	var state selectedHistory
@@ -76,6 +90,49 @@ func TestSelectedHistoryBoundsConcurrentRequestsAndRetainsLastGoodData(t *testin
 	}
 	if state.updatedAt.IsZero() {
 		t.Fatal("failed refresh discarded last-good age")
+	}
+}
+
+func TestChangingSelectedPodCancelsSupersededHistoryRequest(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	reader := &cancellableHistoryReader{
+		fakeSnapshotReader: &fakeSnapshotReader{},
+		started:            make(chan string, 2),
+		cancelled:          make(chan string, 2),
+	}
+	m := newModel(ctx, Options{AllNamespaces: true}, reader, "test")
+	m.width, m.height = 180, 50
+	m.loading = false
+	m.data.Namespaces = []api.NamespaceSnapshot{{Namespace: "default"}}
+	m.data.Pods = []api.PodSnapshot{
+		{Namespace: "default", PodName: "pod-a", Memory: model.MemoryBreakdown{TotalBytes: 2}},
+		{Namespace: "default", PodName: "pod-b", Memory: model.MemoryBreakdown{TotalBytes: 1}},
+	}
+	m.resizeViewports()
+	m.reconcileCurrentViewport("")
+
+	first := m.ensureHistoryTarget()
+	if first == nil {
+		t.Fatal("first history request was not started")
+	}
+	go first()
+	if started := <-reader.started; started != "pod-a" {
+		t.Fatalf("started history for %q, want pod-a", started)
+	}
+
+	m.move(1)
+	second := m.ensureHistoryTarget()
+	if second == nil {
+		t.Fatal("second history request was not started")
+	}
+	select {
+	case cancelled := <-reader.cancelled:
+		if cancelled != "pod-a" {
+			t.Fatalf("cancelled history for %q, want pod-a", cancelled)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("superseded Pod history request was not cancelled")
 	}
 }
 

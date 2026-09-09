@@ -19,6 +19,19 @@ class PTYCheckTest(unittest.TestCase):
         self.assertEqual(PTY_CHECK.decode_errors("界👩‍💻".encode()), 0)
         self.assertEqual(PTY_CHECK.decode_errors(b"bad\xff"), 1)
 
+    def test_title_lifecycle_requires_set_then_clear(self):
+        data = b"before" + PTY_CHECK.TITLE_SET + b"frame" + PTY_CHECK.TITLE_CLEAR
+        self.assertEqual(PTY_CHECK.title_lifecycle(data), (True, True))
+        self.assertEqual(PTY_CHECK.title_lifecycle(PTY_CHECK.TITLE_CLEAR + PTY_CHECK.TITLE_SET), (True, False))
+        self.assertTrue(PTY_CHECK.title_lifecycle_valid(data, "direct"))
+        self.assertFalse(PTY_CHECK.title_lifecycle_valid(PTY_CHECK.TITLE_SET, "direct"))
+        self.assertTrue(PTY_CHECK.title_lifecycle_valid(b"tmux-owned", "tmux"))
+        self.assertFalse(PTY_CHECK.title_lifecycle_valid(data, "tmux"))
+
+    def test_renderer_isolation_rejects_client_go_diagnostics(self):
+        self.assertTrue(PTY_CHECK.renderer_isolated(b"KubeMemLens frame"))
+        self.assertFalse(PTY_CHECK.renderer_isolated(b"request.go:752 Waited before sending request"))
+
     def test_capture_is_bounded(self):
         capture = PTY_CHECK.Capture()
         capture.add(b"a" * (PTY_CHECK.MAX_CAPTURE_BYTES + 1))

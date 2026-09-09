@@ -32,11 +32,6 @@ func (state *selectedHistory) selectPod(namespace, podName string) {
 	state.updatedAt = time.Time{}
 }
 
-func (state *selectedHistory) clearSelection() {
-	state.selectPod("", "")
-	state.loading = false
-}
-
 func (state *selectedHistory) start() (historyRequest, bool) {
 	if state.namespace == "" || state.podName == "" || state.inFlight {
 		return historyRequest{}, false

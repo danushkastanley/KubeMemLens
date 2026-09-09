@@ -176,10 +176,10 @@ func (m *appModel) openSelectedDetail() tea.Cmd {
 	m.view = viewDetail
 	m.resetCurrentViewport()
 	if ref.kind == entityPod || ref.kind == entityContainer {
-		m.selectedHistory.selectPod(ref.namespace, ref.podName)
+		m.selectHistoryTarget(ref.namespace, ref.podName)
 		return tea.Batch(m.historyRefreshCmd(), m.beginCompleteFetch())
 	}
-	m.selectedHistory.clearSelection()
+	m.clearHistoryTarget()
 	return nil
 }
 

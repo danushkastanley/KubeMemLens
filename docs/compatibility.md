@@ -1,5 +1,9 @@
 # Support and compatibility contract
 
+The [RC2 preparation](release-preparation-rc2.md) changes the TUI, gRPC and Go
+toolchain. Historical qualification rows below retain their original artefact
+bindings and do not constitute RC2 qualification or widen its provider claims.
+
 This is the canonical support contract for KubeMemLens. Other documents link here instead of defining their own provider, runtime, availability or retention promises.
 
 [`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public evaluation candidate for `v1.0.0`. It is an immutable prerelease, not a stable production-support promise. Stable `v1.0.0` is not approved or published. Provider support below is limited to the immutable artefacts and environment versions in the one-time reviewed evidence; it is not a promise that every later provider or KubeMemLens version has been rerun.

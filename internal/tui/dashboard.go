@@ -11,49 +11,53 @@ import (
 	memmodel "github.com/danushkastanley/kube-memlens/internal/model"
 )
 
-const dashboardGap = 1
+const (
+	dashboardHorizontalGap = 1
+	dashboardVerticalGap   = 1
+)
 
 func (m appModel) renderWideDashboard(plan layoutPlan) string {
 	summaryHeight := 6
 	lowerHeight := maxInt(9, plan.bodyRows/4)
-	mainHeight := plan.bodyRows - summaryHeight - lowerHeight - dashboardGap*2
+	mainHeight := plan.bodyRows - summaryHeight - lowerHeight - dashboardVerticalGap*2
 	if mainHeight < 12 {
 		mainHeight = 12
-		lowerHeight = maxInt(6, plan.bodyRows-summaryHeight-mainHeight-dashboardGap*2)
+		lowerHeight = maxInt(6, plan.bodyRows-summaryHeight-mainHeight-dashboardVerticalGap*2)
 	}
 
 	namespaceWidth := maxInt(27, plan.width/6)
 	detailWidth := maxInt(39, plan.width/4)
-	tableWidth := plan.width - namespaceWidth - detailWidth - dashboardGap*2
+	tableWidth := plan.width - namespaceWidth - detailWidth - dashboardHorizontalGap*2
 	if tableWidth < 72 {
 		tableWidth = 72
-		detailWidth = plan.width - namespaceWidth - tableWidth - dashboardGap*2
+		detailWidth = plan.width - namespaceWidth - tableWidth - dashboardHorizontalGap*2
 	}
 
 	summary := m.renderDashboardSummary(plan.width, summaryHeight)
 	main := lipgloss.JoinHorizontal(lipgloss.Top,
-		m.dashboardPanel("NAMESPACES", m.dashboardNamespaces(namespaceWidth-2, mainHeight-3), namespaceWidth, mainHeight, false),
-		strings.Repeat(" ", dashboardGap),
+		m.dashboardPanel("NAMESPACE CONTEXT", m.dashboardNamespaces(namespaceWidth-2, mainHeight-3), namespaceWidth, mainHeight, false),
+		strings.Repeat(" ", dashboardHorizontalGap),
 		m.dashboardPanel("PODS · RISK ORDER", m.dashboardPods(tableWidth-2, mainHeight-3), tableWidth, mainHeight, m.focus == focusTable),
-		strings.Repeat(" ", dashboardGap),
+		strings.Repeat(" ", dashboardHorizontalGap),
 		m.dashboardPanel("POD DETAILS", m.dashboardPodDetail(detailWidth-2, mainHeight-3), detailWidth, mainHeight, m.focus == focusDetail),
 	)
 
 	leftWidth := plan.width / 2
-	rightWidth := plan.width - leftWidth - dashboardGap
+	rightWidth := plan.width - leftWidth - dashboardHorizontalGap
 	lower := lipgloss.JoinHorizontal(lipgloss.Top,
 		m.dashboardPanel("NODE MEMORY CONTEXT", m.dashboardNodes(leftWidth-2, lowerHeight-3), leftWidth, lowerHeight, false),
-		strings.Repeat(" ", dashboardGap),
+		strings.Repeat(" ", dashboardHorizontalGap),
 		m.dashboardPanel("CURRENT CGROUP SIGNALS", m.dashboardSignals(rightWidth-2, lowerHeight-3), rightWidth, lowerHeight, false),
 	)
-	return lipgloss.JoinVertical(lipgloss.Left, summary, main, lower)
+	verticalSpacer := strings.Repeat("\n", dashboardVerticalGap-1)
+	return lipgloss.JoinVertical(lipgloss.Left, summary, verticalSpacer, main, verticalSpacer, lower)
 }
 
 func (m appModel) renderDashboardSummary(width, height int) string {
 	titles := []string{"OBSERVED POD CHARGE", "NODE ALLOCATABLE", "CHARGE / ALLOCATABLE", "TOP NAMESPACE", "RISK PODS"}
 	values := m.dashboardSummaryValues()
-	baseWidth := (width - (len(titles)-1)*dashboardGap) / len(titles)
-	remainder := width - baseWidth*len(titles) - (len(titles)-1)*dashboardGap
+	baseWidth := (width - (len(titles)-1)*dashboardHorizontalGap) / len(titles)
+	remainder := width - baseWidth*len(titles) - (len(titles)-1)*dashboardHorizontalGap
 	panels := make([]string, 0, len(titles)*2-1)
 	for index, title := range titles {
 		panelWidth := baseWidth
@@ -63,7 +67,7 @@ func (m appModel) renderDashboardSummary(width, height int) string {
 		content := currentTheme().accent.Render(title) + "\n" + values[index]
 		panels = append(panels, m.dashboardPanel("", content, panelWidth, height, false))
 		if index < len(titles)-1 {
-			panels = append(panels, strings.Repeat(" ", dashboardGap))
+			panels = append(panels, strings.Repeat(" ", dashboardHorizontalGap))
 		}
 	}
 	return lipgloss.JoinHorizontal(lipgloss.Top, panels...)
@@ -122,7 +126,7 @@ func (m appModel) dashboardNamespaces(width, rows int) string {
 			marker = "›"
 		}
 		line := marker + tableRow([]string{item.Namespace, fmt.Sprintf("%d", item.PodCount), memmodel.FormatCompactBytes(item.Memory.TotalBytes)}, []int{maxInt(7, width-16), 4, 7}, numericIndexes(1, 2))
-		lines = append(lines, styleSelected(line, marker == "›"))
+		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n")
 }
@@ -245,7 +249,7 @@ func (m appModel) dashboardPanel(title, content string, width, height int, focus
 		BorderForeground(border).
 		Width(width - 2).
 		Height(height - 2).
-		MaxWidth(width - 2).
-		MaxHeight(height - 2).
+		MaxWidth(width).
+		MaxHeight(height).
 		Render(content)
 }

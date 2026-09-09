@@ -165,8 +165,12 @@ func (m *appModel) beginFetch() tea.Cmd {
 }
 
 func (m appModel) fetchHistoryCmd(request historyRequest) tea.Cmd {
+	return m.fetchHistoryCmdWithContext(m.ctx, request)
+}
+
+func (m appModel) fetchHistoryCmdWithContext(ctx context.Context, request historyRequest) tea.Cmd {
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(m.ctx, 5*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		series, err := m.client.PodHistory(ctx, request.namespace, request.podName)
 		return historyMsg{namespace: request.namespace, podName: request.podName, generation: request.generation, series: series, err: err}
@@ -178,22 +182,45 @@ func (m *appModel) historyRefreshCmd() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	return m.fetchHistoryCmd(request)
+	ctx, cancel := context.WithCancel(m.ctx)
+	m.historyCancel = cancel
+	return m.fetchHistoryCmdWithContext(ctx, request)
 }
 
 func (m *appModel) ensureHistoryTarget() tea.Cmd {
 	if m.view == viewDetail && (m.detail.kind == entityPod || m.detail.kind == entityContainer) {
-		m.selectedHistory.selectPod(m.detail.namespace, m.detail.podName)
+		m.selectHistoryTarget(m.detail.namespace, m.detail.podName)
 		return m.historyRefreshCmd()
 	}
 	if m.view == viewPods && m.layout().splitDetail {
 		if pod, ok := m.selectedVisiblePod(); ok {
-			m.selectedHistory.selectPod(pod.Namespace, pod.PodName)
+			m.selectHistoryTarget(pod.Namespace, pod.PodName)
 			return m.historyRefreshCmd()
 		}
 	}
-	m.selectedHistory.clearSelection()
+	m.clearHistoryTarget()
 	return nil
+}
+
+func (m *appModel) selectHistoryTarget(namespace, podName string) {
+	if m.selectedHistory.namespace == namespace && m.selectedHistory.podName == podName {
+		return
+	}
+	m.cancelHistoryRequest()
+	m.selectedHistory.selectPod(namespace, podName)
+}
+
+func (m *appModel) clearHistoryTarget() {
+	m.selectHistoryTarget("", "")
+	m.selectedHistory.loading = false
+}
+
+func (m *appModel) cancelHistoryRequest() {
+	if m.historyCancel == nil {
+		return
+	}
+	m.historyCancel()
+	m.historyCancel = nil
 }
 
 func (m appModel) tickCmd() tea.Cmd {
