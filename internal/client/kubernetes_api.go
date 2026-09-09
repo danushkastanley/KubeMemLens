@@ -231,6 +231,7 @@ func (c *KubernetesAPIClient) get(ctx context.Context, operation, path string, o
 	if err != nil {
 		return readTransportError(operation, err)
 	}
+	request.Header.Set(api.SnapshotSchemaHeader, fmt.Sprint(api.CurrentSnapshotSchemaVersion))
 	response, err := c.httpClient.Do(request)
 	if err != nil {
 		return readTransportError(operation, err)

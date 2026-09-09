@@ -31,6 +31,10 @@ type PageSelection struct {
 }
 
 func writeContainerPage(w http.ResponseWriter, r *http.Request, store *Store, opts HandlerOptions) {
+	schema, err := readSnapshotSchema(w, r)
+	if err != nil {
+		return
+	}
 	limit, err := pageLimit(r.URL.Query())
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -59,7 +63,7 @@ func writeContainerPage(w http.ResponseWriter, r *http.Request, store *Store, op
 		if end < len(items) && len(pageItems) > 0 {
 			page.Continue = encodeScopedContainerCursor(tokenScope, items[end-1].key)
 		}
-		body, encodeErr := encodeBoundedJSON(page, opts.MaxResponseBytes)
+		body, encodeErr := encodeBoundedJSON(api.SnapshotView(page, schema), opts.MaxResponseBytes)
 		if encodeErr == nil {
 			writeJSONBody(w, http.StatusOK, body)
 			return

@@ -1,0 +1,5 @@
+# Explicit local alpha profile; the default cluster keeps alpha gates disabled.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  InPlacePodVerticalScalingMemoryBackedVolumes: true

@@ -210,6 +210,7 @@ func (c *KubeProxyCollectorClient) doRaw(ctx context.Context, serviceName string
 	if c.timeout > 0 {
 		req.Timeout(c.timeout)
 	}
+	req.SetHeader(api.SnapshotSchemaHeader, strconv.Itoa(api.CurrentSnapshotSchemaVersion))
 	return req.DoRaw(ctx)
 }
 

@@ -17,6 +17,7 @@ const maxCaptureHistoryPods = 100
 
 func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	var output, namespace, podName string
+	var schemaVersion int
 	var includeHistory, includeSensitive, force bool
 	cmd := &cobra.Command{
 		Use:   "capture",
@@ -55,7 +56,7 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				reliability = captureReliabilityFromPods(pods)
 			}
 			bundle := api.IncidentBundle{
-				SchemaVersion: api.CurrentIncidentSchemaVersion,
+				SchemaVersion: api.IncidentSchema(pods),
 				CapturedAt:    time.Now().UTC(),
 				ToolVersion:   buildinfo.Current(runtime.Version(), runtime.GOOS, runtime.GOARCH).String(),
 				Redacted:      !includeSensitive,
@@ -83,6 +84,12 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 					bundle.Histories = append(bundle.Histories, history...)
 				}
 			}
+			switch schemaVersion {
+			case api.LegacySchemaVersion:
+				bundle = api.LegacyIncident(bundle)
+			case api.CurrentIncidentSchemaVersion:
+				bundle.SchemaVersion = api.CurrentIncidentSchemaVersion
+			}
 			if bundle.Redacted {
 				redactIncident(&bundle)
 			}
@@ -101,7 +108,11 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include bounded recent history for captured Pods")
 	cmd.Flags().BoolVar(&includeSensitive, "include-sensitive", false, "include Pod UIDs, container IDs, and cgroup paths")
 	cmd.Flags().BoolVar(&force, "force", false, "replace an existing output file")
+	cmd.Flags().IntVar(&schemaVersion, "schema-version", 0, "incident schema: 0 selects automatically; 1 omits resource/resize context for older readers; 2 retains it")
 	cmd.PreRunE = func(_ *cobra.Command, _ []string) error {
+		if schemaVersion < 0 || schemaVersion > api.CurrentIncidentSchemaVersion {
+			return fmt.Errorf("--schema-version must be 0, 1 or %d", api.CurrentIncidentSchemaVersion)
+		}
 		if podName != "" && namespace == "" {
 			return fmt.Errorf("--pod requires --namespace")
 		}

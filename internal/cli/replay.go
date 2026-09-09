@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +25,9 @@ func newReplayCommand() *cobra.Command {
 			bundle, err := readIncidentBundle(args[0])
 			if err != nil {
 				return err
+			}
+			for _, caveat := range bundle.Caveats {
+				fmt.Fprintf(cmd.OutOrStdout(), "Capture caveat: %q\n", caveat)
 			}
 			if podRef != "" {
 				pod, ok := incidentPod(bundle, podRef)
@@ -71,8 +75,8 @@ func readIncidentBundle(path string) (api.IncidentBundle, error) {
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return api.IncidentBundle{}, fmt.Errorf("decode incident bundle: unexpected trailing JSON")
 	}
-	if bundle.SchemaVersion != api.CurrentIncidentSchemaVersion {
-		return api.IncidentBundle{}, fmt.Errorf("unsupported incident schemaVersion %d; expected %d", bundle.SchemaVersion, api.CurrentIncidentSchemaVersion)
+	if err := incident.ValidateSchema(bundle); err != nil {
+		return api.IncidentBundle{}, err
 	}
 	if len(bundle.Pods) > 10_000 || len(bundle.Nodes) > 10_000 || len(bundle.Histories) > 10_000 {
 		return api.IncidentBundle{}, fmt.Errorf("incident bundle exceeds entity limits")

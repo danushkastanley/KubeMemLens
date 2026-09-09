@@ -36,6 +36,9 @@ func Redact(bundle *api.IncidentBundle) {
 }
 
 func Write(stdout io.Writer, output string, overwrite bool, bundle api.IncidentBundle) error {
+	if err := ValidateSchema(bundle); err != nil {
+		return err
+	}
 	if output == "-" {
 		encoder := json.NewEncoder(stdout)
 		encoder.SetIndent("", "  ")

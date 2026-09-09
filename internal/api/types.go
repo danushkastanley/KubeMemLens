@@ -7,8 +7,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const CurrentSnapshotSchemaVersion = 1
-const CurrentIncidentSchemaVersion = 1
+const CurrentSnapshotSchemaVersion = 2
+const CurrentIncidentSchemaVersion = 2
 const CurrentExplanationSchemaVersion = 1
 const MemoryAPIGroup = "memory.kubememlens.io"
 const MemoryAPIVersion = "v1alpha1"
@@ -60,6 +60,8 @@ type ContainerPage struct {
 }
 
 type ContainerContext struct {
+	Resources model.ContainerMemoryResources `json:"resources,omitzero"`
+
 	MemoryRequestBytes         uint64            `json:"memoryRequestBytes"`
 	MemoryRequestKnown         bool              `json:"memoryRequestKnown"`
 	MemoryLimitBytes           uint64            `json:"memoryLimitBytes"`
@@ -100,6 +102,8 @@ type PodSnapshot struct {
 }
 
 type PodContext struct {
+	Resources model.PodMemoryResources `json:"resources,omitzero"`
+
 	MemoryRequestBytes         uint64            `json:"memoryRequestBytes"`
 	MemoryRequestContainers    int               `json:"memoryRequestContainers"`
 	MemoryLimitBytes           uint64            `json:"memoryLimitBytes"`
