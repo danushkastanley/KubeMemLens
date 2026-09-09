@@ -77,7 +77,7 @@ spec:
   volumes:
     - name: load
       emptyDir:
-        sizeLimit: 112Mi
+        sizeLimit: 320Mi
 YAML
 kctl wait --for=condition=Ready pod/qos-budget -n "${namespace}" --timeout=120s >/dev/null
 wait_for_qos() {
@@ -96,12 +96,15 @@ wait_for_qos '.schemaVersion == 3 and (.containers | length) == 2 and all(.conta
 crossed=false
 if [ "${profile}" = throttling ]; then
   wait_for_qos 'any(.containers[]; .name == "worker" and .memoryQoS.throttleHigh.bytes == 83886080 and .memoryQoS.reclaimProtectionLow.bytes == 33554432)'
-  kctl exec qos-budget -n "${namespace}" -c worker -- timeout 45 sh -ec 'for i in 1 2 3 4 5 6; do dd if=/dev/zero of=/load/pressure bs=1M count=96 >/dev/null 2>&1; sleep 1; rm /load/pressure; done' > "${work_dir}/load.log" 2>&1 &
+  kctl exec qos-budget -n "${namespace}" -c worker -- timeout 45 sh -ec 'while [ ! -e /load/stop ]; do dd if=/dev/zero of=/load/pressure bs=1M count=256 >/dev/null 2>&1; done' > "${work_dir}/load.log" 2>&1 &
   load_pid=$!
   wait_for_qos 'any(.containers[]; .name == "worker" and .memoryQoS.activity == "crossed-with-stalls" and .memoryQoS.confidence == "high" and .memoryQoS.highDelta > 0)'
   "${cli}" "${cli_args[@]}" capture -n "${namespace}" --pod qos-budget -o "${work_dir}/after.json" >/dev/null
   "${cli}" compare --before "${work_dir}/before.json" --after "${work_dir}/after.json" --pod "${namespace}/qos-budget" > "${work_dir}/comparison.txt"
   grep -Fq 'throttle activity:' "${work_dir}/comparison.txt"
+  jq -e 'any(.pods[0].containers[]; .containerName == "worker" and .memory.OOMKillEvents == 0 and .memory.LocalOOMKillEvents == 0)' "${work_dir}/after.json" >/dev/null
+  kctl get pod qos-budget -n "${namespace}" -o json | jq -e 'all(.status.containerStatuses[]; .restartCount == 0)' >/dev/null
+  kctl exec qos-budget -n "${namespace}" -c worker -- touch /load/stop
   wait "${load_pid}"
   load_pid=
   crossed=true
