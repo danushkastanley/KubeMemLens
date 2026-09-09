@@ -13,6 +13,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Group coordinated Kubernetes and CodeQL Dependabot updates. Kubernetes libraries remain on 0.36.4 pending a separate authoriser-interface migration.
 - Freeze the provider-review CLI test clock to its evidence fixtures without weakening production evidence-age validation.
 - Align every release SBOM validator with the installed Syft version and document the unpublished RC2 repository destinations.
+- Update the etcd API/client modules to 3.6.14 for bounded TLS handshakes and x/crypto to 0.56.0 for SSH denial-of-service fixes, following the whole-dependency release-gate review.
 
 RC2 is prepared, not published. Chart and archive metadata remain prospective
 1.0.0 under the existing candidate promotion contract. See [RC2 preparation](docs/release-preparation-rc2.md)

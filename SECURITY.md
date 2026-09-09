@@ -4,6 +4,11 @@ The unpublished `v1.0.0-rc.2` preparation includes gRPC 1.83.2 for the
 HTTP/2 fragmented-frame memory-exhaustion and missing-authority denial-of-service advisories. This source change does
 not patch the immutable RC1 archives. See [RC2 preparation](docs/release-preparation-rc2.md).
 
+The preparation also updates etcd API/client modules to 3.6.14 and x/crypto to
+0.56.0. The preparation record distinguishes patched advisories from remaining
+unreachable CEL and unused OpenPGP findings; it does not claim an advisory-free
+dependency graph.
+
 ## Supported versions
 
 `v1.0.0-rc.1` is the approved first public prerelease candidate and receives fixes on a best-effort basis. It does not carry a production stability or support guarantee. Published stable `1.0.x` releases receive security fixes under this policy.

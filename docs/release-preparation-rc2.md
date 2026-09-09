@@ -46,11 +46,13 @@ tenant isolation before reconsideration.
 - [gRPC 1.83.1 release](https://github.com/grpc/grpc-go/releases/tag/v1.83.1): transport buffering and xDS RBAC fixes.
 - [gRPC 1.83.2 release](https://github.com/grpc/grpc-go/releases/tag/v1.83.2): rejects requests missing both authority and Host headers. This supersedes Dependabot's proposed patch; its module also requires x/net 0.58.0.
 - [x/time comparison](https://github.com/golang/time/compare/v0.14.0...v0.15.0).
+- [etcd TLS-handshake advisory](https://pkg.go.dev/vuln/GO-2026-6107): update the three API/client modules to 3.6.14 together. This does not deploy or upgrade a cluster's etcd server.
+- [x/crypto SSH advisory](https://pkg.go.dev/vuln/GO-2026-6354) and [related channel advisory](https://pkg.go.dev/vuln/GO-2026-6355): update to 0.56.0.
 - [Kubernetes maintained releases](https://kubernetes.io/releases/): recheck before freezing the candidate.
 
 ## Verification
 
-The combined Go 1.27.1 and gRPC 1.83.2 preparation passed `make check`, including
+The combined Go 1.27.1, gRPC 1.83.2, etcd client 3.6.14 and x/crypto 0.56.0 preparation passed `make check`, including
 all Go tests, the race suite, 64.3% statement coverage, vet, vulnerability
 reachability and builds. Module
 verification, actionlint 1.7.7, strict Helm lint, kubeconform validation of all
@@ -68,12 +70,25 @@ no open CodeQL-origin findings.
 
 The first combined [CI run](https://github.com/danushkastanley/KubeMemLens/actions/runs/34308891490)
 failed the image gate on CVE-2026-84445. No suppression was added: gRPC was
-advanced to 1.83.2. The local verbose Go scan also reported imported-package
-findings for etcd/client/pkg/v3 (GO-2026-6107) and cel-go (GO-2026-6094), plus
-unused SSH/OpenPGP module findings (GO-2026-6354, GO-2026-6355, GO-2026-5932).
-It found no reachable vulnerable calls. This is reachability triage, not a
-claim that the complete dependency graph is advisory-free. The Kubernetes
-migration must revisit its transitive dependencies.
+advanced to 1.83.2. The subsequent whole-dependency review also patched
+etcd/client/pkg/v3 (GO-2026-6107) and SSH module findings (GO-2026-6354,
+GO-2026-6355). The final local verbose scan reports no reachable vulnerable
+calls, one imported-package finding for cel-go (GO-2026-6094), and the unused
+OpenPGP module finding (GO-2026-5932), for which no upstream fix is available.
+This is reachability triage, not an advisory-free dependency graph.
+
+CEL 0.30.0 passed an isolated compilation/extension-test trial, but its release
+also changes expression validation, cost accounting and evaluation behaviour.
+Its broader compatibility review is deferred alongside the Kubernetes library
+migration; the vulnerable NativeTypes/ParseStructTag calls are not reachable
+according to the final scan. OpenPGP is not imported by this application.
+
+Live community settings passed the maintainer, review, token, tag, environment
+and secret-protection checks, then stopped at the published Scorecard
+vulnerability threshold. The 5 September main-branch report scores 8.3 overall
+but 4/10 for six dependency advisories, below the required 7/10. Best Practices
+still reports Passing at 100%. Merge the verified dependency fixes and obtain
+a fresh published Scorecard before candidate approval; do not lower the gate.
 
 Candidate documentation checks now recognise RC2's explicitly unpublished
 chart/image destinations while preserving working RC1 commands. Both release
