@@ -197,6 +197,9 @@ jobs:
       - name: Fuzz resource-metrics quantities
         run: go test ./internal/resourcemetrics -run='^$' -fuzz='^FuzzUsageValue$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
 
+      - name: Fuzz CSI condition text
+        run: go test ./internal/volumehealth -run='^$' -fuzz='^FuzzConditionText$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
+
   security:
     name: Supply-chain checks
     runs-on: ubuntu-latest
@@ -601,6 +604,22 @@ jobs:
           E2E_RUN_TENANT_ISOLATION_SMOKE: ${{ matrix.tenant_isolation_smoke }}
           E2E_RUN_RELIABILITY_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
         run: hack/e2e-kind.sh
+
+      - name: Verify local CSI volume health with alpha off and on
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.kubernetes == '1.37.0'
+        env:
+          CSI_HEALTH_ACKNOWLEDGE: create-and-remove-local-csi-clusters
+          CSI_HEALTH_ARTIFACT_DIR: ${{ runner.temp }}/kube-memlens-volume-health
+        run: hack/verify-volume-health-kind.sh
+
+      - name: Upload sanitised CSI health evidence
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.kubernetes == '1.37.0'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: csi-health-kubernetes-${{ matrix.kubernetes }}
+          path: ${{ runner.temp }}/kube-memlens-volume-health/*.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload sanitised resource metrics evidence
         if: needs.ci-scope.outputs.run-kind == 'true' && matrix.resource_metrics_smoke

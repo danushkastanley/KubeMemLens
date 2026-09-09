@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kube-memlens-csi-test
+spec:
+  capacity: {storage: 1Gi}
+  accessModes: [ReadWriteOnce]
+  storageClassName: ''
+  persistentVolumeReclaimPolicy: Retain
+  csi:
+    driver: hostpath.csi.k8s.io
+    volumeHandle: VOLUME_HANDLE
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data
+  namespace: kube-memlens-csi-e2e
+spec:
+  volumeName: kube-memlens-csi-test
+  storageClassName: ''
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: {storage: 1Gi}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: persistent
+  namespace: kube-memlens-csi-e2e
+spec:
+  automountServiceAccountToken: false
+  containers:
+    - name: worker
+      image: public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
+      command: [sh, -c, 'exec sleep 86400']
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {cpu: 100m, memory: 32Mi}
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities: {drop: [ALL]}
+      volumeMounts:
+        - {name: data, mountPath: /data}
+  volumes:
+    - name: data
+      persistentVolumeClaim: {claimName: data}

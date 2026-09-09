@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-memlens-csi-e2e
+---
+apiVersion: storage.k8s.io/v1
+kind: CSIDriver
+metadata:
+  name: hostpath.csi.k8s.io
+spec:
+  attachRequired: false
+  podInfoOnMount: true
+  volumeLifecycleModes: [Ephemeral, Persistent]
+  fsGroupPolicy: File
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: driver
+  namespace: kube-memlens-csi-e2e
+spec:
+  automountServiceAccountToken: false
+  containers:
+    - name: driver
+      image: kube-memlens-csi-hostpath:eccd681-versioned
+      imagePullPolicy: Never
+      args: ["--endpoint=unix:///csi/csi.sock", "--nodeid=$(NODE_NAME)", "--v=2"]
+      env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+      securityContext:
+        privileged: true
+      resources:
+        requests: {cpu: 50m, memory: 64Mi}
+        limits: {cpu: '1', memory: 256Mi}
+      volumeMounts:
+        - {name: socket, mountPath: /csi}
+        - {name: pods, mountPath: /var/lib/kubelet/pods, mountPropagation: Bidirectional}
+        - {name: plugins, mountPath: /var/lib/kubelet/plugins, mountPropagation: Bidirectional}
+        - {name: state, mountPath: /csi-data-dir}
+    - name: registrar
+      image: registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0@sha256:f9de845b170155199f2a2a3f9531cf13d78e31235e9db6b6582a8b0db0a50dad
+      args: ["--csi-address=/csi/csi.sock", "--kubelet-registration-path=/var/lib/kubelet/plugins/kube-memlens-csi/csi.sock"]
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities: {drop: [ALL]}
+      volumeMounts:
+        - {name: socket, mountPath: /csi}
+        - {name: registration, mountPath: /registration}
+      resources:
+        requests: {cpu: 10m, memory: 16Mi}
+        limits: {cpu: 100m, memory: 64Mi}
+  volumes:
+    - name: socket
+      hostPath: {path: /var/lib/kubelet/plugins/kube-memlens-csi, type: DirectoryOrCreate}
+    - name: pods
+      hostPath: {path: /var/lib/kubelet/pods, type: Directory}
+    - name: plugins
+      hostPath: {path: /var/lib/kubelet/plugins, type: Directory}
+    - name: registration
+      hostPath: {path: /var/lib/kubelet/plugins_registry, type: Directory}
+    - name: state
+      emptyDir: {}
