@@ -5,7 +5,9 @@ Reviewed on 9 September 2026 against Kubernetes `v1.37.0` and KubeMemLens
 
 This records the upstream contract for subsequent memory features. Runtime
 compatibility does not mean KubeMemLens already consumes every new API field.
-The Kubernetes modules currently remain on `v0.36.4`.
+At this audit's source baseline, the Kubernetes modules remained on `v0.36.4`.
+The subsequent coordinated `v0.37.0` upgrade and authoriser adaptation are
+recorded in the [changelog](../CHANGELOG.md#kubernetes-137-client-compatibility).
 
 ## Release and source evidence
 

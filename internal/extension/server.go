@@ -154,6 +154,16 @@ type agentIdentityAuthorizer struct {
 	logf             func(string, ...any)
 }
 
+// KubeMemLens makes unconditional decisions after checking the agent identity.
+// Both Kubernetes entry points must retain that check and delegate only once.
+func (a agentIdentityAuthorizer) ConditionsAwareAuthorize(ctx context.Context, attributes authorizer.Attributes) authorizer.ConditionsAwareDecision {
+	return authorizer.ConditionsAwareDecisionFromParts(a.Authorize(ctx, attributes))
+}
+
+func (a agentIdentityAuthorizer) EvaluateConditions(context.Context, authorizer.ConditionsAwareDecision, authorizer.ConditionsData) (authorizer.Decision, string, error) {
+	return authorizer.DecisionDeny, "", authorizer.ErrorConditionEvaluationNotSupported
+}
+
 func (a agentIdentityAuthorizer) Authorize(ctx context.Context, attributes authorizer.Attributes) (authorizer.Decision, string, error) {
 	resource := attributes.GetResource()
 	if attributes.GetAPIGroup() == api.MemoryAPIGroup && (resource == "ingestionepochs" || resource == "nodesnapshots") {

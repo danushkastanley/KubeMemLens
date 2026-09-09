@@ -76,10 +76,16 @@ func TestHealthProbePathsDoNotDelegateSubjectAccessReview(t *testing.T) {
 		t.Fatalf("create probe authorizer: %v", err)
 	}
 	delegated := 0
-	delegate := union.New(probeAuthorizer, authorizer.AuthorizerFunc(func(context.Context, authorizer.Attributes) (authorizer.Decision, string, error) {
-		delegated++
-		return authorizer.DecisionDeny, "unexpected delegation", nil
-	}))
+	delegate, err := union.New(
+		union.NamedAuthorizer{AuthorizerName: "health-probes", Authorizer: probeAuthorizer},
+		union.NamedAuthorizer{AuthorizerName: "delegated", Authorizer: authorizer.AuthorizerFunc(func(context.Context, authorizer.Attributes) (authorizer.Decision, string, error) {
+			delegated++
+			return authorizer.DecisionDeny, "unexpected delegation", nil
+		})},
+	)
+	if err != nil {
+		t.Fatalf("create union authorizer: %v", err)
+	}
 	gate := agentIdentityAuthorizer{delegate: delegate}
 	for _, probePath := range delegatedAlwaysAllowPaths() {
 		decision, _, err := gate.Authorize(context.Background(), authorizer.AttributesRecord{

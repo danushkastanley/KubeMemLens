@@ -4,6 +4,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Kubernetes 1.37 client compatibility
+
+- Align the Kubernetes client, API server and supporting modules on 0.37.0 while retaining the newer security-patched dependencies already selected for RC2.
+- Adapt the extension authoriser to the 1.37 interface. Both authorisation entry points retain agent identity validation, one delegated access review and bounded audit output; unsupported condition evaluation fails closed.
+- Exercise older 1.35/1.36 Pod response shapes through the production client and mapper, preserving resource availability when Pod budgets, allocated resources and volume-health fields are absent.
+
 ### Prepared for v1.0.0-rc.2
 
 - Give the Helm connection-test hook a tested 16 MiB startup allowance instead of 8 MiB, which could OOM-kill container initialisation before the connectivity test ran. Keep its security settings, retry policy and application resource limits unchanged.
@@ -12,7 +18,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Restore complete dashboard borders and height, distinguish namespace context from keyboard focus, and set a fixed terminal title without cluster identifiers.
 - Update gRPC to 1.83.2 for its HTTP/2 fragmented-frame memory-exhaustion and missing-authority denial-of-service advisories, and golang.org/x/time to 0.15.0.
 - Align Go and its pinned container builder on 1.27.1, all CodeQL actions on 4.37.9, and the Syft installer action on 0.24.2 while retaining Syft 1.49.0.
-- Group coordinated Kubernetes and CodeQL Dependabot updates. Kubernetes libraries remain on 0.36.4 pending a separate authoriser-interface migration.
+- Group coordinated Kubernetes and CodeQL Dependabot updates. RC2 preparation kept Kubernetes libraries on 0.36.4 pending the separate authoriser-interface migration recorded above.
 - Freeze the provider-review CLI test clock to its evidence fixtures without weakening production evidence-age validation.
 - Align every release SBOM validator with the installed Syft version and document the unpublished RC2 repository destinations.
 - Update the etcd API/client modules to 3.6.14 for bounded TLS handshakes and x/crypto to 0.56.0 for SSH denial-of-service fixes, following the whole-dependency release-gate review.

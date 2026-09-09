@@ -10,6 +10,12 @@ The legacy `v0.0.1-alpha.3` release is not suitable for shared multi-tenant clus
 
 The implemented v1 security interface validates the aggregation proxy, delegates an uncached exact `SubjectAccessReview`, filters namespace data before aggregation and binds writes to Pod and node identity. It is documented in [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md), the [authentication and authorisation architecture](security/authentication-and-authorisation.md), the [tenant read runbook](runbooks/tenant-scoped-reads.md) and the [threat model](security/KubeMemLens-threat-model.md).
 
+With the Kubernetes 1.37 libraries, both authoriser entry points use this same
+unconditional decision path. The conditions-aware entry point does not bypass
+identity validation or issue a second access review. The collector does not
+evaluate conditional grants; such evaluation returns denial and an explicit
+unsupported error. Delegated errors remain sanitised and cannot become an allow.
+
 ## Host Access
 
 DaemonSet mode uses a read-only hostPath mount for `/sys/fs/cgroup`. This path is sensitive because it exposes node-level cgroup and container metadata. The chart keeps the root filesystem read-only by default and does not mount host `/proc`.
