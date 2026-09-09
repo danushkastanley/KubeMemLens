@@ -6,4 +6,5 @@ RUN CGO_ENABLED=0 go build -mod=readonly -trimpath -o /out/healthctl ./cmd/healt
 FROM kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
 COPY --from=build /out/hostpathplugin /hostpathplugin
 COPY --from=build /out/healthctl /healthctl
+USER 65532:65532
 ENTRYPOINT ["/hostpathplugin"]

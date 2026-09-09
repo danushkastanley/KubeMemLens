@@ -101,6 +101,14 @@ It checksum-verifies and builds the upstream hostpath driver at
 [`eccd681b18a2c96332f33c2cac5db38656edd500`](https://github.com/kubernetes-csi/csi-driver-host-path/tree/eccd681b18a2c96332f33c2cac5db38656edd500),
 which implements the released CSI 1.13 health calls. Released hostpath v1.18.0
 lacks those calls. The driver and registrar run only in disposable clusters.
+The fixture image defaults to a non-root user. Its driver Pod explicitly uses
+root and mount privileges because the upstream mount implementation and registrar
+need them; both containers have read-only root filesystems and no API token.
+Only the expected privileged-driver finding in that exact fixture path has a
+[documented scanner exception](../hack/fixtures/csi-health/trivy-exceptions.yaml).
+The same finding remains a failure outside that path. Workload Pods run non-root
+with read-only root filesystems. Production image and chart checks are unchanged.
+
 A real inline hostpath volume seeds a static PV/PVC for the health test; this is
 not a dynamic provisioning or capacity qualification. Node and backend conditions
 come from the driver through kubelet. Controller conditions are explicit Kubernetes

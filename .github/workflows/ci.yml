@@ -233,7 +233,7 @@ jobs:
           -v "${{ runner.temp }}/trivy-cache:/root/.cache/trivy"
           -w /work
           ghcr.io/aquasecurity/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f
-          config --exit-code 1 --severity HIGH,CRITICAL --skip-dirs .git .
+          config --exit-code 1 --severity HIGH,CRITICAL --ignorefile hack/fixtures/csi-health/trivy-exceptions.yaml --skip-dirs .git .
 
       - name: Scan the repository for committed secrets
         run: >-

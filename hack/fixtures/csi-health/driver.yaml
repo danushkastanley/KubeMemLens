@@ -20,6 +20,11 @@ metadata:
   namespace: kube-memlens-csi-e2e
 spec:
   automountServiceAccountToken: false
+  # The upstream mount implementation and registrar need root only in this
+  # disposable kind fixture. The production reader uses neither privilege.
+  securityContext:
+    runAsUser: 0
+    runAsNonRoot: false
   containers:
     - name: driver
       image: kube-memlens-csi-hostpath:eccd681-versioned
@@ -32,6 +37,7 @@ spec:
               fieldPath: spec.nodeName
       securityContext:
         privileged: true
+        readOnlyRootFilesystem: true
       resources:
         requests: {cpu: 50m, memory: 64Mi}
         limits: {cpu: '1', memory: 256Mi}
@@ -45,6 +51,7 @@ spec:
       args: ["--csi-address=/csi/csi.sock", "--kubelet-registration-path=/var/lib/kubelet/plugins/kube-memlens-csi/csi.sock"]
       securityContext:
         allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
         capabilities: {drop: [ALL]}
       volumeMounts:
         - {name: socket, mountPath: /csi}
