@@ -1,6 +1,8 @@
 # RC2 release preparation
 
-Prepared 9 September 2026. Status: locally verified source preparation; hosted CI and release approval pending.
+Prepared 9 September 2026. Status: locally verified source preparation for review;
+release approval pending. Current hosted verification is recorded on
+[preparation PR #74](https://github.com/danushkastanley/KubeMemLens/pull/74).
 
 ## Identity
 
@@ -48,14 +50,17 @@ tenant isolation before reconsideration.
 
 ## Verification
 
-The combined Go 1.27.1 preparation passed `make check`, including all Go tests,
-the race suite, coverage, vet, vulnerability reachability and builds. Module
+The combined Go 1.27.1 and gRPC 1.83.2 preparation passed `make check`, including
+all Go tests, the race suite, 64.3% statement coverage, vet, vulnerability
+reachability and builds. Module
 verification, actionlint 1.7.7, strict Helm lint, kubeconform validation of all
 24 rendered resources and rejection of collector.replicas=2 also passed.
-Hosted CI must still verify the combined image and all three Kubernetes lanes.
-The Go 1.27.1 build with gRPC 1.83.1 passed all 11 Linux terminal rows and four
-macOS pseudo-terminal exit modes; these are bounded checks, not a new soak or
-macOS emulator qualification. The final 1.83.2 build must be rechecked.
+Hosted CI must verify the combined image and all three Kubernetes lanes before
+merge; use PR #74's checks for the latest result.
+The final dependency build passed all 11 Linux terminal rows and four macOS
+pseudo-terminal exit modes. These are bounded checks, not a new soak or macOS
+emulator qualification. All six Linux/macOS/Windows amd64/arm64 CLI builds
+passed. Changed Go modules retain Apache-2.0 or Go's BSD-style licence terms.
 Live release-environment, tag-protection and
 immutable-release settings passed readback. Initial alert readback found one open Dependabot
 alert, zero secret-scanning alerts and three Scorecard posture entries, with
