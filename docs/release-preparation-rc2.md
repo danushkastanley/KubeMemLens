@@ -80,6 +80,21 @@ chart/image destinations while preserving working RC1 commands. Both release
 SBOM validators require the installed Syft 1.49.0; a contract assertion prevents
 the stale archive-validator version from returning.
 
+## Intermittent Helm hook finding
+
+The [first final-dependency CI run](https://github.com/danushkastanley/KubeMemLens/actions/runs/34309698394)
+passed the supply-chain, Go, Helm, CodeQL and Kubernetes 1.36 checks, but the
+Kubernetes 1.35 connection-test Pod failed immediately after rollback.
+Install and upgrade tests in that lane passed. Issue #50 records the same
+post-rollback symptom during RC1 verification, so this predates RC2.
+
+A fresh local Kubernetes 1.35.5 lifecycle and 30 isolated connection-hook
+repetitions passed using Helm 3.18.4 and the unchanged chart. Those arm64 runs
+do not establish the cause of the hosted amd64 failure. CI now reports the
+failed hook's phase and container exit reason without exporting credentials.
+No resource limit, assertion or timeout was relaxed. A passing rerun is
+verification evidence, not a claim that this intermittent failure is fixed.
+
 ## Publication gates
 
 1. Merge the reviewed preparation with green Go, supply-chain, CodeQL, Helm
