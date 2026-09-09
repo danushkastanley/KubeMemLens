@@ -585,8 +585,12 @@ jobs:
       - name: Install TUI smoke dependency
         if: needs.ci-scope.outputs.run-kind == 'true' && matrix.tui_smoke
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends expect
+          # Expect comes from Ubuntu; unrelated preinstalled vendor indexes can
+          # fail independently during publication. Keep normal APT verification.
+          test -s /etc/apt/sources.list.d/ubuntu.sources
+          apt_options=(-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=-)
+          sudo apt-get "${apt_options[@]}" update
+          sudo apt-get "${apt_options[@]}" install --yes --no-install-recommends expect
 
       - name: Run install, diagnosis, upgrade, rollback, and uninstall
         if: needs.ci-scope.outputs.run-kind == 'true'
