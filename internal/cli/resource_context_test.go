@@ -33,7 +33,7 @@ func resourceCLIPod() api.PodSnapshot {
 func TestResourceExplanationVersionAndHumanContext(t *testing.T) {
 	pod := resourceCLIPod()
 	document := podExplanationDocument(pod)
-	if document.SchemaVersion != 2 || document.Kubernetes.Resources != pod.Context.Resources ||
+	if document.SchemaVersion != api.CurrentExplanationSchemaVersion || document.Kubernetes.Resources != pod.Context.Resources ||
 		document.Kubernetes.EffectiveResources.Request.Bytes != 192<<20 || len(document.Containers) != 1 || document.Containers[0].Resources.IsZero() {
 		t.Fatalf("machine explanation lost resource context: %+v", document)
 	}
@@ -50,7 +50,7 @@ func TestResourceExplanationVersionAndHumanContext(t *testing.T) {
 		t.Fatalf("human context lost source or resize state: %s", output.String())
 	}
 	legacy := api.LegacyPodSnapshot(pod)
-	if doc := podExplanationDocument(legacy); doc.SchemaVersion != 1 || doc.Kubernetes.EffectiveResources != nil {
+	if doc := podExplanationDocument(legacy); doc.SchemaVersion != api.CurrentExplanationSchemaVersion || doc.Kubernetes.EffectiveResources != nil {
 		t.Fatal("legacy explanation contract changed")
 	}
 }

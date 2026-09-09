@@ -241,7 +241,7 @@ func oomRisk(m model.MemoryBreakdown) Result {
 }
 
 func pressureRisk(m model.MemoryBreakdown) Result {
-	_, _, high, _ := m.RecentEventCounts()
+	high, _ := m.HighEventDelta()
 	signals := []string{}
 	if high > 0 {
 		source := "memory.events high"

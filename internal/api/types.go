@@ -9,7 +9,8 @@ import (
 
 const CurrentSnapshotSchemaVersion = 2
 const CurrentIncidentSchemaVersion = 2
-const CurrentExplanationSchemaVersion = 1
+const CurrentExplanationSchemaVersion = 3
+const CurrentRecommendationSchemaVersion = 1
 const MemoryAPIGroup = "memory.kubememlens.io"
 const MemoryAPIVersion = "v1alpha1"
 

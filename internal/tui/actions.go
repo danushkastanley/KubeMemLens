@@ -15,6 +15,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/qosview"
 	"github.com/danushkastanley/kube-memlens/internal/recommend"
 	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 )
@@ -74,6 +75,7 @@ func recommendationResult(request actionRequest) (actionResult, error) {
 		return actionResult{}, fmt.Errorf("selected entity is no longer available for recommendations")
 	}
 	items := recommend.ForFinding(finding)
+	items = append(items, recommend.ForPodMemoryQoS(qosPodsForRef(request.ref, request.pods))...)
 	lines := []string{
 		"Target: " + target,
 		"Diagnosis: " + string(finding.Diagnosis),
@@ -123,6 +125,7 @@ func compareResult(request actionRequest) (actionResult, error) {
 		"After counters: "+afterFinding.EvidenceWindow.DeltaDescription(),
 	)
 	lines = append(lines, resourceview.ComparisonLines(before, after)...)
+	lines = append(lines, qosview.ComparisonLines(before, after)...)
 	return actionResult{title: "Live Pod comparison", lines: lines}, nil
 }
 

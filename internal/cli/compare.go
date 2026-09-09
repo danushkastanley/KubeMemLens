@@ -10,6 +10,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/client"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/qosview"
 	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 	"github.com/spf13/cobra"
 )
@@ -178,7 +179,7 @@ func printPodComparison(w interface{ Write([]byte) (int, error) }, title string,
 	}
 	fmt.Fprintf(tw, "PSI some avg10\t%.2f%%\t%.2f%%\t%+.2fpp\n", before.Memory.PSISomeAvg10, after.Memory.PSISomeAvg10, after.Memory.PSISomeAvg10-before.Memory.PSISomeAvg10)
 	_ = tw.Flush()
-	for _, line := range resourceview.ComparisonLines(before, after) {
+	for _, line := range append(resourceview.ComparisonLines(before, after), qosview.ComparisonLines(before, after)...) {
 		fmt.Fprintln(w, line)
 	}
 	beforeResult, afterResult := explain.AnalyzePod(before), explain.AnalyzePod(after)

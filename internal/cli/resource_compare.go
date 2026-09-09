@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/qosview"
 	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 )
 
@@ -28,7 +29,7 @@ func printWorkloadResourceComparison(w io.Writer, before, after api.IncidentBund
 	}
 	sort.Strings(ordered)
 	for _, name := range ordered {
-		for _, line := range resourceview.ComparisonLines(left[name], right[name]) {
+		for _, line := range append(resourceview.ComparisonLines(left[name], right[name]), qosview.ComparisonLines(left[name], right[name])...) {
 			fmt.Fprintf(w, "Pod %s — %s\n", name, line)
 		}
 	}

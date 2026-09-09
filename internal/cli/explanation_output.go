@@ -133,6 +133,7 @@ type kubernetesEvidence struct {
 }
 
 type containerEvidence struct {
+	MemoryQoS           explain.MemoryQoS              `json:"memoryQoS"`
 	Resources           model.ContainerMemoryResources `json:"resources,omitzero"`
 	ConfiguredResources *model.MemoryResourceBudget    `json:"configuredResources,omitempty"`
 
@@ -141,7 +142,13 @@ type containerEvidence struct {
 	Finding findingEvidence `json:"finding"`
 }
 
+type namedMemoryQoS struct {
+	ContainerName string            `json:"containerName"`
+	Observation   explain.MemoryQoS `json:"observation"`
+}
+
 type replicaEvidence struct {
+	MemoryQoS []namedMemoryQoS         `json:"memoryQoS"`
 	Resources model.PodMemoryResources `json:"resources,omitzero"`
 
 	PodName string          `json:"podName"`
@@ -175,7 +182,7 @@ func podExplanationDocument(pod api.PodSnapshot) explanationDocument {
 		NextCommands: podNextCommands(pod),
 	}
 	for _, container := range pod.Containers {
-		entry := containerEvidence{Name: container.ContainerName, Resources: container.Context.Resources, Memory: memoryOutput(container.Memory), Finding: findingOutput(explain.AnalyzeContainer(container))}
+		entry := containerEvidence{MemoryQoS: explain.InterpretMemoryQoS(container), Name: container.ContainerName, Resources: container.Context.Resources, Memory: memoryOutput(container.Memory), Finding: findingOutput(explain.AnalyzeContainer(container))}
 		if !container.Context.Resources.IsZero() {
 			configured := resourceview.ConfiguredContainer(container)
 			entry.ConfiguredResources = &configured
@@ -183,7 +190,6 @@ func podExplanationDocument(pod api.PodSnapshot) explanationDocument {
 		document.Containers = append(document.Containers, entry)
 	}
 	if api.PodHasResourceContext(pod) {
-		document.SchemaVersion = api.ResourceExplanationSchemaVersion
 		effective := resourceview.Effective(pod)
 		document.Kubernetes.EffectiveResources = &effective
 	}
@@ -208,15 +214,17 @@ func workloadExplanationDocument(workload api.WorkloadSnapshot) explanationDocum
 	}
 	for _, pod := range workload.Pods {
 		document.Replicas = append(document.Replicas, replicaEvidence{PodName: pod.PodName, Node: pod.NodeName, Resources: pod.Context.Resources, Memory: memoryOutput(pod.Memory), Finding: findingOutput(explain.AnalyzePod(pod))})
-		if !pod.Context.Resources.IsZero() {
-			document.SchemaVersion = api.ResourceExplanationSchemaVersion
+		for _, container := range pod.Containers {
+			index := len(document.Replicas) - 1
+			document.Replicas[index].MemoryQoS = append(document.Replicas[index].MemoryQoS, namedMemoryQoS{ContainerName: container.ContainerName, Observation: explain.InterpretMemoryQoS(container)})
 		}
 	}
 	return document
 }
 
 func memoryOutput(memory model.MemoryBreakdown) memoryEvidence {
-	oom, oomKill, high, maxEvents := memory.RecentEventCounts()
+	oom, oomKill, _, maxEvents := memory.RecentEventCounts()
+	high, _ := memory.HighEventDelta()
 	return memoryEvidence{
 		TotalBytes: memory.TotalBytes, AnonBytes: memory.RSSBytes(), FileCacheBytes: memory.CacheBytes(),
 		ShmemBytes: memory.ShmemBytes, SlabBytes: memory.SlabBytes, KernelBytes: memory.KernelBytes,

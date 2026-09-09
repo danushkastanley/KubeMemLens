@@ -9,7 +9,6 @@ import (
 )
 
 const LegacySchemaVersion = 1
-const ResourceExplanationSchemaVersion = 2
 
 // Callers advertise their highest understood snapshot schema. An absent header
 // retains the representation understood by existing strict JSON clients.

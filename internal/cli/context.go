@@ -6,6 +6,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/qosview"
 	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 )
 
@@ -53,7 +54,7 @@ func printPodContext(w interface{ Write([]byte) (int, error) }, pod api.PodSnaps
 	}
 	fmt.Fprintf(w, "  memory request: %s\n", resourceCoverage(context.MemoryRequestBytes, context.MemoryRequestContainers, len(pod.Containers), "without request"))
 	fmt.Fprintf(w, "  memory limit: %s\n", resourceCoverage(context.MemoryLimitBytes, context.MemoryLimitContainers, len(pod.Containers), "without limit"))
-	for _, line := range resourceview.PodLines(pod) {
+	for _, line := range append(resourceview.PodLines(pod), qosview.PodLines(pod)...) {
 		fmt.Fprintln(w, "  "+line)
 	}
 }
