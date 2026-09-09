@@ -138,7 +138,14 @@ func (h *Handler) epoch(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusForbidden, "agent_identity", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, h.coordinator.Epoch(claims.PodUID))
+	schema, err := api.NegotiateSnapshotSchema(r.Header.Get(api.SnapshotSchemaHeader))
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, "snapshot_schema", err.Error())
+		return
+	}
+	epoch := h.coordinator.Epoch(claims.PodUID)
+	epoch.SchemaVersion = schema
+	writeJSON(w, http.StatusOK, epoch)
 }
 
 func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {

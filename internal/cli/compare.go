@@ -10,6 +10,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/client"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 	"github.com/spf13/cobra"
 )
 
@@ -61,6 +62,7 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 					return fmt.Errorf("workload %s was not found in the after bundle", incidentWorkloadRef)
 				}
 				printPodComparison(cmd.OutOrStdout(), "Workload incident comparison: "+incidentWorkloadRef, beforeWorkload, afterWorkload, after.CapturedAt.Sub(before.CapturedAt))
+				printWorkloadResourceComparison(cmd.OutOrStdout(), before, after, incidentWorkloadRef)
 				return nil
 			}
 
@@ -176,6 +178,9 @@ func printPodComparison(w interface{ Write([]byte) (int, error) }, title string,
 	}
 	fmt.Fprintf(tw, "PSI some avg10\t%.2f%%\t%.2f%%\t%+.2fpp\n", before.Memory.PSISomeAvg10, after.Memory.PSISomeAvg10, after.Memory.PSISomeAvg10-before.Memory.PSISomeAvg10)
 	_ = tw.Flush()
+	for _, line := range resourceview.ComparisonLines(before, after) {
+		fmt.Fprintln(w, line)
+	}
 	beforeResult, afterResult := explain.AnalyzePod(before), explain.AnalyzePod(after)
 	fmt.Fprintf(w, "\nDiagnosis: %s (%s) → %s (%s)\n", beforeResult.Diagnosis, beforeResult.Confidence, afterResult.Diagnosis, afterResult.Confidence)
 	if elapsed > 0 {

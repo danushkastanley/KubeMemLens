@@ -71,3 +71,35 @@ The collector records the previous node-snapshot timestamp only when the same co
 ## Why High Pod Memory Is Not Always A Heap Leak
 
 A pod can be charged for page cache, tmpfs, and kernel memory as well as application heap. KubeMemLens avoids saying "definitely a leak" and instead reports what the available cgroup stats suggest. The right next step depends on which bucket is high.
+
+## Pod budgets and in-place resize
+
+The effective configured request and limit use the Pod's `spec.resources`
+value when present, independently for request and limit. Otherwise they use
+reported container values, with complete or partial coverage shown. Pod budgets
+are never added to container contributions. The existing container totals remain
+available as separate evidence.
+
+Configured values describe intent. `status.allocatedResources` describes the
+kubelet's allocated request; `status.resources` describes its applied request
+and limit. Missing status fields mean “not reported”, not zero or success.
+Actual cgroup limits and charged memory remain separate measurements. An applied
+Kubernetes limit is not evidence that every container has that same cgroup limit.
+
+Pod and container changes arrive through the existing node-filtered informer.
+Resize allocation can be pending, deferred, infeasible or unknown. Application
+can be in progress, errored or unknown. The two tracks may refer to different
+generations and are shown separately, alongside the Pod spec and observed
+generations. Modern resize conditions take precedence over deprecated resize
+status. No free-form kubelet message is copied into snapshots.
+
+Ordinary container-only Pods retain their existing output. Additional context
+appears for a Pod budget, an active resize or a reported allocation/application
+that differs from container configuration. Comparisons report resource changes
+even when charged memory is unchanged; workload changes stay per replica.
+
+Memory-backed `emptyDir` limits follow the observed Pod specification, including
+size changes where the cluster enables the optional resize feature. They do not
+claim that the underlying mount has resized. See Kubernetes' guides to
+[Pod resource resize](https://kubernetes.io/docs/tasks/configure-pod-container/resize-pod-resources/)
+and [container resource resize](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).

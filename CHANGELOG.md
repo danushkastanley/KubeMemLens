@@ -4,6 +4,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Pod memory resources and resize
+
+- Show effective Pod memory budgets alongside container contributions, kubelet allocated/applied values and distinct resize states, without changing cgroup accounting.
+- Refresh resource context through the existing informer and preserve it in CLI/TUI details, machine explanations, comparisons and redacted captures.
+- Negotiate snapshot schemas for mixed-version readers and agents. Capture supports an explicit schema-1 export with an omitted-context caveat for older replay binaries.
+
 ### Kubernetes 1.37 client compatibility
 
 - Align the Kubernetes client, API server and supporting modules on 0.37.0 while retaining the newer security-patched dependencies already selected for RC2.

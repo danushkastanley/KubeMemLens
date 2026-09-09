@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,6 +49,12 @@ func (h *ReadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeReadError(w, http.StatusMethodNotAllowed, metav1.StatusReasonMethodNotAllowed, "requested operation is not supported")
 		return
 	}
+	schema, err := api.NegotiateSnapshotSchema(r.Header.Get(api.SnapshotSchemaHeader))
+	if err != nil {
+		writeReadError(w, http.StatusBadRequest, metav1.StatusReasonBadRequest, err.Error())
+		return
+	}
+	w.Header().Set(api.SnapshotSchemaHeader, strconv.Itoa(schema))
 	select {
 	case h.gate <- struct{}{}:
 		defer func() { <-h.gate }()
@@ -58,11 +65,11 @@ func (h *ReadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch info.Resource {
 	case "pods":
-		h.servePods(w, r, info)
+		h.servePods(w, r, info, schema)
 	case "containers":
-		h.serveContainers(w, r, info)
+		h.serveContainers(w, r, info, schema)
 	case "workloads":
-		h.serveWorkloads(w, r, info)
+		h.serveWorkloads(w, r, info, schema)
 	case "nodes":
 		h.serveNodes(w, r, info)
 	case "clusterstatus":
@@ -74,7 +81,7 @@ func (h *ReadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *ReadHandler) servePods(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo) {
+func (h *ReadHandler) servePods(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo, schema int) {
 	if info.Subresource == "history" {
 		if info.Verb != "get" || info.Namespace == "" || info.Name == "" || len(info.Parts) != 3 {
 			writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
@@ -120,7 +127,7 @@ func (h *ReadHandler) servePods(w http.ResponseWriter, r *http.Request, info *ap
 		for index, pod := range page.Items {
 			items[index] = podMemory(pod)
 		}
-		writeBoundedReadJSON(w, api.PodMemoryList{
+		writeSnapshotReadJSON(w, schema, api.PodMemoryList{
 			TypeMeta: metav1.TypeMeta{APIVersion: readAPIVersion, Kind: "PodMemoryList"}, ListMeta: metav1.ListMeta{Continue: page.Continue}, Items: items,
 		}, h.opts.MaxResponseBytes)
 		return
@@ -137,7 +144,7 @@ func (h *ReadHandler) servePods(w http.ResponseWriter, r *http.Request, info *ap
 		writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
 		return
 	}
-	writeBoundedReadJSON(w, podMemory(pod), h.opts.MaxResponseBytes)
+	writeSnapshotReadJSON(w, schema, podMemory(pod), h.opts.MaxResponseBytes)
 }
 
 func podSummaryRequested(value string) (bool, error) {
@@ -151,7 +158,7 @@ func podSummaryRequested(value string) (bool, error) {
 	}
 }
 
-func (h *ReadHandler) serveContainers(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo) {
+func (h *ReadHandler) serveContainers(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo, schema int) {
 	if info.Verb != "list" || info.Name != "" || info.Subresource != "" {
 		writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
 		return
@@ -165,13 +172,13 @@ func (h *ReadHandler) serveContainers(w http.ResponseWriter, r *http.Request, in
 	for index, container := range page.Items {
 		items[index] = containerMemory(container)
 	}
-	writeBoundedReadJSON(w, api.ContainerMemoryList{
+	writeSnapshotReadJSON(w, schema, api.ContainerMemoryList{
 		TypeMeta: metav1.TypeMeta{APIVersion: readAPIVersion, Kind: "ContainerMemoryList"},
 		ListMeta: metav1.ListMeta{Continue: page.Continue}, Items: items,
 	}, h.opts.MaxResponseBytes)
 }
 
-func (h *ReadHandler) serveWorkloads(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo) {
+func (h *ReadHandler) serveWorkloads(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo, schema int) {
 	if info.Verb != "list" || info.Name != "" || info.Subresource != "" {
 		writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
 		return
@@ -185,7 +192,7 @@ func (h *ReadHandler) serveWorkloads(w http.ResponseWriter, r *http.Request, inf
 	for index, workload := range page.Items {
 		items[index] = workloadMemory(workload)
 	}
-	writeBoundedReadJSON(w, api.WorkloadMemoryList{
+	writeSnapshotReadJSON(w, schema, api.WorkloadMemoryList{
 		TypeMeta: metav1.TypeMeta{APIVersion: readAPIVersion, Kind: "WorkloadMemoryList"},
 		ListMeta: metav1.ListMeta{Continue: page.Continue}, Items: items,
 	}, h.opts.MaxResponseBytes)
@@ -371,4 +378,8 @@ func writeReadError(w http.ResponseWriter, status int, reason metav1.StatusReaso
 		TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Status"},
 		Status:   metav1.StatusFailure, Reason: reason, Message: message, Code: int32(status),
 	})
+}
+
+func writeSnapshotReadJSON(w http.ResponseWriter, schema int, value any, maxBytes int) {
+	writeBoundedReadJSON(w, api.SnapshotView(value, schema), maxBytes)
 }

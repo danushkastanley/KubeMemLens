@@ -63,6 +63,20 @@ run_live_density_smoke() {
     hack/soak-live-density.sh
 }
 
+run_pod_resource_smoke() {
+  if [ "${E2E_RUN_POD_RESOURCE_SMOKE:-false}" != true ]; then
+    return
+  fi
+  POD_RESOURCE_KUBECONFIG="${kubeconfig}" \
+    POD_RESOURCE_CONTEXT="kind-${cluster_name}" \
+    POD_RESOURCE_CLI="${cli}" \
+    POD_RESOURCE_COLLECTOR_NAMESPACE="${namespace}" \
+    POD_RESOURCE_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/pod-resources" \
+    POD_RESOURCE_TEST_VOLUME_RESIZE="${E2E_TEST_VOLUME_RESIZE:-false}" \
+    POD_RESOURCE_ACKNOWLEDGE=run-and-remove-pod-resource-fixtures \
+    hack/verify-pod-resources-kind.sh
+}
+
 run_tui_smoke() {
   if [ "${E2E_RUN_TUI_SMOKE:-false}" != true ]; then
     return
@@ -189,11 +203,11 @@ docker build \
 go build -trimpath -o "${cli}" ./cmd/kubectl-memlens
 
 echo "Creating ${cluster_name} with ${node_image}"
-kind create cluster \
-  --name "${cluster_name}" \
-  --image "${node_image}" \
-  --kubeconfig "${kubeconfig}" \
-  --wait 120s
+kind_args=(--name "${cluster_name}" --image "${node_image}" --kubeconfig "${kubeconfig}" --wait 120s)
+if [ -n "${E2E_KIND_CONFIG:-}" ]; then
+  kind_args+=(--config "${E2E_KIND_CONFIG}")
+fi
+kind create cluster "${kind_args[@]}"
 cluster_created=true
 kind load docker-image "${image}" --name "${cluster_name}"
 run_linux_fixture_benchmarks
@@ -335,6 +349,7 @@ if KUBECONFIG="${kubeconfig}" kubectl get --raw \
   echo "agent metrics are remotely reachable through the Pod proxy" >&2
   exit 1
 fi
+run_pod_resource_smoke
 run_tui_smoke
 run_live_density_smoke
 [ "${E2E_RUN_RELIABILITY_SMOKE:-false}" != true ] || RELIABILITY_KUBECONFIG="${kubeconfig}" RELIABILITY_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/reliability" RELIABILITY_ACKNOWLEDGE=disrupt-and-restore-kube-memlens-components hack/verify-reliability-kind.sh

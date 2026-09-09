@@ -148,6 +148,7 @@ func (c *CollectorClient) get(ctx context.Context, path string, out any) error {
 		httpClient = &http.Client{Timeout: 5 * time.Second}
 	}
 
+	req.Header.Set(api.SnapshotSchemaHeader, fmt.Sprint(api.CurrentSnapshotSchemaVersion))
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("GET %s: %w", endpoint, err)

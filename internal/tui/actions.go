@@ -16,6 +16,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 	"github.com/danushkastanley/kube-memlens/internal/recommend"
+	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 )
 
 type actionKind int
@@ -121,6 +122,7 @@ func compareResult(request actionRequest) (actionResult, error) {
 		"After observation: "+afterFinding.EvidenceWindow.ObservationDescription(),
 		"After counters: "+afterFinding.EvidenceWindow.DeltaDescription(),
 	)
+	lines = append(lines, resourceview.ComparisonLines(before, after)...)
 	return actionResult{title: "Live Pod comparison", lines: lines}, nil
 }
 
@@ -137,7 +139,7 @@ func captureResult(request actionRequest) (actionResult, error) {
 		return actionResult{}, fmt.Errorf("resolve capture path: %w", err)
 	}
 	bundle := api.IncidentBundle{
-		SchemaVersion: api.CurrentIncidentSchemaVersion,
+		SchemaVersion: api.IncidentSchema([]api.PodSnapshot{pod}),
 		CapturedAt:    time.Now().UTC(),
 		ToolVersion:   buildinfo.Current(runtime.Version(), runtime.GOOS, runtime.GOARCH).String(),
 		Redacted:      true,

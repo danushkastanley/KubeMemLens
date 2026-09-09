@@ -277,7 +277,7 @@ func PostSnapshot(ctx context.Context, collectorURL string, snapshot api.AgentSn
 		return fmt.Errorf("collector URL is required")
 	}
 
-	payload, err := json.Marshal(snapshot)
+	payload, err := json.Marshal(api.AgentSnapshotForSchema(snapshot, api.LegacySchemaVersion))
 	if err != nil {
 		return fmt.Errorf("encode snapshot: %w", err)
 	}

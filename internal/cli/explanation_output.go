@@ -9,6 +9,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 	"sigs.k8s.io/yaml"
 )
 
@@ -110,6 +111,9 @@ type reclaimEvidence struct {
 }
 
 type kubernetesEvidence struct {
+	Resources          model.PodMemoryResources        `json:"resources,omitzero"`
+	EffectiveResources *model.EffectiveMemoryResources `json:"effectiveResources,omitempty"`
+
 	Phase                 string     `json:"phase"`
 	QoSClass              string     `json:"qosClass"`
 	Node                  string     `json:"node"`
@@ -129,12 +133,17 @@ type kubernetesEvidence struct {
 }
 
 type containerEvidence struct {
+	Resources           model.ContainerMemoryResources `json:"resources,omitzero"`
+	ConfiguredResources *model.MemoryResourceBudget    `json:"configuredResources,omitempty"`
+
 	Name    string          `json:"name"`
 	Memory  memoryEvidence  `json:"memory"`
 	Finding findingEvidence `json:"finding"`
 }
 
 type replicaEvidence struct {
+	Resources model.PodMemoryResources `json:"resources,omitzero"`
+
 	PodName string          `json:"podName"`
 	Node    string          `json:"node"`
 	Memory  memoryEvidence  `json:"memory"`
@@ -150,7 +159,8 @@ func podExplanationDocument(pod api.PodSnapshot) explanationDocument {
 		Memory:        memoryOutput(pod.Memory),
 		Finding:       findingOutput(result),
 		Kubernetes: &kubernetesEvidence{
-			Phase: pod.Context.Phase, QoSClass: pod.Context.QoSClass, Node: pod.NodeName,
+			Resources: pod.Context.Resources,
+			Phase:     pod.Context.Phase, QoSClass: pod.Context.QoSClass, Node: pod.NodeName,
 			NodeMemoryPressure: pod.Context.NodeMemoryPressure,
 			WorkloadKind:       pod.Context.WorkloadKind, WorkloadName: pod.Context.WorkloadName,
 			RestartCount: pod.Context.RestartCount, LastTerminationReason: pod.Context.LastTerminationReason,
@@ -165,7 +175,17 @@ func podExplanationDocument(pod api.PodSnapshot) explanationDocument {
 		NextCommands: podNextCommands(pod),
 	}
 	for _, container := range pod.Containers {
-		document.Containers = append(document.Containers, containerEvidence{Name: container.ContainerName, Memory: memoryOutput(container.Memory), Finding: findingOutput(explain.AnalyzeContainer(container))})
+		entry := containerEvidence{Name: container.ContainerName, Resources: container.Context.Resources, Memory: memoryOutput(container.Memory), Finding: findingOutput(explain.AnalyzeContainer(container))}
+		if !container.Context.Resources.IsZero() {
+			configured := resourceview.ConfiguredContainer(container)
+			entry.ConfiguredResources = &configured
+		}
+		document.Containers = append(document.Containers, entry)
+	}
+	if api.PodHasResourceContext(pod) {
+		document.SchemaVersion = api.ResourceExplanationSchemaVersion
+		effective := resourceview.Effective(pod)
+		document.Kubernetes.EffectiveResources = &effective
 	}
 	return document
 }
@@ -187,7 +207,10 @@ func workloadExplanationDocument(workload api.WorkloadSnapshot) explanationDocum
 		NextCommands:  workloadNextCommands(workload),
 	}
 	for _, pod := range workload.Pods {
-		document.Replicas = append(document.Replicas, replicaEvidence{PodName: pod.PodName, Node: pod.NodeName, Memory: memoryOutput(pod.Memory), Finding: findingOutput(explain.AnalyzePod(pod))})
+		document.Replicas = append(document.Replicas, replicaEvidence{PodName: pod.PodName, Node: pod.NodeName, Resources: pod.Context.Resources, Memory: memoryOutput(pod.Memory), Finding: findingOutput(explain.AnalyzePod(pod))})
+		if !pod.Context.Resources.IsZero() {
+			document.SchemaVersion = api.ResourceExplanationSchemaVersion
+		}
 	}
 	return document
 }

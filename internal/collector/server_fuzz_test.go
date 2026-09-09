@@ -25,6 +25,7 @@ func FuzzDecodeSnapshot(f *testing.F) {
 		{data: []byte(`null`), maxBytes: 63},
 		{data: []byte(`{"schemaVersion":1,"nodeName":"node-a","capturedAt":"2026-08-28T00:00:00Z","environment":{},"containers":[]}`), maxBytes: 511},
 		{data: []byte(`{"schemaVersion":1,"nodeName":"node-a","capturedAt":"2026-08-28T00:00:00Z","unknown":true}`), maxBytes: 511},
+		{data: []byte(`{"schemaVersion":2,"containers":[{"context":{"resources":{"pod":{"configured":{"limit":{"bytes":402653184,"known":true}},"pending":{"state":"deferred","source":"pod-condition","observedGeneration":3}},"applied":{"request":{"bytes":134217728,"known":true}}}}}]}`), maxBytes: 4095},
 		{data: []byte(`{"schemaVersion":1} {}`), maxBytes: 511},
 		{data: []byte(`{"schemaVersion":`), maxBytes: 511},
 	} {

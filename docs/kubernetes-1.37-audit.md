@@ -121,3 +121,28 @@ Subsequent changes must retain the three-minor lifecycle checks, absent-field
 compatibility, tenant isolation and redacted exports. Optional APIs remain
 optional. This documentation change has no runtime, data or deployment effect
 and can be reverted independently.
+
+## Local Pod resource verification
+
+`E2E_RUN_POD_RESOURCE_SMOKE=true hack/e2e-kind.sh` exercises effective Pod budgets,
+Pod and container resize, rejected oversized requests, capture/replay,
+comparison and an actual pre-extension CLI against the new collector. The test
+uses one disposable namespace and checks that the Pod and containers did not
+restart. The 1.37 CI lane enables it; older lanes retain their lifecycle checks.
+
+For the optional memory-backed volume resize path, use a separate local run:
+
+```sh
+E2E_CLUSTER_NAME=kube-memlens-volume-resize \
+E2E_KIND_CONFIG=hack/kind-profiles/pod-memory-resize.yaml \
+E2E_RUN_POD_RESOURCE_SMOKE=true E2E_TEST_VOLUME_RESIZE=true hack/e2e-kind.sh
+```
+
+This explicit alpha profile also checks the fixture's tmpfs mount capacity.
+It is not a default chart feature or a managed-provider qualification claim.
+
+The released [PodResize admission plugin](https://github.com/kubernetes/kubernetes/blob/v1.37.0/plugin/pkg/admission/podresize/admission.go)
+rejects requests above node allocatable before persisting the resize. The live
+negative case checks that rejection and the unchanged applied budget. Mapper
+fixtures separately verify pending, deferred, infeasible, errored and unknown
+conditions, including simultaneous allocation/application generations.
