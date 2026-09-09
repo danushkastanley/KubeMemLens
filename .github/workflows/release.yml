@@ -93,7 +93,7 @@ jobs:
             jq -e '
               .spdxVersion == "SPDX-2.3" and
               (.packages | type == "array" and length > 0) and
-              any(.creationInfo.creators[]; . == "Tool: syft-1.44.0")
+              any(.creationInfo.creators[]; . == "Tool: syft-1.49.0")
             ' "$sbom" >/dev/null
           done
           if grep -F "$GITHUB_WORKSPACE" dist/*.sbom.json; then

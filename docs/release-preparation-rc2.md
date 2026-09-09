@@ -29,7 +29,7 @@ merge of the reviewed replacement.
 | [#69](https://github.com/danushkastanley/KubeMemLens/pull/69) | CodeQL analyse 4.37.9 | Include as a group. Individual PRs mix action configuration versions. |
 | [#70](https://github.com/danushkastanley/KubeMemLens/pull/70) | CodeQL autobuild 4.37.9 | Include as a group. |
 | [#71](https://github.com/danushkastanley/KubeMemLens/pull/71) | CodeQL init 4.37.9 | Include as a group. CI reports configuration 4.37.9 with runtime 4.37.8. |
-| [#72](https://github.com/danushkastanley/KubeMemLens/pull/72) | gRPC 1.83.1 | Include. Alert #2 reports high-severity HTTP/2 fragmented-frame memory exhaustion through 1.83.0. The prior 1.36 kind failure was a connection-hook failure; combined CI must pass. |
+| [#72](https://github.com/danushkastanley/KubeMemLens/pull/72) | gRPC 1.83.1 | Supersede with 1.83.2. Alert #2 requires at least 1.83.1, but the combined image scan found CVE-2026-84445 in that version. Upstream 1.83.2 fixes it. |
 | [#73](https://github.com/danushkastanley/KubeMemLens/pull/73) | Go image 1.27.1 | Include the pinned image digest and align go.mod. Its Go-check failure came from dated provider-review fixtures, now given a fixed test clock. |
 
 Retaining Kubernetes libraries at 0.36.4 does not change the supported cluster
@@ -42,6 +42,7 @@ tenant isolation before reconsideration.
 - [CodeQL action 4.37.9](https://github.com/github/codeql-action/releases/tag/v4.37.9): tag resolves to `cdf488f595d80d6e07e03d4674febd5ab45fa938`.
 - [Syft installer action 0.24.2](https://github.com/anchore/sbom-action/releases/tag/v0.24.2): immutable release commit `3ad7283483fc7af8ff2b4ea19663c2d5ca935e26`.
 - [gRPC 1.83.1 release](https://github.com/grpc/grpc-go/releases/tag/v1.83.1): transport buffering and xDS RBAC fixes.
+- [gRPC 1.83.2 release](https://github.com/grpc/grpc-go/releases/tag/v1.83.2): rejects requests missing both authority and Host headers. This supersedes Dependabot's proposed patch; its module also requires x/net 0.58.0.
 - [x/time comparison](https://github.com/golang/time/compare/v0.14.0...v0.15.0).
 - [Kubernetes maintained releases](https://kubernetes.io/releases/): recheck before freezing the candidate.
 
@@ -52,11 +53,27 @@ the race suite, coverage, vet, vulnerability reachability and builds. Module
 verification, actionlint 1.7.7, strict Helm lint, kubeconform validation of all
 24 rendered resources and rejection of collector.replicas=2 also passed.
 Hosted CI must still verify the combined image and all three Kubernetes lanes.
-Earlier TUI-only terminal runs are historical; they do not verify the changed
-Go and dependency build. Live release-environment, tag-protection and
+The Go 1.27.1 build with gRPC 1.83.1 passed all 11 Linux terminal rows and four
+macOS pseudo-terminal exit modes; these are bounded checks, not a new soak or
+macOS emulator qualification. The final 1.83.2 build must be rechecked.
+Live release-environment, tag-protection and
 immutable-release settings passed readback. Initial alert readback found one open Dependabot
 alert, zero secret-scanning alerts and three Scorecard posture entries, with
 no open CodeQL-origin findings.
+
+The first combined [CI run](https://github.com/danushkastanley/KubeMemLens/actions/runs/34308891490)
+failed the image gate on CVE-2026-84445. No suppression was added: gRPC was
+advanced to 1.83.2. The local verbose Go scan also reported imported-package
+findings for etcd/client/pkg/v3 (GO-2026-6107) and cel-go (GO-2026-6094), plus
+unused SSH/OpenPGP module findings (GO-2026-6354, GO-2026-6355, GO-2026-5932).
+It found no reachable vulnerable calls. This is reachability triage, not a
+claim that the complete dependency graph is advisory-free. The Kubernetes
+migration must revisit its transitive dependencies.
+
+Candidate documentation checks now recognise RC2's explicitly unpublished
+chart/image destinations while preserving working RC1 commands. Both release
+SBOM validators require the installed Syft 1.49.0; a contract assertion prevents
+the stale archive-validator version from returning.
 
 ## Publication gates
 

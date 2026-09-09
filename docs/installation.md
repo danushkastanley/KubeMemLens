@@ -76,6 +76,15 @@ prefix. Do not substitute the stable image repository before promotion. Release
 archives, checksums, SBOMs, signatures and provenance are attached to the
 immutable candidate release.
 
+### Prepared RC2 (not published)
+
+RC2 is still under review. Its planned chart location is
+`oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.2/charts/kube-memlens`
+with `--version 1.0.0`; its image repository is
+`ghcr.io/danushkastanley/candidates/1.0.0-rc.2/kube-memlens`.
+Do not install these locations until publication. Use the exact image digest
+from RC2's signed `candidate-manifest.json`, never the RC1 digest above.
+
 ### Stable release (not published)
 
 The production repositories are not valid yet. Stable `v1.0.0` requires a

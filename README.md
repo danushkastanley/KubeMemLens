@@ -42,6 +42,15 @@ helm upgrade --install kube-memlens \
 
 The candidate chart uses prospective stable metadata but the candidate workflow publishes it only under the version-scoped candidate repository. Candidate installs must override both the image repository and digest with the values in the signed `candidate-manifest.json`. The digest value already includes its `sha256:` prefix. `release-subjects.txt` records the same immutable image and chart subjects.
 
+### Prepared RC2 (not published)
+
+RC2 is still under review. Its planned chart location is
+`oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.2/charts/kube-memlens`
+with `--version 1.0.0`; its image repository is
+`ghcr.io/danushkastanley/candidates/1.0.0-rc.2/kube-memlens`.
+Do not install these locations until publication. Use the exact image digest
+from RC2's signed `candidate-manifest.json`, never the RC1 digest above.
+
 ### Stable release (not published)
 
 Do not use the production repositories yet. Stable `v1.0.0` requires a separate

@@ -1,7 +1,7 @@
 # Security Policy
 
-The unpublished `v1.0.0-rc.2` preparation includes gRPC 1.83.1 for the open
-HTTP/2 fragmented-frame memory-exhaustion advisory. This source change does
+The unpublished `v1.0.0-rc.2` preparation includes gRPC 1.83.2 for the
+HTTP/2 fragmented-frame memory-exhaustion and missing-authority denial-of-service advisories. This source change does
 not patch the immutable RC1 archives. See [RC2 preparation](docs/release-preparation-rc2.md).
 
 ## Supported versions
