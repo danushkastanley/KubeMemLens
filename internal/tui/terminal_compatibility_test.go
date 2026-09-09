@@ -10,6 +10,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/lipgloss"
+	"k8s.io/klog/v2"
 )
 
 func TestMinimumSizeStateIsBoundedAndRecovers(t *testing.T) {
@@ -50,6 +51,21 @@ func TestResizeStormKeepsAValidViewportAndFocus(t *testing.T) {
 		if start < 0 || end < start || end > m.activeViewport().count {
 			t.Fatalf("size %dx%d has invalid viewport %d:%d/%d", size[0], size[1], start, end, m.activeViewport().count)
 		}
+	}
+}
+
+func TestViewSetsPrivacySafeWindowTitle(t *testing.T) {
+	m := loadedFixtureModel(t, 180, 50)
+	view := m.View()
+	if view.WindowTitle != "KubeMemLens" {
+		t.Fatalf("window title = %q, want KubeMemLens", view.WindowTitle)
+	}
+}
+
+func TestInteractiveContextDiscardsDependencyLogs(t *testing.T) {
+	logger := klog.FromContext(interactiveContext(context.Background()))
+	if logger.Enabled() {
+		t.Fatal("interactive dependency logger remains enabled")
 	}
 }
 

@@ -1,5 +1,10 @@
 # Installation, Upgrade, and Uninstall
 
+`v1.0.0-rc.2` is in preparation and has no published image or chart digest.
+Follow [the preparation record](release-preparation-rc2.md) for its gates.
+The commands below install RC1; do not substitute an RC2 repository path
+until its signed candidate manifest is published.
+
 [`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public evaluation candidate for `v1.0.0`. It is an immutable prerelease, not a supported production release. Stable `v1.0.0` is not approved or published. Use exact versions and digests, and review the [support and compatibility contract](compatibility.md) and release assets before installation.
 
 Do not turn the local tenant-isolation result into a generic shared-cluster
@@ -70,6 +75,15 @@ to the later stable chart. The manifest digest already includes its `sha256:`
 prefix. Do not substitute the stable image repository before promotion. Release
 archives, checksums, SBOMs, signatures and provenance are attached to the
 immutable candidate release.
+
+### Prepared RC2 (not published)
+
+RC2 is still under review. Its planned chart location is
+`oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.2/charts/kube-memlens`
+with `--version 1.0.0`; its image repository is
+`ghcr.io/danushkastanley/candidates/1.0.0-rc.2/kube-memlens`.
+Do not install these locations until publication. Use the exact image digest
+from RC2's signed `candidate-manifest.json`, never the RC1 digest above.
 
 ### Stable release (not published)
 

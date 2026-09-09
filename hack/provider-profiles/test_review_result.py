@@ -34,6 +34,18 @@ UNSUPPORTED_CASES = {
     "cgroup-v1": "cgroup-v1-observation.json",
 }
 
+# Exercise the CLI with the same clock as the dated evidence fixtures.
+REVIEW_CLI = [sys.executable, "-c", """
+import sys
+from datetime import datetime, timezone
+from unittest.mock import patch
+sys.path.insert(0, sys.argv.pop(1))
+import review_result
+with patch.object(review_result, "datetime", wraps=datetime) as clock:
+    clock.now.return_value = datetime(2026, 8, 26, 12, tzinfo=timezone.utc)
+    review_result.main()
+""", str(ROOT)]
+
 
 class ProviderReviewResultTests(unittest.TestCase):
     @classmethod
@@ -344,7 +356,7 @@ class ProviderReviewResultTests(unittest.TestCase):
             pending_path.write_text(json.dumps(pending), encoding="utf-8")
             receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
             result = subprocess.run([
-                sys.executable, str(ROOT / "review_result.py"), "--profile", str(profile_path),
+                *REVIEW_CLI, "--profile", str(profile_path),
                 "--input", str(pending_path), "--output", str(output_path),
                 "--provider-receipt", str(receipt_path), "--acknowledge", ACKNOWLEDGEMENT,
             ], check=False, capture_output=True, text=True)
@@ -381,8 +393,7 @@ class ProviderReviewResultTests(unittest.TestCase):
             self.write_supported_bundle(root, pending, self.receipt)
             pending_path.write_text(json.dumps(pending), encoding="utf-8")
             command = [
-                sys.executable,
-                str(ROOT / "review_result.py"),
+                *REVIEW_CLI,
                 "--profile",
                 str(self.profile_path),
                 "--input",

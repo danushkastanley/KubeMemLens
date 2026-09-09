@@ -21,40 +21,38 @@ esac
 [ ! -e "${result}" ] || exit 2
 [ ! -e "${screenshot}" ] || exit 2
 
-title="KubeMemLens-${emulator}-${columns}x${rows}"
+application_title="KubeMemLens"
 state_file=$(mktemp /tmp/terminal-state.XXXXXX)
 wrapper=(/scripts/session_wrapper.sh "${state_file}" "$@")
 
 case "${emulator}" in
   xterm)
-    xterm -geometry "${columns}x${rows}" -T "${title}" -e "${wrapper[@]}" &
+    xterm -geometry "${columns}x${rows}" -e "${wrapper[@]}" &
     ;;
   kitty)
-    kitty --title "${title}" \
-      --override remember_window_size=no \
+    kitty --override remember_window_size=no \
       --override "initial_window_width=${columns}c" \
       --override "initial_window_height=${rows}c" \
       "${wrapper[@]}" &
     ;;
   alacritty)
-    alacritty --title "${title}" \
-      --option "window.dimensions.columns=${columns}" \
+    alacritty --option "window.dimensions.columns=${columns}" \
       --option "window.dimensions.lines=${rows}" \
       -e "${wrapper[@]}" &
     ;;
 esac
 emulator_pid=$!
 
-window_id=$(timeout 15s xdotool search --sync --name "^${title}$" | head -n 1)
+window_id=$(timeout 15s xdotool search --sync --pid "${emulator_pid}" | head -n 1)
 deadline=$((SECONDS + 30))
 while [ "${SECONDS}" -lt "${deadline}" ]; do
   xdotool windowactivate --sync "${window_id}" >/dev/null 2>&1 || true
-  if xdotool getwindowname "${window_id}" | grep -Fxq "${title}"; then
+  if xdotool getwindowname "${window_id}" | grep -Fxq "${application_title}"; then
     break
   fi
   sleep 1
 done
-xdotool getwindowname "${window_id}" | grep -Fxq "${title}"
+xdotool getwindowname "${window_id}" | grep -Fxq "${application_title}"
 
 sleep 3
 keys=(G s N p question question space space)
@@ -64,14 +62,14 @@ while [ "${SECONDS}" -lt "${input_deadline}" ]; do
   key=${keys[$((key_index % ${#keys[@]}))]}
   xdotool windowactivate --sync "${window_id}" >/dev/null 2>&1
   xdotool key "${key}"
-  xdotool getwindowname "${window_id}" | grep -Fxq "${title}"
+  xdotool getwindowname "${window_id}" | grep -Fxq "${application_title}"
   key_index=$((key_index + 1))
   sleep 1
 done
 xdotool windowactivate --sync "${window_id}" >/dev/null 2>&1 || true
 scrot --focused --overwrite "${screenshot}"
 [ "$(wc -c < "${screenshot}")" -ge 5000 ]
-xdotool getwindowname "${window_id}" | grep -Fxq "${title}"
+xdotool getwindowname "${window_id}" | grep -Fxq "${application_title}"
 
 xdotool windowactivate --sync "${window_id}" >/dev/null 2>&1 || true
 xdotool key q 2>/dev/null || true
@@ -106,7 +104,7 @@ jq -n \
   --argjson rows "${rows}" \
   --argjson durationSeconds "${duration}" '
   {
-    schemaVersion: 1,
+    schemaVersion: 2,
     outcome: "passed",
     terminal: {emulator: $emulator, version: $version, columns: $columns, rows: $rows},
     run: {refresh: "1s", requestedDurationSeconds: $durationSeconds},
@@ -114,7 +112,7 @@ jq -n \
       applicationAcceptedNavigationInput: true,
       cleanExit: true,
       terminalModeRestored: true,
-      titleUnchanged: true,
+      titleSet: true,
       screenshotCaptured: true
     },
     privacy: {rawTerminalOutputRetained: false, credentialPathsRetained: false, clusterIdentifiersRetained: false}

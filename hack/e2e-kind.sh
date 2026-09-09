@@ -159,6 +159,9 @@ collect_diagnostics() {
   kind export logs "${artifact_dir}/kind" --name "${cluster_name}" >/dev/null 2>&1 || true
   KUBECONFIG="${kubeconfig}" kubectl get all -A -o wide > "${artifact_dir}/resources.txt" 2>&1 || true
   KUBECONFIG="${kubeconfig}" kubectl describe pods -n "${namespace}" > "${artifact_dir}/pods.txt" 2>&1 || true
+  # Preserve the failed hook's exit reason in CI without exporting cluster credentials.
+  KUBECONFIG="${kubeconfig}" kubectl get pod kube-memlens-test-connection -n "${namespace}" -o json |
+    jq '{phase: .status.phase, reason: .status.reason, containers: [.status.containerStatuses[]? | {name, terminated: (.state.terminated | {reason, exitCode, signal})}]}' >&2 || true
 }
 
 cleanup() {

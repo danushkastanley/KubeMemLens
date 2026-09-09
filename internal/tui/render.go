@@ -20,6 +20,7 @@ var (
 func (m appModel) View() tea.View {
 	view := tea.NewView(m.viewString())
 	view.AltScreen = true
+	view.WindowTitle = "KubeMemLens"
 	return view
 }
 

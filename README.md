@@ -16,6 +16,10 @@ The goal is to make incidents like "kubectl top says memory is high, but the app
 
 ## Status
 
+`v1.0.0-rc.2` is being prepared. Its [preparation record](docs/release-preparation-rc2.md)
+tracks the reviewed dependency updates, TUI fixes and publication gates.
+The installation commands below still refer to the published RC1.
+
 [`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public candidate for `v1.0.0`. It is an immutable prerelease for evaluation on disposable or explicitly authorised clusters, not a production stability or support guarantee. Stable `v1.0.0` is not approved or published. The v1 code authenticates node-bound writes and tenant-scoped reads through the Kubernetes aggregation layer and has passed the local adversarial isolation gate. The legacy `v0.0.1-alpha.3` release is not suitable for shared multi-tenant clusters. Provider claims remain limited to the exact reviewed combinations below. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI uses the caller's kubeconfig and the aggregated API by default. Conservative Prometheus/OpenMetrics output is available through a separately authorised metrics resource.
 
 The required lifecycle gate targets the current upstream-supported Kubernetes 1.35, 1.36 and 1.37 minors. Runtime-sensitive changes run all three lanes. A documentation-only release alignment may reuse the latest green result for the same runtime, chart and image inputs. The [local `rc-5000` result](docs/qualification-results/rc-5000-local-kind-2026-08-26.md) passed for 5,000 containers over 30 minutes on the recorded four-Node kind `v1.35.5` environment. The one-time [provider/runtime qualification record](docs/qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md) supports the exact recorded GKE Standard, EKS managed-node, self-managed containerd and CRI-O combinations. Standard AKS, GKE Autopilot, EKS Fargate, AKS virtual nodes, Windows nodes and cgroup v1 are unsupported for deep mode. This evidence is historical and version-bound; its freshness date is advisory rather than a recurring release gate. Configured store ceilings above the measured profile remain rejection bounds, not live-scale claims.
@@ -37,6 +41,15 @@ helm upgrade --install kube-memlens \
 ```
 
 The candidate chart uses prospective stable metadata but the candidate workflow publishes it only under the version-scoped candidate repository. Candidate installs must override both the image repository and digest with the values in the signed `candidate-manifest.json`. The digest value already includes its `sha256:` prefix. `release-subjects.txt` records the same immutable image and chart subjects.
+
+### Prepared RC2 (not published)
+
+RC2 is still under review. Its planned chart location is
+`oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.2/charts/kube-memlens`
+with `--version 1.0.0`; its image repository is
+`ghcr.io/danushkastanley/candidates/1.0.0-rc.2/kube-memlens`.
+Do not install these locations until publication. Use the exact image digest
+from RC2's signed `candidate-manifest.json`, never the RC1 digest above.
 
 ### Stable release (not published)
 
@@ -290,6 +303,11 @@ Key controls:
 | Tab | At wide sizes, move focus between the table and selected detail; it no longer changes entity view |
 | `a`, `R`, `x`, `C`, `y` | Open incident actions, recommendations, compare, redacted capture or copy a safe command |
 | `?` / `q` | Show help / quit and restore the terminal |
+
+While it is open, the TUI uses the fixed terminal title `KubeMemLens`. It does
+not place cluster, namespace or Pod names in the title, and clears the title on
+exit. A terminal multiplexer such as tmux may keep ownership of the outer
+window title.
 
 Recommendations and comparisons are read-only. TUI capture uses the same redaction and private-file rules as the CLI, refuses overwrite without confirmation and never applies a resource change. Deep memory evidence requires the standard cgroup v2 agent path and history remains bounded and in memory. Container detail can show the parent Pod's bounded history; KubeMemLens does not claim container-level historical attribution.
 

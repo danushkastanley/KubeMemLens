@@ -46,6 +46,7 @@ type appModel struct {
 	containerLoading bool
 	containerErr     error
 	selectedHistory  selectedHistory
+	historyCancel    context.CancelFunc
 }
 
 type fetchMsg struct {
@@ -169,6 +170,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.ensureHistoryTarget()
 	case historyMsg:
 		if m.selectedHistory.complete(msg, time.Now()) {
+			m.cancelHistoryRequest()
 			m.syncDetailViewport()
 		}
 		return m, nil
@@ -183,10 +185,10 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *appModel) clearRevokedData() {
+	m.clearHistoryTarget()
 	m.data = snapshotData{}
 	m.podTrends = make(map[string]int8)
 	m.lastRefresh = time.Time{}
-	m.selectedHistory.clearSelection()
 	m.action = actionState{}
 	m.currentNamespace = ""
 	m.currentNode = ""
@@ -248,6 +250,7 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	switch msg.String() {
 	case "q", "ctrl+c":
+		m.cancelHistoryRequest()
 		return m, tea.Quit
 	case "?":
 		m.help = !m.help

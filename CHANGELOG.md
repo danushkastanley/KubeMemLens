@@ -4,6 +4,21 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Prepared for v1.0.0-rc.2
+
+- Cancel superseded Pod history requests and isolate dependency diagnostics from the terminal renderer.
+- Restore complete dashboard borders and height, distinguish namespace context from keyboard focus, and set a fixed terminal title without cluster identifiers.
+- Update gRPC to 1.83.2 for its HTTP/2 fragmented-frame memory-exhaustion and missing-authority denial-of-service advisories, and golang.org/x/time to 0.15.0.
+- Align Go and its pinned container builder on 1.27.1, all CodeQL actions on 4.37.9, and the Syft installer action on 0.24.2 while retaining Syft 1.49.0.
+- Group coordinated Kubernetes and CodeQL Dependabot updates. Kubernetes libraries remain on 0.36.4 pending a separate authoriser-interface migration.
+- Freeze the provider-review CLI test clock to its evidence fixtures without weakening production evidence-age validation.
+- Align every release SBOM validator with the installed Syft version and document the unpublished RC2 repository destinations.
+- Update the etcd API/client modules to 3.6.14 for bounded TLS handshakes and x/crypto to 0.56.0 for SSH denial-of-service fixes, following the whole-dependency release-gate review.
+
+RC2 is prepared, not published. Chart and archive metadata remain prospective
+1.0.0 under the existing candidate promotion contract. See [RC2 preparation](docs/release-preparation-rc2.md)
+for PR decisions and outstanding publication gates.
+
 ## 1.0.0 - first public candidate published as v1.0.0-rc.1 on 2026-08-29
 
 ### Added

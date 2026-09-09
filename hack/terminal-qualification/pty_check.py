@@ -23,6 +23,8 @@ ALT_EXIT = b"\x1b[?1049l"
 CURSOR_HIDE = b"\x1b[?25l"
 CURSOR_SHOW = b"\x1b[?25h"
 TITLE_PATTERN = re.compile(br"\x1b\](?:0|2);")
+TITLE_SET = b"\x1b]2;KubeMemLens\x07"
+TITLE_CLEAR = b"\x1b]2;\x07"
 SGR_PATTERN = re.compile(br"\x1b\[([0-9;]*)m")
 SAFE_NAME = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 MAX_CAPTURE_BYTES = 32 * 1024 * 1024
@@ -92,6 +94,22 @@ def colour_sgr_count(data: bytes) -> int:
     return count
 
 
+def title_lifecycle(data: bytes) -> tuple[bool, bool]:
+    set_index = data.find(TITLE_SET)
+    clear_index = data.find(TITLE_CLEAR, set_index + len(TITLE_SET)) if set_index >= 0 else -1
+    return set_index >= 0, clear_index > set_index
+
+
+def title_lifecycle_valid(data: bytes, transport: str) -> bool:
+    if transport == "tmux":
+        return TITLE_PATTERN.search(data) is None
+    return title_lifecycle(data) == (True, True)
+
+
+def renderer_isolated(data: bytes) -> bool:
+    return b"request.go:" not in data and b"Waited before sending request" not in data
+
+
 def terminal_modes_equal(before: list[object], after: list[object]) -> bool:
     """Compare terminal state while ignoring the transient pending-input flag."""
     normalised_before = list(before)
@@ -146,6 +164,8 @@ def exercise(master: int, capture: Capture, columns: int, rows: int, finish_at: 
     wait_for(master, capture, b"KubeMemLens", min(finish_at, time.monotonic() + 30))
     screen_token = b"A/F/S/O" if expected_screen == "dashboard" else b"connection error"
     wait_for(master, capture, screen_token, min(finish_at, time.monotonic() + 30))
+    if expected_screen == "dashboard":
+        os.write(master, b"jjjjkkkk")
     actions = (b"G", b"s", b"N", b"p", b"?", b"?", b" ", b" ")
     action_index = 0
     resize_index = 0
@@ -221,7 +241,8 @@ def run(args: argparse.Namespace) -> dict[str, object]:
         "alternateScreenRestored": data.count(ALT_ENTER) > 0 and data.count(ALT_ENTER) == data.count(ALT_EXIT),
         "cursorRestored": data.count(CURSOR_HIDE) > 0 and data.count(CURSOR_SHOW) >= data.count(CURSOR_HIDE),
         "terminalModeRestored": terminal_modes_equal(before, after),
-        "titleUnchanged": TITLE_PATTERN.search(data) is None,
+        "titleLifecycleValid": title_lifecycle_valid(data, args.transport),
+        "rendererIsolated": renderer_isolated(data),
         "utf8Valid": decode_errors(data) == 0,
         "captureComplete": not capture.truncated,
         "outputBounded": capture.total / elapsed <= MAX_AVERAGE_BYTES_PER_SECOND,
@@ -229,7 +250,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
     }
     outcome = "passed" if all(checks.values()) else "failed"
     return {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "outcome": outcome,
         "terminal": {
             "profile": args.profile,
@@ -247,6 +268,7 @@ def run(args: argparse.Namespace) -> dict[str, object]:
             "requestedDurationSeconds": args.duration_seconds,
             "elapsedSeconds": round(elapsed, 3),
             "exitCode": exit_code,
+            "titleOwner": "transport" if args.transport == "tmux" else "application",
         },
         "checks": checks,
         "metrics": {

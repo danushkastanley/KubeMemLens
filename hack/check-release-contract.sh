@@ -68,6 +68,10 @@ require_text "${candidate_workflow}" 'git tag "$GA_TAG" "$GITHUB_SHA"'
 require_text "${candidate_workflow}" 'test "${{ steps.image-first.outputs.digest }}" = "${{ steps.image-second.outputs.digest }}"'
 require_text "${candidate_workflow}" 'package_chart.py'
 require_text "${candidate_workflow}" 'syft-version: v1.49.0'
+# Archive and image/chart SBOM validators must agree with the installed tool.
+for sbom_workflow in "${workflow}" "${candidate_workflow}"; do
+  test "$(grep -c 'Tool: syft-' "${sbom_workflow}")" -eq "$(grep -c 'Tool: syft-1.49.0' "${sbom_workflow}")"
+done
 require_text "${candidate_workflow}" 'for platform in linux/amd64 linux/arm64; do'
 require_text "${candidate_workflow}" 'image-linux-amd64.sbom.json'
 require_text "${candidate_workflow}" 'image-linux-arm64.sbom.json'

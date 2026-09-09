@@ -38,7 +38,7 @@ jobs:
           cache: true
 
       - name: Install Syft
-        uses: anchore/sbom-action/download-syft@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        uses: anchore/sbom-action/download-syft@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
           syft-version: v1.49.0
 
@@ -93,7 +93,7 @@ jobs:
             jq -e '
               .spdxVersion == "SPDX-2.3" and
               (.packages | type == "array" and length > 0) and
-              any(.creationInfo.creators[]; . == "Tool: syft-1.44.0")
+              any(.creationInfo.creators[]; . == "Tool: syft-1.49.0")
             ' "$sbom" >/dev/null
           done
           if grep -F "$GITHUB_WORKSPACE" dist/*.sbom.json; then

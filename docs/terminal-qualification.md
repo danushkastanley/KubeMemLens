@@ -9,8 +9,9 @@ The PROD-009 qualification has three layers:
 1. Go tests cover layout bounds, navigation, selection recovery, `NO_COLOR`
    semantics and grapheme width.
 2. `hack/terminal-qualification/pty_check.py` runs the real CLI in a PTY. It
-   checks alternate-screen and cursor restoration, terminal modes, title
-   control sequences, resize storms, UTF-8 validity and output bounds.
+   checks alternate-screen and cursor restoration, terminal modes, the
+   privacy-safe `KubeMemLens` title lifecycle, renderer isolation, resize
+   storms, UTF-8 validity and output bounds.
 3. `hack/qualify-linux-terminals.sh` starts pinned xterm, Kitty and Alacritty
    packages under Xvfb, runs every supported size, records screenshots, then
    runs tmux and a delayed key-only SSH session.
@@ -23,6 +24,9 @@ contracts remain in `make check`.
 
 The reviewed PROD-009 record is in
 [`qualification-results/terminal-runtime-e631f20`](qualification-results/terminal-runtime-e631f20/README.md).
+Direct terminal and SSH rows require the application to set and clear the
+title. The tmux row treats the multiplexer as the title owner and requires that
+tmux does not pass application title sequences through its captured PTY.
 
 ## Linux emulator matrix
 
