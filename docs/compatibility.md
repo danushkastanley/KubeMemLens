@@ -45,6 +45,10 @@ KubeMemLens builds with Go 1.27. Darwin archives therefore require macOS 13 or l
 
 Kubernetes 1.37 reached GA on 26 August 2026 and is part of the current upstream-maintained window. The 1.35, 1.36 and 1.37 lifecycle lanes must remain green on the frozen candidate commit. This general API window does not widen any version-bound provider claim.
 
+The [Kubernetes 1.37 release audit](kubernetes-1.37-audit.md) records final feature
+defaults and the distinction between runtime compatibility and optional API
+features that require separate implementation and qualification.
+
 ## Unsupported and deferred profiles
 
 | Environment or capability | v1 position | Reason |
