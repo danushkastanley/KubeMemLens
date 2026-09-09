@@ -119,7 +119,9 @@ Trivy runs from the official `0.72.0` image pinned by immutable digest. KubeMemL
 
 The Syft installer action is commit-pinned and requests Syft `v1.49.0` explicitly. This release adds support for selecting images from a multi-platform OCI index. The workflow produces separate `linux/amd64` and `linux/arm64` image SBOMs, while the release archives retain platform-specific SBOMs for every published CLI build. Upgrade Syft only after checking the official immutable release and verifying that every archive produces a non-empty SPDX 2.3 SBOM without local build paths.
 
-Registry inspection and digest-preserving copies use the official Skopeo `v1.22.2` container pinned by its multi-platform manifest digest. A pin update must prove that the image is still retrievable, report the expected Skopeo version, inspect the candidate OCI index and preserve its digest through an offline copy before it enters a protected workflow.
+Registry inspection and digest-preserving copies use the official Skopeo `v1.22.2-immutable` container pinned by its multi-platform manifest digest. The ordinary `v1.22.2` tag was rebuilt and its earlier pinned manifest became unavailable during the first RC2 attempt. The upstream immutable tag provides a retained reference; the digest still fixes the exact bytes. There is no fallback to a floating tag.
+
+CI and release builds check that this exact image starts and reports Skopeo 1.22.2 before expensive release work. Publication and promotion repeat the check on their own runners, without mounting registry credentials, before interpreting destination lookup errors. A tool-pull failure must not be treated as an absent destination. A pin update must prove that the image is still retrievable, report the expected Skopeo version, inspect the candidate OCI index and preserve its digest through an offline copy before it enters a protected workflow.
 
 The Dockerfile frontend and multi-architecture Go builder image are also pinned by manifest-list digest. Toolchain upgrades must update both the human-readable tag and digest, build both release architectures, and repeat the runtime-image scan.
 

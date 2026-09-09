@@ -14,7 +14,7 @@ candidate_publisher=hack/release/publish_candidate.sh
 promotion=hack/release/promote_candidate.sh
 candidate_draft_publisher=hack/release/publish_candidate_draft.sh
 release_process=docs/release-process.md
-skopeo_image='quay.io/skopeo/stable:v1.22.2@sha256:0f75798d450d0cc0ea3700c79d929ae7609fb7d0e627673c14be8a484587c9b1'
+skopeo_image='quay.io/skopeo/stable:v1.22.2-immutable@sha256:4a16d57b37617a04b3d643079a477a2848efe892dffcdf0ce56df4262b65f810'
 
 require_text() {
   local file=$1 text=$2
@@ -26,6 +26,14 @@ require_text() {
 
 require_text "${workflow}" 'permissions: {}'
 require_text "${workflow}" "SKOPEO_IMAGE: ${skopeo_image}"
+for registry_workflow in "${workflow}" "${candidate_workflow}"; do
+  require_text "${registry_workflow}" 'name: Verify pinned registry tool'
+  require_text "${registry_workflow}" 'run: hack/release/check_skopeo.sh'
+done
+require_text hack/release/publish_candidate.sh '/check_skopeo.sh'
+require_text "${promotion}" '/check_skopeo.sh'
+require_text "${ci}" 'run: make check-release-contract'
+require_text "${ci}" 'name: Verify pinned registry tool'
 require_text "${workflow}" "- 'v*-alpha.*'"
 require_text "${workflow}" "- 'v*-beta.*'"
 require_text "${workflow}" 'contents: read'

@@ -11,7 +11,7 @@ concurrency:
   group: candidate-${{ inputs.candidate_tag }}
   cancel-in-progress: false
 env:
-  SKOPEO_IMAGE: quay.io/skopeo/stable:v1.22.2@sha256:0f75798d450d0cc0ea3700c79d929ae7609fb7d0e627673c14be8a484587c9b1
+  SKOPEO_IMAGE: quay.io/skopeo/stable:v1.22.2-immutable@sha256:4a16d57b37617a04b3d643079a477a2848efe892dffcdf0ce56df4262b65f810
 jobs:
   build:
     name: Build reproducible prospective GA artefacts
@@ -32,6 +32,9 @@ jobs:
           ref: refs/tags/${{ inputs.candidate_tag }}
           fetch-depth: 0
           persist-credentials: false
+      - name: Verify pinned registry tool
+        run: hack/release/check_skopeo.sh
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:

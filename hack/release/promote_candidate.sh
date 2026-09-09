@@ -20,6 +20,8 @@ for tool in cosign docker gh helm jq oras sha256sum; do
   }
 done
 
+"$(dirname "${BASH_SOURCE[0]}")/check_skopeo.sh"
+
 bundle=$(cd "${bundle}" && pwd)
 "$(dirname "${BASH_SOURCE[0]}")/validate_tag.sh" "${ga_tag}" "${commit}"
 candidate_commit=$(git rev-parse "refs/tags/${candidate_tag}^{commit}")

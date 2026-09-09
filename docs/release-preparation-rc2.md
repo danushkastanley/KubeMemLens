@@ -112,6 +112,10 @@ verification evidence, not a claim that this intermittent failure is fixed.
 
 ## Publication gates
 
+The first RC2 attempt completed reproducible builds in [run 34314335535](https://github.com/danushkastanley/KubeMemLens/actions/runs/34314335535), then stopped before registry writes because its pinned Skopeo manifest was unavailable. The owner explicitly requested removing the unpublished RC2 tag and reusing RC2 after a reviewed fix. No RC2 packages or release existed at removal. The old tag object, source and failed run remain recorded in issue #50.
+
+The repaired pin uses upstream `v1.22.2-immutable` at `sha256:4a16d57b37617a04b3d643079a477a2848efe892dffcdf0ce56df4262b65f810`. CI/build and publication checks fail explicitly if it cannot start or reports the wrong version. Regression tests retain absent-destination and exact-resume behaviour while preventing copy attempts after tool failure. The local Trivy tool-image attempt could not assess its Fedora base or identify language packages; it is not evidence of a clean tool-image vulnerability scan. Product-image security scanning remains unchanged.
+
 1. Merge the reviewed preparation with green Go, supply-chain, CodeQL, Helm
    and Kubernetes 1.35/1.36/1.37 lifecycle checks.
 2. Resolve or triage remaining queues. The gRPC update must reach main before
