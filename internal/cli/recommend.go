@@ -52,6 +52,7 @@ func newRecommendPodCommand(collectorOptions collectorOptionsProvider) *cobra.Co
 			}
 			finding := explain.AnalyzePod(pod)
 			document := recommendationOutput(explanationTarget{Kind: "Pod", Namespace: namespace, Name: args[0]}, finding)
+			document.Recommendations = append(document.Recommendations, recommend.ForPodMemoryQoS([]api.PodSnapshot{pod})...)
 			return writeRecommendationDocument(cmd.OutOrStdout(), output, document)
 		},
 	}
@@ -88,6 +89,7 @@ func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cob
 				if workload.Namespace == namespace && workload.Name == parts[1] && strings.EqualFold(workload.Kind, parts[0]) {
 					finding := explain.AnalyzeWorkload(workload)
 					document := recommendationOutput(explanationTarget{Kind: workload.Kind, Namespace: namespace, Name: workload.Name}, finding)
+					document.Recommendations = append(document.Recommendations, recommend.ForPodMemoryQoS(workload.Pods)...)
 					return writeRecommendationDocument(cmd.OutOrStdout(), output, document)
 				}
 			}
@@ -101,7 +103,7 @@ func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cob
 
 func recommendationOutput(target explanationTarget, finding explain.Result) recommendationDocument {
 	return recommendationDocument{
-		SchemaVersion: api.CurrentExplanationSchemaVersion, GeneratedAt: time.Now().UTC(), Target: target,
+		SchemaVersion: api.CurrentRecommendationSchemaVersion, GeneratedAt: time.Now().UTC(), Target: target,
 		Finding: findingOutput(finding), Recommendations: recommend.ForFinding(finding), AutomaticMutation: false,
 	}
 }

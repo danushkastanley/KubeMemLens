@@ -1,6 +1,6 @@
 # Machine-readable Explanation Schema
 
-`kubectl memlens explain pod ... -o json|yaml` and `explain workload ... -o json|yaml` emit explanation schema version `1` for legacy context and version `2` when Pod resource or resize context is present.
+`kubectl memlens explain pod ... -o json|yaml` and `explain workload ... -o json|yaml` emit explanation schema version `3`. Version 2 introduced Pod resources; version 3 adds per-container MemoryQoS interpretation.
 
 The contract contains:
 
@@ -12,7 +12,7 @@ The contract contains:
 - per-container or per-replica evidence without hiding outliers;
 - copyable, read-only next commands.
 
-The contract intentionally excludes Pod UID, container ID, cgroup path, arbitrary labels, image, file names, and raw Kubernetes objects. Consumers must reject unsupported `schemaVersion` values rather than guessing. Consumers should select the decoder by schema version. The resource extension uses version 2 to preserve existing strict version-1 readers.
+The contract intentionally excludes Pod UID, container ID, cgroup path, arbitrary labels, image, file names, and raw Kubernetes objects. Consumers must reject unsupported `schemaVersion` values rather than guessing. Consumers should select the decoder by schema version. Older binaries retain their original explanation schemas. Snapshot negotiation is separate from explanation output, so existing live readers remain compatible.
 
 `severity` is investigation urgency (`info`, `medium`, `high`, or `critical`); it is not confidence or a claim about business impact. Gauge values are instantaneous. `evidenceWindow.observationStart` and `observationEnd` are equal for a single collector snapshot and form explicit cross-snapshot bounds for a workload roll-up. Counter fields are intentionally separate:
 
@@ -55,3 +55,25 @@ Capture chooses incident schema 2 when resource metadata is present. Use
 `kubectl memlens capture -n production --pod api-abc --schema-version=1 -o incident.json`
 for an older replay binary; the export records that resource context was omitted.
 Current replay accepts schemas 1 and 2 and rejects unknown or mismatched schemas.
+
+## MemoryQoS in version 3
+
+Each container has `memoryQoS`; workload replicas carry named container
+observations. `scope` is always `container-cgroup`. Protection (`memory.min`,
+`memory.low`), throttle (`memory.high`) and hard limit (`memory.max`) each have
+an explicit unavailable, zero, finite or unlimited state. These are controls,
+not additional memory usage.
+
+The observation preserves the high-event source and exact available delta
+window, PSI, applied-or-configured container references and the separate Pod
+configured limit. `state` distinguishes observed, unavailable, stale,
+resize-unsettled and potentially-stale-or-inconsistent evidence. Confidence is
+about this interpretation and is independent from the main composition finding.
+A crossing with stalls is stronger evidence than a configured boundary alone.
+
+An unlimited leaf `memory.high` does not prove that an ancestor is unlimited.
+Parent controls, kubelet policy and kernel/runtime versions are not collected.
+The contract carries those caveats instead of guessing feature-gate state or a
+throttling factor. Recommendations retain schema 1 and remain read-only.
+Existing incident schemas preserve the raw controls and replay recomputes the
+interpretation; no capture migration is required.

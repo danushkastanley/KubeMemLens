@@ -6,6 +6,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	memmodel "github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/qosview"
 	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 )
 
@@ -39,7 +40,8 @@ func podContextLines(pod api.PodSnapshot) []string {
 	if context.LastTerminationKnown {
 		lines = append(lines, fmt.Sprintf("Last termination:      %s (exit %d)", tuiValue(context.LastTerminationReason), context.LastTerminationExitCode))
 	}
-	return append(lines, resourceview.PodLines(pod)...)
+	lines = append(lines, resourceview.PodLines(pod)...)
+	return append(lines, qosview.PodLines(pod)...)
 }
 
 func tuiKnownBytes(bytes uint64, known bool) string {

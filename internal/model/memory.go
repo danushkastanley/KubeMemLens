@@ -169,8 +169,21 @@ func (m MemoryBreakdown) HasOOMRisk() bool {
 	return oom > 0 || oomKill > 0 || maxEvents > 0
 }
 
+func (m MemoryBreakdown) HighEventDelta() (uint64, bool) {
+	if m.LocalEventsKnown {
+		if m.LocalEventDeltasKnown {
+			return m.LocalHighEventsDelta, true
+		}
+		return 0, false
+	}
+	if m.EventDeltasKnown {
+		return m.HighEventsDelta, true
+	}
+	return 0, false
+}
+
 func (m MemoryBreakdown) HasPressureRisk() bool {
-	_, _, high, _ := m.RecentEventCounts()
+	high, _ := m.HighEventDelta()
 	return high > 0 || (m.PressureKnown && (m.PSISomeAvg10 >= 1 || m.PSIFullAvg10 > 0))
 }
 

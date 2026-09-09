@@ -4,6 +4,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### MemoryQoS diagnostics
+
+- Interpret observed reclaim protection, throttle and hard-limit controls, with separate freshness, resize, resource-correlation and pressure evidence.
+- Keep unlimited leaf throttling distinct from unavailable controls and unobserved parent policy. Cumulative high counts no longer imply recent pressure.
+- Show the shared interpretation in explanations, doctor, comparisons, replay and TUI detail, with read-only investigation recommendations. Explanation schema 3 adds the derived observations; snapshot and incident formats are unchanged.
+
 ### Pod memory resources and resize
 
 - Show effective Pod memory budgets alongside container contributions, kubelet allocated/applied values and distinct resize states, without changing cgroup accounting.

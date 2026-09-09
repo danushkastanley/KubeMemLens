@@ -490,6 +490,7 @@ jobs:
             kubectl-sha256: 90f75ea6ecc9ea5633262e1c0b83a40560003b30fc94a04cb099404fcef0c224
             density_benchmarks: false
             density_smoke: false
+            memory_qos_smoke: false
             pod_resource_smoke: false
             tui_smoke: false
             authenticated_ingestion_smoke: false
@@ -501,6 +502,7 @@ jobs:
             kubectl-sha256: 629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7
             density_benchmarks: false
             density_smoke: false
+            memory_qos_smoke: false
             pod_resource_smoke: false
             tui_smoke: false
             authenticated_ingestion_smoke: false
@@ -512,6 +514,7 @@ jobs:
             kubectl-sha256: 6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
             density_benchmarks: true
             density_smoke: true
+            memory_qos_smoke: true
             pod_resource_smoke: true
             tui_smoke: true
             authenticated_ingestion_smoke: true
@@ -585,6 +588,7 @@ jobs:
           E2E_ARTIFACT_DIR: ${{ runner.temp }}/kube-memlens-e2e
           E2E_RUN_DENSITY_BENCHMARKS: ${{ matrix.density_benchmarks }}
           E2E_RUN_LIVE_DENSITY_SMOKE: ${{ matrix.density_smoke }}
+          E2E_RUN_MEMORY_QOS_SMOKE: ${{ matrix.memory_qos_smoke }}
           E2E_RUN_POD_RESOURCE_SMOKE: ${{ matrix.pod_resource_smoke }}
           E2E_RUN_TUI_SMOKE: ${{ matrix.tui_smoke }}
           E2E_RUN_AUTHENTICATED_INGESTION_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
@@ -592,6 +596,15 @@ jobs:
           E2E_RUN_TENANT_ISOLATION_SMOKE: ${{ matrix.tenant_isolation_smoke }}
           E2E_RUN_RELIABILITY_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
         run: hack/e2e-kind.sh
+
+      - name: Upload sanitised MemoryQoS evidence
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.memory_qos_smoke
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: memory-qos-kubernetes-${{ matrix.kubernetes }}
+          path: ${{ runner.temp }}/kube-memlens-e2e/memory-qos/memory-qos-summary.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload sanitised Pod resource evidence
         if: needs.ci-scope.outputs.run-kind == 'true' && matrix.pod_resource_smoke

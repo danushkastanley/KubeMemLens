@@ -136,7 +136,7 @@ wait_for_explanation() {
   return 1
 }
 
-wait_for_explanation '.schemaVersion == 2 and .kubernetes.effectiveResources.request.bytes == 134217728 and .kubernetes.effectiveResources.limit.bytes == 268435456 and .kubernetes.memoryRequestBytes == 67108864'
+wait_for_explanation '.schemaVersion == 3 and .kubernetes.effectiveResources.request.bytes == 134217728 and .kubernetes.effectiveResources.limit.bytes == 268435456 and .kubernetes.memoryRequestBytes == 67108864'
 "${cli}" "${cli_args[@]}" capture -n "${namespace}" --pod "${pod}" -o "${work_dir}/before.json" >/dev/null
 
 kctl patch pod "${pod}" -n "${namespace}" --subresource=resize --type=strategic \
@@ -198,16 +198,16 @@ agent_image=$(kctl get daemonset kube-memlens-agent -n "${collector_namespace}" 
 restore_images=true
 kctl set image deployment/kube-memlens-collector -n "${collector_namespace}" "collector=${legacy_image}" >/dev/null
 kctl rollout status deployment/kube-memlens-collector -n "${collector_namespace}" --timeout=120s >/dev/null
-wait_for_explanation '.schemaVersion == 1 and .kubernetes.memoryRequestBytes == 83886080'
+wait_for_explanation '.schemaVersion == 3 and (.kubernetes | has("resources") | not) and .kubernetes.memoryRequestBytes == 83886080'
 kctl set image deployment/kube-memlens-collector -n "${collector_namespace}" "collector=${collector_image}" >/dev/null
 kctl rollout status deployment/kube-memlens-collector -n "${collector_namespace}" --timeout=120s >/dev/null
-wait_for_explanation '.schemaVersion == 2 and .kubernetes.resources.configured.limit.bytes == 402653184'
+wait_for_explanation '.schemaVersion == 3 and .kubernetes.resources.configured.limit.bytes == 402653184'
 kctl set image daemonset/kube-memlens-agent -n "${collector_namespace}" "agent=${legacy_image}" >/dev/null
 kctl rollout status daemonset/kube-memlens-agent -n "${collector_namespace}" --timeout=120s >/dev/null
-wait_for_explanation '.schemaVersion == 1 and .kubernetes.memoryRequestBytes == 83886080'
+wait_for_explanation '.schemaVersion == 3 and (.kubernetes | has("resources") | not) and .kubernetes.memoryRequestBytes == 83886080'
 kctl set image daemonset/kube-memlens-agent -n "${collector_namespace}" "agent=${agent_image}" >/dev/null
 kctl rollout status daemonset/kube-memlens-agent -n "${collector_namespace}" --timeout=120s >/dev/null
-wait_for_explanation '.schemaVersion == 2 and .kubernetes.resources.configured.limit.bytes == 402653184'
+wait_for_explanation '.schemaVersion == 3 and .kubernetes.resources.configured.limit.bytes == 402653184'
 restore_images=false
 
 test "$(kctl get pod "${pod}" -n "${namespace}" -o jsonpath='{.metadata.uid}')" = "${original_uid}"
