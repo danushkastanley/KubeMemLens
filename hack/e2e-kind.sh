@@ -63,6 +63,13 @@ run_live_density_smoke() {
     hack/soak-live-density.sh
 }
 
+run_resource_metrics_smoke() {
+  if [ "${E2E_RUN_RESOURCE_METRICS_SMOKE:-false}" != true ]; then return; fi
+  RESOURCE_METRICS_KUBECONFIG="${kubeconfig}" RESOURCE_METRICS_CONTEXT="kind-${cluster_name}" \
+    RESOURCE_METRICS_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/resource-metrics" \
+    RESOURCE_METRICS_ACKNOWLEDGE=run-and-remove-metrics-api-fixture hack/verify-resource-metrics-kind.sh
+}
+
 run_memory_qos_smoke() {
   if [ "${E2E_RUN_MEMORY_QOS_SMOKE:-false}" != true ]; then return; fi
   QOS_KUBECONFIG="${kubeconfig}" QOS_CONTEXT="kind-${cluster_name}" QOS_CLI="${cli}" \
@@ -357,6 +364,7 @@ if KUBECONFIG="${kubeconfig}" kubectl get --raw \
   echo "agent metrics are remotely reachable through the Pod proxy" >&2
   exit 1
 fi
+run_resource_metrics_smoke
 run_memory_qos_smoke
 run_pod_resource_smoke
 run_tui_smoke

@@ -39,13 +39,11 @@ jobs:
           if [ -z "${base_sha}" ] || [ "${base_sha}" = 0000000000000000000000000000000000000000 ]; then
             base_sha=$(git rev-parse "${GITHUB_SHA}^")
           fi
-          git diff --name-only "${base_sha}" "${GITHUB_SHA}" > "${RUNNER_TEMP}/changed-files.txt"
-          if grep -Eq '^(Dockerfile|go\.(mod|sum)|cmd/|internal/|charts/kube-memlens/|hack/(e2e-kind\.sh|e2e-tui-kind\.sh|soak-live-density\.sh|verify-.*-kind\.sh|observe_kind_telemetry\.py|measure-tui-latency\.exp|tui-smoke\.exp|lib/|scale-profiles/)|\.github/workflows/ci\.yml)$' \
-            "${RUNNER_TEMP}/changed-files.txt"; then
-            echo 'run-kind=true' >> "${GITHUB_OUTPUT}"
-          else
-            echo 'run-kind=false' >> "${GITHUB_OUTPUT}"
-          fi
+          python3 hack/test_ci_scope.py
+          git diff --no-renames --name-only -z "${base_sha}" "${GITHUB_SHA}" > "${RUNNER_TEMP}/changed-files.bin"
+          run_kind=$(python3 hack/ci_scope.py "${RUNNER_TEMP}/changed-files.bin")
+          echo "run-kind=${run_kind}" >> "${GITHUB_OUTPUT}"
+
 
   go:
     name: Go checks
@@ -195,6 +193,9 @@ jobs:
 
       - name: Fuzz snapshot decoding
         run: go test ./internal/collector -run='^$' -fuzz='^FuzzDecodeSnapshot$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
+
+      - name: Fuzz resource-metrics quantities
+        run: go test ./internal/resourcemetrics -run='^$' -fuzz='^FuzzUsageValue$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
 
   security:
     name: Supply-chain checks
@@ -490,6 +491,7 @@ jobs:
             kubectl-sha256: 90f75ea6ecc9ea5633262e1c0b83a40560003b30fc94a04cb099404fcef0c224
             density_benchmarks: false
             density_smoke: false
+            resource_metrics_smoke: false
             memory_qos_smoke: false
             pod_resource_smoke: false
             tui_smoke: false
@@ -502,6 +504,7 @@ jobs:
             kubectl-sha256: 629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7
             density_benchmarks: false
             density_smoke: false
+            resource_metrics_smoke: false
             memory_qos_smoke: false
             pod_resource_smoke: false
             tui_smoke: false
@@ -514,6 +517,7 @@ jobs:
             kubectl-sha256: 6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
             density_benchmarks: true
             density_smoke: true
+            resource_metrics_smoke: true
             memory_qos_smoke: true
             pod_resource_smoke: true
             tui_smoke: true
@@ -588,6 +592,7 @@ jobs:
           E2E_ARTIFACT_DIR: ${{ runner.temp }}/kube-memlens-e2e
           E2E_RUN_DENSITY_BENCHMARKS: ${{ matrix.density_benchmarks }}
           E2E_RUN_LIVE_DENSITY_SMOKE: ${{ matrix.density_smoke }}
+          E2E_RUN_RESOURCE_METRICS_SMOKE: ${{ matrix.resource_metrics_smoke }}
           E2E_RUN_MEMORY_QOS_SMOKE: ${{ matrix.memory_qos_smoke }}
           E2E_RUN_POD_RESOURCE_SMOKE: ${{ matrix.pod_resource_smoke }}
           E2E_RUN_TUI_SMOKE: ${{ matrix.tui_smoke }}
@@ -596,6 +601,15 @@ jobs:
           E2E_RUN_TENANT_ISOLATION_SMOKE: ${{ matrix.tenant_isolation_smoke }}
           E2E_RUN_RELIABILITY_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
         run: hack/e2e-kind.sh
+
+      - name: Upload sanitised resource metrics evidence
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.resource_metrics_smoke
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: resource-metrics-kubernetes-${{ matrix.kubernetes }}
+          path: ${{ runner.temp }}/kube-memlens-e2e/resource-metrics/*.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload sanitised MemoryQoS evidence
         if: needs.ci-scope.outputs.run-kind == 'true' && matrix.memory_qos_smoke
