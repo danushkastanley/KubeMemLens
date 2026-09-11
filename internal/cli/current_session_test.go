@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
@@ -30,5 +32,13 @@ func TestAutoExplainPreservesGetOnlyDeepPodAccess(t *testing.T) {
 	var document explanationDocument
 	if err := json.Unmarshal([]byte(out), &document); err != nil || document.Memory.TotalBytes != 32<<20 || document.SchemaVersion != api.CurrentExplanationSchemaVersion {
 		t.Fatalf("deep contract changed: %s %v", out, err)
+	}
+}
+
+func TestAutoScopeDenialRetainsPermissionDiagnostic(t *testing.T) {
+	var status atomic.Int32
+	_, err := runRestrictedCLI(t, restrictedConfig(t, &status), "auto", "top", "pods", "-A")
+	if err == nil || (!strings.Contains(strings.ToLower(err.Error()), "permission") && !strings.Contains(strings.ToLower(err.Error()), "forbidden")) {
+		t.Fatalf("denial no longer identifies a permission failure: %v", err)
 	}
 }
