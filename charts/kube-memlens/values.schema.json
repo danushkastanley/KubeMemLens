@@ -28,6 +28,7 @@
           "type": "string",
           "maxLength": 253
         },
+        "accountingConfigMap": {"type":"string", "maxLength":253},
         "kubeletPort": {
           "type": "integer",
           "minimum": 1,

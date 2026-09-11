@@ -51,7 +51,7 @@ rules:
     resources: ["nodecontexts"]
     verbs: ["get", "list"]
   - apiGroups: ["memory.kubememlens.io"]
-    resources: ["nodecontexts/history"]
+    resources: ["nodecontexts/history", "nodecontexts/analysis"]
     verbs: ["get"]
 ---
 apiVersion: apps/v1

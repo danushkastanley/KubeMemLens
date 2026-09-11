@@ -18,6 +18,7 @@ nodeContext:
   kubeletCAConfigMap: ""
   kubeletAudience: ""
   kubeletPort: 10250
+  accountingConfigMap: ""
   apiServerCIDRs: []
   nodeCIDRs: []
   resources:

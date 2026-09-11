@@ -17,6 +17,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/nodeanalysis"
 	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
@@ -31,6 +32,7 @@ const (
 )
 
 type HandlerOptions struct {
+	NodeAccounting      map[string]nodeanalysis.Qualification
 	AgentUsername       string
 	NodeContextUsername string
 	MaxSnapshotBytes    int64
@@ -77,6 +79,7 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	}
 	reads := NewReadHandler(coordinator.store, coordinator.opts.Handler)
 	reads.nodeContextEnabled = opts.NodeContextUsername != ""
+	reads.accounting = copyAccounting(opts.NodeAccounting)
 	if reads.nodeContextEnabled {
 		coordinator.store.EnableNodeContext()
 	}

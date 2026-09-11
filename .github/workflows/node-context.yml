@@ -2,10 +2,10 @@ name: Node-context verification
 
 on:
   pull_request:
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
   push:
     branches: [main]
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
 
 permissions:
   contents: read
@@ -59,6 +59,7 @@ jobs:
           go test ./internal/nodestats -run '^$' -fuzz '^FuzzNode$' -fuzztime=10s
           go test ./internal/nodecontext -run '^$' -fuzz '^FuzzObservationDecoder$' -fuzztime=10s
           go test ./internal/extension -run '^$' -fuzz '^FuzzNodeWire$' -fuzztime=10s
+          go test ./internal/nodeanalysis -run '^$' -fuzz '^FuzzNodeAnalysis$' -fuzztime=10s
       - name: Verify direct TLS, authenticated ingestion and reader isolation
         env:
           NODE_CONTEXT_ACKNOWLEDGE: create-and-remove-node-context-kind

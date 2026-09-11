@@ -40,6 +40,7 @@ func main() {
 	extensionKubeconfig := flag.String("extension-kubeconfig", "", "optional kubeconfig for delegated authentication and authorisation")
 	expectedNodeSelectorJSON := flag.String("expected-node-selector-json", `{"kubernetes.io/os":"linux"}`, "JSON Node selector matching the agent DaemonSet")
 	expectedNodeTolerationsJSON := flag.String("expected-node-tolerations-json", `[]`, "JSON Node tolerations matching the agent DaemonSet")
+	nodeAccountingFile := flag.String("node-accounting-file", "", "optional operator-owned Node accounting qualifications")
 	nodeContextUsername := flag.String("node-context-username", "", "optional distinct Node-context producer ServiceAccount username")
 	agentUsername := flag.String("agent-username", "system:serviceaccount:kube-memlens:kube-memlens-agent", "exact Kubernetes agent ServiceAccount username")
 	ingestionMaxConcurrent := flag.Int("ingestion-max-concurrent", 4, "maximum snapshot bodies decoded concurrently")
@@ -101,6 +102,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Node context requires authenticated ingestion")
 		os.Exit(2)
 	}
+	accounting, err := extension.LoadNodeAccounting(*nodeAccountingFile)
+	if err != nil || (*nodeAccountingFile != "" && *nodeContextUsername == "") {
+		fmt.Fprintln(os.Stderr, "Node accounting requires valid operator configuration and the optional producer")
+		os.Exit(2)
+	}
 	store := collector.NewStoreWithHistoryAndLimits(historyOpts, storeLimits)
 	fmt.Printf("memlens-collector started with bounded state maxNodes=%d maxContainers=%d maxResponseBytes=%d historyDuration=%s historyMaxSeries=%d historyMaxPoints=%d\n", storeLimits.MaxNodes, storeLimits.MaxContainers, handlerOpts.MaxResponseBytes, historyOpts.Duration, historyOpts.MaxSeries, historyOpts.MaxPoints)
 
@@ -141,7 +147,7 @@ func main() {
 			os.Exit(1)
 		}
 		handler, err := extension.NewHandler(coordinator, extension.HandlerOptions{
-			AgentUsername: *agentUsername, NodeContextUsername: *nodeContextUsername, MaxSnapshotBytes: handlerOpts.MaxSnapshotBytes,
+			NodeAccounting: accounting, AgentUsername: *agentUsername, NodeContextUsername: *nodeContextUsername, MaxSnapshotBytes: handlerOpts.MaxSnapshotBytes,
 			MaxConcurrent: *ingestionMaxConcurrent, RequestsPerSec: *ingestionRequestsPerSecond,
 			Burst: *ingestionBurst, MaxIdentities: storeLimits.MaxNodes,
 			Logf: func(format string, args ...any) { fmt.Printf(format+"\n", args...) },
