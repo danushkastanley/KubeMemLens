@@ -1,11 +1,14 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/danushkastanley/kube-memlens/internal/capability"
 )
 
 const (
@@ -25,8 +28,9 @@ const (
 )
 
 type Options struct {
-	Mode      ConnectionMode
-	ReadScope ReadScope
+	Mode         ConnectionMode
+	EvidenceMode capability.Mode
+	ReadScope    ReadScope
 
 	CollectorURL string
 
@@ -69,6 +73,14 @@ func (o Options) WithDefaults() (Options, error) {
 		return Options{}, err
 	}
 	o.Mode = mode
+	evidenceMode, err := capability.ParseMode(string(o.EvidenceMode))
+	if err != nil {
+		return Options{}, err
+	}
+	o.EvidenceMode = evidenceMode
+	if evidenceMode == capability.Restricted && (strings.TrimSpace(o.CollectorURL) != "" || mode == ConnectionModeHTTP || mode == ConnectionModeKubeProxy) {
+		return Options{}, fmt.Errorf("restricted evidence requires a Kubernetes API connection without collector URL or proxy settings")
+	}
 	if o.ReadScope == (ReadScope{}) {
 		o.ReadScope, _ = NamespaceScope("default")
 	}
@@ -145,6 +157,10 @@ func Describe(opts Options) string {
 }
 
 func ConnectionError(opts Options, description string, err error) error {
+	var selectionErr *capability.SelectionError
+	if errors.As(err, &selectionErr) {
+		return selectionErr
+	}
 	if IsForbidden(err) {
 		return fmt.Errorf("You do not have permission to read KubeMemLens data in the requested scope")
 	}

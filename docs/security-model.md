@@ -70,6 +70,13 @@ Agent scan logs report a bounded failure reason and count rather than the raw cg
 
 ## Incident Bundles
 
+Source discovery uses the caller's Kubernetes identity and exact-scope self access
+reviews without enumerating workloads or granting permissions. It keeps missing,
+forbidden and failed sources separate, bounds review responses and omits raw
+authorisation text. Every later query still enforces current access. See
+[ADR 0006](adr/0006-select-evidence-sources-before-rendering.md) for this client-side
+trust boundary and failure behaviour.
+
 `capture` writes schema-versioned JSON with mode `0600` and refuses to replace an existing file unless `--force` is explicit. Bundles redact Pod UIDs, container IDs, cgroup paths, and bounded selector label maps by default; KubeMemLens does not collect images or file names. `--include-sensitive` is an explicit opt-in for local debugging. Recent history is opt-in and limited to 100 selected Pods per capture. `replay` makes no cluster connection, rejects unknown/trailing JSON, enforces a 64 MiB input limit and entity caps, and recomputes the explanation from the captured evidence.
 
 ## Future eBPF Mode

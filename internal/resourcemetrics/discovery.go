@@ -6,6 +6,18 @@ import (
 	"slices"
 )
 
+// Discover checks the served API contract without reading workload metrics.
+// Available means the API is advertised, not that this caller can list it.
+func (s *kubernetesSource) Discover(ctx context.Context) (Report, error) {
+	ctx, cancel := context.WithTimeout(ctx, s.opts.Timeout)
+	defer cancel()
+	version, failure, err := s.discover(ctx)
+	if failure != nil {
+		return *failure, err
+	}
+	return Report{Availability: Available, APIVersion: group + "/" + version}, nil
+}
+
 type groupDiscovery struct {
 	Name     string `json:"name"`
 	Versions []struct {

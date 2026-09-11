@@ -1,8 +1,10 @@
 # Optional resource-metrics source
 
 K137-005 adds an opt-in source for the Kubernetes Metrics API. Existing cgroup
-collection, collector storage and the default CLI/TUI do not call it. Restricted
-mode remains R3 work.
+collection and collector storage do not call it. R3 source selection can invoke
+its discovery-only method when checking restricted capabilities. It performs no
+metrics read and does not claim caller access solely from API discovery. Restricted
+data queries remain separate R3 work. See [evidence source discovery](evidence-sources.md).
 
 `client.NewResourceMetricsSource` reuses kubeconfig, context, timeout and namespace
 options. It requires a Kubernetes API connection and one namespace. The lower
