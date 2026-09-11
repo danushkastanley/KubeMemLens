@@ -48,6 +48,7 @@ check-scale-contract:
 check-provider-contract:
 	python3 -m unittest discover -s hack/provider-profiles -p 'test_*.py'
 	python3 -m unittest discover -s hack/provider-inventory -p 'test_*.py'
+	python3 -m unittest discover -s hack/restricted-providers -p 'test_*.py'
 	python3 hack/test_verify_chart_archive.py
 	hack/test-provider-evidence.sh
 	hack/test-provider-cleanup.sh

@@ -215,7 +215,7 @@ go run ./cmd/kubectl-memlens top ns
 go run ./cmd/kubectl-memlens explain pod <pod-name> -n <namespace>
 go run ./cmd/kubectl-memlens explain workload deployment/<name> -n <namespace>
 go run ./cmd/kubectl-memlens history pod <pod-name> -n <namespace>
-go run ./cmd/kubectl-memlens capture -n <namespace> --pod <pod-name> --include-history -o incident.json
+go run ./cmd/kubectl-memlens --mode=deep capture -n <namespace> --pod <pod-name> --include-history -o incident.json
 go run ./cmd/kubectl-memlens replay incident.json --pod <namespace>/<pod-name>
 go run ./cmd/kubectl-memlens compare pod/<first> pod/<second> -n <namespace>
 go run ./cmd/kubectl-memlens compare --before before.json --after after.json --pod <namespace>/<pod-name>
@@ -223,6 +223,8 @@ go run ./cmd/kubectl-memlens compare --before before.json --after after.json --w
 ```
 
 `top pods`, `top containers`, and `top workloads` accept Kubernetes Pod label selectors with `-l`, safe field selectors, `--sort-by`, `--no-headers`, and `-o table|json|yaml|csv`. Add `--watch` for a two-second terminal refresh, or set a bounded interval with `--watch-interval`.
+
+Restricted mode also supports [private capture, offline replay and working-set comparison](docs/restricted-incidents.md), with schema 3 and explicit partial-evidence caveats.
 
 Pod budgets and in-place resize appear in detailed explanations, comparisons and captures; configured, allocated and applied values remain distinct from cgroup limits. See [memory semantics](docs/memory-semantics.md#pod-budgets-and-in-place-resize).
 

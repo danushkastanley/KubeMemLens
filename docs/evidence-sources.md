@@ -23,8 +23,9 @@ Authentication failure, malformed responses and connection failure remain errors
 
 Restricted discovery and the [agentless current reader](agentless-reader.md) are
 available in this build. [Restricted top, explanation, recommendation and TUI workflows](restricted-mode.md)
-use the current reader. Restricted capture, replay and comparison remain separate
-delivery steps; history and cgroup diagnostics require deep evidence.
+use the current reader. [Restricted capture, offline replay and comparison](restricted-incidents.md)
+retain those observations in incident schema 3. History and cgroup diagnostics
+require deep evidence.
 Discovery does not install agents, Metrics Server,
 RBAC or other cluster resources. No restricted-provider support is claimed.
 
@@ -64,7 +65,8 @@ Metrics discovery keeps the [existing transport and response bounds](resource-me
 
 No credentials or object identities enter the public selection. A successful
 self access review is only a hint; later reads enforce current Kubernetes RBAC.
-No collector data format, capture schema or chart permission changes are needed.
+Collector data formats and chart permissions are unchanged. Restricted captures
+use a separate incident schema 3; deep capture formats remain compatible.
 See [ADR 0006](adr/0006-select-evidence-sources-before-rendering.md).
 
 ## Local verification

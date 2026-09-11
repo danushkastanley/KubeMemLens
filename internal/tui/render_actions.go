@@ -22,8 +22,8 @@ func (m appModel) renderAction(width int) string {
 		}
 		if m.restricted() {
 			lines[0] = "Restricted actions"
-			lines[3] = "x  Comparison unavailable in this build"
-			lines[4] = "c  Capture unavailable in this build"
+			lines[3] = "x  Mark/compare working-set observations"
+			lines[4] = "c  Capture selected Pod (restricted schema 3)"
 		}
 	case actionCapturePath:
 		lines = []string{

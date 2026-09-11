@@ -8,7 +8,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
-	"github.com/danushkastanley/kube-memlens/internal/client"
+	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/spf13/cobra"
 )
@@ -28,9 +28,16 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentSession(cmd.Context(), opts)
+			reader, description := session.Reader, session.Description
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
+			}
+			if session.Plan.Mode == capability.Restricted {
+				return captureRestricted(cmd, session, namespace, podName, output, schemaVersion, includeHistory, includeSensitive, force)
+			}
+			if schemaVersion == incident.RestrictedSchemaVersion {
+				return fmt.Errorf("incident schema 3 requires restricted mode")
 			}
 			pods, err := reader.Pods(cmd.Context())
 			if err != nil {
@@ -108,10 +115,10 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include bounded recent history for captured Pods")
 	cmd.Flags().BoolVar(&includeSensitive, "include-sensitive", false, "include Pod UIDs, container IDs, and cgroup paths")
 	cmd.Flags().BoolVar(&force, "force", false, "replace an existing output file")
-	cmd.Flags().IntVar(&schemaVersion, "schema-version", 0, "incident schema: 0 selects automatically; 1 omits resource/resize context for older readers; 2 retains it")
+	cmd.Flags().IntVar(&schemaVersion, "schema-version", 0, "incident schema: 0 selects automatically; 1 omits resource/resize context for older readers; 2 retains it; 3 records restricted evidence")
 	cmd.PreRunE = func(_ *cobra.Command, _ []string) error {
-		if schemaVersion < 0 || schemaVersion > api.CurrentIncidentSchemaVersion {
-			return fmt.Errorf("--schema-version must be 0, 1 or %d", api.CurrentIncidentSchemaVersion)
+		if schemaVersion < 0 || schemaVersion > incident.RestrictedSchemaVersion {
+			return fmt.Errorf("--schema-version must be 0, 1, 2 or %d", incident.RestrictedSchemaVersion)
 		}
 		if podName != "" && namespace == "" {
 			return fmt.Errorf("--pod requires --namespace")

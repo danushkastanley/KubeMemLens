@@ -31,7 +31,8 @@ func restrictedModel(t *testing.T) (appModel, *observationFixture) {
 	t.Helper()
 	now := time.Now().UTC()
 	zero, large := uint64(0), uint64(32<<20)
-	batch := observation.Batch{Mode: capability.Restricted, ReceivedAt: now, Completeness: capability.Partial}
+	status := capability.Envelope{Source: capability.KubernetesStatus, APIVersion: "v1", ReceivedAt: now, Scope: capability.PodScope, Freshness: capability.Fresh, Completeness: capability.Complete, Stability: capability.Stable}
+	batch := observation.Batch{Mode: capability.Restricted, ReceivedAt: now, Completeness: capability.Partial, Sources: []observation.SourceReport{{Scope: capability.PodScope, SourceState: capability.SourceState{Source: capability.KubernetesStatus, APIVersion: "v1", Availability: capability.Available, Freshness: capability.Fresh, Completeness: capability.Complete, Stability: capability.Stable}}}}
 	for i, entry := range []struct {
 		name  string
 		value *uint64
@@ -48,6 +49,8 @@ func restrictedModel(t *testing.T) (appModel, *observationFixture) {
 		if i == 2 {
 			pod.Containers[0].State = "unreported"
 		}
+		pod.StatusEvidence, pod.OwnerEvidence = status, status
+		pod.WorkingSet = observation.SumWorkingSets([]observation.WorkingSet{quantity}, capability.PodScope)
 		batch.Pods = append(batch.Pods, pod)
 	}
 	batch.Namespaces, batch.Workloads = observation.GroupPods(batch.Pods)
@@ -118,11 +121,11 @@ func TestRestrictedNavigationSelectionAndUnavailableActions(t *testing.T) {
 		t.Fatal("restricted recommendations escaped source boundary")
 	}
 	m.beginCapture()
-	if m.action.mode == actionCapturePath || m.action.err == nil {
-		t.Fatal("capture requested a destination before support exists")
+	if m.action.mode != actionCapturePath || m.action.err != nil {
+		t.Fatal("capture did not request an explicit destination")
 	}
-	if m.startCompare() != nil || m.action.err == nil {
-		t.Fatal("unsupported comparison started")
+	if m.startCompare() != nil || m.action.err != nil || m.action.observationSource == nil {
+		t.Fatal("comparison did not mark the source")
 	}
 	if reader.calls != 1 {
 		t.Fatal("navigation made hidden API reads")

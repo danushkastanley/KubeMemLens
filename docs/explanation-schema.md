@@ -54,7 +54,7 @@ representation. See [ADR 0005](adr/0005-negotiate-resource-snapshot-schemas.md).
 Capture chooses incident schema 2 when resource metadata is present. Use
 `kubectl memlens capture -n production --pod api-abc --schema-version=1 -o incident.json`
 for an older replay binary; the export records that resource context was omitted.
-Current replay accepts schemas 1 and 2 and rejects unknown or mismatched schemas.
+Current replay accepts deep schemas 1 and 2 and [restricted incident schema 3](restricted-incidents.md). Unknown or mismatched schemas are rejected.
 
 ## MemoryQoS in version 3
 
@@ -94,5 +94,6 @@ Optional configured, Pod and container resource context is labelled separately.
 
 Absent cgroup `memory` and `finding` fields are omitted. Consumers must reject
 versions they do not support rather than supplying zero composition or a clean
-diagnosis. These versions do not change collector snapshots or incident bundles.
+diagnosis. These explanation versions do not change collector snapshots.
+Restricted capture separately uses incident schema 3.
 See [restricted workflows](restricted-mode.md) for commands, privacy and limits.

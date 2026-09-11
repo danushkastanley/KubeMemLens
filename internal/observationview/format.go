@@ -92,7 +92,7 @@ func Summary(row Row, now time.Time) []string {
 	}
 	lines = append(lines, evidence.Caveats...)
 	if row.Mode == capability.Restricted {
-		lines = append(lines, "", RestrictedHelp, DeepUnavailable, "History requires deep evidence; restricted capture and comparison are not available in this build.")
+		lines = append(lines, "", RestrictedHelp, DeepUnavailable, "History requires deep evidence; restricted captures retain the available current observations.")
 	}
 	return lines
 }

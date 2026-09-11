@@ -15,6 +15,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/observationview"
 	"github.com/danushkastanley/kube-memlens/internal/qosview"
 	"github.com/danushkastanley/kube-memlens/internal/recommend"
 	"github.com/danushkastanley/kube-memlens/internal/resourceview"
@@ -29,18 +30,23 @@ const (
 )
 
 type actionRequest struct {
-	kind        actionKind
-	ref         entityRef
-	pods        []api.PodSnapshot
-	nodes       []api.NodeSnapshotStatus
-	histories   []api.PodHistory
-	before      *api.PodSnapshot
-	after       *api.PodSnapshot
-	outputPath  string
-	overwrite   bool
-	partial     bool
-	caveats     []string
-	reliability *api.CollectorReliability
+	kind              actionKind
+	restricted        *incident.RestrictedBundle
+	observationBefore *observationview.Row
+	observationAfter  *observationview.Row
+	beforeAt          time.Time
+	afterAt           time.Time
+	ref               entityRef
+	pods              []api.PodSnapshot
+	nodes             []api.NodeSnapshotStatus
+	histories         []api.PodHistory
+	before            *api.PodSnapshot
+	after             *api.PodSnapshot
+	outputPath        string
+	overwrite         bool
+	partial           bool
+	caveats           []string
+	reliability       *api.CollectorReliability
 }
 
 type actionResult struct {
@@ -56,7 +62,10 @@ type actionExecutor interface {
 
 type localActionExecutor struct{}
 
-func (localActionExecutor) Run(_ context.Context, request actionRequest) (actionResult, error) {
+func (localActionExecutor) Run(ctx context.Context, request actionRequest) (actionResult, error) {
+	if err := ctx.Err(); err != nil {
+		return actionResult{}, err
+	}
 	switch request.kind {
 	case actionRecommend:
 		return recommendationResult(request)
@@ -92,6 +101,9 @@ func recommendationResult(request actionRequest) (actionResult, error) {
 }
 
 func compareResult(request actionRequest) (actionResult, error) {
+	if request.observationBefore != nil || request.observationAfter != nil {
+		return restrictedCompareResult(request)
+	}
 	if request.before == nil || request.after == nil {
 		return actionResult{}, fmt.Errorf("comparison requires two Pods")
 	}
@@ -130,6 +142,9 @@ func compareResult(request actionRequest) (actionResult, error) {
 }
 
 func captureResult(request actionRequest) (actionResult, error) {
+	if request.restricted != nil {
+		return restrictedCaptureResult(request)
+	}
 	if request.outputPath == "" {
 		return actionResult{}, fmt.Errorf("capture path must not be empty")
 	}

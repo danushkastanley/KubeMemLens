@@ -200,6 +200,9 @@ probe measured
 python3 hack/agentless_ui_smoke.py --cli "${work_dir}/cli" --kubeconfig "${work_dir}/reader.json" \
   --namespace "${reader_namespace}" --admin-kubeconfig "${kubeconfig}" --admin-context "${context}" \
   --output "${artifact_dir}/ui-summary.json"
+python3 hack/restricted-providers/qualify.py --profile local-kind --cli "${work_dir}/cli" \
+  --kubeconfig "${work_dir}/reader.json" --context fixture --namespace "${reader_namespace}" \
+  --output "${artifact_dir}/restricted-qualification.json"
 kctl delete rolebinding restricted-reader -n "${reader_namespace}" >/dev/null
 probe revoked
 source_dirty=false

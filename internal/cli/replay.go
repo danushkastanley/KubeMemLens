@@ -1,10 +1,8 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"time"
 
@@ -13,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const maxIncidentBytes int64 = 64 << 20
+const maxIncidentBytes int64 = incident.MaxBytes
 
 func newReplayCommand() *cobra.Command {
 	var podRef string
@@ -22,10 +20,14 @@ func newReplayCommand() *cobra.Command {
 		Short: "Replay a captured explanation without cluster access",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			bundle, err := readIncidentBundle(args[0])
+			document, err := incident.Read(args[0])
 			if err != nil {
 				return err
 			}
+			if document.Restricted != nil {
+				return replayRestricted(cmd.OutOrStdout(), *document.Restricted, podRef)
+			}
+			bundle := *document.Deep
 			for _, caveat := range bundle.Caveats {
 				fmt.Fprintf(cmd.OutOrStdout(), "Capture caveat: %q\n", caveat)
 			}
@@ -54,34 +56,14 @@ func newReplayCommand() *cobra.Command {
 }
 
 func readIncidentBundle(path string) (api.IncidentBundle, error) {
-	file, err := os.Open(path)
+	document, err := incident.Read(path)
 	if err != nil {
-		return api.IncidentBundle{}, fmt.Errorf("open incident bundle: %w", err)
-	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return api.IncidentBundle{}, fmt.Errorf("inspect incident bundle: %w", err)
-	}
-	if info.Size() > maxIncidentBytes {
-		return api.IncidentBundle{}, fmt.Errorf("incident bundle exceeds %d byte limit", maxIncidentBytes)
-	}
-	decoder := json.NewDecoder(io.LimitReader(file, maxIncidentBytes+1))
-	decoder.DisallowUnknownFields()
-	var bundle api.IncidentBundle
-	if err := decoder.Decode(&bundle); err != nil {
-		return api.IncidentBundle{}, fmt.Errorf("decode incident bundle: %w", err)
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return api.IncidentBundle{}, fmt.Errorf("decode incident bundle: unexpected trailing JSON")
-	}
-	if err := incident.ValidateSchema(bundle); err != nil {
 		return api.IncidentBundle{}, err
 	}
-	if len(bundle.Pods) > 10_000 || len(bundle.Nodes) > 10_000 || len(bundle.Histories) > 10_000 {
-		return api.IncidentBundle{}, fmt.Errorf("incident bundle exceeds entity limits")
+	if document.Deep == nil {
+		return api.IncidentBundle{}, fmt.Errorf("restricted incident cannot be read as cgroup evidence")
 	}
-	return bundle, nil
+	return *document.Deep, nil
 }
 
 func incidentPod(bundle api.IncidentBundle, ref string) (api.PodSnapshot, bool) {
