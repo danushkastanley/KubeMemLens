@@ -52,7 +52,7 @@ def evaluate(profile, evidence):
     check("orchestration", e["orchestration"] == "completed")
     environment = e["environment"]
     check("runtime-prerequisites", environment["cgroupVersion"] == "v2" and environment["architecture"] in {"amd64", "arm64"} and re.fullmatch(r"v?1\.(36|37)\.\d+(?:[-+][A-Za-z0-9.-]+)?", environment["kubernetes"]) is not None)
-    unobserved = {"unknown", "unreported", "unavailable", "unsupported", "none", "n/a", "provider-receipt"}
+    unobserved = {"", "unknown", "unreported", "unavailable", "unsupported", "none", "n/a", "provider-receipt"}
     check("environment-observed", all(environment[k].strip().lower() not in unobserved
                                      for k in ("kernel", "runtime", "nodeImage", "osImage", "cni")))
     duration = (instant(e["completedAt"]) - instant(e["startedAt"])).total_seconds()

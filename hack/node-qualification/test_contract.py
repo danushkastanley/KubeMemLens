@@ -98,7 +98,7 @@ class QualificationContractTest(unittest.TestCase):
 
     def test_unreported_environment_metadata_cannot_pass(self):
         for field in ("kernel", "runtime", "osImage", "cni"):
-            for value in ("unreported", "unknown", " N/A "):
+            for value in ("unreported", "unknown", " N/A ", "   "):
                 with self.subTest(field=field, value=value):
                     p, e = fixture()
                     e["environment"][field] = value
