@@ -196,6 +196,9 @@ if cockpit.exists(): summary['cockpit']=json.loads(cockpit.read_text())
 if sys.argv[4]:
     summary['hostMountsScope']='producer'
     summary['observer']={'method':'kubernetes-probes-v1','readOnlyHostCgroups':True,'hostPID':False,'hostNetwork':False}
+    sys.path.insert(0,'hack/node-qualification')
+    from common import privacy
+    privacy(summary)
 with (output/'summary.json').open('x') as file: file.write(json.dumps(summary,indent=2)+'\n')
 PY
 kind delete cluster --name "${cluster}" > "${work_dir}/cleanup.log" 2>&1
