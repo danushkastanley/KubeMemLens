@@ -1,7 +1,7 @@
 # ADR 0007: Isolate Node-context producers and reads
 
 Date: 11 September 2026
-Status: contract defined; collection and ingestion integration pending
+Status: contract and one-shot collection implemented; ingestion integration pending
 
 ## Context
 
@@ -18,6 +18,11 @@ HTTPS `/stats/summary` with `get nodes/stats` and a bounded GET of its scheduled
 Node object. It has no metrics/proxy/workload permission, host mount or Linux
 capability. The [contract](../node-context.md) defines identity, TLS, tokens,
 privacy, retention and bounds.
+
+The producer first performs a bounded authenticated `SelfSubjectReview`. Its
+configured Node name must match the token's Node claim, and the Node GET must
+match that claim's UID. This uses the normal self-identity permission and no
+Pod reads. Missing claims or denied identity review stop preflight.
 
 Keep Kubernetes aggregation as the production ingestion/read entry point.
 Derive each producer's fixed role from its configured ServiceAccount, never

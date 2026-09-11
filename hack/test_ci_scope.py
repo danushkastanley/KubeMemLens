@@ -11,7 +11,8 @@ class ScopeTest(unittest.TestCase):
         for path in ("internal/resourcemetrics/source.go", "cmd/app/main.go",
                      "charts/kube-memlens/templates/service.yaml",
                      "hack/fixtures/metrics-api/main.go", "hack/kind-profiles/memory-qos.yaml",
-                     "hack/verify-resource-metrics-kind.sh", "go.mod", "Dockerfile"):
+                     "hack/verify-resource-metrics-kind.sh", "go.mod", "Dockerfile",
+                     ".github/workflows/node-context.yml"):
             with self.subTest(path=path):
                 self.assertTrue(needs_kind([path]))
 
