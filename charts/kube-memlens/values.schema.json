@@ -4,6 +4,14 @@
   "additionalProperties": false,
   "required": ["image", "namespace", "agent", "collector", "extensionTLS", "metrics", "security", "networkPolicy"],
   "properties": {
+    "nodeContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled"],
+      "properties": {
+        "enabled": {"const": false, "description": "Node-context collection is not available in this chart yet."}
+      }
+    },
     "image": {
       "type": "object",
       "additionalProperties": false,

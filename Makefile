@@ -46,6 +46,7 @@ check-scale-contract:
 	hack/verify-scale-capacity.sh
 
 check-provider-contract:
+	hack/test-node-context-contract.sh
 	python3 -m unittest discover -s hack/provider-profiles -p 'test_*.py'
 	python3 -m unittest discover -s hack/provider-inventory -p 'test_*.py'
 	python3 -m unittest discover -s hack/restricted-providers -p 'test_*.py'
