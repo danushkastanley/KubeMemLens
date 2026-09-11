@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from common import ContractError, digest, load, require, utc_text, write_new
+from observer_specs import ephemeral_observer, host_observer, host_policy
 from provider_plan import serving_ca, validate_config, values
 from provider_source import bind_files
 from workload import deployment
@@ -83,12 +84,19 @@ def prepare(profile, config, output, repository=REPOSITORY):
     write_new(output / "serving-trust.json", trust)
     write_new(output / "workload.json", deployment(profile["workload"], c["namespace"],
                                                   {"nodeSelector": values(profile, c, True)["agent"]["nodeSelector"]}))
+    observer_image = profile["workload"]["image"]
+    selector = values(profile, c, True)["agent"]["nodeSelector"]
+    write_new(output / "host-observers.json", {"apiVersion": "v1", "kind": "List", "items": [
+        host_policy(c["namespace"]), host_observer(c["namespace"], observer_image, selector)]})
+    write_new(output / "ephemeral-observers.json", {
+        component: ephemeral_observer(observer_image, component) for component in ("agent", "node-context")})
     write_new(output / "configuration.private.json", c)
     names = ("baseline-values.json", "enabled-values.json", "baseline.preview.yaml", "enabled.preview.yaml",
-             "serving-trust.json", "workload.json", "configuration.private.json")
+             "serving-trust.json", "workload.json", "host-observers.json", "ephemeral-observers.json",
+             "configuration.private.json")
     files = {name: "sha256:" + hashlib.sha256((output / name).read_bytes()).hexdigest() for name in names}
     plan = {
-        "schemaVersion": 1, "state": "prepared-not-approved", "qualified": False,
+        "schemaVersion": 2, "state": "prepared-not-approved", "qualified": False,
         "providerRunStarted": False, "preparedAt": utc_text(),
         "profile": {"id": profile["id"], "digest": profile["profileDigest"]},
         "configurationDigest": digest(c, "configurationDigest"),
@@ -96,6 +104,7 @@ def prepare(profile, config, output, repository=REPOSITORY):
         "servingTrustDigest": "sha256:" + hashlib.sha256(ca).hexdigest(),
         "rendered": outputs, "files": files,
         "measurement": dict(profile["measurement"]), "budgets": dict(profile["budgets"]),
+        "observation": {"method": "kubernetes-probes-v1", "image": observer_image},
         "verificationStillRequired": [
             "Explicit owner approval of this target, immutable artefacts and rendered resources",
             "Fresh provider inventory and live binding to the selected context and exact two-Node pool",

@@ -3,9 +3,10 @@
 `hack/node-qualification/prepare_provider.py` prepares configuration for review.
 It does not contact Kubernetes, invoke provider CLIs, execute the supplied
 binaries, install resources, start a run or grant approval. The current live
-qualification runner remains specific to owned kind fixtures. Provider execution
-and read-only host observation still need to be wired to the owner-supplied
-targets before a provider run is approved.
+qualification runner remains specific to owned kind fixtures. The proposal
+includes the fixed [Kubernetes observer footprint](node-context-kubernetes-observer.md).
+Provider execution still needs to bind it to owner-supplied targets before a
+provider run is approved.
 
 Use this after selecting a disposable target and obtaining its local kubeconfig
 path, exact context, pool, Node addresses, API addresses and public kubelet CA.
@@ -94,9 +95,15 @@ The new directory uses mode `0700`; each file uses `0600`:
 - `serving-trust.json`: the supplied public kubelet CA ConfigMap.
 - `workload.json`: the same pinned 32-container workload used by the qualification
   protocol, placed in the dedicated namespace with the selected Linux pool.
+- `host-observers.json`: the read-only cgroup DaemonSet and deny-all probe
+  NetworkPolicy, using the same selected pool.
+- `ephemeral-observers.json`: the agent metrics and producer identity/metrics
+  container specifications. These are review fragments for existing Pods, not
+  standalone resources to apply.
 - `configuration.private.json`: the exact private input configuration.
-- `plan.private.json`: profile/configuration/file digests, frozen measurement
-  settings and budgets, required live checks and ownership-based cleanup steps.
+- `plan.private.json`: version-2 profile/configuration/file digests, explicit
+  observation method/image, frozen measurement settings and budgets, required
+  live checks and ownership-based cleanup steps.
 
 Keep the entire directory private and out of Git and shared evidence. The
 manifest is written last. A failed render may leave a private partial directory;

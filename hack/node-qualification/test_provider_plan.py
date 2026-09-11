@@ -72,6 +72,8 @@ class ProviderPreparationTest(unittest.TestCase):
                 self.assertEqual(result["state"], "prepared-not-approved")
                 self.assertFalse(result["qualified"])
                 self.assertFalse(result["providerRunStarted"])
+                self.assertEqual(result["schemaVersion"], 2)
+                self.assertEqual(result["observation"], {"method": "kubernetes-probes-v1", "image": p["workload"]["image"]})
                 self.assertEqual(result["budgets"], p["budgets"])
                 for name, expected in result["files"].items():
                     self.assertEqual("sha256:" + hashlib.sha256((output / name).read_bytes()).hexdigest(), expected)
@@ -94,6 +96,12 @@ class ProviderPreparationTest(unittest.TestCase):
                 self.assertEqual(workload["replicas"] * len(pod["containers"]), 32)
                 self.assertNotIn("nodeName", pod)
                 self.assertFalse(pod["automountServiceAccountToken"])
+                host = load(output / "host-observers.json")["items"][1]["spec"]["template"]["spec"]
+                self.assertEqual(host["nodeSelector"], pod["nodeSelector"])
+                self.assertTrue(host["containers"][0]["volumeMounts"][0]["readOnly"])
+                ephemeral = load(output / "ephemeral-observers.json")
+                self.assertEqual(set(ephemeral), {"agent", "node-context"})
+                self.assertEqual(ephemeral["node-context"]["image"], p["workload"]["image"])
                 before = (output / "plan.private.json").read_bytes()
                 with self.assertRaises(ContractError):
                     prepare(p, config, output)
