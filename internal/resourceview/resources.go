@@ -19,13 +19,28 @@ func Effective(pod api.PodSnapshot) model.EffectiveMemoryResources {
 }
 
 func PodLines(pod api.PodSnapshot) []string {
-	resources := pod.Context.Resources
+	if pod.Context.Resources.IsZero() {
+		return nil
+	}
+	lines := PodContextLines(pod.Context, len(pod.Containers))
+	for _, container := range pod.Containers {
+		for _, line := range ContainerLines(container) {
+			lines = append(lines, "Container "+container.ContainerName+" — "+line)
+		}
+	}
+	return lines
+}
+
+// PodContextLines shares Kubernetes resource presentation with readers that
+// have no cgroup snapshot.
+func PodContextLines(context api.PodContext, containers int) []string {
+	resources := context.Resources
 	if resources.IsZero() {
 		return nil
 	}
 	var lines []string
 	if resources.Configured.Request.Known || resources.Configured.Limit.Known {
-		effective := Effective(pod)
+		effective := model.EffectivePodMemory(resources, model.ContainerResourceTotals{RequestBytes: context.MemoryRequestBytes, LimitBytes: context.MemoryLimitBytes, RequestContainers: context.MemoryRequestContainers, LimitContainers: context.MemoryLimitContainers, Containers: containers})
 		lines = append(lines,
 			"Effective request:     "+effectiveValue(effective.Request),
 			"Effective limit:       "+effectiveValue(effective.Limit),
@@ -42,11 +57,6 @@ func PodLines(pod api.PodSnapshot) []string {
 		}
 		lines = append(lines, fmt.Sprintf("Pod spec generation: %d; kubelet observed: %s", resources.Generation, observed))
 	}
-	for _, container := range pod.Containers {
-		for _, line := range ContainerLines(container) {
-			lines = append(lines, "Container "+container.ContainerName+" — "+line)
-		}
-	}
 	return lines
 }
 
@@ -60,11 +70,15 @@ func ConfiguredContainer(container api.ContainerSnapshot) model.MemoryResourceBu
 }
 
 func ContainerLines(container api.ContainerSnapshot) []string {
-	resources := container.Context.Resources
+	return ContainerContextLines(container.Context)
+}
+
+func ContainerContextLines(context api.ContainerContext) []string {
+	resources := context.Resources
 	if resources.IsZero() {
 		return nil
 	}
-	configured := ConfiguredContainer(container)
+	configured := model.MemoryResourceBudget{Request: model.ResourceValue{Bytes: context.MemoryRequestBytes, Known: context.MemoryRequestKnown}, Limit: model.ResourceValue{Bytes: context.MemoryLimitBytes, Known: context.MemoryLimitKnown}}
 	return []string{
 		"Configured request: " + resourceValue(configured.Request, "not set"),
 		"Configured limit:   " + resourceValue(configured.Limit, "not set"),

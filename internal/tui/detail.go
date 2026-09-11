@@ -12,6 +12,9 @@ import (
 )
 
 func (m appModel) detailLines(width int) []string {
+	if m.restricted() {
+		return m.observationDetail(m.detail, width)
+	}
 	switch m.detail.kind {
 	case entityNode:
 		return m.nodeDetailLines()

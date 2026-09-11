@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
-	"github.com/danushkastanley/kube-memlens/internal/client"
+	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/recommend"
 	"github.com/spf13/cobra"
@@ -42,10 +42,14 @@ func newRecommendPodCommand(collectorOptions collectorOptionsProvider) *cobra.Co
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentPodSession(cmd.Context(), opts, args[0])
 			if err != nil {
-				return collectorUnavailableError(opts, description, err)
+				return collectorUnavailableError(opts, session.Description, err)
 			}
+			if session.Plan.Mode == capability.Restricted {
+				return runRestrictedReport(cmd, session, explanationTarget{Kind: "Pod", Namespace: namespace, Name: args[0]}, capability.PodScope, output, restrictedRecommend)
+			}
+			reader, description := session.Reader, session.Description
 			pod, err := readPod(cmd.Context(), reader, namespace, args[0])
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
@@ -77,10 +81,14 @@ func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cob
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentSession(cmd.Context(), opts)
 			if err != nil {
-				return collectorUnavailableError(opts, description, err)
+				return collectorUnavailableError(opts, session.Description, err)
 			}
+			if session.Plan.Mode == capability.Restricted {
+				return runRestrictedReport(cmd, session, explanationTarget{Kind: parts[0], Namespace: namespace, Name: parts[1]}, capability.WorkloadScope, output, restrictedRecommend)
+			}
+			reader, description := session.Reader, session.Description
 			workloads, err := reader.Workloads(cmd.Context())
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)

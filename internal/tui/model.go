@@ -8,11 +8,13 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/client"
+	"github.com/danushkastanley/kube-memlens/internal/observation"
 )
 
 type appModel struct {
 	ctx                   context.Context
 	client                client.SnapshotReader
+	observationReader     observation.Reader
 	connectionDescription string
 	opts                  Options
 	view                  viewMode
@@ -129,7 +131,9 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.beginCompleteFetch()
 		}
 		selectedKey := m.selectedEntityKey()
-		m.updatePodTrends(msg.data.Pods)
+		if !m.restricted() {
+			m.updatePodTrends(msg.data.Pods)
+		}
 		m.data = msg.data
 		m.lastRefresh = time.Now()
 		m.statusErr = nil
@@ -264,9 +268,7 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "x":
 		return m, m.startCompare()
 	case "C":
-		m.action.mode = actionCapturePath
-		m.action.input = ""
-		m.action.err = nil
+		m.beginCapture()
 	case "y":
 		return m.copyCurrentCommand()
 	case "r":
@@ -339,7 +341,7 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.activeViewport().last()
 	case "s":
 		selectedKey := m.selectedEntityKey()
-		m.sort = nextSort(m.sort)
+		m.cycleSort()
 		m.reconcileCurrentViewport(selectedKey)
 	}
 	return m, m.ensureHistoryTarget()

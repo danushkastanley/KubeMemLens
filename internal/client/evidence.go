@@ -20,6 +20,10 @@ type EvidenceSession struct {
 }
 
 func NewEvidenceSession(ctx context.Context, opts Options) (EvidenceSession, error) {
+	return newEvidenceSession(ctx, opts, "")
+}
+
+func newEvidenceSession(ctx context.Context, opts Options, podName string) (EvidenceSession, error) {
 	opts, err := opts.WithDefaults()
 	if err != nil {
 		return EvidenceSession{}, err
@@ -39,6 +43,9 @@ func NewEvidenceSession(ctx context.Context, opts Options) (EvidenceSession, err
 			session.Reader, session.Description = reader, description
 			if err != nil {
 				return evidenceFailure(err), err
+			}
+			if podName != "" {
+				return discoverDeepPod(ctx, reader, opts.ReadScope.Namespace, podName)
 			}
 			return discoverDeep(ctx, reader)
 		}),
@@ -73,12 +80,16 @@ func discoverDeep(ctx context.Context, reader SnapshotReader) (capability.Source
 	if err != nil {
 		return evidenceFailure(err), nil
 	}
+	return deepSourceState(pods), nil
+}
+
+func deepSourceState(pods []api.PodSnapshot) capability.SourceState {
 	state := capability.SourceState{Source: capability.Cgroup, Availability: capability.Available,
 		APIVersion: api.MemoryAPIGroup + "/" + api.MemoryAPIVersion,
 		Freshness:  capability.UnknownFreshness, Completeness: capability.Partial, Stability: capability.Stable}
 	if len(pods) == 0 {
 		state.Reason = capability.NotObserved
-		return state, nil
+		return state
 	}
 	state.Freshness, state.Completeness = capability.Fresh, capability.Complete
 	now := time.Now()
@@ -93,7 +104,7 @@ func discoverDeep(ctx context.Context, reader SnapshotReader) (capability.Source
 			state.Completeness = capability.Partial
 		}
 	}
-	return state, nil
+	return state
 }
 
 func evidenceFailure(err error) capability.SourceState {

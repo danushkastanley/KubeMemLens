@@ -47,9 +47,7 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 		case "x":
 			return m, m.startCompare()
 		case "c":
-			m.action.mode = actionCapturePath
-			m.action.input = ""
-			m.action.err = nil
+			m.beginCapture()
 		case "y":
 			return m.copyCurrentCommand()
 		}
@@ -85,6 +83,10 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 }
 
 func (m *appModel) startRecommendation() tea.Cmd {
+	if m.restricted() {
+		m.showObservationRecommendations()
+		return nil
+	}
 	if !m.data.ContainersLoaded || m.containerErr != nil {
 		m.setActionError(fmt.Errorf("recommendations require complete container evidence; retry after loading finishes"))
 		return m.beginCompleteFetch()
@@ -102,6 +104,10 @@ func (m *appModel) startRecommendation() tea.Cmd {
 }
 
 func (m *appModel) startCompare() tea.Cmd {
+	if m.restricted() {
+		m.setActionError(fmt.Errorf("restricted comparison is unavailable in this build"))
+		return nil
+	}
 	if !m.data.ContainersLoaded || m.containerErr != nil {
 		m.setActionError(fmt.Errorf("comparison requires complete container evidence; retry after loading finishes"))
 		return m.beginCompleteFetch()
@@ -133,6 +139,10 @@ func (m *appModel) startCompare() tea.Cmd {
 }
 
 func (m *appModel) startCapture(overwrite bool) tea.Cmd {
+	if m.restricted() {
+		m.beginCapture()
+		return nil
+	}
 	if !m.data.ContainersLoaded || m.containerErr != nil {
 		m.setActionError(fmt.Errorf("capture requires complete container evidence; retry after loading finishes"))
 		return m.beginCompleteFetch()
@@ -263,6 +273,9 @@ func (m appModel) currentActionPod() (api.PodSnapshot, bool) {
 }
 
 func (m appModel) currentCommand() (string, bool) {
+	if m.restricted() {
+		return m.observationCommand()
+	}
 	ref, ok := m.currentActionRef()
 	if !ok {
 		return "", false

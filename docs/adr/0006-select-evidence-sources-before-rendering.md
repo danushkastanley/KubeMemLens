@@ -1,7 +1,7 @@
 # ADR 0006: Select evidence sources before rendering
 
 Date: 11 September 2026
-Status: accepted for source discovery and current observation queries
+Status: accepted for source discovery, current observations and presentation
 
 ## Context
 
@@ -43,10 +43,18 @@ node or metrics access merely because current Pod data is readable.
 
 The common `observation.Reader.Current` query returns source-aware application
 types. Restricted queries use bounded Kubernetes reads and explicit optional
-working sets; deep queries project the original snapshot contracts. The cgroup
-renderers stay guarded until restricted presentation is delivered. Restricted
-capture, replay and compare require their own schema work.
+working sets; deep queries project the original snapshot contracts. Shared row
+projection supplies restricted CLI and TUI views inside the existing navigation
+and layout. Cgroup renderers receive only deep evidence. Restricted capture,
+replay and compare require their own schema work.
 The collector wire schemas and incident formats are unchanged by discovery.
+
+Selected-Pod CLI commands probe the target deep GET rather than a namespace
+list. An object 404 is distinguished from an absent API before fallback. This
+preserves resource-name-scoped deep permissions. Explicit deep/collector command
+paths retain their original reads and output. Restricted explanation and
+recommendation documents use separate versions so older consumers fail closed
+instead of treating absent composition as zero.
 
 ## Alternatives
 

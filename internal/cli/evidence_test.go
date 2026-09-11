@@ -100,7 +100,7 @@ func TestStatusRestrictedMissingMetricsIsPartialAndDoesNotListNamespaces(t *test
 func TestRestrictedModeNeverRunsDeepCommand(t *testing.T) {
 	var out bytes.Buffer
 	cmd := NewRootCommand(&out, &out)
-	cmd.SetArgs([]string{"--mode=restricted", "top", "pods"})
+	cmd.SetArgs([]string{"--mode=restricted", "history", "pod", "app"})
 	err := cmd.Execute()
 	if err == nil || !strings.Contains(err.Error(), "query-not-implemented") || strings.Contains(out.String(), "TOTAL") {
 		t.Fatalf("output=%q err=%v", out.String(), err)

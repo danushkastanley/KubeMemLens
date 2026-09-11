@@ -8,7 +8,10 @@ import (
 	memmodel "github.com/danushkastanley/kube-memlens/internal/model"
 )
 
-func (m appModel) inlineDetailLines(_ int) []string {
+func (m appModel) inlineDetailLines(width int) []string {
+	if m.restricted() {
+		return m.observationInlineDetail(width)
+	}
 	switch m.view {
 	case viewNodes:
 		items := m.visibleNodes()

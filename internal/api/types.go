@@ -11,6 +11,8 @@ const CurrentSnapshotSchemaVersion = 2
 const CurrentIncidentSchemaVersion = 2
 const CurrentExplanationSchemaVersion = 3
 const CurrentRecommendationSchemaVersion = 1
+const RestrictedExplanationSchemaVersion = 4
+const RestrictedRecommendationSchemaVersion = 2
 const MemoryAPIGroup = "memory.kubememlens.io"
 const MemoryAPIVersion = "v1alpha1"
 

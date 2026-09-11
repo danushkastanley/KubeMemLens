@@ -61,7 +61,7 @@ features that require separate implementation and qualification.
 | cgroup v1 | Unsupported | KubeMemLens has no cgroup v1 parser or deployment path. |
 | Provider modes without an enforcing CNI | Unsupported for v1 deep mode | The standard profile requires NetworkPolicy enforcement, although NetworkPolicy is not tenant authorisation. |
 | High-availability collector or durable history | Deferred | v1 deliberately uses one in-memory collector. |
-| Restricted or agentless mode | Deferred until after the deep-mode v1 boundary | It has a separate data and completeness contract. |
+| Restricted or agentless mode | Development preview with local validation; managed-provider qualification pending | [Working-set workflows](restricted-mode.md) have a separate source and completeness contract. |
 | eBPF tracing, process inspection and path telemetry | Deferred | These capabilities require separate packaging, admission, privacy, benchmark and security gates. |
 | Automatic remediation or workload mutation | Unsupported | KubeMemLens is read-only. |
 

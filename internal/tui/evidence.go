@@ -19,11 +19,6 @@ func (m appModel) discoverCmd() tea.Cmd {
 		if err == nil {
 			err = session.Plan.Require(capability.Current)
 		}
-		// The cgroup renderer cannot consume working sets. LITE-003 supplies
-		// the presentation path for session.Observations.
-		if err == nil && session.Reader == nil {
-			err = &capability.SelectionError{Mode: session.Plan.Mode, Reason: capability.QueryNotImplemented}
-		}
 		return discoveryMsg{generation: m.fetchGeneration, session: session, err: err}
 	}
 }
@@ -39,6 +34,10 @@ func (m appModel) receiveDiscovery(msg discoveryMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.client, m.statusErr = msg.session.Reader, nil
+	if m.restricted() {
+		m.observationReader = msg.session.Observations
+		m.sort = sortTotal
+	}
 	return m, m.fetchCmd()
 }
 
@@ -53,6 +52,9 @@ func (m appModel) evidenceLabel() string {
 }
 
 func (m appModel) loadingLabel() string {
+	if m.observationReader != nil {
+		return "Loading authorised Kubernetes observations..."
+	}
 	if m.client == nil {
 		return "Discovering evidence sources..."
 	}
