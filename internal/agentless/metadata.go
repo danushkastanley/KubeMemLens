@@ -42,6 +42,8 @@ func podMetadata(ctx context.Context, pod corev1.Pod, receivedAt time.Time) (obs
 		status, reported := statuses[name]
 		status.Name = name
 		context := kube.BuildContainerContext(contextPod, status)
+		context.QoSClass = safeText(context.QoSClass, 64)
+		context.RuntimeClassName = safeText(context.RuntimeClassName, 253)
 		context.LastTerminationReason = safeText(context.LastTerminationReason, 128)
 		context.PodPhase = safeText(context.PodPhase, 64)
 		context.OwnerKind = safeText(context.OwnerKind, 64)

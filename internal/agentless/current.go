@@ -2,7 +2,6 @@ package agentless
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 
 	"github.com/danushkastanley/kube-memlens/internal/capability"
@@ -89,12 +88,8 @@ func (r *Reader) Current(parent context.Context) (observation.Batch, error) {
 			batch.Workloads[i].WorkingSet.Evidence.Completeness = capability.Partial
 		}
 	}
-	output, err := json.Marshal(batch)
-	if err != nil {
-		return observation.Batch{}, queryFailure(capability.InvalidResponse, err)
-	}
-	if int64(len(output)) > r.opts.MaxOutputBytes {
-		return observation.Batch{}, queryFailure(limitReached, nil)
+	if err := checkOutputSize(batch, r.opts.MaxOutputBytes); err != nil {
+		return observation.Batch{}, err
 	}
 	if parent.Err() != nil {
 		return observation.Batch{}, readFailure(parent.Err())
