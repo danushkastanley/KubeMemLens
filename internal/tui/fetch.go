@@ -11,6 +11,9 @@ import (
 )
 
 func (m appModel) fetchCmd() tea.Cmd {
+	if m.observationReader != nil {
+		return m.fetchObservationsCmd()
+	}
 	if m.client == nil {
 		return m.discoverCmd()
 	}
@@ -118,6 +121,9 @@ func (m appModel) completeFetchCmd(generation uint64) tea.Cmd {
 }
 
 func (m *appModel) beginCompleteFetch() tea.Cmd {
+	if m.restricted() {
+		return nil
+	}
 	if m.loading || m.containerLoading {
 		return nil
 	}
@@ -181,6 +187,9 @@ func (m appModel) fetchHistoryCmdWithContext(ctx context.Context, request histor
 }
 
 func (m *appModel) historyRefreshCmd() tea.Cmd {
+	if m.restricted() {
+		return nil
+	}
 	request, ok := m.selectedHistory.start()
 	if !ok {
 		return nil
@@ -191,6 +200,10 @@ func (m *appModel) historyRefreshCmd() tea.Cmd {
 }
 
 func (m *appModel) ensureHistoryTarget() tea.Cmd {
+	if m.restricted() {
+		m.clearHistoryTarget()
+		return nil
+	}
 	if m.view == viewDetail && (m.detail.kind == entityPod || m.detail.kind == entityContainer) {
 		m.selectHistoryTarget(m.detail.namespace, m.detail.podName)
 		return m.historyRefreshCmd()

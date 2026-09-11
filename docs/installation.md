@@ -126,7 +126,7 @@ kubectl memlens top pods -A
 kubectl memlens history pod <pod-name> -n <namespace>
 ```
 
-`status` without a namespace, strict `doctor` and `-A` examples require the explicit cluster-viewer binding. A namespace viewer can use `kubectl memlens status -n <tenant-namespace>`, `kubectl memlens top pods -n <tenant-namespace>` and a Pod/history action in that same namespace. See [evidence source discovery](evidence-sources.md) for mode selection and its current restricted-query boundary.
+`status` without a namespace, strict `doctor` and `-A` examples require the explicit cluster-viewer binding. A namespace viewer can use `kubectl memlens status -n <tenant-namespace>`, `kubectl memlens top pods -n <tenant-namespace>` and a Pod/history action in that same namespace. See [evidence source discovery](evidence-sources.md) for mode selection and [restricted workflows](restricted-mode.md), which use the caller's Kubernetes RBAC without a KubeMemLens installation.
 
 `status` reports the collector evidence state, generation, expected, fresh, stale and missing node counts, and history reset state. A successful connection can still report `rebuilding`, `degraded` or `stale`. Treat the install as populated only after the intended nodes have fresh evidence. The [reliability contract](reliability.md) defines each state and the [reliability runbook](runbooks/reliability.md) covers recovery checks.
 

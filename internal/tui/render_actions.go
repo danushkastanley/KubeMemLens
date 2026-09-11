@@ -20,6 +20,11 @@ func (m appModel) renderAction(width int) string {
 			"No action mutates Kubernetes resources.",
 			"Esc closes this menu.",
 		}
+		if m.restricted() {
+			lines[0] = "Restricted actions"
+			lines[3] = "x  Comparison unavailable in this build"
+			lines[4] = "c  Capture unavailable in this build"
+		}
 	case actionCapturePath:
 		lines = []string{
 			"Redacted incident capture",

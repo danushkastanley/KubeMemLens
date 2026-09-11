@@ -6,6 +6,8 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/client"
+	"github.com/danushkastanley/kube-memlens/internal/observation"
+	"github.com/danushkastanley/kube-memlens/internal/observationview"
 )
 
 type Options struct {
@@ -42,6 +44,8 @@ const (
 )
 
 type snapshotData struct {
+	Observations     *observation.Batch
+	ObservationRows  []observationview.Row
 	Nodes            []api.NodeSnapshotStatus
 	Namespaces       []api.NamespaceSnapshot
 	Workloads        []api.WorkloadSnapshot

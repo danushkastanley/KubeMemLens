@@ -3,9 +3,9 @@
 The restricted reader obtains authorised Pod and Node working sets and resource
 context without installing KubeMemLens workloads. `EvidenceSession.Observations`
 exposes the common `Current` query. The existing deep snapshot interfaces and
-collector wire formats remain unchanged. Restricted CLI/TUI rendering and
-incident export are separate delivery steps; the current cgroup renderers do
-not accept restricted observations.
+collector wire formats remain unchanged. [Restricted CLI/TUI workflows](restricted-mode.md)
+consume these observations separately from cgroup renderers. Incident export is
+a subsequent delivery step.
 
 ## Scope and identity
 
@@ -97,7 +97,7 @@ Use a disposable kind cluster without a KubeMemLens or Metrics API installation.
 The script refuses to replace existing fixture resources. It creates two data
 namespaces, a controlled TLS Metrics API in a third namespace and a short-lived
 reader credential. It verifies missing and measured memory, namespace and
-cluster denial, auto selection and revoked access, then removes the resources
+cluster denial, auto selection, CLI/PTY workflows and revoked access, then removes the resources
 and credentials. The controlled samples prove the integration and join contract,
 not Metrics Server accuracy or managed-provider support.
 

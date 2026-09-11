@@ -22,8 +22,9 @@ status and resource-metrics sources. An explicit deep selection never falls back
 Authentication failure, malformed responses and connection failure remain errors.
 
 Restricted discovery and the [agentless current reader](agentless-reader.md) are
-available in this build. Restricted interactive workflows and capture are
-separate delivery steps; their commands still return `query-not-implemented`.
+available in this build. [Restricted top, explanation, recommendation and TUI workflows](restricted-mode.md)
+use the current reader. Restricted capture, replay and comparison remain separate
+delivery steps; history and cgroup diagnostics require deep evidence.
 Discovery does not install agents, Metrics Server,
 RBAC or other cluster resources. No restricted-provider support is claimed.
 
@@ -56,6 +57,8 @@ Discovery has a five-second default whole-operation deadline and a fixed probe
 sequence. Kubernetes self access reviews request only `list` on `pods` in the
 core or metrics group, in the exact requested namespace or explicit all-namespace
 scope. They do not enumerate workload names or discover other namespaces.
+Selected-Pod commands probe a scoped deep GET first, preserving get-only access;
+a 404 is checked against API availability before any fallback.
 Reviews are bounded to 1 MiB, reject redirects and discard free-form reason text.
 Metrics discovery keeps the [existing transport and response bounds](resource-metrics-source.md).
 

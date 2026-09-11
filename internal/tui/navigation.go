@@ -3,37 +3,24 @@ package tui
 import tea "charm.land/bubbletea/v2"
 
 func (m *appModel) enter() tea.Cmd {
+	ref, ok := m.currentEntityRef()
+	if !ok {
+		return nil
+	}
 	switch m.view {
 	case viewNodes:
-		items := m.visibleNodes()
-		if len(items) == 0 {
-			return nil
-		}
-		m.currentNode = items[m.currentViewport().selected].name
-		m.view = viewPods
-		m.resetCurrentViewport()
+		m.currentNode = ref.nodeName
 	case viewNamespaces:
-		items := m.visibleNamespaces()
-		if len(items) == 0 {
-			return nil
-		}
-		m.currentNamespace = items[m.currentViewport().selected].Namespace
-		m.view = viewPods
-		m.resetCurrentViewport()
+		m.currentNamespace = ref.namespace
 	case viewWorkloads:
-		items := m.visibleWorkloads()
-		if len(items) == 0 {
-			return nil
-		}
-		selected := m.currentViewport().selected
-		m.currentNamespace = items[selected].Namespace
-		m.currentWorkloadKind = items[selected].Kind
-		m.currentWorkloadName = items[selected].Name
-		m.view = viewPods
-		m.resetCurrentViewport()
+		m.currentNamespace, m.currentWorkloadKind, m.currentWorkloadName = ref.namespace, ref.workloadKind, ref.name
 	case viewPods, viewContainers:
 		return m.openSelectedDetail()
+	default:
+		return nil
 	}
+	m.view = viewPods
+	m.resetCurrentViewport()
 	return nil
 }
 
@@ -142,6 +129,9 @@ func (m *appModel) syncInlineDetailViewport() {
 }
 
 func (m appModel) visibleCount() int {
+	if m.restricted() && m.view != viewDetail {
+		return len(m.visibleObservationRows())
+	}
 	switch m.view {
 	case viewNodes:
 		return len(m.visibleNodes())
@@ -184,6 +174,14 @@ func (m *appModel) openSelectedDetail() tea.Cmd {
 }
 
 func (m appModel) currentEntityRef() (entityRef, bool) {
+	if m.restricted() {
+		rows := m.visibleObservationRows()
+		selected := m.currentViewport().selected
+		if selected >= 0 && selected < len(rows) {
+			return observationRef(rows[selected]), true
+		}
+		return entityRef{}, false
+	}
 	selected := m.currentViewport().selected
 	switch m.view {
 	case viewNodes:

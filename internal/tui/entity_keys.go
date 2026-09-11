@@ -6,6 +6,23 @@ func podKey(namespace, name string) string {
 	return "pod/" + namespace + "/" + name
 }
 
+func entityKey(ref entityRef) string {
+	switch ref.kind {
+	case entityNode:
+		return "node/" + ref.nodeName
+	case entityNamespace:
+		return "namespace/" + ref.namespace
+	case entityWorkload:
+		return "workload/" + ref.namespace + "/" + ref.workloadKind + "/" + ref.name
+	case entityPod:
+		return podKey(ref.namespace, ref.podName)
+	case entityContainer:
+		return "container/" + ref.namespace + "/" + ref.podName + "/" + ref.containerName
+	default:
+		return ""
+	}
+}
+
 func (m appModel) selectedEntityKey() string {
 	keys := m.visibleEntityKeys()
 	selected := m.viewports[m.view].selected
@@ -16,6 +33,14 @@ func (m appModel) selectedEntityKey() string {
 }
 
 func (m appModel) visibleEntityKeys() []string {
+	if m.restricted() {
+		rows := m.visibleObservationRows()
+		keys := make([]string, len(rows))
+		for i, row := range rows {
+			keys[i] = row.Key()
+		}
+		return keys
+	}
 	switch m.view {
 	case viewNodes:
 		items := m.visibleNodes()

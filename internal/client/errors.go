@@ -3,6 +3,8 @@ package client
 import (
 	"errors"
 	"fmt"
+
+	"github.com/danushkastanley/kube-memlens/internal/capability"
 )
 
 type ReadErrorKind string
@@ -39,6 +41,10 @@ func (e *ReadError) Unwrap() error {
 }
 
 func IsForbidden(err error) bool {
+	var selection *capability.SelectionError
+	if errors.As(err, &selection) {
+		return selection.Reason == capability.AccessDenied || selection.Reason == capability.AuthenticationFailed
+	}
 	return hasReadErrorKind(err, ReadErrorForbidden)
 }
 

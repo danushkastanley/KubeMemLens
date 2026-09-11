@@ -183,6 +183,9 @@ type SelectionError struct {
 func (e *SelectionError) Unwrap() error { return e.Cause }
 
 func (e *SelectionError) Error() string {
+	if e.Reason == AccessDenied {
+		return fmt.Sprintf("%s evidence is unavailable: %s (permission denied)", e.Mode, e.Reason)
+	}
 	return fmt.Sprintf("%s evidence is unavailable: %s", e.Mode, e.Reason)
 }
 

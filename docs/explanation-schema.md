@@ -77,3 +77,22 @@ The contract carries those caveats instead of guessing feature-gate state or a
 throttling factor. Recommendations retain schema 1 and remain read-only.
 Existing incident schemas preserve the raw controls and replay recomputes the
 interpretation; no capture migration is required.
+
+
+## Restricted evidence
+
+The development build emits explanation schema **4** and recommendation schema
+**2** for restricted queries. Deep output remains explanation **3** and
+recommendation **1**, including its existing fields and meanings.
+
+Restricted documents contain `mode: restricted`, a namespaced `target`, a typed
+`observation`, optional `children`, `sources`, `unavailable` query reasons,
+`details`, read-only `recommendations` and `automaticMutation: false`. Working
+set appears under `observation.workingSet`; its nullable `bytes`, API version,
+sample/receive times, window, freshness and coverage retain their reader meaning.
+Optional configured, Pod and container resource context is labelled separately.
+
+Absent cgroup `memory` and `finding` fields are omitted. Consumers must reject
+versions they do not support rather than supplying zero composition or a clean
+diagnosis. These versions do not change collector snapshots or incident bundles.
+See [restricted workflows](restricted-mode.md) for commands, privacy and limits.

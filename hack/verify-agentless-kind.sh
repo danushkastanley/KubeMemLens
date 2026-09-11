@@ -28,6 +28,7 @@ done
 mkdir -p "${artifact_dir}"
 go build -trimpath -o "${work_dir}/fixture" ./hack/fixtures/metrics-api
 go build -trimpath -o "${work_dir}/probe" ./hack/fixtures/agentless-probe
+go build -trimpath -o "${work_dir}/cli" ./cmd/kubectl-memlens
 "${work_dir}/fixture" --write-cert-dir "${work_dir}/tls" --namespace "${namespace}"
 image="kube-memlens:agentless-fixture-${context#kind-}"
 docker build -t "${image}" hack/fixtures/metrics-api > "${work_dir}/build.log" 2>&1 || { tail -30 "${work_dir}/build.log" >&2; exit 1; }
@@ -36,6 +37,8 @@ kctl create namespace "${namespace}" >/dev/null
 created=true
 kctl create namespace "${reader_namespace}" >/dev/null
 kctl create namespace "${denied_namespace}" >/dev/null
+kctl label namespace "${namespace}" "${reader_namespace}" "${denied_namespace}" \
+  app.kubernetes.io/managed-by=kube-memlens-agentless-e2e >/dev/null
 kctl create secret tls metrics-fixture-tls -n "${namespace}" --cert "${work_dir}/tls/tls.crt" --key "${work_dir}/tls/tls.key" >/dev/null
 kctl apply -n "${reader_namespace}" -f - >/dev/null <<'YAML'
 apiVersion: v1
@@ -194,6 +197,9 @@ YAML
   kctl wait --for=condition=Available "apiservice/${version}.metrics.k8s.io" --timeout=120s >/dev/null
 done
 probe measured
+python3 hack/agentless_ui_smoke.py --cli "${work_dir}/cli" --kubeconfig "${work_dir}/reader.json" \
+  --namespace "${reader_namespace}" --admin-kubeconfig "${kubeconfig}" --admin-context "${context}" \
+  --output "${artifact_dir}/ui-summary.json"
 kctl delete rolebinding restricted-reader -n "${reader_namespace}" >/dev/null
 probe revoked
 source_dirty=false

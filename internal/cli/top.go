@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/client"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/model"
@@ -40,10 +41,14 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentSession(cmd.Context(), opts)
 			if err != nil {
-				return collectorUnavailableError(opts, description, err)
+				return collectorUnavailableError(opts, session.Description, err)
 			}
+			if session.Plan.Mode == capability.Restricted {
+				return runRestrictedTop(cmd, session, capability.PodScope, podTopOptions, labelSelector, fieldSelector)
+			}
+			reader, description := session.Reader, session.Description
 			return watchTop(cmd.Context(), cmd.OutOrStdout(), podTopOptions, func() error {
 				pods, fetchErr := reader.Pods(cmd.Context())
 				if fetchErr != nil {
@@ -80,10 +85,14 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentSession(cmd.Context(), opts)
 			if err != nil {
-				return collectorUnavailableError(opts, description, err)
+				return collectorUnavailableError(opts, session.Description, err)
 			}
+			if session.Plan.Mode == capability.Restricted {
+				return runRestrictedTop(cmd, session, capability.ContainerScope, containerTopOptions, labelSelector, fieldSelector)
+			}
+			reader, description := session.Reader, session.Description
 			return watchTop(cmd.Context(), cmd.OutOrStdout(), containerTopOptions, func() error {
 				containers, fetchErr := reader.Containers(cmd.Context())
 				if fetchErr != nil {
@@ -120,10 +129,14 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentSession(cmd.Context(), opts)
 			if err != nil {
-				return collectorUnavailableError(opts, description, err)
+				return collectorUnavailableError(opts, session.Description, err)
 			}
+			if session.Plan.Mode == capability.Restricted {
+				return runRestrictedTop(cmd, session, capability.WorkloadScope, workloadTopOptions, labelSelector, fieldSelector)
+			}
+			reader, description := session.Reader, session.Description
 			return watchTop(cmd.Context(), cmd.OutOrStdout(), workloadTopOptions, func() error {
 				workloads, fetchErr := reader.Workloads(cmd.Context())
 				if fetchErr != nil {
@@ -161,10 +174,14 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentSession(cmd.Context(), opts)
 			if err != nil {
-				return collectorUnavailableError(opts, description, err)
+				return collectorUnavailableError(opts, session.Description, err)
 			}
+			if session.Plan.Mode == capability.Restricted {
+				return runRestrictedTop(cmd, session, capability.NamespaceScope, namespaceTopOptions, nil, fieldSelector)
+			}
+			reader, description := session.Reader, session.Description
 			return watchTop(cmd.Context(), cmd.OutOrStdout(), namespaceTopOptions, func() error {
 				namespaces, fetchErr := reader.Namespaces(cmd.Context())
 				if fetchErr != nil {
