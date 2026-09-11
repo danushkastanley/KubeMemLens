@@ -37,6 +37,9 @@ func (r *Reader) readNodes(ctx context.Context, pods []observation.Pod, at time.
 		ordered = append(ordered, name)
 	}
 	sort.Strings(ordered)
+	if len(ordered) == 0 {
+		return nil, unqueriedReport(capability.KubernetesStatus, capability.NodeScope)
+	}
 	if len(ordered) > r.opts.MaxNodes {
 		ordered = ordered[:r.opts.MaxNodes]
 		report.Completeness, report.Reason = capability.Partial, limitReached

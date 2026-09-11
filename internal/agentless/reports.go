@@ -11,6 +11,12 @@ func statusReport(scope capability.Scope) observation.SourceReport {
 		Availability: capability.Available, APIVersion: "v1", Freshness: capability.Fresh, Completeness: capability.Complete, Stability: capability.Stable}}
 }
 
+func unqueriedReport(source capability.Source, scope capability.Scope) observation.SourceReport {
+	return observation.SourceReport{Scope: scope, SourceState: capability.SourceState{Source: source,
+		Availability: capability.Unreported, Reason: capability.NotObserved,
+		Freshness: capability.UnknownFreshness, Completeness: capability.Partial}}
+}
+
 func metricsReport(availability resourcemetrics.Availability, reason resourcemetrics.Reason, version string, scope capability.Scope) observation.SourceReport {
 	state := observation.SourceReport{Scope: scope, SourceState: capability.SourceState{Source: capability.KubernetesMetrics,
 		Availability: capability.Unavailable, Reason: capability.Reason(reason), APIVersion: version,

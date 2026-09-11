@@ -158,3 +158,30 @@ func TestOptionalMetricTimeoutRetainsPodResources(t *testing.T) {
 		t.Fatalf("optional timeout: %v", err)
 	}
 }
+
+func TestEmptyNamespaceDoesNotClaimNodeAccess(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/namespaces/team-a/pods" {
+			podListResponse(t, w, "")
+			return
+		}
+		if r.URL.Path != "/apis/metrics.k8s.io" {
+			t.Errorf("unexpected read: %s", r.URL.Path)
+		}
+		w.WriteHeader(404)
+	}))
+	defer server.Close()
+	reader, err := NewNamespace(&rest.Config{Host: server.URL}, "team-a", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch, err := reader.Current(t.Context())
+	if err != nil || len(batch.Pods) != 0 || len(batch.Nodes) != 0 {
+		t.Fatalf("empty query: %v", err)
+	}
+	for _, source := range batch.Sources[2:] {
+		if source.Availability != capability.Unreported || source.Reason != capability.NotObserved {
+			t.Fatal("an unqueried Node source was marked available")
+		}
+	}
+}

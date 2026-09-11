@@ -11,6 +11,9 @@ import (
 )
 
 func (r *Reader) enrichNodeMetrics(ctx context.Context, nodes []observation.Node, status observation.SourceReport, at time.Time) ([]observation.Node, observation.SourceReport) {
+	if r.namespace != "" && len(nodes) == 0 {
+		return nodes, unqueriedReport(capability.KubernetesMetrics, capability.NodeScope)
+	}
 	var report resourcemetrics.NodeReport
 	var err error
 	if r.namespace == "" {
