@@ -77,8 +77,17 @@ authorisation text. Every later query still enforces current access. See
 [ADR 0006](adr/0006-select-evidence-sources-before-rendering.md) for this client-side
 trust boundary and failure behaviour.
 
-`capture` writes schema-versioned JSON with mode `0600` and refuses to replace an existing file unless `--force` is explicit. Bundles redact Pod UIDs, container IDs, cgroup paths, and bounded selector label maps by default; KubeMemLens does not collect images or file names. `--include-sensitive` is an explicit opt-in for local debugging. Recent history is opt-in and limited to 100 selected Pods per capture. `replay` makes no cluster connection, rejects unknown/trailing JSON, enforces a 64 MiB input limit and entity caps, and recomputes the explanation from the captured evidence.
+`capture` writes schema-versioned JSON with mode `0600` and refuses to replace an existing file unless `--force` is explicit. Bundles redact Pod UIDs, container IDs, cgroup paths, and bounded selector label maps by default; KubeMemLens does not collect images or file names. `--include-sensitive` is an explicit opt-in for local debugging. Recent history is opt-in and limited to 100 selected Pods per capture. `replay` makes no cluster connection, rejects unknown/trailing JSON, enforces a 64 MiB input/output limit and entity caps, and recomputes the explanation from the captured evidence.
 
 ## Future eBPF Mode
 
 An eBPF attribution mode may require elevated capabilities and kernel helpers. It will not be added to the standard agent or default chart. The proposed separately installed profile, managed GKE/EKS/AKS boundary, multi-tenant controls and raw-path policy are documented in the [optional eBPF design](ebpf/OPTIONAL_EBPF_DESIGN.md), [threat model](security/KubeMemLens-threat-model.md), [benchmark protocol](ebpf/BENCHMARK_PROTOCOL.md), and [ADR 0001](adr/0001-defer-ebpf-until-security-and-benchmark-gates.md). Prototype measurements and an independent security review are required before implementation or a support claim.
+
+Restricted [schema 3 captures](restricted-incidents.md) retain caller-authorised
+observations and omit Node/Pod UIDs and label maps by default. They reject cgroup
+payloads, inconsistent sums/coverage and control characters before replay. Files
+are staged with mode `0600`; publication without overwrite fails atomically if
+the destination already exists. Explicit replacement uses an atomic rename and
+preserves the original file on publication failure. Oversized stdout captures
+are rejected before any capture content is emitted. Offline processing does not
+load a kubeconfig or contact Kubernetes. Display names remain sensitive.

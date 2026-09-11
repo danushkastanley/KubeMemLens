@@ -67,6 +67,19 @@ features that require separate implementation and qualification.
 
 The provider restrictions above are sourced and exercised by the [qualification runbook](qualification.md). They describe the current deep-mode candidate, not an irreversible promise about future architectures. The project will not add a privileged or weaker-authentication workaround merely to turn a restricted profile into deep mode.
 
+Restricted provider results are tracked separately from deep deployment results:
+
+| Restricted profile | Qualification |
+| --- | --- |
+| Local kind | CLI/TUI and incident workflows exercised with a controlled Metrics API; fixture behaviour does not prove provider accuracy. |
+| GKE Autopilot | Unqualified; no approved restricted-mode provider run recorded. |
+| EKS Fargate | Unqualified; no approved restricted-mode provider run recorded. |
+| AKS virtual nodes | Unqualified; no approved restricted-mode provider run recorded. |
+
+The [restricted qualification runbook](restricted-qualification.md) records exact
+versions, binary digests, served sources, permissions and unavailable operations.
+The harness does not grant permissions or install node workloads.
+
 ## Multi-tenant security boundary
 
 Shared multi-tenant clusters are a mandatory v1 threat environment. The candidate has local application-boundary evidence; provider and enforcing-CNI claims remain limited to their exact qualification rows.

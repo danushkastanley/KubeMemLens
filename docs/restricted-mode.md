@@ -65,9 +65,11 @@ investigation commands. They do not infer leak, reclaim or OOM risk from absent
 deep fields. Copied TUI commands preserve explicitly selected kubeconfig/context
 options. Other suggested commands should be run with the same caller settings.
 
-History still requires deep evidence. Restricted capture, replay and comparison
-are not implemented in this build. The action menu shows those limits and never
-opens a capture destination prompt for an unsupported path.
+History still requires deep evidence. Restricted CLI and TUI capture write
+[incident schema 3](restricted-incidents.md), retaining source timestamps and
+partial coverage. Replay is offline and uses the capture time. Comparison labels
+working-set deltas separately from cgroup charge, with coverage and identity
+caveats. The TUI asks for a destination and explicit overwrite confirmation.
 
 ## Machine output
 
@@ -82,7 +84,8 @@ Restricted explanation schema **4** and recommendation schema **2** contain a
 target, source-aware observation, children, source reports, unavailable queries
 and read-only guidance. Deep output remains explanation schema **3** and
 recommendation schema **1**. Consumers must reject unsupported versions. No
-collector snapshot or incident schema changes are introduced here. See the
+collector snapshot changes are introduced here. Restricted incidents use a
+separate schema 3. See the
 [explanation contracts](explanation-schema.md#restricted-evidence).
 
 These outputs exclude arbitrary labels, Pod UID, container ID, cgroup paths,
@@ -94,11 +97,11 @@ available for the authorised operator; this is not a redacted incident export.
 `hack/verify-agentless-kind.sh` now exercises real CLI output and the TUI in
 80×24, 120×30 and 180×50 pseudo-terminals before a collector is installed. The
 fixture covers missing/measured memory, navigation, filtering, sorting,
-pause/refresh, detail, recommendations, unavailable actions, permission
+pause/refresh, detail, recommendations, capture/replay/compare, unavailable history, permission
 revocation/recovery and terminal restoration. It retains sanitised assertions,
 not raw PTY output or credentials. Source/row and state-machine tests also cover
 40×10, measured zero, stale frames, output failure and deep compatibility.
 
-Revert the presentation change to restore the previous command boundary. There
-is no persisted-data or cluster migration. Where available, `--mode=deep` keeps
-the existing deep workflow.
+Restore the previous binary to roll back; keep a schema-3-capable binary for
+restricted captures, which older binaries reject. There is no collector-store or
+cluster migration. Where available, `--mode=deep` keeps the existing deep workflow.

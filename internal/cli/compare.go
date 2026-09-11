@@ -7,8 +7,9 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
-	"github.com/danushkastanley/kube-memlens/internal/client"
+	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
+	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 	"github.com/danushkastanley/kube-memlens/internal/qosview"
 	"github.com/danushkastanley/kube-memlens/internal/resourceview"
@@ -34,14 +35,18 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				if beforePath == "" || afterPath == "" || (incidentPodRef == "") == (incidentWorkloadRef == "") {
 					return fmt.Errorf("incident comparison requires --before, --after, and exactly one of --pod <namespace>/<name> or --workload <namespace>/<kind>/<name>")
 				}
-				before, err := readIncidentBundle(beforePath)
+				beforeDocument, err := incident.Read(beforePath)
 				if err != nil {
 					return fmt.Errorf("read before bundle: %w", err)
 				}
-				after, err := readIncidentBundle(afterPath)
+				afterDocument, err := incident.Read(afterPath)
 				if err != nil {
 					return fmt.Errorf("read after bundle: %w", err)
 				}
+				if beforeDocument.Restricted != nil || afterDocument.Restricted != nil {
+					return compareRestrictedDocuments(cmd.OutOrStdout(), beforeDocument, afterDocument, incidentPodRef, incidentWorkloadRef)
+				}
+				before, after := *beforeDocument.Deep, *afterDocument.Deep
 				if incidentPodRef != "" {
 					beforePod, ok := incidentPod(before, incidentPodRef)
 					if !ok {
@@ -71,9 +76,13 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentSession(cmd.Context(), opts)
+			reader, description := session.Reader, session.Description
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
+			}
+			if session.Plan.Mode == capability.Restricted {
+				return compareRestrictedLive(cmd, session, namespace, args)
 			}
 			pods, err := reader.Pods(cmd.Context())
 			if err != nil {

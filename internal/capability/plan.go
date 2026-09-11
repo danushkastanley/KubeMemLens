@@ -28,8 +28,8 @@ func Plan(request Mode, sources []SourceState) (Selection, error) {
 	result.State, result.Freshness, result.Completeness = Available, selected.Freshness, selected.Completeness
 	if result.Mode == Restricted {
 		result.Freshness, result.Completeness = metrics.Freshness, Partial
-		result.Queries = append(result.Queries, QueryState{Query: Current, Availability: Available})
-		for _, query := range []Query{Capture, VolumeHealth, NodeContext, Trace} {
+		result.Queries = append(result.Queries, QueryState{Query: Current, Availability: Available}, QueryState{Query: Capture, Availability: Available})
+		for _, query := range []Query{VolumeHealth, NodeContext, Trace} {
 			result.Queries = append(result.Queries, QueryState{Query: query, Availability: Unavailable, Reason: QueryNotImplemented})
 		}
 		for _, query := range []Query{Composition, LocalEvents, Pressure, History} {

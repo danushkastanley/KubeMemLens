@@ -9,6 +9,7 @@ import pty
 import signal
 import subprocess
 import sys
+import tempfile
 import termios
 import time
 from pathlib import Path
@@ -48,6 +49,41 @@ def check_cli(args):
     report = cli_json(args, ["explain", "workload", "Pod/fixture-pod"])
     if len(report["children"]) != 1:
         raise RuntimeError("workload drill did not retain its Pod")
+
+
+def check_capture(args, path):
+    data = json.loads(path.read_text())
+    if data["schemaVersion"] != 3 or not data["redacted"]:
+        raise RuntimeError("restricted capture schema or redaction changed")
+    if path.stat().st_mode & 0o777 != 0o600:
+        raise RuntimeError("capture permissions are not private")
+    text = path.read_text()
+    if any(key in text for key in ('"uid"', '"labels"', '"cgroup"', '"deepStatus"')):
+        raise RuntimeError("restricted capture retained private or deep fields")
+    replay = [args.cli, "--kubeconfig=/missing/offline-config", "replay", str(path)]
+    first = subprocess.run(replay, capture_output=True, check=True, timeout=10).stdout
+    second = subprocess.run(replay, capture_output=True, check=True, timeout=10).stdout
+    if first != second or b"Working set: 32Mi" not in first or b"Coverage: 1/2" not in first:
+        raise RuntimeError("offline replay lost deterministic partial evidence")
+    comparison = subprocess.run([args.cli, "compare", "--before", str(path), "--after", str(path),
+                                 "--pod", args.namespace + "/fixture-pod"],
+                                capture_output=True, check=True, timeout=10).stdout
+    if b"continuity is unconfirmed" not in comparison or b"delta: +0" not in comparison:
+        raise RuntimeError("offline comparison lost redacted-identity caveat")
+
+
+def check_incident_cli(args):
+    with tempfile.TemporaryDirectory(prefix="restricted-capture-") as directory:
+        path = Path(directory) / "incident.json"
+        command = [args.cli, "--kubeconfig", args.kubeconfig, "--mode=restricted", "capture",
+                   "-n", args.namespace, "-o", str(path)]
+        subprocess.run(command, capture_output=True, check=True, timeout=15)
+        check_capture(args, path)
+        for option in (["--schema-version=1"], ["--schema-version=2"], ["--include-history"]):
+            result = subprocess.run(command + ["--force"] + option, capture_output=True, timeout=15)
+            if result.returncode == 0:
+                raise RuntimeError("restricted capture accepted unavailable history or downgrade")
+        check_capture(args, path)
 
 
 def change_access(args, grant):
@@ -125,9 +161,16 @@ def check_pty(args, columns, rows, full):
             send(b"?", b"WORKING SET")
             send(b"R", b"Automatic mutation: disabled")
             send(b"\r", b"WORKING SET")
-            send(b"C", b"restricted capture is unavailable")
+            with tempfile.TemporaryDirectory(prefix="restricted-tui-") as directory:
+                path = Path(directory) / "incident.json"
+                send(b"C", b"explicit destination path")
+                os.write(master, str(path).encode())
+                send(b"\r", b"Redacted capture written")
+                check_capture(args, path)
             send(b"\r", b"WORKING SET")
-            send(b"x", b"restricted comparison is unavailable")
+            send(b"x", b"Comparison source marked")
+            send(b"\r", b"WORKING SET")
+            send(b"x", b"Restricted Pod comparison")
             send(b"\r", b"WORKING SET")
             change_access(args, False)
             revoked = True
@@ -179,11 +222,12 @@ def main():
     if json.loads(owner.stdout)["metadata"].get("labels", {}).get("app.kubernetes.io/managed-by") != "kube-memlens-agentless-e2e":
         raise ValueError("refusing to alter a namespace not owned by the disposable fixture")
     check_cli(args)
+    check_incident_cli(args)
     terminals = [check_pty(args, width, height, index == 0)
                  for index, (width, height) in enumerate(((80, 24), (120, 30), (180, 50)))]
     terminal.write_result(Path(args.output), {"outcome": "passed", "cli": "passed", "terminals": terminals,
         "checks": ["working-set source", "missing metrics", "navigation", "filter", "sort", "pause", "refresh",
-                   "detail", "read-only recommendations", "unsupported actions", "permission revocation and recovery"],
+                   "detail", "read-only recommendations", "capture/replay/compare", "history/downgrade rejection", "permission revocation and recovery"],
         "credentialsRetained": False, "runtimeIdentifiersIncluded": False})
     print("restricted CLI and PTY smoke passed")
 

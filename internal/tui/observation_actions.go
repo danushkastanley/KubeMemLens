@@ -28,8 +28,9 @@ func (m *appModel) showObservationRecommendations() {
 
 func (m *appModel) beginCapture() {
 	if m.restricted() {
-		m.setActionError(fmt.Errorf("restricted capture is unavailable in this build; no file has been written"))
-		return
+		if _, ok := m.captureObservationRef(); !ok {
+			return
+		}
 	}
 	m.action.mode, m.action.input, m.action.err = actionCapturePath, "", nil
 }
