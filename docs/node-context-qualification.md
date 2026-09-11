@@ -169,3 +169,7 @@ Each provider run still needs explicit approval of its account/context,
 immutable artefacts, trust/audience settings, network prerequisites, replacement
 operation and cleanup plan. The qualification tooling must not provision cloud
 resources, alter provider policy or obtain `nodes/proxy` as a fallback.
+
+Use the [offline provider preparation tool](node-context-provider-preparation.md)
+to validate local inputs and render a private proposal before requesting that
+approval. Rendering a proposal does not execute or qualify a provider profile.

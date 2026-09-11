@@ -8,10 +8,7 @@ from kind_runtime import LOAD_NAMESPACE
 from profiles import validate_profile
 
 
-def manifest(profile, node):
-    p = validate_profile(profile)
-    require(p["profileClass"] == "local-kind", "local workload needs a kind profile")
-    w = p["workload"]
+def deployment(w, namespace, placement):
     containers = [{"name": f"hold-{i}", "image": w["image"],
                    "command": ["sh", "-c", "dd if=/dev/zero of=/memory/buffer bs=1M count=1 2>/dev/null; sleep 7200"],
                    "resources": {"requests": {"cpu": "1m", "memory": "4Mi"}, "limits": {"memory": "16Mi"}},
@@ -19,19 +16,25 @@ def manifest(profile, node):
                                        "capabilities": {"drop": ["ALL"]}},
                    "volumeMounts": [{"name": f"memory-{i}", "mountPath": "/memory"}]}
                   for i in range(w["containersPerPod"])]
-    spec = {"nodeName": node, "automountServiceAccountToken": False,
+    spec = {**placement, "automountServiceAccountToken": False,
             "securityContext": {"runAsNonRoot": True, "runAsUser": 65532, "runAsGroup": 65532,
                                 "fsGroup": 65532, "seccompProfile": {"type": "RuntimeDefault"}},
             "containers": containers,
             "volumes": [{"name": f"memory-{i}", "emptyDir": {"medium": "Memory", "sizeLimit": "2Mi"}}
                         for i in range(w["containersPerPod"])]}
-    return {"apiVersion": "v1", "kind": "List", "items": [
-        {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": LOAD_NAMESPACE}},
-        {"apiVersion": "apps/v1", "kind": "Deployment",
-         "metadata": {"name": "qualification-load", "namespace": LOAD_NAMESPACE},
+    return {"apiVersion": "apps/v1", "kind": "Deployment",
+         "metadata": {"name": "qualification-load", "namespace": namespace},
          "spec": {"replicas": w["containers"] // w["containersPerPod"],
                   "selector": {"matchLabels": {"app": "qualification-load"}},
-                  "template": {"metadata": {"labels": {"app": "qualification-load"}}, "spec": spec}}}]}
+                  "template": {"metadata": {"labels": {"app": "qualification-load"}}, "spec": spec}}}
+
+
+def manifest(profile, node):
+    p = validate_profile(profile)
+    require(p["profileClass"] == "local-kind", "local workload needs a kind profile")
+    return {"apiVersion": "v1", "kind": "List", "items": [
+        {"apiVersion": "v1", "kind": "Namespace", "metadata": {"name": LOAD_NAMESPACE}},
+        deployment(p["workload"], LOAD_NAMESPACE, {"nodeName": node})]}
 
 
 if __name__ == "__main__":
