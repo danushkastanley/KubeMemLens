@@ -12,6 +12,10 @@ import (
 
 var exponentSuffix = regexp.MustCompile(`[eE]([+-]?[0-9]+)$`)
 
+// QuantityBytes parses a bounded non-negative Kubernetes memory quantity.
+// Node status and Metrics API adapters share the same overflow/exponent rules.
+func QuantityBytes(text string) (uint64, bool) { return usageValue(text, 0) }
+
 func wireUsageValue(raw json.RawMessage, decimalPlaces int) (uint64, bool) {
 	raw = bytes.TrimSpace(raw)
 	if len(raw) == 0 || len(raw) > 130 {

@@ -11,7 +11,7 @@ never receives its kubelet bearer credentials.
 | Threat | Required mitigation | Verification |
 | --- | --- | --- |
 | Token theft reads another Node | Separate SA, projected rotation, explicit residual risk and qualified network limits; own-node application checks are not token containment | NODE-002/006 transport and profile tests |
-| Forged target or redirect exfiltrates token | Scheduled-Node binding, fixed HTTPS path, trusted CA/SAN, no redirects or environment proxies | NODE-002 hostile HTTPS and direct kubelet tests |
+| Forged target or redirect exfiltrates token | Authenticated SelfSubjectReview Node name/UID binding, fixed HTTPS path, trusted CA/SAN, no redirects or environment proxies | NODE-002 hostile HTTPS, substituted Node name/UID and direct kubelet tests |
 | CA or audience differs from API server | Explicit trust/audience qualification; stop preflight without bypass | NODE-002/006 preflight and rotation tests |
 | New producer retires cgroup agent or clears its data | Fixed authenticated roles, independent ownership, separate store operation, cross-role payload rejection | NODE-003 two-producer replacement/race tests |
 | Replay after restart or Node-name reuse | Epoch/sequence/digest, retired identities, current Node UID and start-time binding | NODE-003 replay/recreation tests |

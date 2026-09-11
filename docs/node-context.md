@@ -1,8 +1,8 @@
 # Optional Node-context contract
 
-Status: contract defined, collection not yet available. The current chart rejects
-`nodeContext.enabled=true`. These are implementation requirements, not provider
-support or runtime verification claims. See
+Status: bounded one-shot collection implemented; authenticated publishing and
+the chart profile remain pending. The current chart rejects
+`nodeContext.enabled=true`. Managed-provider support remains unqualified. See
 [ADR 0007](adr/0007-isolate-node-context-producers-and-reads.md).
 
 ## Transport and preflight
@@ -12,8 +12,11 @@ capabilities, use RuntimeDefault seccomp, a read-only root filesystem and explic
 projected tokens with automount disabled. No hostPath, hostNetwork, hostPID or
 privileged mode. The standard agent and its permissions remain unchanged.
 
-Get the scheduled Node name from the Downward API and perform one bounded Node
-GET through trusted Kubernetes transport. Validate UID and select an InternalIP
+Read the authenticated identity through a bounded `SelfSubjectReview` before
+the Node GET. Require a ServiceAccount, Pod UID, credential ID and Node name/UID
+extras. The configured Node name must match the authenticated claim, and the
+Node GET must return the same UID. This prevents a flag override or Node-name
+reuse from redirecting the producer. Then select an InternalIP
 and reported kubelet port. Fix HTTPS and `/stats/summary`; do not accept arbitrary
 URLs, query parameters or environment proxies. Reject redirects. Verify the
 serving chain and target IP SAN against an explicit trust bundle. The API server
@@ -31,7 +34,7 @@ Before recurring collection, preflight must establish Linux/cgroup-v2 eligibilit
 supported kubelet version, scheduled identity, trusted TLS, authentication and
 stats permission. A bounded Summary request proves access; a self access review
 alone cannot prove kubelet reachability or audience acceptance. Positive default
-qualification starts at Kubernetes 1.36. Earlier versions remain explicitly
+qualification covers Kubernetes 1.36 and 1.37. Other minors remain explicitly
 unsupported for this profile until separately qualified. This is a product
 qualification boundary, not a claim that stats RBAC first appeared in 1.36.
 
@@ -66,6 +69,13 @@ A stolen token can read another Node's stats within its RBAC scope. Application
 own-node validation is not token containment. Disclose that risk at installation.
 CNI egress restrictions are defence in depth; portable NetworkPolicy does not
 prove own-node isolation. Record actual enforcement for each qualified profile.
+
+Identity preflight also requires `create selfsubjectreviews` in
+`authentication.k8s.io`, normally granted to authenticated principals by
+`system:basic-user`. It returns the caller's authenticated attributes and does
+not persist an object. If this default permission is absent, preflight fails;
+the producer does not grant itself access or trust unsigned local JWT contents.
+See [Kubernetes identity review](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#api-access-to-authentication-information-for-a-client).
 
 ## Field inventory and privacy
 
@@ -111,6 +121,7 @@ capacity; raising a ceiling needs a contract review. These are not measurements.
 | Collection | 15-second interval, bounded 10 percent jitter, one request in flight, five-second whole-request deadline |
 | Backoff | Transient failures back off exponentially to 60 seconds, reset on success; no overlapping retry or catch-up burst |
 | Summary response | 4 MiB including skipped sections; nesting at most 32 and at most 250,000 JSON tokens |
+| API preflight | 64 KiB identity review; 1 MiB Node response; at most 64 addresses and 64 conditions; all requests share the five-second deadline |
 | Normalised observation | 16 KiB; Node name 253 bytes and UID 128 bytes with validated ASCII identity syntax |
 | Nested fields | Four known unique system categories, 16 hugepage resources of at most 63 bytes, 16 fixed caveat codes of at most 64 bytes |
 | Freshness | Stale after 45 seconds; future skew at most 30 seconds; report age at most two minutes, also subject to configured lower limits |
@@ -182,6 +193,47 @@ mutation, eviction or rescheduling is part of this feature.
 
 ## Capture, verification and rollback
 
+The separate `memlens-node-context` command requires explicit `--once` selection,
+an in-cluster Pod-bound credential, a kubelet CA bundle and a token file with a
+verified audience. It checks its own `/proc/self/cgroup` for memory-controller
+mode; no host mount is needed. The source gets only its scheduled Node object
+and direct `/stats/summary`, after the authenticated self-identity review.
+Redirects and environment proxies are disabled.
+Token and CA files reload for every admitted attempt. Repeated reads are spaced
+at least 13.5 seconds apart, allowing the planned 15-second interval's jitter.
+
+```sh
+memlens-node-context --once --node-name "$NODE_NAME" \
+  --kubelet-ca /trust/ca.crt \
+  --kubelet-token-file /var/run/secrets/kubernetes.io/serviceaccount/token \
+  --output /output/node-observation.json \
+  --metrics-output /output/node-operational.prom
+```
+
+The output is a schema-1 `NodeContextDiagnostic` containing a normalised
+observation with its internal Node UID redacted. It is separate from the incident
+formats. New output files are mode 0600 and existing
+files are never overwritten. Omitting `--output` writes the observation to stdout.
+Operational metrics contain fixed reason labels, request duration and response
+bytes, without Node names or credentials. No metrics listener is installed.
+
+Run the disposable local verifier with:
+
+```sh
+NODE_CONTEXT_ACKNOWLEDGE=create-and-remove-node-context-kind \
+NODE_CONTEXT_ARTIFACT_DIR=/path/to/new-evidence \
+hack/verify-node-context-kind.sh
+```
+
+It creates its own kind cluster and a local scratch image containing the real
+producer, signs an IP-SAN serving certificate inside that disposable Node, and
+verifies Pod-bound token access, stats permission denial and CA rejection. It
+never changes an existing cluster, weakens TLS, or grants producer proxy access.
+The certificate bootstrap is test setup, not provider certificate automation.
+The sanitised result records the exact Node image, kernel, runtime, architecture,
+binary digest, field availability and cleanup. NetworkPolicy and cloud profiles
+remain unqualified. The CI workflow repeats it for Kubernetes 1.36 and 1.37.
+
 Node-context capture uses incident schema 4, private files and the existing
 64 MiB read/write cap. Deep schemas 1/2 and restricted schema 3 keep their meaning.
 Reject Node-context export to older schemas instead of silently dropping data.
@@ -190,8 +242,10 @@ unqualified system names. Contributor display names follow the caller's access.
 
 Run `go test ./internal/nodecontext` and `hack/test-node-context-contract.sh` for
 field representation, size, negative permissions and disabled chart policy.
-These do not prove runtime authentication or collection. Adapter/integration
-changes must add hostile TLS/JSON, two-producer isolation, token rotation,
+Contract checks alone do not prove runtime authentication or collection. Adapter
+tests add hostile TLS/JSON, token and CA reload, cancellation, rate and fuzz
+checks. The local verifier exercises real direct-kubelet authentication.
+Ingestion integration must still add two-producer isolation, token rotation,
 revocation, Node replacement, restart, capacity and local lifecycle evidence.
 Each provider needs exact certificate, audience, CNI, kernel/runtime, version and
 artefact evidence before a support claim.
