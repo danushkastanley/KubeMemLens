@@ -92,7 +92,7 @@ func TestStatusRestrictedMissingMetricsIsPartialAndDoesNotListNamespaces(t *test
 		t.Fatal("missing provider reason lost")
 	}
 	text := renderStatusReport(report)
-	if strings.Contains(text, "Error:") || !strings.Contains(text, "current unavailable: query-not-implemented") {
+	if strings.Contains(text, "Error:") || strings.Contains(text, "current unavailable:") || !strings.Contains(text, "composition unavailable: requires-deep-evidence") {
 		t.Fatalf("%s", text)
 	}
 }

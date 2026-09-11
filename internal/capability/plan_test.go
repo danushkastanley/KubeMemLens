@@ -59,8 +59,8 @@ func TestPlanDecisionTable(t *testing.T) {
 				}
 			}
 			if plan.Mode == Restricted && !test.wantErr {
-				if plan.Completeness != Partial || plan.Require(Composition) == nil || plan.Require(Current) == nil {
-					t.Fatal("restricted discovery enabled a cgroup query")
+				if plan.Completeness != Partial || plan.Require(Composition) == nil || plan.Require(Current) != nil {
+					t.Fatal("restricted current query or cgroup exclusion is incorrect")
 				}
 			}
 		})

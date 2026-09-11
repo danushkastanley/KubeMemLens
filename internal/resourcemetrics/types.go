@@ -56,6 +56,7 @@ type Observation struct {
 	Window                time.Duration `json:"windowNanoseconds"`
 	Freshness             Freshness     `json:"freshness"`
 	CPUUsageNanocores     uint64        `json:"cpuUsageNanocores"`
+	CPUUsageKnown         bool          `json:"cpuUsageKnown"`
 	MemoryWorkingSetBytes uint64        `json:"memoryWorkingSetBytes"`
 }
 
@@ -72,6 +73,8 @@ type Report struct {
 type Source interface {
 	Discover(context.Context) (Report, error)
 	Read(context.Context) (Report, error)
+	ReadNodes(context.Context, []string) (NodeReport, error)
+	ListNodes(context.Context) (NodeReport, error)
 }
 
 type Options struct {
@@ -84,5 +87,6 @@ type Options struct {
 	MaxPages         int
 	MaxPods          int
 	MaxContainers    int
+	MaxNodes         int
 	Now              func() time.Time
 }

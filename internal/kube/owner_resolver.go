@@ -2,6 +2,7 @@ package kube
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -9,10 +10,14 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 )
 
 const defaultOwnerCacheEntries = 2000
+
+var ErrOwnerReplaced = errors.New("workload owner identity changed")
+var ErrOwnerAPI = errors.New("workload owner API is unsupported")
 
 type ownerCacheEntry struct {
 	kind      string
@@ -87,38 +92,56 @@ func (r *WorkloadOwnerResolver) ResolveIndex(ctx context.Context, idx PodIndex, 
 }
 
 func (r *WorkloadOwnerResolver) Resolve(ctx context.Context, namespace, kind, name string, now time.Time) (string, string, error) {
+	return r.resolve(ctx, namespace, kind, name, "", now)
+}
+
+// ResolveReference binds a lookup to the owner UID recorded by the current Pod.
+// Reusing a controller name after replacement must not change that Pod's owner.
+func (r *WorkloadOwnerResolver) ResolveReference(ctx context.Context, namespace string, owner metav1.OwnerReference, now time.Time) (string, string, error) {
+	expectedGroup := ""
+	switch owner.Kind {
+	case "ReplicaSet":
+		expectedGroup = "apps"
+	case "Job":
+		expectedGroup = "batch"
+	}
+	if expectedGroup != "" {
+		version, err := schema.ParseGroupVersion(owner.APIVersion)
+		if err != nil || version.Group != expectedGroup {
+			return "", "", ErrOwnerAPI
+		}
+	}
+	return r.resolve(ctx, namespace, owner.Kind, owner.Name, string(owner.UID), now)
+}
+
+func (r *WorkloadOwnerResolver) resolve(ctx context.Context, namespace, kind, name, uid string, now time.Time) (string, string, error) {
 	if kind == "" || name == "" {
 		return "", "", nil
 	}
 	if kind != "ReplicaSet" && kind != "Job" {
 		return kind, name, nil
 	}
-	key := strings.Join([]string{namespace, kind, name}, "\x00")
+	key := strings.Join([]string{namespace, kind, name, uid}, "\x00")
 	if entry, ok := r.cached(key, now); ok {
 		return entry.kind, entry.name, nil
 	}
 
-	var owners []metav1.OwnerReference
+	var item metav1.Object
 	var err error
 	switch kind {
 	case "ReplicaSet":
-		var item metav1.Object
 		item, err = r.client.AppsV1().ReplicaSets(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err == nil {
-			owners = item.GetOwnerReferences()
-		}
 	case "Job":
-		var item metav1.Object
 		item, err = r.client.BatchV1().Jobs(namespace).Get(ctx, name, metav1.GetOptions{})
-		if err == nil {
-			owners = item.GetOwnerReferences()
-		}
 	}
 	if err != nil {
 		return "", "", fmt.Errorf("resolve %s %s/%s: %w", kind, namespace, name, err)
 	}
+	if uid != "" && string(item.GetUID()) != uid {
+		return "", "", ErrOwnerReplaced
+	}
 	resolvedKind, resolvedName := kind, name
-	if owner := preferredOwner(owners); owner != nil {
+	if owner := preferredOwner(item.GetOwnerReferences()); owner != nil {
 		resolvedKind, resolvedName = owner.Kind, owner.Name
 	}
 	r.store(key, ownerCacheEntry{kind: resolvedKind, name: resolvedName, loadedAt: now, expiresAt: now.Add(r.ttl)}, now)

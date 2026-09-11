@@ -224,6 +224,11 @@ if [ -n "${E2E_KIND_CONFIG:-}" ]; then
 fi
 kind create cluster "${kind_args[@]}"
 cluster_created=true
+if [ "${E2E_RUN_AGENTLESS_SMOKE:-false}" = true ]; then
+  AGENTLESS_KUBECONFIG="${kubeconfig}" AGENTLESS_CONTEXT="kind-${cluster_name}" \
+    AGENTLESS_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/agentless" \
+    AGENTLESS_ACKNOWLEDGE=run-and-remove-agentless-fixture hack/verify-agentless-kind.sh
+fi
 kind load docker-image "${image}" --name "${cluster_name}"
 run_linux_fixture_benchmarks
 

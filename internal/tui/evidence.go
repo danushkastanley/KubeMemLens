@@ -19,6 +19,11 @@ func (m appModel) discoverCmd() tea.Cmd {
 		if err == nil {
 			err = session.Plan.Require(capability.Current)
 		}
+		// The cgroup renderer cannot consume working sets. LITE-003 supplies
+		// the presentation path for session.Observations.
+		if err == nil && session.Reader == nil {
+			err = &capability.SelectionError{Mode: session.Plan.Mode, Reason: capability.QueryNotImplemented}
+		}
 		return discoveryMsg{generation: m.fetchGeneration, session: session, err: err}
 	}
 }

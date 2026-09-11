@@ -1,7 +1,7 @@
 # ADR 0006: Select evidence sources before rendering
 
 Date: 11 September 2026
-Status: accepted for source discovery; restricted queries follow separately
+Status: accepted for source discovery and current observation queries
 
 ## Context
 
@@ -41,9 +41,11 @@ not an authorisation grant for every endpoint. Each operation must still perform
 its own current server-side access check. Source discovery cannot grant history,
 node or metrics access merely because current Pod data is readable.
 
-The first change delivers discovery and diagnostics. Restricted current queries
-remain explicitly unavailable until the reader and source-aware presentation
-exist. Restricted capture, replay and compare require their own schema work.
+The common `observation.Reader.Current` query returns source-aware application
+types. Restricted queries use bounded Kubernetes reads and explicit optional
+working sets; deep queries project the original snapshot contracts. The cgroup
+renderers stay guarded until restricted presentation is delivered. Restricted
+capture, replay and compare require their own schema work.
 The collector wire schemas and incident formats are unchanged by discovery.
 
 ## Alternatives
@@ -60,6 +62,11 @@ Kubernetes connection. They do not create RBAC or require installed workloads.
 The fixed discovery sequence shares one deadline. Review responses are bounded
 to 1 MiB and redirects are rejected. Raw review reasons and evaluation errors
 never enter the plan or terminal. Metrics discovery retains its existing bounds.
+
+The [agentless reader](../agentless-reader.md) applies response, combined byte,
+object, request and output bounds to every refresh. Required Pod reads precede
+optional enrichment. Owner resolution is scoped and UID-bound, with no cache
+across refreshes. Credentials remain in the caller transport.
 
 A failed optional API cannot broaden scope or enable a privileged fallback.
 Transport failures preserve the last good TUI frame with its age. Confirmed
