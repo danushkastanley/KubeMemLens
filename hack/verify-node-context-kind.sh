@@ -194,7 +194,7 @@ if analysis.exists(): summary['analysis']=json.loads(analysis.read_text())
 cockpit=root/'cockpit-result.json'
 if cockpit.exists(): summary['cockpit']=json.loads(cockpit.read_text())
 if sys.argv[4]:
-    summary['hostMountsScope']='node-context-producer'
+    summary['hostMountsScope']='producer'
     summary['observer']={'method':'kubernetes-probes-v1','readOnlyHostCgroups':True,'hostPID':False,'hostNetwork':False}
 with (output/'summary.json').open('x') as file: file.write(json.dumps(summary,indent=2)+'\n')
 PY
