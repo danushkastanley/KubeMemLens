@@ -51,6 +51,9 @@ spec:
             - "--extension-tls-cert-file=/var/run/kube-memlens/tls/tls.crt"
             - "--extension-tls-key-file=/var/run/kube-memlens/tls/tls.key"
             - "--agent-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-agent"
+{{- if .Values.nodeContext.enabled }}
+            - "--node-context-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-node-context"
+{{- end }}
             - "--ingestion-max-concurrent={{ .Values.collector.ingestion.maxConcurrentRequests }}"
             - "--ingestion-requests-per-second-per-agent={{ .Values.collector.ingestion.requestsPerSecondPerAgent }}"
             - "--ingestion-burst-per-agent={{ .Values.collector.ingestion.burstPerAgent }}"

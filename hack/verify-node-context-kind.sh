@@ -62,6 +62,13 @@ COPY --chmod=0555 producer /memlens-node-context
 USER 65532:65532
 ENTRYPOINT ["/memlens-node-context"]
 EOF
+if [ "${NODE_CONTEXT_VERIFY_INGESTION:-false}" = true ]; then
+  for command in helm curl; do command -v "${command}" >/dev/null; done
+  for binary in memlens-agent memlens-collector memlens-cert-bootstrap kubectl-memlens; do
+    CGO_ENABLED=0 GOOS=linux GOARCH="${architecture}" go build -trimpath -o "${work_dir}/image/${binary}" "./cmd/${binary}"
+    printf '\nCOPY --chmod=0555 %s /%s\n' "${binary}" "${binary}" >> "${work_dir}/image/Dockerfile"
+  done
+fi
 image_created=true
 docker build -t "${image}" "${work_dir}/image" > "${work_dir}/image-build.log" 2>&1
 docker image inspect "${image}" --format '{{.Id}}' > "${work_dir}/image-id"
@@ -122,6 +129,10 @@ node_context_probe "${work_dir}" "${namespace}" "${node}" "${image}" "${audience
 grep -q '^node-context read failed: access-denied$' "${work_dir}/denied.log"
 grep -q '^node-context read failed: untrusted-tls$' "${work_dir}/bad-ca.log"
 grep -q '^node-context read failed: invalid-target$' "${work_dir}/wrong-node.log"
+if [ "${NODE_CONTEXT_VERIFY_INGESTION:-false}" = true ]; then
+  source hack/lib/node-context-ingestion.sh
+  node_context_ingestion "${work_dir}" "${namespace}" "${node}" "${image}" "${audience}" "${ip}"
+fi
 python3 - "${work_dir}" "${artifact_dir}" "${node_image}" <<'PY'
 import hashlib, json, pathlib, sys
 root, output = map(pathlib.Path, sys.argv[1:3])
@@ -150,6 +161,8 @@ summary = {'schemaVersion':1, 'nodeImage':sys.argv[3], **json.loads((root/'sourc
  'swapAvailable':stats.get('swap') is not None, 'systemCategories':[s['category'] for s in stats.get('systemContainers',[])],
  'completeness':report['evidence']['completeness'], 'networkPolicy':'not qualified',
  'cleanup':'pending'}
+ingestion=root/'ingestion-result.json'
+if ingestion.exists(): summary['ingestion']=json.loads(ingestion.read_text())
 with (output/'summary.json').open('x') as file: file.write(json.dumps(summary,indent=2)+'\n')
 PY
 kind delete cluster --name "${cluster}" > "${work_dir}/cleanup.log" 2>&1

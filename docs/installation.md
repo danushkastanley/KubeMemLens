@@ -51,6 +51,14 @@ The chart validates all values strictly. Before upgrading from a pre-v1 chart, r
 
 The agent targets `kubernetes.io/os: linux`. Node pools with custom taints require explicitly reviewed `agent.tolerations`; the chart does not grant a blanket toleration by default.
 
+## Optional Node-context development profile
+
+The Node-context profile requires a current source image containing
+`memlens-node-context`; earlier candidate images cannot run it. It remains off
+by default. Follow the [Node-context enablement guide](node-context.md#enablement-and-read-contract)
+for CA, audience, network ranges, explicit collector sizing and the separate
+Node-only viewer role. Managed-provider support remains unqualified.
+
 ## Candidate and stable install
 
 ### Candidate prerelease

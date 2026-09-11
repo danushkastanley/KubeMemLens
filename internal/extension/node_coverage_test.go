@@ -86,12 +86,12 @@ func TestNodeCoverageMatchesDaemonSetTolerationsAndBoundsInventory(t *testing.T)
 func TestNodeCoveragePagesWithinLimitAndHonoursCancellation(t *testing.T) {
 	store := collector.NewStoreWithHistoryAndLimits(collector.DefaultHistoryOptions(), collector.StoreLimits{MaxNodes: 3, MaxContainers: 10})
 	lister := &scriptedNodeLister{pages: []*corev1.NodeList{
-		{ListMeta: metav1.ListMeta{Continue: "next"}, Items: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "node-a"}}}},
-		{Items: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "node-b"}}}},
+		{ListMeta: metav1.ListMeta{Continue: "next"}, Items: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "node-a", UID: "uid-a"}}}},
+		{Items: []corev1.Node{{ObjectMeta: metav1.ObjectMeta{Name: "node-b", UID: "uid-b"}}}},
 	}}
 	probe := newNodeCoverageReadiness(lister, store, store.MaxNodes(), "pool=memory", nil)
-	names, err := probe.listNodeNames(context.Background())
-	if err != nil || len(names) != 2 || names[0] != "node-a" || names[1] != "node-b" {
+	names, err := probe.listNodeIdentities(context.Background())
+	if err != nil || len(names) != 2 || names["node-a"] != "uid-a" || names["node-b"] != "uid-b" {
 		t.Fatalf("paged names=%v error=%v", names, err)
 	}
 	if len(lister.options) != 2 || lister.options[0].Limit != nodeCoveragePageSize ||

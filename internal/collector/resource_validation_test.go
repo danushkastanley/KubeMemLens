@@ -27,7 +27,7 @@ func TestSnapshotResourceSchemaValidation(t *testing.T) {
 	}
 	for name, change := range map[string]func(*api.AgentSnapshot){
 		"legacy with extension":  func(s *api.AgentSnapshot) { s.SchemaVersion = 1 },
-		"unknown schema":         func(s *api.AgentSnapshot) { s.SchemaVersion = 3 },
+		"unknown schema":         func(s *api.AgentSnapshot) { s.SchemaVersion = api.CurrentSnapshotSchemaVersion + 1 },
 		"unreported nonzero":     func(s *api.AgentSnapshot) { s.Containers[0].Context.Resources.Applied.Limit.Bytes = 42 },
 		"invalid resize":         func(s *api.AgentSnapshot) { s.Containers[0].Context.Resources.Pod.Pending.State = "unsafe state" },
 		"conflicting Pod budget": func(s *api.AgentSnapshot) { s.Containers[1].Context.Resources.Pod.Configured.Limit.Bytes = 512 },

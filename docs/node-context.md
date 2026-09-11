@@ -1,8 +1,10 @@
 # Optional Node-context contract
 
-Status: bounded one-shot collection implemented; authenticated publishing and
-the chart profile remain pending. The current chart rejects
-`nodeContext.enabled=true`. Managed-provider support remains unqualified. See
+Status: bounded collection, authenticated publishing, Node-only reads and
+short in-memory history are implemented as an opt-in source profile.
+`nodeContext.enabled` defaults to `false`.
+Node analysis and the incident cockpit remain separate work. Managed-provider
+support remains unqualified. See
 [ADR 0007](adr/0007-isolate-node-context-producers-and-reads.md).
 
 ## Transport and preflight
@@ -49,8 +51,9 @@ Successful transport does not establish memory health.
 ## Permissions and residual risk
 
 The [RBAC contract](security/node-context-rbac.json) contains unbound role
-definitions for verification. It is not an installation manifest; the chart does
-not render these roles yet.
+definitions for verification. When enabled, the chart renders the producer
+role and binding plus an unbound Node-context viewer role. Existing viewer
+roles retain their previous permissions.
 
 | Principal | Permission | Deliberately absent |
 | --- | --- | --- |
@@ -128,21 +131,34 @@ capacity; raising a ceiling needs a contract review. These are not measurements.
 | Accounting | At most five-second skew across required samples; stale or missing inputs suppress gap calculation |
 | History | 15 minutes, 61 points per Node instance, 1,000 instances and 64 MiB globally encoded |
 | Reads | At most 100 Node-context records per page, existing 16 MiB response ceiling, one selected Node history with bounded instance pagination |
-| Admission | Existing Node ceiling; at most two active producer roles per Node; bounded retired identities, per-stream rate and overall Node/concurrency limits |
+| Node-only POST | At most 24 KiB, also limited by the configured ingestion cap; reject cgroup and metadata collections before typed decoding |
+| Admission | Existing Node ceiling; at most two active producer roles per Node; bounded retired identities, shared per-Node rate and overall Node/concurrency limits |
 
 The max-width encoding test fills every optional value, all categories/maps and
 maximum-length fields. The result must fit 16 KiB. Check envelope bytes against
 the configured ingestion ceiling too, even though the Go default is 4 MiB and
 the chart default is 8 MiB.
 
-At the record ceiling, 5,000 latest records occupy 81,920,000 encoded bytes. With
-67,108,864 history bytes, that is 149,028,864 bytes or 142.125 MiB before heap,
-indexes and decoding. A conservative planning factor of four is 568.5 MiB for
-new data alone; it is not a measured heap bound. Do not claim this capacity under
-the current 256 MiB collector limit. Integration must benchmark actual store heap
-and specify optional-profile capacity/resources before enablement. Standard
-resources remain unchanged. Reject capacity overflow atomically and report
-history eviction or truncation as coverage loss.
+The store keeps immutable encoded observations. A current failure report and
+last good sample are separate records; neither can refresh the other's source
+time. Each record is bounded by 16 KiB. History shares the immutable accepted
+bytes while they remain retained, with a separate 64 MiB encoded ceiling.
+Capacity errors leave the existing state intact; eviction reports coverage loss.
+
+The explicit [optional profile](../charts/kube-memlens/profiles/node-context.yaml)
+sets 1,000 Nodes, 20,000 containers and a 512 MiB collector limit. It leaves
+standard defaults unchanged. A local arm64 capacity fixture with 6,908-byte
+observations, 1,000 Nodes, 20,000 containers and saturated history measured
+31,559,160 bytes of baseline live Go heap and 101,148,240 bytes after adding Node
+context; peak RSS was 226,328,576 bytes. This is a synthetic store measurement,
+not a managed-provider or CPU qualification. Later lifecycle changes must rerun
+the benchmark; the encoded ceiling is not a universal heap multiplier.
+
+Run the measurement explicitly:
+
+```sh
+go test ./internal/collector -run '^$' -bench '^BenchmarkNodeContextCapacity$' -benchtime=1x
+```
 
 ## Ingestion invariants
 
@@ -253,3 +269,63 @@ artefact evidence before a support claim.
 Disable/remove optional producers and bindings before collector downgrade.
 Standard cgroup collection and observed-charge Node views remain usable. Storage
 is ephemeral; retain a schema-4-capable reader for new captures.
+
+
+## Enablement and read contract
+
+Build and load the current source image first; earlier candidate images do not
+contain the publishing command. Create a ConfigMap containing the qualified kubelet serving CA under `ca.crt`.
+Supply its name, the verified kubelet audience, API-server CIDRs and Node CIDRs
+in a local values file. Include the API Service IP and the control-plane endpoint
+ranges required by the CNI's pre/post-DNAT behaviour. The optional NetworkPolicy
+allows API TCP ports 443/6443 and the configured kubelet port (default 10250).
+It does not prove scheduled-Node-only enforcement, and kind's default networking
+is not a policy-enforcement qualification. The collector's Node inventory and
+both producers use matching Linux selection and tolerations.
+
+```sh
+helm upgrade --install kube-memlens charts/kube-memlens \
+  -f charts/kube-memlens/profiles/node-context.yaml \
+  -f node-context-qualified-values.yaml \
+  --set image.repository=kube-memlens --set image.tag=local-smoke \
+  --set image.pullPolicy=Never
+```
+
+The source performs a real preflight before its publishing loop. API ingestion
+and each acquisition have separate five-second deadlines. The loop admits one
+acquisition/publication cycle at a time, adds at most 10 percent interval jitter
+and backs off to 60 seconds. Its operational metrics listen on Pod loopback
+`127.0.0.1:8083/metrics`; no remote Service exposes them. `--once` retains the
+collection-only, UID-redacted diagnostic mode.
+
+Readers advertise `X-KubeMemLens-Snapshot-Schema: 3`. The opt-in aggregated
+resources are:
+
+- `GET /apis/memory.kubememlens.io/v1alpha1/nodecontexts?limit=100`
+- `GET /apis/memory.kubememlens.io/v1alpha1/nodecontexts/NAME`
+- `GET /apis/memory.kubememlens.io/v1alpha1/nodecontexts/NAME/history?limit=1`
+
+Use the returned opaque continuation token to request another page. Node pages
+have at most 100 records; history has at most 61 points per Node UID and a
+bounded response budget. Each history point retains collector receive time and
+the observation's independent memory, swap, system and Node-object timestamps.
+A newly available optional field may be older than another source field; only
+regression of that field's own clock is rejected. A new history point requires
+an advancing measurement clock, so duplicate samples and failure reports do not
+create artificial coverage. Restart changes the generation and reports partial
+history until the retained window is continuous. Source freshness is independent
+of history coverage.
+
+Node records contain no Pod identities, contributor counts or residual arithmetic.
+A dedicated viewer binding grants Node data only; future contributor analysis
+must independently authorise cluster-wide Pod access before looking up and joining
+cgroup records by current Node UID. Existing schema 1/2 agents and strict read
+clients keep their previous representations. Debug and doctor expose aggregate
+Node capacity, freshness, failures and history loss only for the negotiated
+schema; operational metrics use fixed labels without Node or Pod identities.
+
+Upgrade the collector before starting the optional producer. A producer that
+negotiates a collector below schema 3 refuses to post its Node record. Disable
+`nodeContext.enabled` to remove the producer, its permissions and its network
+policy. The collector restarts into a new in-memory generation; cgroup agents
+refresh their epoch and continue. No persisted-data migration is required.

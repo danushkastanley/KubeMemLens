@@ -1,7 +1,7 @@
 # ADR 0007: Isolate Node-context producers and reads
 
 Date: 11 September 2026
-Status: contract and one-shot collection implemented; ingestion integration pending
+Status: contract, collection and authenticated ingestion implemented; analysis and provider qualification remain separate
 
 ## Context
 
@@ -62,7 +62,8 @@ the dedicated viewer binding explicitly grants that aggregate visibility.
 
 ## Migration and rollback
 
-The contract-only chart rejects `nodeContext.enabled=true` and preserves standard
-rendered output. Upgrade the collector before enabling the future producer and
+The chart defaults to `nodeContext.enabled=false` and preserves standard
+rendered output. Upgrade the collector before enabling the producer and
 disable it before collector downgrade. The observed-charge Node view remains
-available. Storage remains ephemeral; new captures need a schema-4-capable reader.
+available. Storage remains ephemeral. Node capture remains separate work and will require
+a schema-4-capable reader.

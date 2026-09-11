@@ -12,8 +12,10 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/danushkastanley/kube-memlens/internal/agent"
 	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
 	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
+	"github.com/danushkastanley/kube-memlens/internal/nodeproducer"
 	"github.com/danushkastanley/kube-memlens/internal/nodestats"
 	"k8s.io/client-go/rest"
 )
@@ -21,7 +23,7 @@ import (
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr); err != nil {
+	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr); err != nil && !errors.Is(err, context.Canceled) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
@@ -34,8 +36,10 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	ca := flags.String("kubelet-ca", "", "explicit kubelet serving CA bundle file")
 	token := flags.String("kubelet-token-file", "", "rotating Pod-bound token with a qualified kubelet audience")
 	timeout := flags.Duration("timeout", nodecontext.RequestTimeout, "whole-read timeout, at most five seconds")
+	publish := flags.Bool("publish", false, "continuously collect and publish through the authenticated collector")
 	once := flags.Bool("once", false, "collect one normalised observation without publishing")
 	output := flags.String("output", "", "new private observation file; empty writes JSON to stdout")
+	metricsListen := flags.String("metrics-listen", "127.0.0.1:8083", "Pod-local operational metrics for --publish; empty disables the listener")
 	metrics := flags.String("metrics-output", "", "optional new private file for operational metrics")
 	version := flags.Bool("version", false, "print build information and exit")
 	if err := flags.Parse(args); err != nil {
@@ -48,8 +52,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		_, err := fmt.Fprintln(stdout, buildinfo.Current(runtime.Version(), runtime.GOOS, runtime.GOARCH).String())
 		return err
 	}
-	if !*once {
-		return errors.New("publishing is not available yet; use --once for explicit collection")
+	if *once == *publish {
+		return errors.New("select exactly one of --once or --publish")
+	}
+	if *publish && (*output != "" || *metrics != "") {
+		return errors.New("private diagnostic output files require --once")
 	}
 	if *node == "" || *ca == "" || *token == "" {
 		return errors.New("node name, kubelet CA and kubelet token file are required")
@@ -68,6 +75,15 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 	defer source.Close()
+	if *publish {
+		publisher, err := agent.NewNodeContextPublisher(config)
+		if err != nil {
+			return errors.New("cannot configure authenticated Node-context publisher")
+		}
+		return runWithMetrics(ctx, *metricsListen, telemetry, func(ctx context.Context) error {
+			return nodeproducer.Run(ctx, source, publisher, nodeproducer.Options{Report: func(reason string) { fmt.Fprintln(stderr, "node-context", reason) }})
+		})
+	}
 	report, readErr := source.Read(ctx)
 	if *metrics != "" {
 		if err := writePrivate(*metrics, []byte(telemetry.Render())); err != nil {

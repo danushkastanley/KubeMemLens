@@ -28,7 +28,7 @@ func decodeSummary(ctx context.Context, data []byte, nodeName string, now time.T
 	if !validSampleTimes(value.stats, now) {
 		return summary{}, errJSON
 	}
-	value.partial = value.partial || !completeMemory(value.stats.Memory) || !completeSwap(value.stats.Swap) || len(value.stats.SystemContainers) != nodecontext.MaxSystemContainers
+	value.partial = value.partial || !nodecontext.StatsComplete(value.stats)
 	return value, nil
 }
 
@@ -83,36 +83,13 @@ func (d *decoder) systemContainers(value *summary) error {
 			return errJSON
 		}
 		seen[item.Category] = true
-		value.partial = value.partial || !completeMemory(item.Memory) || item.StartedAt.IsZero()
+		value.partial = value.partial || !nodecontext.MemoryComplete(item.Memory) || item.StartedAt.IsZero()
 		value.stats.SystemContainers = append(value.stats.SystemContainers, item)
 		return nil
 	})
 }
 
-func completeMemory(value *nodecontext.Memory) bool {
-	return value != nil && value.UsageBytes != nil && value.AvailableBytes != nil && value.WorkingSetBytes != nil &&
-		value.RSSBytes != nil && value.PageFaults != nil && value.MajorPageFaults != nil && value.PSI != nil
-}
-
-func completeSwap(value *nodecontext.Swap) bool {
-	return value != nil && value.UsageBytes != nil && value.AvailableBytes != nil
-}
-
-func hasMeasurements(stats nodecontext.Stats) bool {
-	known := func(memory *nodecontext.Memory, swap *nodecontext.Swap) bool {
-		return (memory != nil && (memory.UsageBytes != nil || memory.AvailableBytes != nil || memory.WorkingSetBytes != nil || memory.RSSBytes != nil || memory.PageFaults != nil || memory.MajorPageFaults != nil || memory.PSI != nil)) ||
-			(swap != nil && (swap.UsageBytes != nil || swap.AvailableBytes != nil))
-	}
-	if known(stats.Memory, stats.Swap) {
-		return true
-	}
-	for _, item := range stats.SystemContainers {
-		if known(item.Memory, item.Swap) {
-			return true
-		}
-	}
-	return false
-}
+func hasMeasurements(stats nodecontext.Stats) bool { return nodecontext.HasMeasurements(stats) }
 
 func sampleTimes(stats nodecontext.Stats) []time.Time {
 	result := make([]time.Time, 0, 2+2*nodecontext.MaxSystemContainers)

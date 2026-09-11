@@ -10,6 +10,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/aggregate"
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 )
 
 var ErrSnapshotOutOfOrder = errors.New("snapshot is older than the latest snapshot for this node")
@@ -41,11 +42,15 @@ type Store struct {
 	generation            string
 	now                   func() time.Time
 	expectedNodes         map[string]struct{}
+	expectedNodeUIDs      map[string]string
+	nodeContext           *nodeContextStore
+	nodeContextEnabled    bool
 	inventoryKnown        bool
 	inventoryUpdatedAt    time.Time
 }
 
 type nodeSnapshot struct {
+	uid         string
 	capturedAt  time.Time
 	environment api.NodeEnvironment
 	containers  []api.ContainerSnapshot
@@ -77,6 +82,8 @@ func newStore(historyOpts HistoryOptions, limits StoreLimits) *Store {
 		generation:       newGeneration(startedAt),
 		now:              func() time.Time { return time.Now().UTC() },
 		expectedNodes:    map[string]struct{}{},
+		expectedNodeUIDs: map[string]string{},
+		nodeContext:      newNodeContextStore(),
 	}
 }
 
@@ -85,16 +92,28 @@ func newStore(historyOpts HistoryOptions, limits StoreLimits) *Store {
 // carried into the next successful observation. An empty snapshot deliberately
 // clears the node; a missing observation retains the bounded last-known state.
 func (s *Store) ReplaceNodeSnapshot(snapshot api.AgentSnapshot) (int, error) {
+	return s.ReplaceAuthenticatedNodeSnapshot(snapshot, "")
+}
+
+func (s *Store) ReplaceAuthenticatedNodeSnapshot(snapshot api.AgentSnapshot, uid string) (int, error) {
+	if snapshot.NodeContext != nil {
+		return 0, nodecontext.ErrInvalidObservation
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
+	if expected := s.expectedNodeUIDs[snapshot.NodeName]; uid != "" && expected != "" && expected != uid {
+		return 0, ErrNodeIdentityUnavailable
+	}
 	previousNode := s.nodes[snapshot.NodeName]
-	if previousNode.capturedAt.IsZero() && len(s.nodes) >= s.limits.MaxNodes {
+	if previousNode.capturedAt.IsZero() && s.nodeRecordCountLocked(snapshot.NodeName) >= s.limits.MaxNodes {
 		return 0, ErrStoreCapacity
 	}
 	projectedContainers := s.containerCount - len(previousNode.containers) + len(snapshot.Containers)
 	if projectedContainers > s.limits.MaxContainers {
 		return 0, ErrStoreCapacity
+	}
+	if uid != "" && previousNode.uid != "" && uid != previousNode.uid {
+		previousNode = nodeSnapshot{}
 	}
 	if !previousNode.capturedAt.IsZero() {
 		if snapshot.CapturedAt.Before(previousNode.capturedAt) {
@@ -123,6 +142,7 @@ func (s *Store) ReplaceNodeSnapshot(snapshot api.AgentSnapshot) (int, error) {
 		containers = append(containers, container)
 	}
 	s.nodes[snapshot.NodeName] = nodeSnapshot{
+		uid:         uid,
 		capturedAt:  snapshot.CapturedAt,
 		environment: snapshot.Environment,
 		containers:  containers,
@@ -205,7 +225,13 @@ func (s *Store) debugWithCounts(now time.Time, ttl time.Duration, totalContainer
 	defer s.mu.Unlock()
 	s.history.prune(now)
 	historySeries, historyPoints := s.history.stats()
+	var nodeDebug *api.NodeContextDebug
+	if s.nodeContextEnabled {
+		value := s.nodeContextDebugLocked(now)
+		nodeDebug = &value
+	}
 	return api.StoreDebug{
+		NodeContext:     nodeDebug,
 		TotalContainers: totalContainers, StaleContainers: staleContainers, NodeRecords: len(s.nodes),
 		MaxNodes: s.limits.MaxNodes, MaxContainers: s.limits.MaxContainers,
 		Pods: pods, Namespaces: namespaces, HistorySeries: historySeries, HistoryPoints: historyPoints,

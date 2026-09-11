@@ -69,3 +69,12 @@ func TestLocalMemoryControllerPreflight(t *testing.T) {
 		}
 	}
 }
+
+func TestPublishingAndDiagnosticModesAreExclusive(t *testing.T) {
+	for _, args := range [][]string{{"--publish", "--once"}, {"--publish", "--output=private.json"}, {"--publish", "--metrics-output=private.prom"}} {
+		var output, diagnostics bytes.Buffer
+		if err := run(t.Context(), args, &output, &diagnostics); err == nil {
+			t.Fatal("mixed producer/diagnostic mode accepted")
+		}
+	}
+}

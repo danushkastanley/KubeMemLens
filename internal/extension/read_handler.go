@@ -20,10 +20,11 @@ import (
 const readAPIVersion = api.MemoryAPIGroup + "/" + api.MemoryAPIVersion
 
 type ReadHandler struct {
-	store *collector.Store
-	opts  collector.HandlerOptions
-	now   func() time.Time
-	gate  chan struct{}
+	nodeContextEnabled bool
+	store              *collector.Store
+	opts               collector.HandlerOptions
+	now                func() time.Time
+	gate               chan struct{}
 }
 
 func NewReadHandler(store *collector.Store, opts collector.HandlerOptions) *ReadHandler {
@@ -70,10 +71,12 @@ func (h *ReadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.serveContainers(w, r, info, schema)
 	case "workloads":
 		h.serveWorkloads(w, r, info, schema)
+	case "nodecontexts":
+		h.serveNodeContexts(w, r, info, schema)
 	case "nodes":
 		h.serveNodes(w, r, info)
 	case "clusterstatus":
-		h.serveClusterStatus(w, info)
+		h.serveClusterStatus(w, info, schema)
 	case "metrics":
 		h.serveMetrics(w, info)
 	default:
@@ -236,13 +239,16 @@ func (h *ReadHandler) serveNodes(w http.ResponseWriter, r *http.Request, info *a
 	writeBoundedReadJSON(w, nodeMemory(node), h.opts.MaxResponseBytes)
 }
 
-func (h *ReadHandler) serveClusterStatus(w http.ResponseWriter, info *apirequest.RequestInfo) {
+func (h *ReadHandler) serveClusterStatus(w http.ResponseWriter, info *apirequest.RequestInfo, schema int) {
 	if !exactClusterGet(info, "current") {
 		writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
 		return
 	}
 	store := h.store.Debug(h.now(), h.opts.SnapshotTTL)
 	store.MaxResponseBytes = h.opts.MaxResponseBytes
+	if schema < 3 {
+		store.NodeContext = nil
+	}
 	writeBoundedReadJSON(w, api.ClusterStatus{
 		TypeMeta:   metav1.TypeMeta{APIVersion: readAPIVersion, Kind: "ClusterStatus"},
 		ObjectMeta: metav1.ObjectMeta{Name: "current"}, Store: store,

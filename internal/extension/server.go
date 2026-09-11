@@ -122,16 +122,17 @@ func (o ServerOptions) Run(ctx context.Context) error {
 		return fmt.Errorf("configure delegated authorisation: %w", err)
 	}
 	config.Authorization.Authorizer = agentIdentityAuthorizer{
-		expectedUsername: o.Handler.opts.AgentUsername,
-		delegate:         config.Authorization.Authorizer,
-		logf:             o.Handler.opts.Logf,
+		expectedUsername:    o.Handler.opts.AgentUsername,
+		nodeContextUsername: o.Handler.opts.NodeContextUsername,
+		delegate:            config.Authorization.Authorizer,
+		logf:                o.Handler.opts.Logf,
 	}
 
 	server, err := config.Complete(nil).New("kube-memlens-extension", genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return fmt.Errorf("create extension server: %w", err)
 	}
-	discovery, err := apiendpoints.ConvertGroupVersionIntoToDiscovery(aggregatedDiscoveryResources())
+	discovery, err := apiendpoints.ConvertGroupVersionIntoToDiscovery(o.Handler.aggregatedDiscoveryResources())
 	if err != nil {
 		return fmt.Errorf("build aggregated discovery: %w", err)
 	}
@@ -149,9 +150,10 @@ func delegatedAlwaysAllowPaths() []string {
 }
 
 type agentIdentityAuthorizer struct {
-	expectedUsername string
-	delegate         authorizer.Authorizer
-	logf             func(string, ...any)
+	expectedUsername    string
+	nodeContextUsername string
+	delegate            authorizer.Authorizer
+	logf                func(string, ...any)
 }
 
 // KubeMemLens makes unconditional decisions after checking the agent identity.
@@ -167,7 +169,7 @@ func (a agentIdentityAuthorizer) EvaluateConditions(context.Context, authorizer.
 func (a agentIdentityAuthorizer) Authorize(ctx context.Context, attributes authorizer.Attributes) (authorizer.Decision, string, error) {
 	resource := attributes.GetResource()
 	if attributes.GetAPIGroup() == api.MemoryAPIGroup && (resource == "ingestionepochs" || resource == "nodesnapshots") {
-		if _, err := claimsFromUser(attributes.GetUser(), a.expectedUsername); err != nil {
+		if _, err := producerClaims(attributes.GetUser(), a.expectedUsername, a.nodeContextUsername); err != nil {
 			a.record(ctx, attributes, authorizer.DecisionDeny, "agent_identity")
 			return authorizer.DecisionDeny, "agent identity is invalid", nil
 		}

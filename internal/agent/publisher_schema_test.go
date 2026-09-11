@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -30,11 +31,11 @@ func schemaSnapshot() api.AgentSnapshot {
 }
 
 func TestPublisherNegotiatesLegacyAndCurrentCollectors(t *testing.T) {
-	for _, version := range []int{api.LegacySchemaVersion, api.CurrentSnapshotSchemaVersion} {
+	for _, version := range []int{api.LegacySchemaVersion, 2, api.CurrentSnapshotSchemaVersion} {
 		t.Run(strconv.Itoa(version), func(t *testing.T) {
 			var posted api.NodeSnapshotRequest
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get(api.SnapshotSchemaHeader) != "2" {
+				if r.Header.Get(api.SnapshotSchemaHeader) != fmt.Sprint(api.CurrentSnapshotSchemaVersion) {
 					t.Error("publisher did not advertise its supported schema")
 				}
 				if r.Method == http.MethodGet {
