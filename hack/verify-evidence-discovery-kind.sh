@@ -95,7 +95,7 @@ for name in ('restricted', 'auto'):
     assert plan['mode'] == 'restricted' and plan['completeness'] == 'partial'
     assert 'store' not in report
     queries = {q['query']: q for q in plan['queries']}
-    assert queries['current']['reason'] == 'query-not-implemented'
+    assert queries['current']['availability'] == 'available'
 for name in ('deep', 'denied', 'cluster'):
     report = json.loads((root / (name + '.json')).read_text())
     assert report['evidence']['state'] == 'unavailable'

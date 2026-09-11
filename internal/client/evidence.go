@@ -7,14 +7,16 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/capability"
+	"github.com/danushkastanley/kube-memlens/internal/observation"
 )
 
 // EvidenceSession binds one source selection to one caller and scope. It holds
 // no credentials in its public plan, and does not rediscover on refresh failure.
 type EvidenceSession struct {
-	Plan        capability.Selection
-	Reader      SnapshotReader
-	Description string
+	Plan         capability.Selection
+	Reader       SnapshotReader
+	Observations observation.Reader
+	Description  string
 }
 
 func NewEvidenceSession(ctx context.Context, opts Options) (EvidenceSession, error) {
@@ -46,6 +48,9 @@ func NewEvidenceSession(ctx context.Context, opts Options) (EvidenceSession, err
 	session.Plan, err = capability.Discover(ctx, requested, opts.Timeout, probes)
 	if session.Plan.Mode == capability.Restricted {
 		session.Reader, session.Description = nil, "Kubernetes APIs"
+	}
+	if err == nil {
+		session.Observations, err = observationReader(opts, session)
 	}
 	return session, err
 }

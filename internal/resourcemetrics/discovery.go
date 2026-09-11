@@ -36,6 +36,10 @@ type resourceDiscovery struct {
 }
 
 func (s *kubernetesSource) discover(ctx context.Context) (string, *Report, error) {
+	return s.discoverResource(ctx, "pods", "list")
+}
+
+func (s *kubernetesSource) discoverResource(ctx context.Context, name, verb string) (string, *Report, error) {
 	var advertised groupDiscovery
 	status, err := s.get(ctx, "/apis/"+group, nil, &advertised)
 	if err != nil || status != http.StatusOK {
@@ -73,7 +77,7 @@ func (s *kubernetesSource) discover(ctx context.Context) (string, *Report, error
 		return "", &report, nil
 	}
 	for _, resource := range resources.Resources {
-		if resource.Name == "pods" && resource.Namespaced && slices.Contains(resource.Verbs, "list") {
+		if resource.Name == name && resource.Namespaced == (name == "pods") && slices.Contains(resource.Verbs, verb) {
 			return version, nil, nil
 		}
 	}

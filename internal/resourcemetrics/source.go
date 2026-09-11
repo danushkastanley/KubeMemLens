@@ -25,11 +25,24 @@ type kubernetesSource struct {
 }
 
 func New(config *rest.Config, options Options) (Source, error) {
-	if config == nil {
-		return nil, fmt.Errorf("Kubernetes configuration is required")
-	}
 	if len(validation.IsDNS1123Label(options.Namespace)) != 0 {
 		return nil, fmt.Errorf("one valid Kubernetes namespace is required")
+	}
+	return newSource(config, options)
+}
+
+// NewCluster explicitly requests cluster-scoped Pod metrics. New retains its
+// namespace requirement so an omitted namespace can never broaden a read.
+func NewCluster(config *rest.Config, options Options) (Source, error) {
+	if options.Namespace != "" {
+		return nil, fmt.Errorf("cluster metrics cannot specify a namespace")
+	}
+	return newSource(config, options)
+}
+
+func newSource(config *rest.Config, options Options) (Source, error) {
+	if config == nil {
+		return nil, fmt.Errorf("Kubernetes configuration is required")
 	}
 	base, err := url.Parse(config.Host)
 	if err != nil || base.Host == "" || (base.Scheme != "https" && base.Scheme != "http") || base.User != nil || base.RawQuery != "" || base.Fragment != "" {
@@ -73,6 +86,9 @@ func defaultOptions(opts Options) Options {
 	}
 	if opts.MaxContainers <= 0 {
 		opts.MaxContainers = 10000
+	}
+	if opts.MaxNodes <= 0 {
+		opts.MaxNodes = 500
 	}
 	if opts.Now == nil {
 		opts.Now = time.Now

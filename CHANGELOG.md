@@ -4,6 +4,13 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Agentless current reader
+
+- Add scoped Pod, owner, Node and Metrics API reads behind the common current-observation query, without installing KubeMemLens workloads.
+- Preserve pending and missing-metric rows, source times, identity caveats and coverage. Working set remains separate from cgroup charge and composition.
+- Bound request, response, object and output sizes; reauthorise each refresh and retain resource rows when optional sources fail. Existing deep readers and incident formats are unchanged.
+- Verify measured, missing and revoked evidence with a controlled Metrics API on a collector-free local kind cluster. Restricted interactive rendering and capture follow separately.
+
 ### Optional CSI volume-health source
 
 - Add caller-authorised, Pod-scoped CSI health reads with separate Pod, PVC and node-backend observations, bounded requests and aggregate-only exports.

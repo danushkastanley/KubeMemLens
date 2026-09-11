@@ -16,6 +16,7 @@ func main() {
 	namespace := flag.String("namespace", "kube-memlens-metrics-e2e", "fixture namespace")
 	cert := flag.String("tls-cert", "/tls/tls.crt", "serving certificate")
 	key := flag.String("tls-key", "/tls/tls.key", "serving key")
+	podUID := flag.String("pod-uid", "fixture-uid", "UID of the controlled Pod; empty means unreported")
 	flag.Parse()
 	if *certDir != "" {
 		if err := writeCertificates(*certDir, *namespace); err != nil {
@@ -24,14 +25,14 @@ func main() {
 		}
 		return
 	}
-	server := http.Server{Addr: ":9443", Handler: http.HandlerFunc(serve), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	server := http.Server{Addr: ":9443", Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { serve(w, r, *podUID) }), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	if err := server.ListenAndServeTLS(*cert, *key); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func serve(w http.ResponseWriter, r *http.Request) {
+func serve(w http.ResponseWriter, r *http.Request, podUID string) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
@@ -60,7 +61,7 @@ func serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = json.NewEncoder(w).Encode(map[string]any{"apiVersion": version, "kind": "PodMetricsList", "items": []any{map[string]any{
-		"metadata":  map[string]string{"namespace": parts[4], "name": "fixture-pod", "uid": "fixture-uid"},
+		"metadata":  map[string]string{"namespace": parts[4], "name": "fixture-pod", "uid": podUID},
 		"timestamp": time.Now().UTC().Format(time.RFC3339Nano), "window": "15s",
 		"containers": []any{map[string]any{"name": "worker", "usage": map[string]string{"cpu": "125m", "memory": "32Mi"}}},
 	}}})

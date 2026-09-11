@@ -21,9 +21,10 @@ or access is forbidden, auto mode can discover separately authorised Kubernetes
 status and resource-metrics sources. An explicit deep selection never falls back.
 Authentication failure, malformed responses and connection failure remain errors.
 
-Restricted discovery is available in this build. The restricted reader and
-interactive workflows are not yet available: commands requiring those queries
-return `query-not-implemented`. Discovery does not install agents, Metrics Server,
+Restricted discovery and the [agentless current reader](agentless-reader.md) are
+available in this build. Restricted interactive workflows and capture are
+separate delivery steps; their commands still return `query-not-implemented`.
+Discovery does not install agents, Metrics Server,
 RBAC or other cluster resources. No restricted-provider support is claimed.
 
 ## Reading the report
@@ -81,5 +82,5 @@ EVIDENCE_ACKNOWLEDGE=run-and-remove-evidence-fixture \
 ```
 
 The fixture requires the deep API to be installed so its scoped denial can be
-verified. The next reader ticket owns agentless data verification without a
-collector. This harness proves discovery and authorisation, not provider support.
+verified. The [agentless harness](agentless-reader.md#local-verification-and-rollback)
+verifies data queries without a collector. This harness proves discovery and authorisation, not provider support.

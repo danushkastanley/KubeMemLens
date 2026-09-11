@@ -37,6 +37,10 @@ type podMetric struct {
 
 func (s *kubernetesSource) readPods(ctx context.Context, version string) (Report, error) {
 	report := Report{Availability: Available, APIVersion: group + "/" + version, Observations: []Observation{}}
+	path := "/apis/" + report.APIVersion + "/pods"
+	if s.opts.Namespace != "" {
+		path = "/apis/" + report.APIVersion + "/namespaces/" + s.opts.Namespace + "/pods"
+	}
 	seenPods, seenCursors := map[string]bool{}, map[string]bool{}
 	cursor := ""
 	containerCount := 0
@@ -47,7 +51,7 @@ func (s *kubernetesSource) readPods(ctx context.Context, version string) (Report
 			query.Set("continue", cursor)
 		}
 		var list podList
-		status, err := s.get(ctx, "/apis/"+report.APIVersion+"/namespaces/"+s.opts.Namespace+"/pods", query, &list)
+		status, err := s.get(ctx, path, query, &list)
 		if err != nil || status != http.StatusOK {
 			failure := failureReport(status, err, false)
 			failure.APIVersion = report.APIVersion
@@ -57,13 +61,14 @@ func (s *kubernetesSource) readPods(ctx context.Context, version string) (Report
 			return Report{Availability: Unavailable, Reason: InvalidResponse}, nil
 		}
 		for _, pod := range list.Items {
-			if pod.Metadata.Namespace != s.opts.Namespace || len(validation.IsDNS1123Subdomain(pod.Metadata.Name)) != 0 || len(pod.Metadata.UID) > 128 || seenPods[pod.Metadata.Name] {
+			key := pod.Metadata.Namespace + "/" + pod.Metadata.Name
+			if (s.opts.Namespace != "" && pod.Metadata.Namespace != s.opts.Namespace) || len(validation.IsDNS1123Label(pod.Metadata.Namespace)) != 0 || len(validation.IsDNS1123Subdomain(pod.Metadata.Name)) != 0 || len(pod.Metadata.UID) > 128 || seenPods[key] {
 				return Report{Availability: Unavailable, Reason: InvalidResponse}, nil
 			}
 			if len(seenPods) >= s.opts.MaxPods {
 				return limitedReport(report), nil
 			}
-			seenPods[pod.Metadata.Name] = true
+			seenPods[key] = true
 			if len(pod.Containers) == 0 {
 				report.Availability, report.Reason = Partial, IncompleteUsage
 			}
@@ -79,10 +84,13 @@ func (s *kubernetesSource) readPods(ctx context.Context, version string) (Report
 				seenContainers[container.Name] = true
 				memory, memoryOK := wireUsageValue(container.Usage["memory"], 0)
 				cpu, cpuOK := wireUsageValue(container.Usage["cpu"], 9)
-				if !memoryOK || !cpuOK || pod.Timestamp.IsZero() || pod.Window.Duration <= 0 {
+				if !memoryOK || pod.Timestamp.IsZero() || pod.Window.Duration <= 0 {
 					report.OmittedContainers++
 					report.Availability, report.Reason = Partial, IncompleteUsage
 					continue
+				}
+				if !cpuOK {
+					report.Availability, report.Reason = Partial, IncompleteUsage
 				}
 				freshness := Fresh
 				timestamp := pod.Timestamp.Time.UTC()
@@ -92,7 +100,7 @@ func (s *kubernetesSource) readPods(ctx context.Context, version string) (Report
 				case now.Sub(timestamp) > s.opts.MaxAge:
 					freshness = Old
 				}
-				report.Observations = append(report.Observations, Observation{Identity: Identity{Namespace: s.opts.Namespace, PodName: pod.Metadata.Name, PodUID: pod.Metadata.UID, ContainerName: container.Name}, APIVersion: report.APIVersion, Timestamp: timestamp, Window: pod.Window.Duration, Freshness: freshness, CPUUsageNanocores: cpu, MemoryWorkingSetBytes: memory})
+				report.Observations = append(report.Observations, Observation{Identity: Identity{Namespace: pod.Metadata.Namespace, PodName: pod.Metadata.Name, PodUID: pod.Metadata.UID, ContainerName: container.Name}, APIVersion: report.APIVersion, Timestamp: timestamp, Window: pod.Window.Duration, Freshness: freshness, CPUUsageNanocores: cpu, CPUUsageKnown: cpuOK, MemoryWorkingSetBytes: memory})
 			}
 		}
 		cursor = list.Metadata.Continue
@@ -115,6 +123,9 @@ func limitedReport(report Report) Report {
 func finishReport(report Report) Report {
 	sort.Slice(report.Observations, func(i, j int) bool {
 		a, b := report.Observations[i].Identity, report.Observations[j].Identity
+		if a.Namespace != b.Namespace {
+			return a.Namespace < b.Namespace
+		}
 		if a.PodName != b.PodName {
 			return a.PodName < b.PodName
 		}

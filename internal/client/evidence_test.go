@@ -115,8 +115,8 @@ func TestEvidenceSessionRestrictedDiscoveryNeverReadsObjects(t *testing.T) {
 				if !reflect.DeepEqual(reviews, []string{"", "metrics.k8s.io"}) {
 					t.Fatalf("reviews=%v", reviews)
 				}
-				if session.Plan.Require(capability.Current) == nil {
-					t.Fatal("restricted query enabled before reader/UI")
+				if session.Plan.Require(capability.Current) != nil || session.Observations == nil {
+					t.Fatal("restricted reader was not selected")
 				}
 				metric := session.Plan.Sources[2]
 				if metric.APIVersion != "metrics.k8s.io/"+version || metric.Freshness != capability.UnknownFreshness {

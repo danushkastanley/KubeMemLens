@@ -3,14 +3,19 @@
 K137-005 adds an opt-in source for the Kubernetes Metrics API. Existing cgroup
 collection and collector storage do not call it. R3 source selection can invoke
 its discovery-only method when checking restricted capabilities. It performs no
-metrics read and does not claim caller access solely from API discovery. Restricted
-data queries remain separate R3 work. See [evidence source discovery](evidence-sources.md).
+metrics read and does not claim caller access solely from API discovery. The [agentless reader](agentless-reader.md) uses its Pod and Node reads for
+restricted current queries. See [evidence source discovery](evidence-sources.md).
 
 `client.NewResourceMetricsSource` reuses kubeconfig, context, timeout and namespace
 options. It requires a Kubernetes API connection and one namespace. The lower
 level `resourcemetrics.New` accepts a caller-owned REST configuration. Both use
 the caller's credentials; neither grants access or queries an administrator's
 collector on the caller's behalf. The chart adds no Metrics API permission.
+
+`resourcemetrics.NewCluster` explicitly enables all-namespace Pod lists and Node
+lists. `ReadNodes` performs bounded GETs for supplied Node names. Nodes require
+the advertised non-namespaced resource and the corresponding get/list verb.
+Namespace construction never silently becomes cluster construction.
 
 ## Discovery and availability
 
@@ -41,8 +46,10 @@ CPU usage is expressed in nanocores. Memory is the reported working set; it does
 not supply cgroup charge, composition, reclaim controls or volume usage. The
 source performs no conversion into `MemoryBreakdown`.
 
-A container missing CPU, memory, timestamp or a positive window is omitted and
-the report becomes partial. Reported zero values remain real observations.
+A container missing memory, timestamp or a positive window is omitted and the
+report becomes partial. Missing CPU retains a valid memory observation with
+`cpuUsageKnown=false` and a partial report. Reported zero values remain real
+observations; a reported CPU zero has `cpuUsageKnown=true`.
 Old and excessive future timestamps retain their values with distinct row
 freshness; reports containing them are stale or partial. Mixed fresh/stale rows
 must be handled individually.
