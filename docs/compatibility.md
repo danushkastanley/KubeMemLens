@@ -49,6 +49,24 @@ The [Kubernetes 1.37 release audit](kubernetes-1.37-audit.md) records final feat
 defaults and the distinction between runtime compatibility and optional API
 features that require separate implementation and qualification.
 
+## Node-context qualification
+
+The optional direct-kubelet Node-context producer has a separate qualification
+contract. Historical cgroup provider rows above do not qualify its serving TLS,
+Pod-bound audience, `nodes/stats` authorisation or refresh overhead.
+
+| Node-context profile | Current status | Required evidence |
+| --- | --- | --- |
+| Local kind 1.36.1 and 1.37.0 | Qualification in progress | Owned-fixture preflight, fixed workload and overhead measurements, projected credential rotation and lifecycle recovery. Fixture TLS and Node re-registration do not prove provider TLS or machine replacement. |
+| GKE Standard | Qualification required | Approved exact-pool run, provider inventory, direct TLS and stats-only RBAC, measured overhead, replacement, cleanup and independent review. |
+| EKS managed Linux | Qualification required | The same gates for the exact managed node group; no inference from the older AL2023 cgroup result. |
+| AKS Linux | Qualification required | The same gates, including the current aggregation-proxy prerequisite. The older candidate's failed AKS result remains scoped to that candidate. |
+| Self-managed Linux | Qualification required | The same gates for the exact distribution/runtime, serving trust and replacement procedure. |
+
+See the [Node-context qualification protocol](node-context-qualification.md) for
+the digest-bound profiles, budgets, privacy rules, review gate and expiry.
+Neither an unrun profile nor a local result adds a managed-provider support claim.
+
 ## Unsupported and deferred profiles
 
 | Environment or capability | v1 position | Reason |

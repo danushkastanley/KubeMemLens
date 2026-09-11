@@ -8,6 +8,12 @@ Use only a disposable cluster or a cluster whose owner has authorised installati
 
 ## Scope
 
+This runner qualifies the standard cgroup path. Optional direct-kubelet
+Node-context collection uses the separate [Node-context qualification
+protocol](node-context-qualification.md). Its fixed measurement windows, serving
+trust, projected credential rotation and source-loss tests require fresh evidence;
+do not promote an existing cgroup receipt into a Node-context result.
+
 `hack/qualify-cluster.sh` verifies:
 
 - the selected provider profile is canonical and the supplied image and packaged

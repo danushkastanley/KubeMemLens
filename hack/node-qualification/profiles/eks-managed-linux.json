@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "eks-managed-linux",
+  "provider": "eks-managed-nodes",
+  "profileClass": "provider",
+  "nodeImage": "provider-receipt",
+  "workload": {
+    "linuxNodes": 2,
+    "containers": 32,
+    "containersPerPod": 8,
+    "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028"
+  },
+  "measurement": {
+    "baselineSeconds": 120,
+    "enabledSeconds": 660,
+    "settleSeconds": 30,
+    "sampleIntervalSeconds": 15,
+    "projectedLifetimeSeconds": 600
+  },
+  "budgets": {
+    "producerMeanCPUMilli": 50,
+    "producerPeakMemoryBytes": 67108864,
+    "kubeletMeanCPUIncreaseMilli": 100,
+    "kubeletPeakMemoryIncreaseBytes": 67108864,
+    "readP95Seconds": 1,
+    "responseMaxBytes": 4194304,
+    "agentScanP99Seconds": 4,
+    "recoverySeconds": 120
+  },
+  "requalificationDays": 30,
+  "profileDigest": "sha256:737ed21228ef228d2f530d3d5e579e33a4428f3d065632b1475fe6c86179eb8d"
+}

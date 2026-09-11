@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "kind-136",
+  "provider": "kind",
+  "profileClass": "local-kind",
+  "nodeImage": "kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5",
+  "workload": {
+    "linuxNodes": 1,
+    "containers": 32,
+    "containersPerPod": 8,
+    "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028"
+  },
+  "measurement": {
+    "baselineSeconds": 120,
+    "enabledSeconds": 660,
+    "settleSeconds": 30,
+    "sampleIntervalSeconds": 15,
+    "projectedLifetimeSeconds": 600
+  },
+  "budgets": {
+    "producerMeanCPUMilli": 50,
+    "producerPeakMemoryBytes": 67108864,
+    "kubeletMeanCPUIncreaseMilli": 100,
+    "kubeletPeakMemoryIncreaseBytes": 67108864,
+    "readP95Seconds": 1,
+    "responseMaxBytes": 4194304,
+    "agentScanP99Seconds": 4,
+    "recoverySeconds": 120
+  },
+  "requalificationDays": 30,
+  "profileDigest": "sha256:dc3e6bb418f3a2a04a1acface7da7f0e11c3bff2b3cdf9dfffd0afe222428bec"
+}
