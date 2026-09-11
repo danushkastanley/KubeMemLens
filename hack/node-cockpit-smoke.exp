@@ -5,6 +5,8 @@ if {$argc != 7} {
   exit 2
 }
 lassign $argv cli kubeconfig context node capture columns rows
+if {[file exists $capture]} { puts stderr "Node PTY refuses an existing capture"; exit 2 }
+source [file join [file dirname [info script]] lib node-cockpit-pty.exp]
 set send_slow {1 0.005}
 proc require_pattern {pattern description} {
   expect {
@@ -43,7 +45,7 @@ send -- "C"
 require_pattern {Redacted incident capture} "capture action"
 send -s -- $capture
 send -- "\r"
-require_pattern {Redacted Node capture written} "private Node capture written"
+require_node_capture $capture
 send -- "\r"
 send -- "\r"
 require_pattern {A/F/S/O} "Node contributor drill-down"

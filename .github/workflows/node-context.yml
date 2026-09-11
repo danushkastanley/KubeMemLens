@@ -2,10 +2,10 @@ name: Node-context verification
 
 on:
   pull_request:
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'hack/lib/node-cockpit-pty.exp', 'hack/test_node_cockpit_pty.py', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
   push:
     branches: [main]
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'hack/lib/node-cockpit-pty.exp', 'hack/test_node_cockpit_pty.py', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
 
 permissions:
   contents: read
@@ -59,6 +59,8 @@ jobs:
           apt_options=(-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=-)
           sudo apt-get "${apt_options[@]}" update
           sudo apt-get "${apt_options[@]}" install --yes --no-install-recommends expect
+      - name: Verify PTY capture confirmation
+        run: python3 hack/test_node_cockpit_pty.py
       - name: Fuzz bounded Node and Summary decoders
         run: |
           go test ./internal/nodestats -run '^$' -fuzz '^FuzzSummary$' -fuzztime=10s
