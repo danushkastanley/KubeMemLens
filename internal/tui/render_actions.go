@@ -24,6 +24,11 @@ func (m appModel) renderAction(width int) string {
 			lines[0] = "Restricted actions"
 			lines[3] = "x  Mark/compare working-set observations"
 			lines[4] = "c  Capture selected Pod (restricted schema 3)"
+		} else if ref, ok := m.currentActionRef(); ok && ref.kind == entityNode {
+			lines[0] = "Node incident actions"
+			lines[2] = "Node evidence is read-only; inspect signals in detail."
+			lines[3] = "Compare Node captures with the CLI --node selector."
+			lines[4] = "c  Capture selected Node (redacted schema 4)"
 		}
 	case actionCapturePath:
 		lines = []string{

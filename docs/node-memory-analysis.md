@@ -98,8 +98,58 @@ X-KubeMemLens-Snapshot-Schema: 3
 
 The response contains analysis schema 1, independent of incident schemas. Node
 and cgroup records are sampled atomically inside the store and joined by current
-Node UID. The existing response ceiling still applies. CLI/TUI incident actions
-are delivered separately from this backend contract.
+Node UID. The existing response ceiling still applies.
+
+Use the authenticated Kubernetes API connection to explain one Node or inspect
+its retained history:
+
+```sh
+kubectl memlens explain node worker-a --rank psi --limit 20
+kubectl memlens explain node worker-a --output json
+kubectl memlens history node worker-a --since 5m
+kubectl memlens history node worker-a --output yaml
+```
+
+These commands request only Node resources. A Node-only viewer can read source
+facts without first listing Pods. The explanation reads analysis last so its
+contributor permissions are checked for that command. If the Node identity or
+source sample changes between requests, the command asks for a refresh rather
+than combining inconsistent evidence.
+
+History traverses at most eight Node instances, with at most 61 points per
+instance. A failed page, changed collector generation or invalid continuation
+aborts the read. Multiple retained Node instances remain partial coverage.
+`--since` filters by source sample time within the retained 15-minute window;
+the displayed coverage metadata still describes the collector's whole window.
+
+See [Node incident capture and replay](node-incidents.md) for redacted schema-4
+exports and compatible offline comparisons.
+
+## Terminal cockpit
+
+In the deep-mode TUI, press `N` to select the Node table and `e` to open a Node's
+scrollable detail. The detail includes independent memory values, source ages,
+completeness, swap, PSI, faults, system categories, hugepage pools, observed charge,
+qualified estimates, contributors and retained history. Use arrows or `j/k`,
+Page Up/Down and `g/G` to reach every field at 80x24. At 160x35 and wider layouts,
+the selected Node's memory and contributors appear beside the table; `Tab`
+switches focus to that scrollable pane.
+
+`s` cycles total, anon, cache, shmem, residual, PSI and OOM contributor rankings.
+`Enter` opens the existing Pod view filtered to the Node and the caller's scope;
+`h` returns to the Node table. `C` opens a redacted Node capture destination, and
+`y` copies the Node explanation command. Text labels carry state without relying
+on colour; Node detail also works with `NO_COLOR`.
+
+Only the selected Node is polled. Selection changes and pause cancel its pending
+request; late responses cannot overwrite a new selection. Space pauses Node
+polling and resumes it with a new read. An explicit capture still obtains fresh
+authorisation while polling is paused. Failed Node/history requests show the
+last-good Node-only evidence with stale/error labels; cached contributor rankings
+and Pod-derived severity are removed when their current read fails. Forbidden
+or missing resources clear the corresponding retained data. If the optional
+profile is disabled or unsupported, the observed-charge Node view remains the
+fallback.
 
 ## Operator accounting qualifications
 

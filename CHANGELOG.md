@@ -4,6 +4,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Node commands and incidents
+
+- Add Node explain/history commands with source ages, missing-field states, qualified estimates and bounded contributor rankings.
+- Add selected-Node TUI detail and wide panes, contributor ranking, cancellable polling, retained history and freshly authorised capture actions.
+- Add redacted schema-4 Node capture, offline replay and compatible same-instance comparison, with fresh export authorisation and strict file/identity bounds. Preserve deep Pod schemas 1/2 and restricted schema 3.
+
 ### Node memory analysis
 
 - Add a pure Node analysis model with source-labelled severity, bounded Pod/workload rankings, checked accounting and explicit unavailable estimates.

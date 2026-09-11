@@ -18,11 +18,7 @@ func (m appModel) inlineDetailLines(width int) []string {
 		selected := m.viewports[viewNodes].selected
 		if selected >= 0 && selected < len(items) {
 			item := items[selected]
-			lines := summaryLines("Node", item.name, item.podCount, item.memory, item.capturedAt.String())
-			return append(lines,
-				"", "Pressure", nodePressureLabel(item),
-				"Allocatable", tuiKnownBytes(item.environment.MemoryAllocatableBytes, item.environment.MemoryAllocatableKnown),
-				"Pod charge is not total node memory.")
+			return m.nodeInlineLines(item.name, width)
 		}
 	case viewNamespaces:
 		items := m.visibleNamespaces()

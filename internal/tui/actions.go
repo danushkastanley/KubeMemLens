@@ -15,6 +15,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/nodeanalysis"
 	"github.com/danushkastanley/kube-memlens/internal/observationview"
 	"github.com/danushkastanley/kube-memlens/internal/qosview"
 	"github.com/danushkastanley/kube-memlens/internal/recommend"
@@ -47,6 +48,8 @@ type actionRequest struct {
 	partial           bool
 	caveats           []string
 	reliability       *api.CollectorReliability
+	nodeReader        incident.NodeCaptureReader
+	nodeRank          nodeanalysis.Metric
 }
 
 type actionResult struct {
@@ -72,6 +75,9 @@ func (localActionExecutor) Run(ctx context.Context, request actionRequest) (acti
 	case actionCompare:
 		return compareResult(request)
 	case actionCapture:
+		if request.nodeReader != nil {
+			return nodeCaptureResult(ctx, request)
+		}
 		return captureResult(request)
 	default:
 		return actionResult{}, fmt.Errorf("unsupported incident action")

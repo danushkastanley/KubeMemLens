@@ -49,6 +49,8 @@ type appModel struct {
 	containerErr     error
 	selectedHistory  selectedHistory
 	historyCancel    context.CancelFunc
+	selectedNode     selectedNode
+	nodeCancel       context.CancelFunc
 }
 
 type fetchMsg struct {
@@ -111,7 +113,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.paused {
 			return m, m.tickCmd()
 		}
-		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd(), m.tickCmd())
+		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd(), m.nodeRefreshCmd(), m.tickCmd())
 	case fetchMsg:
 		if msg.generation != 0 && msg.generation != m.fetchGeneration {
 			return m, nil
@@ -180,6 +182,9 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.syncDetailViewport()
 		}
 		return m, nil
+	case nodeMsg:
+		command := m.receiveNode(msg)
+		return m, command
 	case actionMsg:
 		m.completeAction(msg)
 		return m, nil
@@ -191,6 +196,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *appModel) clearRevokedData() {
+	m.clearNodeTarget()
 	m.clearHistoryTarget()
 	m.data = snapshotData{}
 	m.podTrends = make(map[string]int8)
@@ -257,6 +263,7 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		m.cancelHistoryRequest()
+		m.cancelNodeRequest()
 		return m, tea.Quit
 	case "?":
 		m.help = !m.help
@@ -272,11 +279,16 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "y":
 		return m.copyCurrentCommand()
 	case "r":
-		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd())
+		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd(), m.nodeRefreshCmd())
 	case "/":
 		m.searching = true
 	case "space":
 		m.paused = !m.paused
+		if m.paused {
+			m.cancelNodeRequest()
+		} else {
+			return m, m.nodeRefreshCmd()
+		}
 	case "esc":
 		if m.query != "" {
 			m.query = ""
@@ -340,6 +352,9 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "G":
 		m.activeViewport().last()
 	case "s":
+		if m.nodeTarget() != "" {
+			return m, m.cycleNodeRank()
+		}
 		selectedKey := m.selectedEntityKey()
 		m.cycleSort()
 		m.reconcileCurrentViewport(selectedKey)

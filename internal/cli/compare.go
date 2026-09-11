@@ -17,7 +17,7 @@ import (
 )
 
 func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
-	var namespace, beforePath, afterPath, incidentPodRef, incidentWorkloadRef string
+	var namespace, beforePath, afterPath, incidentPodRef, incidentWorkloadRef, nodeRef string
 	cmd := &cobra.Command{
 		Use:   "compare [pod-a] [pod-b]",
 		Short: "Compare two live Pods or one Pod across incident bundles",
@@ -31,9 +31,18 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			return cobra.ExactArgs(2)(command, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if nodeRef != "" && (beforePath == "" || afterPath == "") {
+				return fmt.Errorf("--node comparison requires --before and --after")
+			}
 			if beforePath != "" || afterPath != "" {
-				if beforePath == "" || afterPath == "" || (incidentPodRef == "") == (incidentWorkloadRef == "") {
-					return fmt.Errorf("incident comparison requires --before, --after, and exactly one of --pod <namespace>/<name> or --workload <namespace>/<kind>/<name>")
+				selected := 0
+				for _, ref := range []string{incidentPodRef, incidentWorkloadRef, nodeRef} {
+					if ref != "" {
+						selected++
+					}
+				}
+				if beforePath == "" || afterPath == "" || selected != 1 {
+					return fmt.Errorf("incident comparison requires --before, --after, and exactly one of --pod, --workload or --node")
 				}
 				beforeDocument, err := incident.Read(beforePath)
 				if err != nil {
@@ -42,6 +51,9 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				afterDocument, err := incident.Read(afterPath)
 				if err != nil {
 					return fmt.Errorf("read after bundle: %w", err)
+				}
+				if beforeDocument.Node != nil || afterDocument.Node != nil || nodeRef != "" {
+					return compareNodeDocuments(cmd.OutOrStdout(), beforeDocument, afterDocument, nodeRef)
 				}
 				if beforeDocument.Restricted != nil || afterDocument.Restricted != nil {
 					return compareRestrictedDocuments(cmd.OutOrStdout(), beforeDocument, afterDocument, incidentPodRef, incidentWorkloadRef)
@@ -110,6 +122,7 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	cmd.Flags().StringVar(&afterPath, "after", "", "after incident bundle")
 	cmd.Flags().StringVar(&incidentPodRef, "pod", "", "Pod to compare across bundles as <namespace>/<name>")
 	cmd.Flags().StringVar(&incidentWorkloadRef, "workload", "", "workload to compare across bundles as <namespace>/<kind>/<name>")
+	cmd.Flags().StringVar(&nodeRef, "node", "", "Node to compare across schema-4 bundles")
 	return cmd
 }
 

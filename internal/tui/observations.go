@@ -27,6 +27,9 @@ func (m appModel) hasData() bool {
 	if m.restricted() {
 		return len(m.data.ObservationRows) > 0
 	}
+	if m.view == viewNodes || m.view == viewDetail && m.detail.kind == entityNode {
+		return len(m.data.Nodes) > 0 || len(m.data.Pods) > 0 || m.selectedNode.evidence != nil || m.selectedNode.history != nil
+	}
 	return len(m.data.Namespaces) > 0
 }
 
@@ -134,6 +137,9 @@ func (m appModel) observationDetail(ref entityRef, width int) []string {
 }
 
 func (m appModel) sortLabel() string {
+	if m.nodeTarget() != "" && m.selectedNode.rank != "" {
+		return "contributors: " + string(m.selectedNode.rank)
+	}
 	if m.restricted() && m.sort != sortName {
 		return "working set desc"
 	}
