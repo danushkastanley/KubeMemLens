@@ -28,6 +28,21 @@ if [ -n "${NODE_CONTEXT_LIFECYCLE_PROFILE:-}" ]; then
   [ "${NODE_CONTEXT_VERIFY_INGESTION:-false}" = true ] || { echo 'lifecycle diagnosis requires ingestion verification' >&2; exit 1; }
   [ ! -e "${artifact_dir}/lifecycle-check.json" ] || { echo 'refusing to replace lifecycle diagnosis' >&2; exit 1; }
 fi
+if [ -n "${NODE_CONTEXT_OBSERVER_PROFILE:-}" ]; then
+  [ "${NODE_CONTEXT_VERIFY_INGESTION:-false}" = true ] || { echo 'observer check requires ingestion verification' >&2; exit 1; }
+  [ -z "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}${NODE_CONTEXT_LIFECYCLE_PROFILE:-}" ] || { echo 'observer check must run separately from qualification' >&2; exit 1; }
+  if [ -e "${artifact_dir}/observer-baseline.json" ] || [ -e "${artifact_dir}/observer-enabled.json" ]; then
+    echo 'observer evidence already exists' >&2; exit 1
+  fi
+  python3 - "${NODE_CONTEXT_OBSERVER_PROFILE}" "${node_image}" <<'PY'
+import sys
+sys.path.insert(0,'hack/node-qualification')
+from common import load,require
+from profiles import validate_profile
+p=validate_profile(load(sys.argv[1]))
+require(p['profileClass']=='local-kind' and p['nodeImage']==sys.argv[2], 'observer profile/fixture mismatch')
+PY
+fi
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/kube-memlens-node-context.XXXXXX")
 kubeconfig=${work_dir}/kubeconfig
 created=false
@@ -144,7 +159,7 @@ if [ "${NODE_CONTEXT_VERIFY_INGESTION:-false}" = true ]; then
   source hack/lib/node-context-ingestion.sh
   node_context_ingestion "${work_dir}" "${namespace}" "${node}" "${image}" "${audience}" "${ip}"
 fi
-python3 - "${work_dir}" "${artifact_dir}" "${node_image}" <<'PY'
+python3 - "${work_dir}" "${artifact_dir}" "${node_image}" "${NODE_CONTEXT_OBSERVER_PROFILE:-}" <<'PY'
 import hashlib, json, pathlib, sys
 root, output = map(pathlib.Path, sys.argv[1:3])
 document = json.loads((root/'allowed.log').read_text())
@@ -178,6 +193,9 @@ analysis=root/'analysis-result.json'
 if analysis.exists(): summary['analysis']=json.loads(analysis.read_text())
 cockpit=root/'cockpit-result.json'
 if cockpit.exists(): summary['cockpit']=json.loads(cockpit.read_text())
+if sys.argv[4]:
+    summary['hostMountsScope']='node-context-producer'
+    summary['observer']={'method':'kubernetes-probes-v1','readOnlyHostCgroups':True,'hostPID':False,'hostNetwork':False}
 with (output/'summary.json').open('x') as file: file.write(json.dumps(summary,indent=2)+'\n')
 PY
 kind delete cluster --name "${cluster}" > "${work_dir}/cleanup.log" 2>&1
@@ -186,9 +204,13 @@ remaining=$(kind get clusters)
 if printf '%s\n' "${remaining}" | grep -Fxq "${cluster}"; then echo 'cluster cleanup incomplete' >&2; exit 1; fi
 docker image rm "${image}" >/dev/null
 image_created=false
-python3 - "${artifact_dir}/summary.json" <<'PY'
+python3 - "${artifact_dir}/summary.json" "${NODE_CONTEXT_OBSERVER_PROFILE:-}" <<'PY'
 import json, pathlib, sys
 p=pathlib.Path(sys.argv[1]); data=json.loads(p.read_text()); data['cleanup']='passed'; p.write_text(json.dumps(data,indent=2)+'\n')
+if sys.argv[2]:
+    for phase in ('baseline','enabled'):
+        observation=p.parent/('observer-'+phase+'.json')
+        data=json.loads(observation.read_text()); data['cleanup']='passed'; observation.write_text(json.dumps(data,indent=2)+'\n')
 PY
 if [ -n "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}" ]; then
   python3 hack/node-qualification/record_kind.py --profile "${NODE_CONTEXT_QUALIFICATION_PROFILE}" \

@@ -29,6 +29,10 @@ PY
     source hack/lib/node-qualification-kind.sh
     node_qualification_baseline
   fi
+  if [ -n "${NODE_CONTEXT_OBSERVER_PROFILE:-}" ]; then
+    source hack/lib/node-observer-kind.sh
+    node_observer_check baseline
+  fi
   helm "${helm_args[@]}" --set nodeContext.enabled=true > "${work_dir}/helm-enabled.log" 2>&1
   kctl rollout status daemonset/kube-memlens-node-context -n "${namespace}" --timeout=120s > "${work_dir}/context-rollout.log"
   kctl create serviceaccount node-viewer -n "${namespace}" >/dev/null
@@ -48,6 +52,9 @@ PY
   node_context_wait_read "${work_dir}" admin /clusterstatus/current 'd["store"]["totalContainers"]>0 and d["store"].get("nodeContext",{}).get("freshRecords",0)==1' both-sources.json
   if [ -n "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}" ]; then
     node_qualification_measure enabled
+  fi
+  if [ -n "${NODE_CONTEXT_OBSERVER_PROFILE:-}" ]; then
+    node_observer_check enabled
   fi
   node_context_expect_status "${work_dir}" tenant-viewer "/nodecontexts/${node}" 403
   node_context_expect_status "${work_dir}" node-viewer /pods 403

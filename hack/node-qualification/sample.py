@@ -49,7 +49,7 @@ class Window:
 
     def producer(self, container, sample, now):
         r = self.runtime
-        cpu, memory = r.resources("producer", container["pid"], now)
+        cpu, memory = r.producer_resources(container, now)
         values = r.component_metrics(container, 8083)
         prefix = "kubememlens_node_context_"
         reads = int(values[prefix + 'reads_total{result="success"}'])

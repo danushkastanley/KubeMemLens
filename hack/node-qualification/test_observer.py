@@ -102,7 +102,7 @@ class ObserverTest(unittest.TestCase):
         class Runtime:
             identity = "first"
             reads = 1
-            def resources(self, *_):
+            def producer_resources(self, *_):
                 return 1, 100
             def component_metrics(self, *_):
                 return {'kubememlens_node_context_reads_total{result="success"}': self.reads,

@@ -147,6 +147,9 @@ class KindRuntime:
         require(pid > 0, "kubelet process unavailable")
         return self.resources("kubelet", pid, now)
 
+    def producer_resources(self, container, now):
+        return self.resources("producer", container["pid"], now)
+
     def component_metrics(self, container, port):
         return metrics(self.host("nsenter", "-t", str(container["pid"]), "-n", "--",
                                  "curl", "--fail", "--silent", "--show-error", "--max-time", "3",

@@ -2,7 +2,7 @@ name: Node-context qualification
 
 on:
   pull_request:
-    paths: ['hack/node-qualification/**', 'hack/lib/node-qualification-kind.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-context-fixture.sh', 'internal/nodestats/**', 'internal/nodeproducer/**', 'internal/agent/**', 'internal/collector/**', 'internal/extension/**', 'charts/kube-memlens/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', '.github/workflows/node-qualification.yml']
+    paths: ['hack/node-qualification/**', 'hack/lib/node-qualification-kind.sh', 'hack/lib/node-observer-kind.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-context-fixture.sh', 'internal/nodestats/**', 'internal/nodeproducer/**', 'internal/agent/**', 'internal/collector/**', 'internal/extension/**', 'charts/kube-memlens/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', '.github/workflows/node-qualification.yml']
   workflow_dispatch:
 
 permissions:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   local-qualification:
-    name: Node qualification / Kubernetes ${{ matrix.version }}
+    name: Node qualification / Kubernetes ${{ matrix.version }} / ${{ matrix.mode }}
     runs-on: ubuntu-latest
     # Includes the fixed 120s baseline, 660s rotation window, settling and recovery.
     # The existing 18-minute direct-kubelet verification job remains unchanged.
@@ -22,6 +22,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        mode: [qualification, kubernetes-observer]
+        version: [1.36.1, 1.37.0]
         include:
           - version: 1.36.1
             profile: kind-136
@@ -63,19 +65,20 @@ jobs:
           sudo apt-get "${apt_options[@]}" install --yes --no-install-recommends expect
       - name: Check qualification contracts
         run: python3 -m unittest discover -s hack/node-qualification -p 'test_*.py'
-      - name: Measure local overhead, natural rotation and lifecycle recovery
+      - name: Run the selected local qualification or observer check
         env:
           NODE_CONTEXT_ACKNOWLEDGE: create-and-remove-node-context-kind
           NODE_CONTEXT_VERIFY_INGESTION: "true"
           NODE_CONTEXT_NODE_IMAGE: ${{ matrix.image }}
-          NODE_CONTEXT_QUALIFICATION_PROFILE: hack/node-qualification/profiles/${{ matrix.profile }}.json
+          NODE_CONTEXT_QUALIFICATION_PROFILE: ${{ matrix.mode == 'qualification' && format('hack/node-qualification/profiles/{0}.json', matrix.profile) || '' }}
+          NODE_CONTEXT_OBSERVER_PROFILE: ${{ matrix.mode == 'kubernetes-observer' && format('hack/node-qualification/profiles/{0}.json', matrix.profile) || '' }}
           NODE_CONTEXT_ARTIFACT_DIR: ${{ runner.temp }}/node-qualification-evidence
         run: hack/verify-node-context-kind.sh
       - name: Upload bounded sanitised evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: node-qualification-${{ matrix.version }}
+          name: node-qualification-${{ matrix.version }}-${{ matrix.mode }}
           path: ${{ runner.temp }}/node-qualification-evidence/*.json
           if-no-files-found: ignore
           retention-days: 14
