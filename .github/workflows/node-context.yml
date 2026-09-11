@@ -2,10 +2,10 @@ name: Node-context verification
 
 on:
   pull_request:
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
   push:
     branches: [main]
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
 
 permissions:
   contents: read
@@ -53,6 +53,12 @@ jobs:
           mv "${tools_dir}/linux-amd64/helm" "${tools_dir}/helm"
           chmod +x "${tools_dir}/kind" "${tools_dir}/kubectl"
           echo "${tools_dir}" >> "${GITHUB_PATH}"
+      - name: Install existing PTY test dependency
+        run: |
+          test -s /etc/apt/sources.list.d/ubuntu.sources
+          apt_options=(-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=-)
+          sudo apt-get "${apt_options[@]}" update
+          sudo apt-get "${apt_options[@]}" install --yes --no-install-recommends expect
       - name: Fuzz bounded Node and Summary decoders
         run: |
           go test ./internal/nodestats -run '^$' -fuzz '^FuzzSummary$' -fuzztime=10s
@@ -60,6 +66,7 @@ jobs:
           go test ./internal/nodecontext -run '^$' -fuzz '^FuzzObservationDecoder$' -fuzztime=10s
           go test ./internal/extension -run '^$' -fuzz '^FuzzNodeWire$' -fuzztime=10s
           go test ./internal/nodeanalysis -run '^$' -fuzz '^FuzzNodeAnalysis$' -fuzztime=10s
+          go test ./internal/incident -run '^$' -fuzz '^FuzzNodeIncidentDecoder$' -fuzztime=10s
       - name: Verify direct TLS, authenticated ingestion and reader isolation
         env:
           NODE_CONTEXT_ACKNOWLEDGE: create-and-remove-node-context-kind

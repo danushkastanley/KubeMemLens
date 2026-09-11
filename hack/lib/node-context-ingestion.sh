@@ -48,6 +48,8 @@ PY
   node_context_expect_status "${work_dir}" node-viewer '/nodecontexts?limit=101' 400
   source hack/lib/node-analysis-verification.sh
   node_analysis_verification "${work_dir}" "${namespace}" "${node}"
+  source hack/lib/node-cockpit-verification.sh
+  node_cockpit_verification "${work_dir}" "${namespace}" "${node}" "${kubeconfig}" "kind-${cluster}"
   kctl rollout restart daemonset/kube-memlens-node-context -n "${namespace}" >/dev/null
   kctl rollout status daemonset/kube-memlens-node-context -n "${namespace}" --timeout=120s >/dev/null
   node_context_wait_read "${work_dir}" node-viewer "/nodecontexts/${node}" 'd["record"].get("report",{}).get("reportedAt","")>previous["record"]["report"]["reportedAt"]' producer-replaced.json node-good.json

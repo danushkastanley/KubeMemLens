@@ -3,6 +3,12 @@ package tui
 import tea "charm.land/bubbletea/v2"
 
 func (m *appModel) enter() tea.Cmd {
+	if m.view == viewDetail && m.detail.kind == entityNode {
+		m.currentNode = m.detail.nodeName
+		m.view = viewPods
+		m.resetCurrentViewport()
+		return m.ensureHistoryTarget()
+	}
 	ref, ok := m.currentEntityRef()
 	if !ok {
 		return nil
@@ -21,7 +27,7 @@ func (m *appModel) enter() tea.Cmd {
 	}
 	m.view = viewPods
 	m.resetCurrentViewport()
-	return nil
+	return m.ensureHistoryTarget()
 }
 
 func (m *appModel) back() {
@@ -170,7 +176,7 @@ func (m *appModel) openSelectedDetail() tea.Cmd {
 		return tea.Batch(m.historyRefreshCmd(), m.beginCompleteFetch())
 	}
 	m.clearHistoryTarget()
-	return nil
+	return m.ensureHistoryTarget()
 }
 
 func (m appModel) currentEntityRef() (entityRef, bool) {

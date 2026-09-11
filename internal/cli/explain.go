@@ -101,6 +101,7 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	workloadCmd.Flags().StringVarP(&workloadNamespace, "namespace", "n", "default", "Kubernetes namespace")
 	workloadCmd.Flags().StringVarP(&workloadOutput, "output", "o", "text", "output format: text, json, or yaml")
 	cmd.AddCommand(workloadCmd)
+	cmd.AddCommand(newExplainNodeCommand(collectorOptions))
 
 	return cmd
 }

@@ -52,6 +52,7 @@ func newHistoryCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	pod.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
 	pod.Flags().DurationVar(&since, "since", 0, "show points from the last duration, up to 24h (for example 5m)")
 	cmd.AddCommand(pod)
+	cmd.AddCommand(newHistoryNodeCommand(collectorOptions))
 	return cmd
 }
 

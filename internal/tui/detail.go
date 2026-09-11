@@ -17,7 +17,7 @@ func (m appModel) detailLines(width int) []string {
 	}
 	switch m.detail.kind {
 	case entityNode:
-		return m.nodeDetailLines()
+		return m.nodeCockpitLines(m.detail.nodeName, width)
 	case entityNamespace:
 		return m.namespaceDetailLines()
 	case entityWorkload:

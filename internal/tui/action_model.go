@@ -150,6 +150,9 @@ func (m *appModel) startCapture(overwrite bool) tea.Cmd {
 	if m.restricted() {
 		return m.startObservationCapture(overwrite)
 	}
+	if ref, ok := m.currentActionRef(); ok && ref.kind == entityNode {
+		return m.startNodeCapture(ref, overwrite)
+	}
 	if !m.data.ContainersLoaded || m.containerErr != nil {
 		m.setActionError(fmt.Errorf("capture requires complete container evidence; retry after loading finishes"))
 		return m.beginCompleteFetch()
@@ -282,6 +285,8 @@ func (m appModel) currentCommand() (string, bool) {
 		return "", false
 	}
 	switch ref.kind {
+	case entityNode:
+		return "kubectl memlens explain node " + ref.nodeName, true
 	case entityPod, entityContainer:
 		return "kubectl memlens explain pod " + ref.podName + " -n " + ref.namespace, true
 	case entityWorkload:

@@ -16,7 +16,7 @@ import (
 const maxCaptureHistoryPods = 100
 
 func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
-	var output, namespace, podName string
+	var output, namespace, podName, nodeName string
 	var schemaVersion int
 	var includeHistory, includeSensitive, force bool
 	cmd := &cobra.Command{
@@ -24,6 +24,9 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 		Short: "Write a redacted incident bundle for offline replay",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if nodeName != "" {
+				return captureNode(cmd, collectorOptions, nodeName, output, includeHistory, includeSensitive, force)
+			}
 			opts, err := withReadScope(collectorOptions(), namespace, namespace == "")
 			if err != nil {
 				return err
@@ -112,13 +115,20 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	cmd.Flags().StringVarP(&output, "output", "o", "kube-memlens-incident.json", "output file, or - for stdout")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "capture only this namespace")
 	cmd.Flags().StringVar(&podName, "pod", "", "capture only this Pod; requires --namespace")
-	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include bounded recent history for captured Pods")
-	cmd.Flags().BoolVar(&includeSensitive, "include-sensitive", false, "include Pod UIDs, container IDs, and cgroup paths")
+	cmd.Flags().StringVar(&nodeName, "node", "", "capture one Node with incident schema 4")
+	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include bounded recent history for the captured Pods or Node")
+	cmd.Flags().BoolVar(&includeSensitive, "include-sensitive", false, "include raw Node/Pod identities; deep Pod captures also include container IDs and cgroup paths")
 	cmd.Flags().BoolVar(&force, "force", false, "replace an existing output file")
-	cmd.Flags().IntVar(&schemaVersion, "schema-version", 0, "incident schema: 0 selects automatically; 1 omits resource/resize context for older readers; 2 retains it; 3 records restricted evidence")
+	cmd.Flags().IntVar(&schemaVersion, "schema-version", 0, "incident schema: 0 selects automatically; 1/2 deep Pod; 3 restricted; 4 Node context")
 	cmd.PreRunE = func(_ *cobra.Command, _ []string) error {
-		if schemaVersion < 0 || schemaVersion > incident.RestrictedSchemaVersion {
-			return fmt.Errorf("--schema-version must be 0, 1, 2 or %d", incident.RestrictedSchemaVersion)
+		if schemaVersion < 0 || schemaVersion > incident.NodeSchemaVersion {
+			return fmt.Errorf("--schema-version must be between 0 and 4")
+		}
+		if nodeName != "" && (namespace != "" || podName != "" || (schemaVersion != 0 && schemaVersion != incident.NodeSchemaVersion)) {
+			return fmt.Errorf("--node cannot be combined with --namespace, --pod or incident schemas 1/2/3")
+		}
+		if schemaVersion == incident.NodeSchemaVersion && nodeName == "" {
+			return fmt.Errorf("incident schema 4 requires --node")
 		}
 		if podName != "" && namespace == "" {
 			return fmt.Errorf("--pod requires --namespace")

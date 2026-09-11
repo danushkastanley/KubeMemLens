@@ -38,6 +38,16 @@ and tied to a Node UID and boot. Producers and read queries cannot qualify their
 own arithmetic. Operator review and invalidation after runtime/configuration
 changes remain necessary; an evidence digest is not a certification.
 
+Schema-4 capture introduces an untrusted offline-file boundary. A typed preflight
+bounds fields and arrays before allocation and rejects duplicate/case-aliased keys;
+validation then checks source observations, identities, access metadata, finite
+signals and history bounds. Node-only captures cannot contain contributor fields.
+Capture reads analysis last and does not accept a screen's cached authorisation.
+Failed reads and oversized exports preserve existing files and emit no partial
+stdout. Default Node UID fingerprints remain correlatable; contributor aliases
+are local to the file. Files are private, not signed attestations, and must not be
+treated as independent proof of accounting or provider qualification.
+
 Residual risks remain stats access with a stolen optional token, inference from
 explicitly authorised Node aggregates, and provider-specific TLS/network limits.
 They are disclosed, not described as solved by application checks or portable

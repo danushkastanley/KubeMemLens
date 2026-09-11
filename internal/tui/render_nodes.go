@@ -26,6 +26,18 @@ func (m appModel) renderNodes(width int) string {
 	start, end := viewport.visibleRange()
 	for index := start; index < end; index++ {
 		item := items[index]
+		pods, containers, charge := fmt.Sprintf("%d", item.podCount), fmt.Sprintf("%d", item.containerCount), memmodel.FormatCompactBytes(item.memory.TotalBytes)
+		pressure := nodePressureLabel(item)
+		if analysis := m.nodeAnalysisFor(item.name); analysis != nil {
+			charge, pressure = "unreported", string(analysis.Severity)
+			if analysis.ObservedPodCharge != nil {
+				charge = memmodel.FormatCompactBytes(*analysis.ObservedPodCharge)
+			}
+			pods, containers = "n/a", "n/a"
+			if analysis.Coverage != nil {
+				pods, containers = fmt.Sprint(analysis.Coverage.Pods), fmt.Sprint(analysis.Coverage.MappedContainers)
+			}
+		}
 		prefix := " "
 		if index == viewport.selected {
 			prefix = "›"
@@ -33,10 +45,10 @@ func (m appModel) renderNodes(width int) string {
 		if compact {
 			lines = append(lines, prefix+tableRow([]string{
 				item.name,
-				fmt.Sprintf("%d", item.podCount),
-				fmt.Sprintf("%d", item.containerCount),
-				memmodel.FormatCompactBytes(item.memory.TotalBytes),
-				nodePressureLabel(item),
+				pods,
+				containers,
+				charge,
+				pressure,
 				FormatAge(item.capturedAt),
 			}, widths, numericIndexes(1, 2, 3)))
 			continue
@@ -47,12 +59,12 @@ func (m appModel) renderNodes(width int) string {
 		}
 		lines = append(lines, prefix+tableRow([]string{
 			item.name,
-			fmt.Sprintf("%d", item.podCount),
-			fmt.Sprintf("%d", item.containerCount),
-			memmodel.FormatCompactBytes(item.memory.TotalBytes),
+			pods,
+			containers,
+			charge,
 			allocatable,
 			joinValues(item.environment.ContainerRuntimes),
-			nodePressureLabel(item),
+			pressure,
 			FormatAge(item.capturedAt),
 		}, widths, numericIndexes(1, 2, 3, 4)))
 	}

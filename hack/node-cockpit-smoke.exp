@@ -1,0 +1,56 @@
+#!/usr/bin/expect -f
+set timeout 60
+if {$argc != 7} {
+  puts stderr "usage: node-cockpit-smoke.exp <cli> <kubeconfig> <context> <node> <capture> <columns> <rows>"
+  exit 2
+}
+lassign $argv cli kubeconfig context node capture columns rows
+set send_slow {1 0.005}
+proc require_pattern {pattern description} {
+  expect {
+    -re $pattern { puts "PASS $description" }
+    timeout { puts stderr "Node PTY timed out: $description"; exit 1 }
+    eof { puts stderr "Node PTY exited early: $description"; exit 1 }
+  }
+}
+log_user 0
+spawn -noecho env TERM=xterm-256color NO_COLOR=1 $cli --kubeconfig $kubeconfig --context $context tui --all-namespaces --refresh 1s
+set child_tty $spawn_out(slave,name)
+stty columns $columns rows $rows < $child_tty
+require_pattern {A/F/S/O} "initial Pod view"
+send -- "N"
+require_pattern {CHARGE} "Node table"
+if {$columns >= 150} {
+  require_pattern {Node usage:} "wide Node memory pane"
+  require_pattern {Observed Pod charge:} "separate observed Pod charge"
+}
+send -- "e"
+require_pattern {Node cockpit:} "Node detail"
+require_pattern {Source completeness:} "source completeness"
+send -- "G"
+require_pattern {node-incident.json} "last detail section reachable"
+send -- "g"
+require_pattern {Node cockpit:} "detail returned to first section"
+send -- " "
+require_pattern {polling stopped} "Node polling paused"
+send -- " "
+require_pattern {automatic} "Node polling resumed"
+send -- "s"
+# The renderer may write only the changed metric cells, leaving the prefix on
+# screen. The resulting capture also verifies that the selected metric is anon.
+require_pattern {anon} "contributor ranking changed"
+send -- "C"
+require_pattern {Redacted incident capture} "capture action"
+send -s -- $capture
+send -- "\r"
+require_pattern {Redacted Node capture written} "private Node capture written"
+send -- "\r"
+send -- "\r"
+require_pattern {A/F/S/O} "Node contributor drill-down"
+send -- "q"
+expect {
+  eof { puts "PASS Node PTY exited cleanly" }
+  timeout { puts stderr "Node PTY failed to exit"; exit 1 }
+}
+lassign [wait] pid spawn_id os_error status
+if {$os_error != 0 || $status != 0} { exit 1 }

@@ -14,15 +14,27 @@ import (
 const maxIncidentBytes int64 = incident.MaxBytes
 
 func newReplayCommand() *cobra.Command {
-	var podRef string
+	var podRef, nodeRef string
 	cmd := &cobra.Command{
 		Use:   "replay <incident.json>",
 		Short: "Replay a captured explanation without cluster access",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if podRef != "" && nodeRef != "" {
+				return fmt.Errorf("select either --pod or --node")
+			}
 			document, err := incident.Read(args[0])
 			if err != nil {
 				return err
+			}
+			if document.Node != nil {
+				if podRef != "" {
+					return fmt.Errorf("schema 4 contains Node evidence; --pod is unavailable")
+				}
+				return replayNode(cmd.OutOrStdout(), *document.Node, nodeRef)
+			}
+			if nodeRef != "" {
+				return fmt.Errorf("--node requires a schema-4 incident")
 			}
 			if document.Restricted != nil {
 				return replayRestricted(cmd.OutOrStdout(), *document.Restricted, podRef)
@@ -52,6 +64,7 @@ func newReplayCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&podRef, "pod", "", "replay one Pod as <namespace>/<name>")
+	cmd.Flags().StringVar(&nodeRef, "node", "", "replay the selected Node from a schema-4 incident")
 	return cmd
 }
 
@@ -61,7 +74,7 @@ func readIncidentBundle(path string) (api.IncidentBundle, error) {
 		return api.IncidentBundle{}, err
 	}
 	if document.Deep == nil {
-		return api.IncidentBundle{}, fmt.Errorf("restricted incident cannot be read as cgroup evidence")
+		return api.IncidentBundle{}, fmt.Errorf("this incident cannot be read as deep Pod evidence")
 	}
 	return *document.Deep, nil
 }

@@ -251,11 +251,14 @@ The sanitised result records the exact Node image, kernel, runtime, architecture
 binary digest, field availability and cleanup. NetworkPolicy and cloud profiles
 remain unqualified. The CI workflow repeats it for Kubernetes 1.36 and 1.37.
 
-Node-context capture uses incident schema 4, private files and the existing
-64 MiB read/write cap. Deep schemas 1/2 and restricted schema 3 keep their meaning.
+Node-context capture uses incident schema 4, private files and a 16 MiB Node
+file limit within the existing 64 MiB incident envelope. Deep schemas 1/2 and
+restricted schema 3 keep their meaning. See [Node incidents](node-incidents.md).
 Reject Node-context export to older schemas instead of silently dropping data.
-Default captures exclude internal UIDs, container IDs, paths, credentials and
-unqualified system names. Contributor display names follow the caller's access.
+Default captures replace internal Node UIDs with correlatable fingerprints and
+contributor display names with local aliases. They exclude container IDs, paths,
+credentials and unqualified system names. Sensitive export retains only identities
+within the caller's current access.
 
 Run `go test ./internal/nodecontext` and `hack/test-node-context-contract.sh` for
 field representation, size, negative permissions and disabled chart policy.

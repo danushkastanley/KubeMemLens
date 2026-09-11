@@ -165,6 +165,8 @@ ingestion=root/'ingestion-result.json'
 if ingestion.exists(): summary['ingestion']=json.loads(ingestion.read_text())
 analysis=root/'analysis-result.json'
 if analysis.exists(): summary['analysis']=json.loads(analysis.read_text())
+cockpit=root/'cockpit-result.json'
+if cockpit.exists(): summary['cockpit']=json.loads(cockpit.read_text())
 with (output/'summary.json').open('x') as file: file.write(json.dumps(summary,indent=2)+'\n')
 PY
 kind delete cluster --name "${cluster}" > "${work_dir}/cleanup.log" 2>&1

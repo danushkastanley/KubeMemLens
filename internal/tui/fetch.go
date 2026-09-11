@@ -200,6 +200,10 @@ func (m *appModel) historyRefreshCmd() tea.Cmd {
 }
 
 func (m *appModel) ensureHistoryTarget() tea.Cmd {
+	return tea.Batch(m.ensurePodHistoryTarget(), m.ensureNodeTarget())
+}
+
+func (m *appModel) ensurePodHistoryTarget() tea.Cmd {
 	if m.restricted() {
 		m.clearHistoryTarget()
 		return nil
