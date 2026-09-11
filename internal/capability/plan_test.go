@@ -141,3 +141,20 @@ func TestInvalidDiscoveryInputs(t *testing.T) {
 		t.Fatal("missing adapters permitted a query")
 	}
 }
+
+func TestDiscoveryPreservesTypedAdapterFailureWithoutRawErrorText(t *testing.T) {
+	cause := errors.New("private provider URL")
+	plan, err := Discover(context.Background(), Restricted, time.Second, Probes{Status: ProbeFunc(func(context.Context) (SourceState, error) {
+		return state(KubernetesStatus, Unavailable, InvalidResponse), cause
+	})})
+	var selectionErr *SelectionError
+	if !errors.As(err, &selectionErr) || !errors.Is(err, cause) {
+		t.Fatalf("error=%v", err)
+	}
+	if selectionErr.Reason != InvalidResponse || plan.Sources[0].Reason != InvalidResponse {
+		t.Fatalf("plan=%+v err=%v", plan, err)
+	}
+	if err.Error() != "restricted evidence is unavailable: invalid-response" {
+		t.Fatalf("error=%v", err)
+	}
+}

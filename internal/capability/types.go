@@ -177,7 +177,10 @@ func (s Selection) Require(query Query) error {
 type SelectionError struct {
 	Mode   Mode
 	Reason Reason
+	Cause  error
 }
+
+func (e *SelectionError) Unwrap() error { return e.Cause }
 
 func (e *SelectionError) Error() string {
 	return fmt.Sprintf("%s evidence is unavailable: %s", e.Mode, e.Reason)

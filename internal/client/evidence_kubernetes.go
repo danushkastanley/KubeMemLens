@@ -46,7 +46,7 @@ func discoverMetrics(ctx context.Context, opts Options) (capability.SourceState,
 		state.Stability = capability.Beta
 	}
 	if err != nil {
-		state.Reason = capability.RequestFailed
+		state.Reason = capability.Reason(report.Reason)
 		return state, err
 	}
 	switch report.Availability {

@@ -51,6 +51,7 @@ func Discover(ctx context.Context, mode Mode, timeout time.Duration, probes Prob
 func probe(ctx context.Context, source Source, adapter Probe) (SourceState, error) {
 	state := SourceState{Source: source, Availability: Unavailable, Reason: NotObserved, Freshness: UnknownFreshness, Completeness: Partial}
 	if ctx.Err() != nil {
+		state.Reason = discoveryErrorReason(ctx.Err(), state.Reason)
 		return state, ctx.Err()
 	}
 	if adapter == nil {
@@ -61,13 +62,7 @@ func probe(ctx context.Context, source Source, adapter Probe) (SourceState, erro
 		err = ctx.Err()
 	}
 	if err != nil {
-		state.Reason = RequestFailed
-		if errors.Is(err, context.DeadlineExceeded) {
-			state.Reason = DiscoveryTimedOut
-		}
-		if errors.Is(err, context.Canceled) {
-			state.Reason = DiscoveryCancelled
-		}
+		state.Reason = discoveryErrorReason(err, result.Reason)
 		return state, err
 	}
 	result.Source = source
@@ -75,5 +70,19 @@ func probe(ctx context.Context, source Source, adapter Probe) (SourceState, erro
 }
 
 func failedDiscovery(mode Mode, sources []SourceState, err error) (Selection, error) {
-	return Selection{Mode: mode, State: Unavailable, Freshness: UnknownFreshness, Completeness: Partial, Sources: sources}, err
+	return Selection{Mode: mode, State: Unavailable, Freshness: UnknownFreshness, Completeness: Partial, Sources: sources},
+		&SelectionError{Mode: mode, Reason: sources[len(sources)-1].Reason, Cause: err}
+}
+
+func discoveryErrorReason(err error, reason Reason) Reason {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return DiscoveryTimedOut
+	case errors.Is(err, context.Canceled):
+		return DiscoveryCancelled
+	case reason != "":
+		return reason
+	default:
+		return RequestFailed
+	}
 }

@@ -130,3 +130,20 @@ func TestExplicitAllNamespaceAccessReviewDoesNotEnumerateNamespaces(t *testing.T
 		t.Fatal("raw authorisation reason leaked")
 	}
 }
+
+func TestCancelledDiscoveryKeepsReasonInUserFacingError(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	opts := Options{EvidenceMode: capability.Restricted}
+	session, err := NewEvidenceSession(ctx, opts)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("error=%v", err)
+	}
+	message := ConnectionError(opts, session.Description, err).Error()
+	if !strings.Contains(message, string(capability.DiscoveryCancelled)) || strings.Contains(message, "invalid response") {
+		t.Fatalf("misleading discovery error: %s", message)
+	}
+	if session.Plan.Sources[0].Reason != capability.DiscoveryCancelled {
+		t.Fatalf("source=%+v", session.Plan.Sources[0])
+	}
+}
