@@ -13,6 +13,11 @@ PY
 cluster=${NODE_CONTEXT_CLUSTER:-kube-memlens-node-context-e2e}
 case "${cluster}" in kube-memlens-node-context-*) ;; *) echo 'unexpected disposable cluster prefix' >&2; exit 1 ;; esac
 namespace=kube-memlens-node-context
+case "${NODE_CONTEXT_MEASUREMENT_METHOD:-docker}" in
+  docker) ;;
+  kubernetes) [ -n "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}" ] || { echo 'Kubernetes measurement requires a full qualification profile' >&2; exit 1; } ;;
+  *) echo 'unknown qualification measurement method' >&2; exit 1 ;;
+esac
 for command in kind kubectl docker go python3; do command -v "${command}" >/dev/null; done
 existing=$(kind get clusters)
 if printf '%s\n' "${existing}" | grep -Fxq "${cluster}"; then echo 'refusing to replace an existing kind cluster' >&2; exit 1; fi
@@ -159,7 +164,7 @@ if [ "${NODE_CONTEXT_VERIFY_INGESTION:-false}" = true ]; then
   source hack/lib/node-context-ingestion.sh
   node_context_ingestion "${work_dir}" "${namespace}" "${node}" "${image}" "${audience}" "${ip}"
 fi
-python3 - "${work_dir}" "${artifact_dir}" "${node_image}" "${NODE_CONTEXT_OBSERVER_PROFILE:-}" <<'PY'
+python3 - "${work_dir}" "${artifact_dir}" "${node_image}" "${NODE_CONTEXT_OBSERVER_PROFILE:-}" "${NODE_CONTEXT_MEASUREMENT_METHOD:-docker}" <<'PY'
 import hashlib, json, pathlib, sys
 root, output = map(pathlib.Path, sys.argv[1:3])
 document = json.loads((root/'allowed.log').read_text())
@@ -193,7 +198,7 @@ analysis=root/'analysis-result.json'
 if analysis.exists(): summary['analysis']=json.loads(analysis.read_text())
 cockpit=root/'cockpit-result.json'
 if cockpit.exists(): summary['cockpit']=json.loads(cockpit.read_text())
-if sys.argv[4]:
+if sys.argv[4] or sys.argv[5]=='kubernetes':
     summary['hostMountsScope']='producer'
     summary['observer']={'method':'kubernetes-probes-v1','readOnlyHostCgroups':True,'hostPID':False,'hostNetwork':False}
     sys.path.insert(0,'hack/node-qualification')

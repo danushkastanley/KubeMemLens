@@ -30,8 +30,21 @@ def fixture(profile=None):
             e["samples"][phase].append({"elapsedSeconds": (i + 1) * 15, "producerCPUMilli": 10 if enabled else None, "producerMemoryBytes": 16 * 1024 * 1024 if enabled else None,
                 "kubeletCPUMilli": 30 if enabled else 20, "kubeletMemoryBytes": 64 * 1024 * 1024, "agentScanSeconds": .02,
                 "sourceReads": i + 1 if enabled else None, "sourceFailures": 0 if enabled else None, "lastReadSeconds": .02 if enabled else None, "lastResponseBytes": 10000 if enabled else None, "workloadContainers": p["workload"]["containers"], "mappedContainers": p["workload"]["containers"], "freshNodes": p["workload"]["linuxNodes"], "producerReplicas": p["workload"]["linuxNodes"] if enabled else 0, "unexpectedRestarts": 0, "unexpectedOOMKills": 0})
+    if p["profileClass"] == "provider":
+        version_two(p, e)
     seal(e)
     return p, e
+
+
+def version_two(p, e):
+    samples, rotation = e.pop("samples"), e.pop("rotation")
+    for sample in samples["enabled"]:
+        sample["producerReplicas"] = 1
+    e.update(schemaVersion=2, observation={"method": "kubernetes-probes-v1", "image": p["workload"]["image"]},
+             nodes=[{"slot": slot, "samples": copy.deepcopy(samples), "rotation": dict(rotation)}
+                    for slot in range(p["workload"]["linuxNodes"])])
+    seal(e)
+    return e
 
 
 def seal(e):

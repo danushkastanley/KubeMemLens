@@ -10,6 +10,7 @@ from common import digest, load, require, utc_text, write_new
 from evidence import PRIVACY, validate_evidence
 from evaluate import evaluate
 from profiles import validate_profile
+from window_contract import join_windows
 
 
 def sha(data):
@@ -34,6 +35,12 @@ def assemble(root, profile):
     binding = {"id": p["id"], "digest": p["profileDigest"]}
     require(baseline["profile"] == binding and enabled["profile"] == binding,
             "measurement profile changed during the run")
+    measurements = {"samples": {"baseline": baseline.get("samples"), "enabled": enabled.get("samples")},
+                    "rotation": enabled.get("rotation")}
+    values = (root / "qualification-values.json").read_bytes()
+    if baseline.get("schemaVersion") == 2 or enabled.get("schemaVersion") == 2:
+        measurements = join_windows(p, baseline, enabled)
+        values += b"\0" + (root / "qualification-observer-settings.json").read_bytes()
     chart = b"".join(str(path).encode() + b"\0" + path.read_bytes() + b"\0"
                      for path in sorted(Path("charts/kube-memlens").rglob("*")) if path.is_file())
     e = {"schemaVersion": 1, "profile": {"id": p["id"], "digest": p["profileDigest"]},
@@ -44,7 +51,7 @@ def assemble(root, profile):
                        "sourceDirty": source["sourceDirty"], "imageDigest": (root / "image-id").read_text().strip(),
                        "chartDigest": sha(chart), "cliDigest": sha((root / "image/kubectl-memlens").read_bytes()),
                        "producerDigest": sha((root / "image/producer").read_bytes()),
-                       "valuesDigest": sha((root / "qualification-values.json").read_bytes()),
+                       "valuesDigest": sha(values),
                        "trustDigest": sha((root / "serving-ca.crt").read_bytes()),
                        "audienceDigest": sha((root / "qualification-audience").read_bytes())},
          "environment": {"provider": "kind", "kubernetes": node["kubeletVersion"], "kernel": node["kernelVersion"],
@@ -54,8 +61,7 @@ def assemble(root, profile):
          "transport": {"result": "passed", "reason": "none", "directTLS": True, "podBoundIdentity": True,
                        "statsOnlyRBAC": True, "proxyAccess": False, "networkPolicy": "not-qualified", "servingTrust": "fixture-ca"},
          "fields": fields, "provenance": stats["provenance"],
-         "samples": {"baseline": baseline["samples"], "enabled": enabled["samples"]},
-         "rotation": enabled["rotation"], "lifecycle": load(root / "qualification-lifecycle.json"),
+         **measurements, "lifecycle": load(root / "qualification-lifecycle.json"),
          "cleanup": {"workloadsRemoved": False, "rbacRemoved": False, "cloudResources": "not-applicable"},
          "privacy": dict(PRIVACY)}
     e["recordDigest"] = digest(e, "recordDigest")

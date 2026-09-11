@@ -78,3 +78,47 @@ qualification windows, prove natural token rotation or establish provider
 support. Provider orchestration, approval, full measurements, replacement,
 cleanup and independent review remain required under the
 [qualification protocol](node-context-qualification.md).
+
+## Full local measurement windows
+
+Use the full qualification profile with the Kubernetes observation method to
+measure the fixed 120-second baseline and 660-second enabled window:
+
+```sh
+NODE_CONTEXT_ACKNOWLEDGE=create-and-remove-node-context-kind \
+NODE_CONTEXT_VERIFY_INGESTION=true \
+NODE_CONTEXT_MEASUREMENT_METHOD=kubernetes \
+NODE_CONTEXT_QUALIFICATION_PROFILE=hack/node-qualification/profiles/kind-137.json \
+NODE_CONTEXT_ARTIFACT_DIR=/absolute/path/to/new-evidence \
+hack/verify-node-context-kind.sh
+```
+
+The host and agent observers are installed before baseline settling. The
+producer observer is attached after enabling Node context. The private working
+directory retains the original Node and namespace UIDs, which must match
+between phases. Any component replacement within a measurement window fails
+the run. Lifecycle disruptions run after the measurements and retain their
+existing separate evidence.
+
+The resulting evidence uses schema 2. It binds the fixed observation method and
+image, and includes an anonymous numbered slot for each measured Node. Each
+slot retains its own baseline, enabled samples and token-rotation result. The
+values digest includes the observer settings. Private Node names, UIDs and
+credential hashes are omitted from the shared record.
+
+Each Node must pass the same profile budgets independently. Comparing a maximum
+baseline across a pool with a maximum enabled value can hide a regression on
+another Node, so the evaluator never aggregates Node costs or counters first.
+Every slot must also have complete coverage and continued acquisition after
+its own projected token rotation. The collector freshness and workload counts
+remain pool-wide values, while producer replicas in each slot must equal one.
+Slots follow a deterministic private Node-name order. Evaluation results keep
+each slot's checks in `nodeChecks`, so larger pools do not exceed the shared
+array bound. Global transport, environment, lifecycle and cleanup checks remain
+in `checks`; every global and per-Node check must pass.
+
+Schema-1 local records retain their previous evaluation results. Older
+aggregate-only provider records can be read but fail the new per-Node
+measurement gate. Neither schema grants independent approval automatically.
+The local runner still measures an owned single-Node kind fixture; managed
+provider qualification needs the actual selected pool and approved execution.

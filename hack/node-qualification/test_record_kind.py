@@ -46,6 +46,20 @@ class LocalRecordTest(unittest.TestCase):
             self.assertEqual(record["fields"]["available"], "unreported")
             self.assertFalse(record["cleanup"]["workloadsRemoved"])
             self.assertTrue(record["artefacts"]["sourceDirty"])
+            for phase, started, completed in (("baseline", "12:00:00", "12:03:00"), ("enabled", "12:03:00", "12:15:00")):
+                window = {"schemaVersion": 2, "phase": phase, "profile": e["profile"],
+                          "observation": {"method": "kubernetes-probes-v1", "image": p["workload"]["image"]},
+                          "startedAt": "2026-09-11T" + started + "Z", "completedAt": "2026-09-11T" + completed + "Z",
+                          "nodes": [{"slot": 0, "samples": e["samples"][phase], "rotation": e["rotation"]}]}
+                (root / ("qualification-" + phase + ".json")).write_text(json.dumps(window))
+            (root / "qualification-observer-settings.json").write_text('{"privateNodeName":"private-node"}')
+            with patch("record_kind.subprocess.check_output", return_value="c" * 40):
+                modern = assemble(root, p)
+            self.assertEqual(modern["schemaVersion"], 2)
+            self.assertEqual(modern["nodes"][0]["samples"], e["samples"])
+            self.assertNotIn("samples", modern)
+            self.assertNotEqual(modern["artefacts"]["valuesDigest"], record["artefacts"]["valuesDigest"])
+            self.assertNotIn("private-node", json.dumps(modern))
 
 
 if __name__ == "__main__":

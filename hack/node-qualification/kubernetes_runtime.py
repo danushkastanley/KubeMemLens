@@ -12,7 +12,7 @@ from process import execute
 
 class KubernetesRuntime:
     def __init__(self, kubeconfig, context, namespace, namespace_uid, node, bridge,
-                 workload_namespace=None, workload_uid=None, run=execute):
+                 workload_namespace=None, workload_uid=None, run=execute, node_uid=None):
         require(all(isinstance(v, str) and v for v in (kubeconfig, context, namespace, namespace_uid, node, bridge)),
                 "explicit runtime target and namespace identity are required")
         for value in (namespace, node, workload_namespace or namespace):
@@ -23,6 +23,7 @@ class KubernetesRuntime:
         self.workload_namespace = workload_namespace or namespace
         self.workload_uid = workload_uid or namespace_uid
         self.run, self.previous = run, {}
+        self.node_uid = node_uid
 
     def k(self, *args, data=None, maximum=2 * 1024 * 1024, timeout=12):
         return self.run(self.kubectl + list(args), data=data, maximum=maximum, timeout=timeout)
@@ -105,6 +106,9 @@ class KubernetesRuntime:
 
     def kubelet(self, now):
         node = json.loads(self.k("get", "node", self.node, "-o", "json"))
+        if self.node_uid is None:
+            self.node_uid = node["metadata"]["uid"]
+        require(node["metadata"]["uid"] == self.node_uid, "selected Node identity changed")
         return self.resources("kubelet", node["metadata"]["uid"], self.group("kubelet.service"), now)
 
     def producer_resources(self, container, now):

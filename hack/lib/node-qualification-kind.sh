@@ -22,15 +22,28 @@ PY
 }
 
 node_qualification_measure() {
-  python3 hack/node-qualification/sample.py --cluster "${cluster}" --node "${node}" \
+  local sampler=hack/node-qualification/sample.py extra=()
+  if [ "${NODE_CONTEXT_MEASUREMENT_METHOD:-docker}" = kubernetes ]; then
+    sampler=hack/node-qualification/sample_kubernetes_kind.py
+    extra=(--audience "${audience}")
+    if [ "$1" = baseline ]; then
+      CGO_ENABLED=0 go build -trimpath -o "${work_dir}/api-bridge" ./hack/node-qualification/api-bridge
+    fi
+  fi
+  python3 "${sampler}" --cluster "${cluster}" --node "${node}" \
     --kubeconfig "${kubeconfig}" --profile "${NODE_CONTEXT_QUALIFICATION_PROFILE}" \
-    --phase "$1" --output "${work_dir}/qualification-$1.json"
-  python3 - "$1" "${work_dir}/qualification-$1.json" "${artifact_dir}/measurements-$1.json" <<'PY'
+    --phase "$1" --output "${work_dir}/qualification-$1.json" "${extra[@]}"
+  python3 - "$1" "${work_dir}/qualification-$1.json" "${artifact_dir}/measurements-$1.json" "${NODE_CONTEXT_QUALIFICATION_PROFILE}" <<'PY'
 import sys
 sys.path.insert(0,'hack/node-qualification')
 from common import load,privacy,write_new
 from evidence import validate_samples
-d=load(sys.argv[2]); privacy(d); validate_samples(d['samples'],sys.argv[1])
+from window_contract import validate_window
+d=load(sys.argv[2]); privacy(d)
+if d.get('schemaVersion')==2:
+    validate_window(load(sys.argv[4]),d,sys.argv[1])
+else:
+    validate_samples(d['samples'],sys.argv[1])
 write_new(sys.argv[3],d)
 PY
 }

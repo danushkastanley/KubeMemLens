@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [qualification, kubernetes-observer]
+        mode: [qualification, kubernetes-qualification]
         version: [1.36.1, 1.37.0]
         include:
           - version: 1.36.1
@@ -65,13 +65,13 @@ jobs:
           sudo apt-get "${apt_options[@]}" install --yes --no-install-recommends expect
       - name: Check qualification contracts
         run: python3 -m unittest discover -s hack/node-qualification -p 'test_*.py'
-      - name: Run the selected local qualification or observer check
+      - name: Run full qualification with the selected observation method
         env:
           NODE_CONTEXT_ACKNOWLEDGE: create-and-remove-node-context-kind
           NODE_CONTEXT_VERIFY_INGESTION: "true"
           NODE_CONTEXT_NODE_IMAGE: ${{ matrix.image }}
-          NODE_CONTEXT_QUALIFICATION_PROFILE: ${{ matrix.mode == 'qualification' && format('hack/node-qualification/profiles/{0}.json', matrix.profile) || '' }}
-          NODE_CONTEXT_OBSERVER_PROFILE: ${{ matrix.mode == 'kubernetes-observer' && format('hack/node-qualification/profiles/{0}.json', matrix.profile) || '' }}
+          NODE_CONTEXT_QUALIFICATION_PROFILE: hack/node-qualification/profiles/${{ matrix.profile }}.json
+          NODE_CONTEXT_MEASUREMENT_METHOD: ${{ matrix.mode == 'kubernetes-qualification' && 'kubernetes' || 'docker' }}
           NODE_CONTEXT_ARTIFACT_DIR: ${{ runner.temp }}/node-qualification-evidence
         run: hack/verify-node-context-kind.sh
       - name: Upload bounded sanitised evidence
