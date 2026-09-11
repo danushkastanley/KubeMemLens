@@ -18,7 +18,7 @@
       "metadata": {"name": "kube-memlens-node-context-viewer"},
       "rules": [
         {"apiGroups": ["memory.kubememlens.io"], "resources": ["nodecontexts"], "verbs": ["get", "list"]},
-        {"apiGroups": ["memory.kubememlens.io"], "resources": ["nodecontexts/history"], "verbs": ["get"]}
+        {"apiGroups": ["memory.kubememlens.io"], "resources": ["nodecontexts/history", "nodecontexts/analysis"], "verbs": ["get"]}
       ]
     }
   ]

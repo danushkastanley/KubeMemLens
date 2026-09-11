@@ -29,7 +29,7 @@ func TestNodeContextPermissionMatrix(t *testing.T) {
 				t.Fatalf("broad permission in %s", role.Name)
 			}
 		}
-		expected := map[string]int{"kube-memlens-node-context-producer": 4, "kube-memlens-node-context-viewer": 3}
+		expected := map[string]int{"kube-memlens-node-context-producer": 4, "kube-memlens-node-context-viewer": 4}
 		if grants != expected[role.Name] {
 			t.Fatalf("%s grants %d operations, expected %d", role.Name, grants, expected[role.Name])
 		}
@@ -87,6 +87,7 @@ func TestNodeContextPermissionMatrix(t *testing.T) {
 		{"nodecontexts", "get", false, true},
 		{"nodecontexts", "list", false, true},
 		{"nodecontexts/history", "get", false, true},
+		{"nodecontexts/analysis", "get", false, true},
 		{"pods", "list", false, false},
 		{"pods/history", "get", false, false},
 		{"metrics", "get", false, false},

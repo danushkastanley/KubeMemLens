@@ -17,7 +17,7 @@ never receives its kubelet bearer credentials.
 | New producer retires cgroup agent or clears its data | Fixed authenticated roles, independent ownership, separate store operation, cross-role payload rejection | NODE-003 two-producer replacement/race tests |
 | Replay after restart or Node-name reuse | Epoch/sequence/digest, retired identities, current Node UID and start-time binding | NODE-003 replay/recreation tests |
 | Failure report refreshes stale evidence | Separate report/sample/receive times, retained last good sample, no history append on failure | NODE-003/005 source-loss tests |
-| Node-only caller obtains tenant identities or gaps | Separate viewer binding; cluster Pod authorisation before lookups; no namespace/global subtraction | NODE-003 endpoint and NODE-004 scope tests |
+| Node-only caller obtains tenant identities or gaps | Separate viewer binding; cluster Pod authorisation before lookups; no namespace/global subtraction | NODE-003 endpoint and NODE-004 secondary-authorisation/scope tests |
 | Revoked access survives cache/history/capture | Current uncached authorisation; clear protected state and block fresh exports | NODE-003/005 revocation tests |
 | Summary leaks names/paths/volumes | Discard unrelated fields, fixed categories/codes, no raw bodies or errors in telemetry/capture | NODE-002 privacy and NODE-005 capture tests |
 | Large/nested response exhausts memory | Byte/depth/token ceilings, bounded fields, deadline, one request, store/history/admission limits | NODE-002 fuzz and NODE-003 capacity tests |
@@ -32,6 +32,11 @@ ingestion, Node-only reads, denied tenant/Pod access, immediate viewer revocatio
 producer replacement, collector rebuilding and profile enable/disable. Unit
 checks cover replay, individual source clocks, bounded history and strict schema
 1/2 compatibility. These checks do not qualify managed networks or providers.
+
+Operator accounting files are trusted configuration, bounded by size and expiry,
+and tied to a Node UID and boot. Producers and read queries cannot qualify their
+own arithmetic. Operator review and invalidation after runtime/configuration
+changes remain necessary; an evidence digest is not a certification.
 
 Residual risks remain stats access with a stolen optional token, inference from
 explicitly authorised Node aggregates, and provider-specific TLS/network limits.

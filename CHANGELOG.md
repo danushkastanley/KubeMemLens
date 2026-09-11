@@ -4,6 +4,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Node memory analysis
+
+- Add a pure Node analysis model with source-labelled severity, bounded Pod/workload rankings, checked accounting and explicit unavailable estimates.
+- Require current Node identity, matching source windows, complete cgroup coverage and operator-owned accounting qualification before showing a gap. Keep hugepages separate from ordinary memory values.
+- Add the optional Node analysis API with a separate uncached Pod authorisation check; Node-only readers receive no contributor identities or counts.
+
 ### Optional Node-context collection and history
 
 - Add a default-off producer for bounded, verified-TLS kubelet Summary reads, with its own ServiceAccount and no host mounts or Linux capabilities.

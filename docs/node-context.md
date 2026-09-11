@@ -3,7 +3,8 @@
 Status: bounded collection, authenticated publishing, Node-only reads and
 short in-memory history are implemented as an opt-in source profile.
 `nodeContext.enabled` defaults to `false`.
-Node analysis and the incident cockpit remain separate work. Managed-provider
+Source-aware [Node analysis](node-memory-analysis.md) is available through the
+optional API. The incident cockpit remains separate work. Managed-provider
 support remains unqualified. See
 [ADR 0007](adr/0007-isolate-node-context-producers-and-reads.md).
 
@@ -304,6 +305,7 @@ resources are:
 - `GET /apis/memory.kubememlens.io/v1alpha1/nodecontexts?limit=100`
 - `GET /apis/memory.kubememlens.io/v1alpha1/nodecontexts/NAME`
 - `GET /apis/memory.kubememlens.io/v1alpha1/nodecontexts/NAME/history?limit=1`
+- `GET /apis/memory.kubememlens.io/v1alpha1/nodecontexts/NAME/analysis?rank=total&limit=20`
 
 Use the returned opaque continuation token to request another page. Node pages
 have at most 100 records; history has at most 61 points per Node UID and a
@@ -317,8 +319,8 @@ history until the retained window is continuous. Source freshness is independent
 of history coverage.
 
 Node records contain no Pod identities, contributor counts or residual arithmetic.
-A dedicated viewer binding grants Node data only; future contributor analysis
-must independently authorise cluster-wide Pod access before looking up and joining
+A dedicated viewer binding grants Node data only; contributor analysis
+independently authorises cluster-wide Pod access before looking up and joining
 cgroup records by current Node UID. Existing schema 1/2 agents and strict read
 clients keep their previous representations. Debug and doctor expose aggregate
 Node capacity, freshness, failures and history loss only for the negotiated

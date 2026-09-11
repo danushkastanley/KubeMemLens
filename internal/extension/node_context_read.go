@@ -13,6 +13,10 @@ func (h *ReadHandler) serveNodeContexts(w http.ResponseWriter, r *http.Request, 
 		writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
 		return
 	}
+	if info.Subresource == "analysis" {
+		h.serveNodeAnalysis(w, r, info)
+		return
+	}
 	if info.Subresource == "history" && info.Name != "" && info.Verb == "get" && len(info.Parts) == 3 {
 		result, err := h.store.PageNodeContextHistory(info.Name, h.now(), r.URL.Query(), h.nestedReadBudget())
 		if writeReadPageError(w, err) {
@@ -61,7 +65,8 @@ func (h *Handler) discoveryResources() []metav1.APIResource {
 	if h.opts.NodeContextUsername != "" {
 		resources = append(resources,
 			metav1.APIResource{Name: "nodecontexts", SingularName: "nodecontext", Namespaced: false, Kind: "NodeContext", Verbs: metav1.Verbs{"get", "list"}},
-			metav1.APIResource{Name: "nodecontexts/history", Namespaced: false, Kind: "NodeContextHistory", Verbs: metav1.Verbs{"get"}})
+			metav1.APIResource{Name: "nodecontexts/history", Namespaced: false, Kind: "NodeContextHistory", Verbs: metav1.Verbs{"get"}},
+			metav1.APIResource{Name: "nodecontexts/analysis", Namespaced: false, Kind: "NodeMemoryAnalysis", Verbs: metav1.Verbs{"get"}})
 	}
 	return resources
 }

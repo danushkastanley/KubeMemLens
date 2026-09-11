@@ -13,13 +13,17 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/collector"
 	"github.com/danushkastanley/kube-memlens/internal/metrics"
+	"github.com/danushkastanley/kube-memlens/internal/nodeanalysis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apiserver/pkg/authorization/authorizer"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
 const readAPIVersion = api.MemoryAPIGroup + "/" + api.MemoryAPIVersion
 
 type ReadHandler struct {
+	podAuthorizer      authorizer.Authorizer
+	accounting         map[string]nodeanalysis.Qualification
 	nodeContextEnabled bool
 	store              *collector.Store
 	opts               collector.HandlerOptions
