@@ -84,29 +84,16 @@ func (s *Store) reliabilityLocked(now time.Time, ttl time.Duration) api.Collecto
 	}
 }
 
+// ReconcileExpectedNodes preserves the legacy name-only coverage seam. Names
+// alone cannot refresh the identity inventory required by Node ingestion.
 func (s *Store) ReconcileExpectedNodes(nodes []string, observedAt time.Time) error {
-	expected := make(map[string]struct{}, len(nodes))
-	for _, node := range nodes {
-		if node != "" {
-			expected[node] = struct{}{}
+	identities := make(map[string]string, len(nodes))
+	for _, name := range nodes {
+		if name != "" {
+			identities[name] = ""
 		}
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if len(expected) > s.limits.MaxNodes {
-		return ErrStoreCapacity
-	}
-	for node, snapshot := range s.nodes {
-		if _, exists := expected[node]; exists {
-			continue
-		}
-		s.containerCount -= len(snapshot.containers)
-		delete(s.nodes, node)
-	}
-	s.expectedNodes = expected
-	s.inventoryKnown = true
-	s.inventoryUpdatedAt = observedAt
-	return nil
+	return s.ReconcileNodeIdentities(identities, observedAt)
 }
 
 func nodeEvidencePartial(snapshot nodeSnapshot) bool {

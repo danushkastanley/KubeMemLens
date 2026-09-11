@@ -16,7 +16,7 @@ render --set nodeContext.enabled=false > "${work_dir}/disabled.yaml"
 cmp "${work_dir}/default.yaml" "${work_dir}/disabled.yaml"
 
 if helm template kube-memlens charts/kube-memlens --set nodeContext.enabled=true > "${work_dir}/enabled.yaml" 2> "${work_dir}/error.txt"; then
-  echo 'unimplemented node-context profile must not render' >&2
+  echo 'node-context profile without qualified configuration must not render' >&2
   exit 1
 fi
 grep -q 'nodeContext' "${work_dir}/error.txt"
@@ -24,5 +24,10 @@ if grep -Eq 'nodes/(stats|metrics|proxy)|name: kube-memlens-node-context' "${wor
   echo 'standard chart unexpectedly grants node-context permissions' >&2
   exit 1
 fi
+render --set nodeContext.enabled=true --set nodeContext.kubeletCAConfigMap=qualified-ca \
+  --set nodeContext.kubeletAudience=qualified-audience \
+  --set 'nodeContext.apiServerCIDRs[0]=10.96.0.1/32' \
+  --set 'nodeContext.nodeCIDRs[0]=172.18.0.0/16' > "${work_dir}/enabled.yaml"
+go run ./hack/node-context-contract "${work_dir}/default.yaml" "${work_dir}/enabled.yaml" docs/security/node-context-rbac.json
 go test -v ./internal/nodecontext
 echo 'node-context contract passed; no optional profile installed'

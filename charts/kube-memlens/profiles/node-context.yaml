@@ -1,0 +1,15 @@
+# Opt-in profile. Supply a verified CA ConfigMap, audience, and network CIDRs
+# separately. These are explicit capacity/resource settings for this profile;
+# standard chart defaults remain unchanged.
+nodeContext:
+  enabled: true
+collector:
+  store:
+    maxNodes: 1000
+    maxContainers: 20000
+  resources:
+    requests:
+      cpu: 50m
+      memory: 256Mi
+    limits:
+      memory: 512Mi

@@ -110,6 +110,11 @@ func registerIngestion(mux *http.ServeMux, store *Store, opts HandlerOptions, lo
 			writeError(w, http.StatusBadRequest, "invalid snapshot JSON")
 			return
 		}
+		if snapshot.NodeContext != nil {
+			result = "invalid_snapshot"
+			writeError(w, http.StatusBadRequest, "Node context requires authenticated ingestion")
+			return
+		}
 		if err := ValidateSnapshot(snapshot, time.Now().UTC(), opts); err != nil {
 			result = "invalid_snapshot"
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -257,7 +262,7 @@ func method(allowed string, next http.HandlerFunc) http.HandlerFunc {
 
 func ValidateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOptions) error {
 	if !api.SupportedSnapshotSchema(snapshot.SchemaVersion) {
-		return fmt.Errorf("unsupported schemaVersion %d; expected 1 or %d", snapshot.SchemaVersion, api.CurrentSnapshotSchemaVersion)
+		return fmt.Errorf("unsupported schemaVersion %d; expected a version from 1 to %d", snapshot.SchemaVersion, api.CurrentSnapshotSchemaVersion)
 	}
 	if strings.TrimSpace(snapshot.NodeName) == "" {
 		return fmt.Errorf("nodeName is required")

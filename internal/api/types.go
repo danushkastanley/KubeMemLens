@@ -4,10 +4,11 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const CurrentSnapshotSchemaVersion = 2
+const CurrentSnapshotSchemaVersion = 3
 const CurrentIncidentSchemaVersion = 2
 const CurrentExplanationSchemaVersion = 3
 const CurrentRecommendationSchemaVersion = 1
@@ -17,11 +18,12 @@ const MemoryAPIGroup = "memory.kubememlens.io"
 const MemoryAPIVersion = "v1alpha1"
 
 type AgentSnapshot struct {
-	SchemaVersion int                 `json:"schemaVersion"`
-	NodeName      string              `json:"nodeName"`
-	CapturedAt    time.Time           `json:"capturedAt"`
-	Environment   NodeEnvironment     `json:"environment"`
-	Containers    []ContainerSnapshot `json:"containers"`
+	SchemaVersion int                      `json:"schemaVersion"`
+	NodeName      string                   `json:"nodeName"`
+	CapturedAt    time.Time                `json:"capturedAt"`
+	Environment   NodeEnvironment          `json:"environment"`
+	Containers    []ContainerSnapshot      `json:"containers"`
+	NodeContext   *nodecontext.Observation `json:"nodeContext,omitempty"`
 }
 
 type NodeEnvironment struct {
@@ -329,6 +331,7 @@ type Metrics struct {
 }
 
 type DebugStore struct {
+	NodeContext      *NodeContextDebug    `json:"nodeContext,omitempty"`
 	TotalContainers  int                  `json:"totalContainers"`
 	StaleContainers  int                  `json:"staleContainers"`
 	NodeRecords      int                  `json:"nodeRecords"`

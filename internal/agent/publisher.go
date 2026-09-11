@@ -171,6 +171,9 @@ func (p *SnapshotPublisher) postWithRetry(ctx context.Context, request api.NodeS
 
 func (p *SnapshotPublisher) post(ctx context.Context, request api.NodeSnapshotRequest) (api.NodeSnapshotResponse, *responseError, error) {
 	var response api.NodeSnapshotResponse
+	if request.Snapshot.NodeContext != nil && p.schemaVersion < 3 {
+		return response, nil, fmt.Errorf("Node-context ingestion requires collector snapshot schema 3")
+	}
 	request.Snapshot = api.AgentSnapshotForSchema(request.Snapshot, p.schemaVersion)
 	status, body, err := p.doJSON(ctx, http.MethodPost, ingestionPath("nodesnapshots"), request)
 	if err != nil {

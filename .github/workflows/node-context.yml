@@ -2,10 +2,10 @@ name: Node-context verification
 
 on:
   pull_request:
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
   push:
     branches: [main]
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
 
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
   direct-kubelet:
     name: Node context / Kubernetes ${{ matrix.version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
     strategy:
       fail-fast: false
       matrix:
@@ -47,15 +47,22 @@ jobs:
           echo "50030de23cf40a18505f20426f6a8506bedf13c6e509244bd1fa9463721b0f54  ${tools_dir}/kind" | sha256sum --check
           curl -fsSLo "${tools_dir}/kubectl" "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
           echo "${KUBECTL_SHA256}  ${tools_dir}/kubectl" | sha256sum --check
+          curl -fsSLo "${tools_dir}/helm.tar.gz" https://get.helm.sh/helm-v3.18.4-linux-amd64.tar.gz
+          echo "f8180838c23d7c7d797b208861fecb591d9ce1690d8704ed1e4cb8e2add966c1  ${tools_dir}/helm.tar.gz" | sha256sum --check
+          tar -xzf "${tools_dir}/helm.tar.gz" -C "${tools_dir}"
+          mv "${tools_dir}/linux-amd64/helm" "${tools_dir}/helm"
           chmod +x "${tools_dir}/kind" "${tools_dir}/kubectl"
           echo "${tools_dir}" >> "${GITHUB_PATH}"
       - name: Fuzz bounded Node and Summary decoders
         run: |
           go test ./internal/nodestats -run '^$' -fuzz '^FuzzSummary$' -fuzztime=10s
           go test ./internal/nodestats -run '^$' -fuzz '^FuzzNode$' -fuzztime=10s
-      - name: Verify direct TLS and stats-only authorisation
+          go test ./internal/nodecontext -run '^$' -fuzz '^FuzzObservationDecoder$' -fuzztime=10s
+          go test ./internal/extension -run '^$' -fuzz '^FuzzNodeWire$' -fuzztime=10s
+      - name: Verify direct TLS, authenticated ingestion and reader isolation
         env:
           NODE_CONTEXT_ACKNOWLEDGE: create-and-remove-node-context-kind
+          NODE_CONTEXT_VERIFY_INGESTION: "true"
           NODE_CONTEXT_NODE_IMAGE: ${{ matrix.image }}
           NODE_CONTEXT_ARTIFACT_DIR: ${{ runner.temp }}/node-context-evidence
         run: hack/verify-node-context-kind.sh

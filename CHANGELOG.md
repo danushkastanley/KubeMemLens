@@ -4,6 +4,13 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Optional Node-context collection and history
+
+- Add a default-off producer for bounded, verified-TLS kubelet Summary reads, with its own ServiceAccount and no host mounts or Linux capabilities.
+- Add authenticated snapshot schema 3, independent producer ownership, current Node UID binding and bounded Node-only reads/history. Preserve schemas 1/2 and existing viewer permissions.
+- Retain source clocks and last good evidence through collection failures; report rebuilding, freshness and capacity in debug/doctor and aggregate operational metrics.
+- Provide an explicit Helm profile and local upgrade, rollback, restart and reader-isolation verification. Managed-provider qualification remains separate; Node analysis and the incident cockpit are not included in this slice.
+
 ### Restricted incidents and qualification tooling
 
 - Add incident schema 3 for restricted capture, deterministic offline replay and working-set comparison in the CLI and TUI. Retain source, sample windows, partial coverage and identity caveats; reject cgroup comparisons and schema downgrades.

@@ -1,6 +1,7 @@
 # Node-context threat review
 
-Status: NODE-001 design review. Runtime mitigations need later validation.
+Status: contract and local collection/ingestion review. Managed-provider and
+incident-capture mitigations require their separate qualification.
 Read with the [main model](KubeMemLens-threat-model.md),
 [contract](../node-context.md) and [ADR 0007](../adr/0007-isolate-node-context-producers-and-reads.md).
 
@@ -25,13 +26,15 @@ never receives its kubelet bearer credentials.
 
 ## Disposition
 
-The contract resolves competing producer ownership and implicit Pod access through
-Node resources before collection exists. Both have explicit invariants and
-required implementation tests. The chart rejects enablement, so this change
-creates no runtime trust path.
+Authenticated roles, separate store operations and current Node UID inventory
+now enforce producer isolation. Local Kubernetes verification exercises positive
+ingestion, Node-only reads, denied tenant/Pod access, immediate viewer revocation,
+producer replacement, collector rebuilding and profile enable/disable. Unit
+checks cover replay, individual source clocks, bounded history and strict schema
+1/2 compatibility. These checks do not qualify managed networks or providers.
 
 Residual risks remain stats access with a stolen optional token, inference from
 explicitly authorised Node aggregates, and provider-specific TLS/network limits.
 They are disclosed, not described as solved by application checks or portable
-NetworkPolicy. No runtime isolation or managed-provider qualification is claimed.
+NetworkPolicy. No managed-provider or portable NetworkPolicy enforcement qualification is claimed.
 Revisit this review when fields, permissions, endpoints, bounds or identities change.

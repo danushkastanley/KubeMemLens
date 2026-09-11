@@ -26,11 +26,14 @@ func NegotiateSnapshotSchema(value string) (int, error) {
 }
 
 func SupportedSnapshotSchema(version int) bool {
-	return version == LegacySchemaVersion || version == CurrentSnapshotSchemaVersion
+	return version >= LegacySchemaVersion && version <= CurrentSnapshotSchemaVersion
 }
 
 func AgentSnapshotForSchema(snapshot AgentSnapshot, version int) AgentSnapshot {
 	snapshot.SchemaVersion = version
+	if version < 3 {
+		snapshot.NodeContext = nil
+	}
 	if version == LegacySchemaVersion {
 		snapshot.Containers = legacyContainers(snapshot.Containers)
 	}
@@ -68,6 +71,16 @@ func legacyWorkload(workload WorkloadSnapshot) WorkloadSnapshot {
 // resource context. It preserves identity, pagination, memory evidence and
 // source ownership. The caller must negotiate version before reading data.
 func SnapshotView(value any, version int) any {
+	if version < 3 {
+		switch data := value.(type) {
+		case DebugStore:
+			data.NodeContext = nil
+			value = data
+		case ClusterStatus:
+			data.Store.NodeContext = nil
+			value = data
+		}
+	}
 	if version != LegacySchemaVersion {
 		return value
 	}

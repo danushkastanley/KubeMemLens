@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"sort"
 	"sync"
 	"time"
 
@@ -75,15 +74,15 @@ func (p *nodeCoverageReadiness) Run(ctx context.Context) {
 func (p *nodeCoverageReadiness) probe(ctx context.Context) {
 	probeCtx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
-	names, err := p.listNodeNames(probeCtx)
-	ready := err == nil && p.store.ReconcileExpectedNodes(names, time.Now().UTC()) == nil
+	identities, err := p.listNodeIdentities(probeCtx)
+	ready := err == nil && p.store.ReconcileNodeIdentities(identities, time.Now().UTC()) == nil
 	p.mu.Lock()
 	p.ready = ready
 	p.mu.Unlock()
 }
 
-func (p *nodeCoverageReadiness) listNodeNames(ctx context.Context) ([]string, error) {
-	names := make([]string, 0, min(p.maxNodes, int(nodeCoveragePageSize)))
+func (p *nodeCoverageReadiness) listNodeIdentities(ctx context.Context) (map[string]string, error) {
+	identities := make(map[string]string, min(p.maxNodes, int(nodeCoveragePageSize)))
 	continuation := ""
 	seen := map[string]struct{}{}
 	scanned := 0
@@ -100,13 +99,12 @@ func (p *nodeCoverageReadiness) listNodeNames(ctx context.Context) ([]string, er
 		}
 		for _, node := range page.Items {
 			if nodeTolerated(node.Spec.Taints, p.tolerations) {
-				names = append(names, node.Name)
+				identities[node.Name] = string(node.UID)
 			}
 		}
 		continuation = page.Continue
 		if continuation == "" {
-			sort.Strings(names)
-			return names, nil
+			return identities, nil
 		}
 		if scanned >= p.maxNodes {
 			return nil, collector.ErrStoreCapacity

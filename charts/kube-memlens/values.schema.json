@@ -7,9 +7,53 @@
     "nodeContext": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled"],
+      "required": [
+        "enabled",
+        "kubeletCAConfigMap",
+        "kubeletAudience",
+        "kubeletPort",
+        "apiServerCIDRs",
+        "nodeCIDRs",
+        "resources"
+      ],
       "properties": {
-        "enabled": {"const": false, "description": "Node-context collection is not available in this chart yet."}
+        "enabled": {
+          "type": "boolean"
+        },
+        "kubeletCAConfigMap": {
+          "type": "string",
+          "maxLength": 253
+        },
+        "kubeletAudience": {
+          "type": "string",
+          "maxLength": 253
+        },
+        "kubeletPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "apiServerCIDRs": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "nodeCIDRs": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "resources": {
+          "$ref": "#/definitions/resources"
+        }
       }
     },
     "image": {

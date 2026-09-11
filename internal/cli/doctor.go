@@ -164,6 +164,7 @@ func buildDoctorReport(ctx context.Context, opts client.Options) (doctorReport, 
 	default:
 		report.addCheck("collector bounds", "pass", capacitySummary)
 	}
+	report.addNodeContextChecks(debug.NodeContext)
 	return report, nil
 }
 
