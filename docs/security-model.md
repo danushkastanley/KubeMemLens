@@ -1,5 +1,9 @@
 # Security Model
 
+The optional Node-context design has a [separate permission and data contract](node-context.md)
+and [threat review](security/node-context-threat-review.md). Its producer is not
+yet enabled. Standard agent permissions are unchanged.
+
 KubeMemLens is privacy-first and local-first.
 
 ## Current candidate

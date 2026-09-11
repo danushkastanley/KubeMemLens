@@ -11,6 +11,10 @@ namespace:
   create: false
   name: kube-memlens
 
+# Contract reserved for the optional producer. This chart cannot enable it yet.
+nodeContext:
+  enabled: false
+
 agent:
   enabled: true
   nodeSelector:
