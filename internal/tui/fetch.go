@@ -11,6 +11,9 @@ import (
 )
 
 func (m appModel) fetchCmd() tea.Cmd {
+	if m.client == nil {
+		return m.discoverCmd()
+	}
 	generation := m.fetchGeneration
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(m.ctx, 5*time.Second)

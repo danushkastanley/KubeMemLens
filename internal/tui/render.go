@@ -33,7 +33,9 @@ func (m appModel) viewString() string {
 
 	var b strings.Builder
 	b.WriteString(m.renderHeader(width))
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+	b.WriteString(truncate(m.evidenceLabel(), width))
+	b.WriteString("\n")
 	if m.action.mode != actionClosed {
 		b.WriteString(m.renderAction(width))
 	} else if m.help {
@@ -41,7 +43,7 @@ func (m appModel) viewString() string {
 	} else if m.statusErr != nil && len(m.data.Namespaces) == 0 {
 		b.WriteString(m.renderConnectionError(width))
 	} else if len(m.data.Namespaces) == 0 && m.loading {
-		b.WriteString("Loading collector snapshots...")
+		b.WriteString(m.loadingLabel())
 	} else if len(m.data.Namespaces) == 0 && m.statusErr == nil && !m.loading {
 		b.WriteString(m.renderEmpty(width))
 	} else if m.requiresContainers() && !m.data.ContainersLoaded {

@@ -70,6 +70,7 @@ type Report struct {
 }
 
 type Source interface {
+	Discover(context.Context) (Report, error)
 	Read(context.Context) (Report, error)
 }
 

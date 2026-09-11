@@ -232,7 +232,7 @@ Read-only composition-aware guidance is exportable with `kubectl memlens recomme
 
 ## Using Without Port-Forward
 
-By default, KubeMemLens uses the caller's kubeconfig to reach `memory.kubememlens.io/v1alpha1`. Namespace commands use namespaced resource paths; `-A`, `status`, strict `doctor` and node views require the explicit cluster-viewer role.
+By default, KubeMemLens uses the caller's kubeconfig to reach `memory.kubememlens.io/v1alpha1`. Namespace commands use namespaced resource paths; `-A`, `status` without a namespace, strict `doctor` and node views require the explicit cluster-viewer role. Use `status -n <namespace>` for scoped source discovery. [Evidence modes](docs/evidence-sources.md) distinguish deep cgroup evidence from restricted Kubernetes API capabilities; restricted data queries are not yet available.
 
 ```sh
 go run ./cmd/kubectl-memlens status
