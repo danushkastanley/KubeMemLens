@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "self-managed-linux",
+  "provider": "self-managed",
+  "profileClass": "provider",
+  "nodeImage": "provider-receipt",
+  "workload": {
+    "linuxNodes": 2,
+    "containers": 32,
+    "containersPerPod": 8,
+    "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028"
+  },
+  "measurement": {
+    "baselineSeconds": 120,
+    "enabledSeconds": 660,
+    "settleSeconds": 30,
+    "sampleIntervalSeconds": 15,
+    "projectedLifetimeSeconds": 600
+  },
+  "budgets": {
+    "producerMeanCPUMilli": 50,
+    "producerPeakMemoryBytes": 67108864,
+    "kubeletMeanCPUIncreaseMilli": 100,
+    "kubeletPeakMemoryIncreaseBytes": 67108864,
+    "readP95Seconds": 1,
+    "responseMaxBytes": 4194304,
+    "agentScanP99Seconds": 4,
+    "recoverySeconds": 120
+  },
+  "requalificationDays": 30,
+  "profileDigest": "sha256:aeee731e6d92b6812beb35c355f18d5533b523c74e85bb7f1929b2ffa4ff8c73"
+}

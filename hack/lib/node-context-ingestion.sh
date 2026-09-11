@@ -25,6 +25,10 @@ PY
   kctl rollout status daemonset/kube-memlens-agent -n "${namespace}" --timeout=120s > "${work_dir}/agent-rollout.log"
   kctl wait --for=condition=Available apiservice/v1alpha1.memory.kubememlens.io --timeout=120s >/dev/null
   node_context_wait_read "${work_dir}" admin /clusterstatus/current 'd["store"]["totalContainers"] > 0' standard.json
+  if [ -n "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}" ]; then
+    source hack/lib/node-qualification-kind.sh
+    node_qualification_baseline
+  fi
   helm "${helm_args[@]}" --set nodeContext.enabled=true > "${work_dir}/helm-enabled.log" 2>&1
   kctl rollout status daemonset/kube-memlens-node-context -n "${namespace}" --timeout=120s > "${work_dir}/context-rollout.log"
   kctl create serviceaccount node-viewer -n "${namespace}" >/dev/null
@@ -32,7 +36,7 @@ PY
   kctl create clusterrolebinding node-context-test-viewer --clusterrole=kube-memlens-node-context-viewer --serviceaccount="${namespace}:node-viewer" >/dev/null
   kctl create rolebinding node-context-test-tenant -n "${namespace}" --clusterrole=kube-memlens-namespace-viewer --serviceaccount="${namespace}:tenant-viewer" >/dev/null
   for account in node-viewer tenant-viewer; do
-    kctl create token "${account}" -n "${namespace}" --duration=10m > "${work_dir}/${account}.token"
+    kctl create token "${account}" -n "${namespace}" --duration=30m > "${work_dir}/${account}.token"
     python3 - "${work_dir}" "${account}" <<'PY'
 import pathlib,sys
 root=pathlib.Path(sys.argv[1]); account=sys.argv[2]
@@ -42,6 +46,9 @@ PY
   node_context_wait_read "${work_dir}" node-viewer "/nodecontexts/${node}" 'd["record"].get("lastGood",{}).get("stats",{}).get("memory",{}).get("usageBytes",0)>0' node-good.json
   node_context_wait_read "${work_dir}" node-viewer "/nodecontexts/${node}/history?limit=1" 'len(d.get("series",[]))==1 and len(d["series"][0]["points"])>=2' history-before.json
   node_context_wait_read "${work_dir}" admin /clusterstatus/current 'd["store"]["totalContainers"]>0 and d["store"].get("nodeContext",{}).get("freshRecords",0)==1' both-sources.json
+  if [ -n "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}" ]; then
+    node_qualification_measure enabled
+  fi
   node_context_expect_status "${work_dir}" tenant-viewer "/nodecontexts/${node}" 403
   node_context_expect_status "${work_dir}" node-viewer /pods 403
   node_context_expect_status "${work_dir}" node-viewer /containers 403
@@ -50,6 +57,12 @@ PY
   node_analysis_verification "${work_dir}" "${namespace}" "${node}"
   source hack/lib/node-cockpit-verification.sh
   node_cockpit_verification "${work_dir}" "${namespace}" "${node}" "${kubeconfig}" "kind-${cluster}"
+  if [ -n "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}" ]; then
+    node_qualification_lifecycle
+  elif [ -n "${NODE_CONTEXT_LIFECYCLE_PROFILE:-}" ]; then
+    source hack/lib/node-qualification-kind.sh
+    node_qualification_lifecycle_diagnostic
+  fi
   kctl rollout restart daemonset/kube-memlens-node-context -n "${namespace}" >/dev/null
   kctl rollout status daemonset/kube-memlens-node-context -n "${namespace}" --timeout=120s >/dev/null
   node_context_wait_read "${work_dir}" node-viewer "/nodecontexts/${node}" 'd["record"].get("report",{}).get("reportedAt","")>previous["record"]["report"]["reportedAt"]' producer-replaced.json node-good.json

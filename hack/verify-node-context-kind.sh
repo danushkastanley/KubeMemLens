@@ -17,6 +17,17 @@ for command in kind kubectl docker go python3; do command -v "${command}" >/dev/
 existing=$(kind get clusters)
 if printf '%s\n' "${existing}" | grep -Fxq "${cluster}"; then echo 'refusing to replace an existing kind cluster' >&2; exit 1; fi
 [ ! -e "${artifact_dir}/summary.json" ] || { echo 'refusing to replace existing evidence' >&2; exit 1; }
+if [ -n "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}" ]; then
+  [ -z "${NODE_CONTEXT_LIFECYCLE_PROFILE:-}" ] || { echo 'select full qualification or lifecycle diagnosis, not both' >&2; exit 1; }
+  [ "${NODE_CONTEXT_VERIFY_INGESTION:-false}" = true ] || { echo 'qualification requires ingestion verification' >&2; exit 1; }
+  for output in qualification-observations.json qualification.json qualification-evaluation.json measurements-baseline.json measurements-enabled.json; do
+    [ ! -e "${artifact_dir}/${output}" ] || { echo 'refusing to replace qualification evidence' >&2; exit 1; }
+  done
+fi
+if [ -n "${NODE_CONTEXT_LIFECYCLE_PROFILE:-}" ]; then
+  [ "${NODE_CONTEXT_VERIFY_INGESTION:-false}" = true ] || { echo 'lifecycle diagnosis requires ingestion verification' >&2; exit 1; }
+  [ ! -e "${artifact_dir}/lifecycle-check.json" ] || { echo 'refusing to replace lifecycle diagnosis' >&2; exit 1; }
+fi
 work_dir=$(mktemp -d "${TMPDIR:-/tmp}/kube-memlens-node-context.XXXXXX")
 kubeconfig=${work_dir}/kubeconfig
 created=false
@@ -179,4 +190,8 @@ python3 - "${artifact_dir}/summary.json" <<'PY'
 import json, pathlib, sys
 p=pathlib.Path(sys.argv[1]); data=json.loads(p.read_text()); data['cleanup']='passed'; p.write_text(json.dumps(data,indent=2)+'\n')
 PY
+if [ -n "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}" ]; then
+  python3 hack/node-qualification/record_kind.py --profile "${NODE_CONTEXT_QUALIFICATION_PROFILE}" \
+    --output-dir "${artifact_dir}" --cleanup-confirmed
+fi
 echo 'PASS direct kubelet TLS, Pod-bound token audience, stats-only RBAC, denial, bad CA, bounded normalisation and cleanup'

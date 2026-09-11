@@ -1,0 +1,88 @@
+"""Assemble bounded public observations from private owned-kind measurements."""
+
+import argparse
+import hashlib
+import json
+import subprocess
+from pathlib import Path
+
+from common import digest, load, require, utc_text, write_new
+from evidence import PRIVACY, validate_evidence
+from evaluate import evaluate
+from profiles import validate_profile
+
+
+def sha(data):
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
+def assemble(root, profile):
+    p = validate_profile(profile)
+    source = load(root / "source.json")
+    node = json.loads((root / "node.json").read_text())["status"]["nodeInfo"]
+    observation = json.loads((root / "allowed.log").read_text())["observation"]
+    stats = observation["stats"]
+    memory, swap = stats.get("memory", {}), stats.get("swap") or {}
+    fields = {k: "available" if memory.get(v) is not None else "unreported"
+              for k, v in {"usage": "usageBytes", "available": "availableBytes", "workingSet": "workingSetBytes",
+                           "rss": "rssBytes", "faults": "pageFaults", "majorFaults": "majorPageFaults", "psi": "psi"}.items()}
+    for key, value in (("swapUsage", swap.get("usageBytes")), ("swapAvailable", swap.get("availableBytes")),
+                       ("systemContainers", stats.get("systemContainers")),
+                       ("hugepages", observation.get("context", {}).get("hugepages"))):
+        fields[key] = "available" if value is not None else "unreported"
+    baseline, enabled = [load(root / ("qualification-" + phase + ".json")) for phase in ("baseline", "enabled")]
+    binding = {"id": p["id"], "digest": p["profileDigest"]}
+    require(baseline["profile"] == binding and enabled["profile"] == binding,
+            "measurement profile changed during the run")
+    chart = b"".join(str(path).encode() + b"\0" + path.read_bytes() + b"\0"
+                     for path in sorted(Path("charts/kube-memlens").rglob("*")) if path.is_file())
+    e = {"schemaVersion": 1, "profile": {"id": p["id"], "digest": p["profileDigest"]},
+         "startedAt": (root / "qualification-start").read_text(), "completedAt": utc_text(), "orchestration": "completed",
+         "artefacts": {"sourceCommit": source["sourceCommit"],
+                       "toolCommit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+                       "sourceTreeDigest": "sha256:" + source["sourceTreeSHA256"],
+                       "sourceDirty": source["sourceDirty"], "imageDigest": (root / "image-id").read_text().strip(),
+                       "chartDigest": sha(chart), "cliDigest": sha((root / "image/kubectl-memlens").read_bytes()),
+                       "producerDigest": sha((root / "image/producer").read_bytes()),
+                       "valuesDigest": sha((root / "qualification-values.json").read_bytes()),
+                       "trustDigest": sha((root / "serving-ca.crt").read_bytes()),
+                       "audienceDigest": sha((root / "qualification-audience").read_bytes())},
+         "environment": {"provider": "kind", "kubernetes": node["kubeletVersion"], "kernel": node["kernelVersion"],
+                         "runtime": node["containerRuntimeVersion"], "nodeImage": p["nodeImage"], "osImage": node["osImage"],
+                         "architecture": node["architecture"], "cgroupVersion": "v2", "cni": "kindnet",
+                         "linuxNodes": 1, "providerReceiptDigest": None},
+         "transport": {"result": "passed", "reason": "none", "directTLS": True, "podBoundIdentity": True,
+                       "statsOnlyRBAC": True, "proxyAccess": False, "networkPolicy": "not-qualified", "servingTrust": "fixture-ca"},
+         "fields": fields, "provenance": stats["provenance"],
+         "samples": {"baseline": baseline["samples"], "enabled": enabled["samples"]},
+         "rotation": enabled["rotation"], "lifecycle": load(root / "qualification-lifecycle.json"),
+         "cleanup": {"workloadsRemoved": False, "rbacRemoved": False, "cloudResources": "not-applicable"},
+         "privacy": dict(PRIVACY)}
+    e["recordDigest"] = digest(e, "recordDigest")
+    return validate_evidence(p, e)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--profile", required=True)
+    parser.add_argument("--work-dir")
+    parser.add_argument("--output-dir", required=True)
+    parser.add_argument("--cleanup-confirmed", action="store_true")
+    args = parser.parse_args()
+    p, output = load(args.profile), Path(args.output_dir)
+    if not args.cleanup_confirmed:
+        write_new(output / "qualification-observations.json", assemble(Path(args.work_dir), p))
+        return 0
+    # The owner invokes this only after verifying cluster and image removal.
+    e = load(output / "qualification-observations.json")
+    e["cleanup"].update(workloadsRemoved=True, rbacRemoved=True)
+    e["recordDigest"] = digest(e, "recordDigest")
+    result = evaluate(p, e)
+    write_new(output / "qualification.json", e)
+    write_new(output / "qualification-evaluation.json", result)
+    print("local qualification measurements: " + result["outcome"] + "; independent review pending")
+    return 0 if result["outcome"] == "pass" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
