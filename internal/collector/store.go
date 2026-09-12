@@ -125,9 +125,9 @@ func (s *Store) ReplaceAuthenticatedNodeSnapshot(snapshot api.AgentSnapshot, uid
 			return len(previousNode.containers), nil
 		}
 	}
-	previousByContainer := map[string]model.MemoryBreakdown{}
+	previousByContainer := map[string]api.ContainerSnapshot{}
 	for _, container := range previousNode.containers {
-		previousByContainer[container.ContainerID] = container.Memory
+		previousByContainer[container.ContainerID] = container
 	}
 	containers := make([]api.ContainerSnapshot, 0, len(snapshot.Containers))
 	for _, container := range snapshot.Containers {
@@ -136,7 +136,8 @@ func (s *Store) ReplaceAuthenticatedNodeSnapshot(snapshot api.AgentSnapshot, uid
 		container.DeltaStartedAt = time.Time{}
 		container.DeltaWindowKnown = false
 		previous, ok := previousByContainer[container.ContainerID]
-		container.Memory = model.WithEventDeltas(container.Memory, previous, ok)
+		ok = ok && sameContainerInstance(container, previous)
+		container.Memory = model.WithEventDeltas(container.Memory, previous.Memory, ok)
 		if ok {
 			container.DeltaStartedAt = previousNode.capturedAt
 			container.DeltaWindowKnown = true

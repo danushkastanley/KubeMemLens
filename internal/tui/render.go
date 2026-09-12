@@ -226,6 +226,7 @@ func (m appModel) renderHelp(width int) string {
 		"N / n / w / p / c jump to node, namespace, workload, pod, or container view",
 		"Enter        drill into Node/namespace Pods or Pod detail",
 		"e            explain selected entity, including Node context",
+		"v            open authorised volume context from a Pod or workload",
 		"h / Backspace go back",
 		"k/j or arrows move selection",
 		"PgUp/PgDown  move faster",

@@ -15,11 +15,15 @@ type PodVolumeContext struct {
 }
 
 func PodVolumeContextForSchema(value PodVolumeContext, schema int) PodVolumeContext {
-	if schema >= VolumeHealthSnapshotSchemaVersion {
+	if schema >= IOPressureSnapshotSchemaVersion {
 		return value
 	}
 	value.Context.Volumes = slices.Clone(value.Context.Volumes)
 	for i := range value.Context.Volumes {
+		value.Context.Volumes[i].EvidenceID, value.Context.Volumes[i].FilesystemID = "", ""
+		if schema >= VolumeHealthSnapshotSchemaVersion {
+			continue
+		}
 		value.Context.Volumes[i].Health = slices.Clone(value.Context.Volumes[i].Health)
 		for j := range value.Context.Volumes[i].Health {
 			value.Context.Volumes[i].Health[j].LastGood = nil

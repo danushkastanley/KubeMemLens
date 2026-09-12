@@ -54,7 +54,9 @@ representation. See [ADR 0005](adr/0005-negotiate-resource-snapshot-schemas.md).
 Capture chooses incident schema 2 when resource metadata is present. Use
 `kubectl memlens capture -n production --pod api-abc --schema-version=1 -o incident.json`
 for an older replay binary; the export records that resource context was omitted.
-Current replay accepts deep schemas 1 and 2 and [restricted incident schema 3](restricted-incidents.md). Unknown or mismatched schemas are rejected.
+Current replay accepts deep schemas 1/2, [restricted schema 3](restricted-incidents.md),
+[Node schema 4](node-incidents.md) and [volume schema 5](volume-context.md).
+Unknown or mismatched schemas are rejected.
 
 ## MemoryQoS in version 3
 
@@ -97,3 +99,19 @@ versions they do not support rather than supplying zero composition or a clean
 diagnosis. These explanation versions do not change collector snapshots.
 Restricted capture separately uses incident schema 3.
 See [restricted workflows](restricted-mode.md) for commands, privacy and limits.
+
+## Volume correlation output
+
+`volumes pod|workload` and `explain pod|workload --volumes` emit explanation
+schema 5. Pod output contains a named `context` and pure `analysis`; workload
+output contains the authorised server composition under `evidence`, with
+per-Pod analyses and deduplicated filesystem groups. Memory and storage severity,
+usage/health/configuration source labels, I/O coverage and timestamp bounds remain
+separate. Names and binding references are intentional in this authenticated
+interactive output. They are removed from default incident exports.
+
+`recommend pod|workload --volumes` emits recommendation schema 3 and retains
+`automaticMutation: false`. Consumers must select the corresponding document
+kind and schema; existing memory and restricted output versions are unchanged.
+Snapshot schema 6 and incident schema 5 are separate contracts. See the
+[volume workflow](volume-context.md) for bounds, permissions and legacy export.

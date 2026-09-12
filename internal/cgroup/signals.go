@@ -26,6 +26,7 @@ type memoryPressure struct {
 }
 
 func readMemorySignals(dir string, breakdown *model.MemoryBreakdown) error {
+	breakdown.IOPressure = readIOPressure(dir)
 	var err error
 	if breakdown.PeakBytes, breakdown.PeakKnown, _, err = readOptionalScalar(dir, "memory.peak", false); err != nil {
 		return err

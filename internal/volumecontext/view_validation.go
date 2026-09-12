@@ -15,6 +15,9 @@ func ValidateView(view View, now time.Time) error {
 	}
 	seen := map[string]bool{}
 	for _, v := range view.Volumes {
+		if !validEvidenceID(v.EvidenceID) || !validEvidenceID(v.FilesystemID) || (v.FilesystemID != "" && (v.EvidenceID == "" || v.PVCName == "")) {
+			return ErrInvalid
+		}
 		if !validName(v.VolumeName) || len(v.VolumeName) > 63 || seen[v.VolumeName] || (v.PVCName != "" && !validName(v.PVCName)) || (v.Driver != "" && !validName(v.Driver)) {
 			return ErrInvalid
 		}

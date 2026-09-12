@@ -59,6 +59,8 @@ func volumeObjectValue(d *json.Decoder, field string, depth int) error {
 	case '[':
 		limit := 1024
 		switch field {
+		case "items":
+			limit = volumecontext.MaxWorkloadPods + 1
 		case "volumes", "volumemounts", "volumehealth", "ownerreferences":
 			limit = volumecontext.MaxVolumesPerPod
 		case "containers", "initcontainers", "ephemeralcontainers", "containerstatuses", "initcontainerstatuses", "ephemeralcontainerstatuses":

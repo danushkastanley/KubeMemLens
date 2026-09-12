@@ -52,6 +52,9 @@ spec:
             - "--extension-tls-key-file=/var/run/kube-memlens/tls/tls.key"
             - "--agent-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-agent"
 {{- if .Values.volumeContext.enabled }}
+            {{- if .Values.volumeContext.workloads }}
+            - "--volume-workloads-enabled=true"
+            {{- end }}
             - {{ printf "--volume-context-namespaces=%s" (join "," .Values.volumeContext.namespaces) | quote }}
             {{- if .Values.volumeContext.health }}
             - "--volume-health-enabled=true"

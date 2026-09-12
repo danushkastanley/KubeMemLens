@@ -18,6 +18,7 @@ import (
 
 func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	var namespace, beforePath, afterPath, incidentPodRef, incidentWorkloadRef, nodeRef string
+	var includeVolumes bool
 	cmd := &cobra.Command{
 		Use:   "compare [pod-a] [pod-b]",
 		Short: "Compare two live Pods or one Pod across incident bundles",
@@ -41,7 +42,7 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 						selected++
 					}
 				}
-				if beforePath == "" || afterPath == "" || selected != 1 {
+				if beforePath == "" || afterPath == "" || selected > 1 || (selected == 0 && !includeVolumes) {
 					return fmt.Errorf("incident comparison requires --before, --after, and exactly one of --pod, --workload or --node")
 				}
 				beforeDocument, err := incident.Read(beforePath)
@@ -51,6 +52,9 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				afterDocument, err := incident.Read(afterPath)
 				if err != nil {
 					return fmt.Errorf("read after bundle: %w", err)
+				}
+				if beforeDocument.Volume != nil || afterDocument.Volume != nil || includeVolumes {
+					return compareVolumeDocuments(cmd.OutOrStdout(), beforeDocument, afterDocument, incidentPodRef, incidentWorkloadRef, nodeRef)
 				}
 				if beforeDocument.Node != nil || afterDocument.Node != nil || nodeRef != "" {
 					return compareNodeDocuments(cmd.OutOrStdout(), beforeDocument, afterDocument, nodeRef)
@@ -84,6 +88,9 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				return nil
 			}
 
+			if includeVolumes {
+				return compareLiveVolumes(cmd, collectorOptions, namespace, args)
+			}
 			opts, err := withReadScope(collectorOptions(), namespace, false)
 			if err != nil {
 				return err
@@ -123,6 +130,7 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	cmd.Flags().StringVar(&incidentPodRef, "pod", "", "Pod to compare across bundles as <namespace>/<name>")
 	cmd.Flags().StringVar(&incidentWorkloadRef, "workload", "", "workload to compare across bundles as <namespace>/<kind>/<name>")
 	cmd.Flags().StringVar(&nodeRef, "node", "", "Node to compare across schema-4 bundles")
+	cmd.Flags().BoolVar(&includeVolumes, "volumes", false, "compare authorised live volume evidence or two schema-5 captures")
 	return cmd
 }
 

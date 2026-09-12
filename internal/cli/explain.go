@@ -21,6 +21,7 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 
 	var namespace string
 	var podOutput string
+	var includeVolumes bool
 	podCmd := &cobra.Command{
 		Use:   "pod <pod-name>",
 		Short: "Explain one pod",
@@ -38,12 +39,18 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				return collectorUnavailableError(opts, session.Description, err)
 			}
 			if session.Plan.Mode == capability.Restricted {
+				if includeVolumes {
+					return fmt.Errorf("volume correlation requires the authenticated collector volume profile")
+				}
 				return runRestrictedReport(cmd, session, explanationTarget{Kind: "Pod", Namespace: namespace, Name: args[0]}, capability.PodScope, podOutput, restrictedExplain)
 			}
 			reader, description := session.Reader, session.Description
 			pod, err := readPod(cmd.Context(), reader, namespace, args[0])
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
+			}
+			if includeVolumes {
+				return explainPodWithVolumes(cmd, reader, pod, podOutput)
 			}
 			if podOutput == "text" {
 				printPodExplanation(cmd.OutOrStdout(), pod)
@@ -54,10 +61,12 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	}
 	podCmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
 	podCmd.Flags().StringVarP(&podOutput, "output", "o", "text", "output format: text, json, or yaml")
+	podCmd.Flags().BoolVar(&includeVolumes, "volumes", false, "include authorised volume evidence; structured output uses explanation schema 5")
 	cmd.AddCommand(podCmd)
 
 	var workloadNamespace string
 	var workloadOutput string
+	var workloadVolumes bool
 	workloadCmd := &cobra.Command{
 		Use:   "workload <kind>/<name>",
 		Short: "Explain one top-level workload and show replica outliers",
@@ -69,6 +78,9 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			parts := strings.Split(args[0], "/")
 			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 				return fmt.Errorf("workload must be written as <kind>/<name>, for example deployment/api")
+			}
+			if workloadVolumes {
+				return runWorkloadVolumes(cmd, collectorOptions, workloadNamespace, parts[0], parts[1], workloadOutput)
 			}
 			opts, err := withReadScope(collectorOptions(), workloadNamespace, false)
 			if err != nil {
@@ -100,6 +112,7 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	}
 	workloadCmd.Flags().StringVarP(&workloadNamespace, "namespace", "n", "default", "Kubernetes namespace")
 	workloadCmd.Flags().StringVarP(&workloadOutput, "output", "o", "text", "output format: text, json, or yaml")
+	workloadCmd.Flags().BoolVar(&workloadVolumes, "volumes", false, "include one authorised workload volume composition; requires the workload volume profile")
 	cmd.AddCommand(workloadCmd)
 	cmd.AddCommand(newExplainNodeCommand(collectorOptions))
 

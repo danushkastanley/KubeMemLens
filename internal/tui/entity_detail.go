@@ -77,6 +77,7 @@ func (m appModel) workloadDetailLines() []string {
 		}
 		lines = append(lines, "", "Next command:",
 			"kubectl memlens explain workload "+workload.Kind+"/"+workload.Name+" -n "+workload.Namespace)
+		lines = append(lines, m.workloadVolumeSummaryLines(workload.Namespace, workload.Kind, workload.Name)...)
 		return lines
 	}
 	return []string{"Selected workload is no longer present in collector snapshots."}

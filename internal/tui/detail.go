@@ -12,6 +12,9 @@ import (
 )
 
 func (m appModel) detailLines(width int) []string {
+	if m.detailSection == detailVolumes && !m.restricted() {
+		return m.volumeDetailLines(width)
+	}
 	if m.restricted() {
 		return m.observationDetail(m.detail, width)
 	}
@@ -84,6 +87,7 @@ func (m appModel) podDetailLines(pod api.PodSnapshot, width int, historyTitle st
 	}
 	lines = append(lines, "")
 	lines = append(lines, podContextLines(pod)...)
+	lines = append(lines, m.volumeSummaryLines(pod, width)...)
 	lines = append(lines,
 		"",
 		"Secondary detail (overlaps primary composition):",

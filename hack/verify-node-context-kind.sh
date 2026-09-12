@@ -233,6 +233,8 @@ if volumes.exists():
     summary['hostMountsScope']='producer'
 health=root/'volume-health-result.json'
 if health.exists(): summary['volumeHealth']=json.loads(health.read_text())
+volume_cockpit=root/'volume-cockpit-result.json'
+if volume_cockpit.exists(): summary['volumeCockpit']=json.loads(volume_cockpit.read_text())
 if sys.argv[4] or sys.argv[5]=='kubernetes':
     summary['hostMountsScope']='producer'
     summary['observer']={'method':'kubernetes-probes-v1','readOnlyHostCgroups':True,'hostPID':False,'hostNetwork':False}

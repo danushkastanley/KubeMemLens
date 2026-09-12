@@ -153,7 +153,7 @@ Kubernetes names and runtime identifiers can reveal tenant and workload structur
 | Logs | Node names, bounded counts, operational errors and configured limits may appear. | Candidate error text requires review before sharing. Tests prove that credentials, Pod UIDs, container IDs, raw label maps, cgroup paths and file paths stay out of logs. |
 | Default incident capture | Pod, namespace, node, container and workload display names; memory evidence; optional bounded history. | Pod UIDs, container IDs, cgroup paths and label maps are removed. The result is redacted, not anonymous. |
 | Sensitive incident capture | The default fields plus Pod UID, container ID, cgroup path and bounded labels. | Requires `--include-sensitive`, stays local and must not be attached to a public issue without manual redaction. |
-| File, process and volume names | File and process names are not collected. Volume names are not collected by the current deep-mode model. | Future authorised volume views and direct traces require their own contracts. Names remain excluded from default metrics, logs and redacted captures. |
+| File, process and volume names | File and process names are not collected. Optional caller-authorised volume views include volume/PVC names. | Volume schema 6 responses and explicit sensitive schema-5 incidents carry authorised identities; default volume captures use local aliases. Names remain excluded from default metrics, logs and redacted captures. |
 
 KubeMemLens does not send product telemetry or copy cluster data to a hosted service.
 
@@ -180,3 +180,11 @@ One passing provider run supports only the recorded profile. Live-cloud qualific
 ## Report a compatibility gap
 
 Use the compatibility issue form and submit synthetic or redacted evidence. Include KubeMemLens, Kubernetes, kernel, runtime, operating system and cgroup-mode versions. Never attach credentials or unredacted production identifiers.
+
+Volume correlation uses snapshot schema 6 and incident schema 5. Older snapshot
+schemas project out I/O pressure and binding references; earlier incident domains
+retain their meanings. Workload volume reads are an independent opt-in profile.
+See [volume context](volume-context.md) for disclosure and compatibility details.
+The local hostpath CSI fixture does not qualify EBS, GCE PD or Azure Disk CSI.
+Usage, health and source availability remain separate provider capabilities;
+no storage-operation latency support is claimed.

@@ -6,7 +6,6 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/volumecontext"
 	"github.com/danushkastanley/kube-memlens/internal/volumehealth"
-	"golang.org/x/time/rate"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 )
@@ -25,8 +24,6 @@ func NewHealthVolumeResolver(ctx context.Context, config *rest.Config, authorize
 		return nil, err
 	}
 	r.health = newHealthCache()
-	r.queries = make(chan struct{}, 4)
-	r.calls = rate.NewLimiter(20, 40)
 	go func() { r.health.run(ctx); r.reader.client.CloseIdleConnections() }()
 	return r, nil
 }

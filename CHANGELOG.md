@@ -4,6 +4,13 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Volume correlation
+
+- Add caller-authorised Pod and workload volume views, with filesystem bytes/inodes, CSI health and tmpfs configuration separate from memory totals.
+- Correlate container I/O pressure, cache movement and dirty/writeback evidence without claiming causality or per-volume charge. Preserve missing values, source ages and old snapshot schemas.
+- Add fresh volume-aware recommendations, comparison and schema-5 incident capture/replay. Default captures redact identities; linked comparisons require verified references and explicit sensitive exports.
+- Add a separate opt-in workload profile with live controller ownership, bounded queries, shared-PVC deduplication and unchanged existing viewer roles. Managed CSI qualification remains separate.
+
 ### Node commands and incidents
 
 - Add Node explain/history commands with source ages, missing-field states, qualified estimates and bounded contributor rankings.

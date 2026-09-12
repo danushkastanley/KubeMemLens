@@ -49,12 +49,14 @@ PY
 import pathlib,sys
 p=pathlib.Path(sys.argv[1]); (p/'volume-viewer.header').write_text('Authorization: Bearer '+(p/'volume-viewer.token').read_text().strip()+'\n')
 PY
+  # Helm readiness can precede aggregation readiness. Prove a real read before
+  # asserting denial and old-schema status codes, without retrying those checks.
+  volume_wait 'd["context"]["volumes"][0]["usage"].get("filesystem",{}).get("capacityBytes")==134217728' volume-before.json
   node_context_expect_status "${work_dir}" node-viewer "${volume_path}" 403 4
   node_context_expect_status "${work_dir}" tenant-viewer "${volume_path}" 403 4
   node_context_expect_status "${work_dir}" volume-viewer /namespaces/kube-memlens-csi-other/pods/persistent/volumes 403 4
   node_context_expect_status "${work_dir}" volume-viewer /namespaces/kube-memlens-csi-other/pods/absent/volumes 403 4
   node_context_expect_status "${work_dir}" volume-viewer "${volume_path}" 404 3
-  volume_wait 'd["context"]["volumes"][0]["usage"].get("filesystem",{}).get("capacityBytes")==134217728' volume-before.json
   go build -o "${work_dir}/volume-probe" ./hack/fixtures/volume-stats-probe
   "${work_dir}/volume-probe" --kubeconfig "${kubeconfig}" --token-file "${work_dir}/volume-viewer.token" > "${work_dir}/volume-client.json"
   # Expand counters inside the fixture container, never in the caller's shell.
@@ -72,6 +74,8 @@ assert a['inodesUsed']-b['inodesUsed']==65 and b['inodesFree']-a['inodesFree']==
 assert a['capturedAt']>b['capturedAt'] and row['usage']['freshness']=='fresh'
 (root/'volume-deltas.json').write_text(json.dumps({'capacityBytes':a['capacityBytes'],'usedDeltaBytes':a['usedBytes']-b['usedBytes'],'inodeDelta':a['inodesUsed']-b['inodesUsed'],'sourceTimestampAdvanced':True}))
 PY
+  source hack/lib/volume-cockpit-verification.sh
+  volume_cockpit_verification
   if [ -n "${NODE_CONTEXT_VOLUME_HEALTH_PROFILE:-}" ]; then
     source hack/lib/volume-health-verification.sh
     volume_health_verification

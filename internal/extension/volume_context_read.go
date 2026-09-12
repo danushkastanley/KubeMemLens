@@ -40,7 +40,14 @@ func (h *ReadHandler) authoriseVolumeObject(ctx context.Context, a kube.VolumeAc
 	if !ok || principal == nil || h.podAuthorizer == nil {
 		return &kube.HealthReadError{Reason: volumehealth.AccessDenied}
 	}
-	decision, _, err := h.podAuthorizer.Authorize(ctx, authorizer.AttributesRecord{User: principal, Verb: "get", APIGroup: a.Group, APIVersion: "v1", Resource: a.Resource, Namespace: a.Namespace, Name: a.Name, ResourceRequest: true})
+	verb, version := a.Verb, "v1"
+	if verb == "" {
+		verb = "get"
+	}
+	if a.Group == api.MemoryAPIGroup {
+		version = api.MemoryAPIVersion
+	}
+	decision, _, err := h.podAuthorizer.Authorize(ctx, authorizer.AttributesRecord{User: principal, Verb: verb, APIGroup: a.Group, APIVersion: version, Resource: a.Resource, Namespace: a.Namespace, Name: a.Name, ResourceRequest: true})
 	if err != nil {
 		return &kube.HealthReadError{Reason: volumehealth.ReadFailed}
 	}
@@ -83,7 +90,11 @@ func (h *ReadHandler) servePodVolumes(w http.ResponseWriter, r *http.Request, in
 }
 
 func writeVolumeReadError(w http.ResponseWriter, err error) {
-	if errors.Is(err, kube.ErrVolumePodNotFound) {
+	if errors.Is(err, kube.ErrVolumeWorkloadBounds) {
+		writeReadError(w, http.StatusRequestEntityTooLarge, metav1.StatusReasonRequestEntityTooLarge, "workload volume query exceeds bounded coverage; inspect individual Pods")
+		return
+	}
+	if errors.Is(err, kube.ErrVolumePodNotFound) || errors.Is(err, kube.ErrVolumeWorkloadNotFound) {
 		writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
 		return
 	}

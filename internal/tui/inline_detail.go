@@ -33,7 +33,8 @@ func (m appModel) inlineDetailLines(width int) []string {
 		if selected >= 0 && selected < len(items) {
 			item := items[selected]
 			lines := summaryLines(item.Kind, item.Name, item.PodCount, item.Memory, item.CapturedAt.String())
-			return append(lines, "", "Largest Pod", item.LargestPodName+"  "+memmodel.FormatCompactBytes(item.LargestPodBytes))
+			lines = append(lines, "", "Largest Pod", item.LargestPodName+"  "+memmodel.FormatCompactBytes(item.LargestPodBytes))
+			return append(lines, m.workloadVolumeSummaryLines(item.Namespace, item.Kind, item.Name)...)
 		}
 	case viewPods:
 		if pod, ok := m.selectedVisiblePod(); ok {

@@ -7,6 +7,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/observationview"
 )
 
@@ -28,6 +29,7 @@ type actionState struct {
 	nextID              uint64
 	activeID            uint64
 	compareSource       *api.PodSnapshot
+	volumeCompareSource *explain.VolumeInput
 	observationSource   *observationview.Row
 	observationSourceAt time.Time
 	pendingRequest      *actionRequest
@@ -92,6 +94,9 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 }
 
 func (m *appModel) startRecommendation() tea.Cmd {
+	if !m.restricted() && m.view == viewDetail && m.detailSection == detailVolumes {
+		return m.startVolumeRecommendation()
+	}
 	if m.restricted() {
 		m.showObservationRecommendations()
 		return nil
@@ -113,6 +118,9 @@ func (m *appModel) startRecommendation() tea.Cmd {
 }
 
 func (m *appModel) startCompare() tea.Cmd {
+	if !m.restricted() && m.view == viewDetail && m.detailSection == detailVolumes {
+		return m.startVolumeCompare()
+	}
 	if m.restricted() {
 		return m.startObservationCompare()
 	}
@@ -147,6 +155,9 @@ func (m *appModel) startCompare() tea.Cmd {
 }
 
 func (m *appModel) startCapture(overwrite bool) tea.Cmd {
+	if !m.restricted() && m.view == viewDetail && m.detailSection == detailVolumes {
+		return m.startVolumeCapture(overwrite)
+	}
 	if m.restricted() {
 		return m.startObservationCapture(overwrite)
 	}
@@ -231,6 +242,7 @@ func (m *appModel) completeAction(message actionMsg) {
 	if message.id != m.action.activeID {
 		return
 	}
+	m.completeVolumeAction(message)
 	m.action.inFlight = false
 	m.action.result = message.result
 	m.action.err = message.err
@@ -277,6 +289,9 @@ func (m appModel) currentActionPod() (api.PodSnapshot, bool) {
 }
 
 func (m appModel) currentCommand() (string, bool) {
+	if m.view == viewDetail && m.detailSection == detailVolumes {
+		return m.volumeCommand()
+	}
 	if m.restricted() {
 		return m.observationCommand()
 	}

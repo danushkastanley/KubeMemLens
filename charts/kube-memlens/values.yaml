@@ -31,6 +31,7 @@ nodeContext:
 
 # Optional namespace-scoped volume reads. Namespaces must already exist.
 volumeContext:
+  workloads: false
   enabled: false
   health: false
   namespaces: []

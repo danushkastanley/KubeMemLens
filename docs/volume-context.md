@@ -4,7 +4,8 @@ The volume context model keeps filesystem usage, memory-backed configuration
 and CSI health separate. It does not add volume bytes to cgroup memory charge.
 The optional collector API provides current Pod volume configuration and kubelet
 filesystem measurements, with separately enabled CSI health. Collection defaults
-to off; CLI/TUI presentation and volume incident capture are separate integrations.
+to off. The CLI and TUI use fresh caller-authorised reads for volume views,
+recommendations, comparisons and volume incident capture.
 
 ## Identity and access
 
@@ -133,8 +134,10 @@ batches and enables the named Pod-volume resource. Snapshot schema 5 adds the
 optional historical health report. Schema 4 readers receive current health with
 `health.lastGood` projected out; usage ingestion remains compatible. Schemas 1/2/3
 omit volume batches and keep their existing representations; the new route is
-hidden from readers that negotiate those older schemas. Incident schema 5 is reserved; existing readers still reject it until
-capture and replay integration exists. Deep incident schemas 1/2, restricted 3
+hidden from readers that negotiate those older schemas. Snapshot schema 6 adds container `ioPressure`, immutable binding references in
+authorised volume responses and the workload-volume route. Schemas 1 through 5
+project out I/O pressure; schemas 4/5 omit binding references. Incident schema 5
+is active for one Pod with volume evidence. Deep incident schemas 1/2, restricted 3
 and Node 4 keep their meanings. Integration must explicitly project unsupported
 fields for old readers and report omitted evidence in legacy captures.
 
@@ -174,11 +177,11 @@ kubectl create rolebinding memlens-volume-viewer --namespace team-a \
 ```
 
 Using that viewer's kubeconfig, run `kubectl proxy --address=127.0.0.1 --port=8001`
-in one terminal. In another, explicitly negotiate schema 5:
+in one terminal. In another, explicitly negotiate schema 6:
 
 ```sh
 curl --fail --silent --show-error \
-  --header "X-KubeMemLens-Snapshot-Schema: 5" \
+  --header "X-KubeMemLens-Snapshot-Schema: 6" \
   http://127.0.0.1:8001/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods/app/volumes
 ```
 
@@ -276,3 +279,121 @@ Pod/backend health, separately labelled API-seeded PVC-controller conditions,
 conflicts, recovery, historical health projection and individual source revocation.
 The fixture's direct CSI socket access and status patches belong only to the
 owned test resources. Product acquisition remains read-only through Kubernetes.
+
+## Operator workflow
+
+The volume commands require the authenticated Kubernetes API connection. Bind
+both the namespace memory viewer and the volume viewer to inspect memory and
+volumes together. The volume-only viewer remains useful for the scoped raw API.
+
+```sh
+kubectl create rolebinding memlens-memory-viewer --namespace team-a \
+  --clusterrole kube-memlens-namespace-viewer --serviceaccount team-a:viewer
+kubectl memlens volumes pod app -n team-a
+kubectl memlens explain pod app -n team-a --volumes
+kubectl memlens recommend pod app -n team-a --volumes
+```
+
+Interactive text, JSON and YAML contain authorised names. Volume explanations use
+output schema 5; volume-aware recommendations use schema 3. Filesystem byte/inode
+saturation, memory-backed configuration and each health source have separate
+labels. Recommendations provide read-only checks and never resize or repair
+storage. Dirty/writeback, cache movement and I/O stalls are supporting evidence;
+correlation cannot establish a storage cause or attribute charge to a volume.
+
+In the TUI, select a Pod or workload and press `v`. Press `e` for memory details,
+`g`/`G` to reach the first/last section, and Space to pause. Volume reads refresh
+at most every 15 seconds independently of memory polling. Stale values retain
+source times; values expire after two minutes even while paused. Confirmed
+permission loss clears protected volume data and pending actions.
+
+Press `R` for fresh recommendations. In a Pod volume view, `C` opens a redacted
+capture and `x` marks a fresh comparison source; select a Pod and press `x` again
+to compare. The second action rechecks access to the first Pod. Comparison marks
+expire after two minutes. `y` explicitly copies the follow-up command for the
+selected scope; it does not copy the evidence payload.
+
+## I/O pressure
+
+The cgroup reader optionally reads `io.pressure`, bounded to 4 KiB. A missing,
+unreadable or invalid file produces an explicit enrichment state and preserves
+valid memory evidence. I/O percentages and counters are per container. The view
+reports coverage, sample times and the highest observed container averages;
+it never sums PSI into a Pod, workload or memory total. Counter deltas require
+the same Pod and container instance; resets leave the delta window unknown.
+I/O PSI is neither storage-operation latency nor proof of a fault in a named
+volume. No block-device or per-volume latency collection is included.
+
+## Workload scope
+
+Set `volumeContext.workloads: true` in addition to the volume profile. It creates
+separate namespace acquisition roles with Pod/Job list and controller get
+permissions, and an unbound `kube-memlens-workload-volume-viewer` ClusterRole.
+Existing viewer roles are unchanged. Bind it only in the intended namespace:
+
+```sh
+kubectl create rolebinding memlens-workload-volumes --namespace team-a \
+  --clusterrole kube-memlens-workload-volume-viewer --serviceaccount team-a:viewer
+kubectl memlens volumes workload Deployment/app -n team-a
+kubectl memlens explain workload Deployment/app -n team-a --volumes
+kubectl memlens recommend workload Deployment/app -n team-a --volumes
+```
+
+Deployment, ReplicaSet, StatefulSet, DaemonSet, ReplicationController, Job and
+CronJob queries resolve live controller UIDs and independently authorised Pod
+bindings. Selected labels alone do not establish ownership. Parent identities
+and access are checked again before publication. Unscheduled Pods and missing
+cgroup observations remain explicit partial coverage.
+
+The endpoint `workloads/{name}/volumes?kind=Deployment` requires snapshot schema
+6. Queries are bounded to 32 Pods, 100 volume references, 1,024 containers and
+256 KiB. CronJob inventory permits at most 256 Jobs and eight continuation pages.
+Metadata resolution has an eight-second deadline; response composition is
+limited to nine seconds. Binding metadata and its access checks share a 20-operation/second, burst-40
+limiter. Composition additionally checks memory disclosure once per selected Pod
+(at most 32 checks), within the same nine-second response deadline. The HTTP handler allows one active volume
+query and returns 429 for excess queries; ordinary memory reads use a separate
+gate. A large workload that exceeds these bounds must be inspected by Pod.
+
+Shared PVC filesystems are deduplicated using current namespace/PVC UID/PV UID
+bindings. Each Pod mount remains visible. Different mount observations retain a
+caveat; filesystem numbers are never summed. Binding references are neither
+access tokens nor proof against remounting or reformatting. Default redacted
+exports remove both `evidenceID` and `filesystemID`.
+
+## Volume incidents and comparison
+
+Capture one named Pod with fresh access checks, including on overwrite:
+
+```sh
+kubectl memlens capture --volumes --pod app -n team-a --include-history -o incident.json
+kubectl memlens replay incident.json
+kubectl memlens replay incident.json --export-schema 1 -o legacy.json
+```
+
+Schema 5 is bounded to 2 MiB, 256 containers, 64 volumes and 181 optional history
+points from the selected Pod/Node instance. Files are written atomically with
+mode 0600; an existing file requires `--force`. Default captures replace names
+with capture-local aliases and omit raw UIDs, runtime IDs, paths, labels, backend
+messages and binding references. Aliases cannot link independent captures.
+Explicit legacy exports to schema 1 or 2 omit volume and I/O enrichment and mark
+the result partial with an omission caveat. Existing incident schemas 1/2/3/4
+keep their domains, and older readers reject schema 5.
+
+For a private comparison that needs identity continuity, explicitly use
+`--include-sensitive` for both captures and protect those files. Compare with:
+
+```sh
+kubectl memlens compare --volumes --before before.json --after after.json
+kubectl memlens compare pod/app-a pod/app-b -n team-a --volumes
+```
+
+Offline replay and comparison require no cluster access. Filesystem deltas need
+matching verified binding references and fresh, ordered source samples. Memory
+deltas additionally require the same Pod and container instances. Unlinked or
+redacted observations remain separately labelled before/after evidence. Two
+samples cannot establish sustained growth, latency or causality.
+
+Disable `volumeContext.workloads` to remove its acquisition roles and route.
+Before downgrading, disable the optional volume profiles and explicitly export
+any incident needed by an older reader. There is no database migration.

@@ -32,9 +32,13 @@ func newRecommendCommand(collectorOptions collectorOptionsProvider) *cobra.Comma
 
 func newRecommendPodCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	var namespace, output string
+	var includeVolumes bool
 	cmd := &cobra.Command{
 		Use: "pod <pod-name>", Short: "Recommend next investigation steps for one Pod", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if includeVolumes {
+				return runVolumeRecommendations(cmd, collectorOptions, namespace, "Pod", args[0], output)
+			}
 			if err := validateRecommendationOutput(output); err != nil {
 				return err
 			}
@@ -62,11 +66,13 @@ func newRecommendPodCommand(collectorOptions collectorOptionsProvider) *cobra.Co
 	}
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text, json, or yaml")
+	cmd.Flags().BoolVar(&includeVolumes, "volumes", false, "include fresh authorised volume evidence; structured output uses recommendation schema 3")
 	return cmd
 }
 
 func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	var namespace, output string
+	var includeVolumes bool
 	cmd := &cobra.Command{
 		Use: "workload <kind>/<name>", Short: "Recommend next investigation steps for a workload", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -76,6 +82,9 @@ func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cob
 			parts := strings.Split(args[0], "/")
 			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 				return fmt.Errorf("workload must be written as <kind>/<name>")
+			}
+			if includeVolumes {
+				return runVolumeRecommendations(cmd, collectorOptions, namespace, parts[0], parts[1], output)
 			}
 			opts, err := withReadScope(collectorOptions(), namespace, false)
 			if err != nil {
@@ -106,6 +115,7 @@ func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cob
 	}
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text, json, or yaml")
+	cmd.Flags().BoolVar(&includeVolumes, "volumes", false, "include fresh authorised workload volume evidence; requires the workload volume profile")
 	return cmd
 }
 

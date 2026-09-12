@@ -132,8 +132,8 @@ profiles enabled. It shares the existing Summary request and adds no producer
 permissions. Namespace viewers need no PV access to read their PVC usage;
 PV-derived driver disclosure remains separately authorised. See the
 [volume context runbook](../../docs/volume-context.md) for access, bounds and
-rollback. CLI/TUI volume presentation and incident capture are not enabled by
-these settings alone.
+rollback. CLI/TUI correlation requires both memory and volume viewer
+permissions. Default volume captures redact identities.
 
 `volumeContext.health` independently enables CSI health reads and defaults to
 `false`. Pod/PVC health uses existing scoped binding reads; the collector receives
@@ -141,3 +141,10 @@ an additional CSINode `get` role. The unbound `kube-memlens-volume-backend-viewe
 role grants PV/CSINode reads for operators who need backend detail. It does not
 expand the existing namespace viewer. Health reserves16 MiB within the shared
 64 MiB volume-retention ceiling; disabling health leaves usage and memory active.
+
+`volumeContext.workloads` defaults to `false`. Enabling it adds bounded live
+workload composition, separate namespace acquisition roles and the unbound
+`kube-memlens-workload-volume-viewer` role. It does not expand existing viewers.
+The route requires snapshot schema 6 and independently checks every Pod and
+referenced object using the original caller. See the volume runbook for query
+bounds, source uncertainty, capture compatibility and rollback.

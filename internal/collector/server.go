@@ -307,6 +307,12 @@ func ValidateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOpt
 	}
 	containerIDs := make(map[string]struct{}, len(snapshot.Containers))
 	for i, container := range snapshot.Containers {
+		if snapshot.SchemaVersion < api.IOPressureSnapshotSchemaVersion && container.Memory.IOPressure.State != "" {
+			return fmt.Errorf("containers[%d].memory.ioPressure requires snapshot schema 6", i)
+		}
+		if err := container.Memory.IOPressure.Validate(); err != nil {
+			return err
+		}
 		if len(container.Namespace) > 63 {
 			return fmt.Errorf("containers[%d].namespace exceeds 63 bytes", i)
 		}

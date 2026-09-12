@@ -28,6 +28,7 @@ type Document struct {
 	Deep       *api.IncidentBundle
 	Restricted *RestrictedBundle
 	Node       *NodeBundle
+	Volume     *VolumeBundle
 }
 
 func Read(path string) (Document, error) {
@@ -48,6 +49,13 @@ func Read(path string) (Document, error) {
 	}
 	if err := json.Unmarshal(data, &header); err != nil {
 		return Document{}, fmt.Errorf("decode incident bundle: %w", err)
+	}
+	if header.SchemaVersion == VolumeSchemaVersion {
+		bundle, err := decodeVolume(data)
+		if err != nil {
+			return Document{}, err
+		}
+		return Document{Volume: &bundle}, nil
 	}
 	if header.SchemaVersion == NodeSchemaVersion {
 		bundle, err := decodeNode(data)

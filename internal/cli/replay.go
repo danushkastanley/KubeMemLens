@@ -15,17 +15,42 @@ const maxIncidentBytes int64 = incident.MaxBytes
 
 func newReplayCommand() *cobra.Command {
 	var podRef, nodeRef string
+	var exportSchema int
+	var exportOutput string
+	var force bool
 	cmd := &cobra.Command{
 		Use:   "replay <incident.json>",
 		Short: "Replay a captured explanation without cluster access",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if (exportSchema != 0 && exportSchema != 1 && exportSchema != 2) || (exportSchema == 0 && (exportOutput != "" || force)) || (exportSchema != 0 && exportOutput == "") {
+				return fmt.Errorf("legacy export requires --export-schema 1 or 2 and --output")
+			}
 			if podRef != "" && nodeRef != "" {
 				return fmt.Errorf("select either --pod or --node")
 			}
 			document, err := incident.Read(args[0])
 			if err != nil {
 				return err
+			}
+			if exportSchema != 0 {
+				if document.Volume == nil {
+					return fmt.Errorf("legacy volume export requires a schema-5 incident")
+				}
+				if nodeRef != "" || (podRef != "" && podRef != document.Volume.Pod.Namespace+"/"+document.Volume.Pod.PodName) {
+					return fmt.Errorf("the selected target is not present in the volume incident")
+				}
+				legacy, err := incident.LegacyVolume(*document.Volume, exportSchema)
+				if err != nil {
+					return err
+				}
+				return incident.Write(cmd.OutOrStdout(), exportOutput, force, legacy)
+			}
+			if document.Volume != nil {
+				if nodeRef != "" {
+					return fmt.Errorf("volume incidents contain Pod evidence")
+				}
+				return replayVolume(cmd.OutOrStdout(), *document.Volume, podRef)
 			}
 			if document.Node != nil {
 				if podRef != "" {
@@ -65,6 +90,9 @@ func newReplayCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&podRef, "pod", "", "replay one Pod as <namespace>/<name>")
 	cmd.Flags().StringVar(&nodeRef, "node", "", "replay the selected Node from a schema-4 incident")
+	cmd.Flags().IntVar(&exportSchema, "export-schema", 0, "explicitly export a volume incident as legacy schema 1 or 2, omitting volume and I/O enrichment")
+	cmd.Flags().StringVarP(&exportOutput, "output", "o", "", "legacy export file, or - for stdout")
+	cmd.Flags().BoolVar(&force, "force", false, "replace an existing legacy export file")
 	return cmd
 }
 
