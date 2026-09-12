@@ -10,7 +10,7 @@ import time
 from common import ContractError, require
 
 
-def execute(argv, data=None, timeout=12, maximum=16 * 1024 * 1024):
+def execute(argv, data=None, timeout=12, maximum=16 * 1024 * 1024, environment=None):
     require(data is None or isinstance(data, bytes) and len(data) <= 512 * 1024,
             "command input exceeds its bound")
     with tempfile.TemporaryFile() as source:
@@ -19,7 +19,7 @@ def execute(argv, data=None, timeout=12, maximum=16 * 1024 * 1024):
         source.seek(0)
         try:
             child = subprocess.Popen(argv, stdin=source, stdout=subprocess.PIPE,
-                                     stderr=subprocess.PIPE, start_new_session=True)
+                                     stderr=subprocess.PIPE, start_new_session=True, env=environment)
         except OSError as error:
             raise ContractError("qualification command could not start") from error
         output, diagnostics = bytearray(), bytearray()

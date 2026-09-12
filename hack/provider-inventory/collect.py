@@ -221,7 +221,9 @@ def collect_eks(profile, environment, runner):
         "aws:control-plane+nodegroup+vpc-cni-addon"
 
 
-def collect_aks(profile, environment, runner):
+def collect_aks(profile, environment, runner, expected_nodes=3):
+    if type(expected_nodes) is not int or expected_nodes not in {2, 3}:
+        raise ReceiptError("AKS inventory requires an explicit two- or three-Node protocol")
     profile_id = profile["id"]
     subscription = require_env("QUALIFY_AKS_SUBSCRIPTION", environment)
     resource_group = require_env("QUALIFY_AKS_RESOURCE_GROUP", environment)
@@ -240,8 +242,9 @@ def collect_aks(profile, environment, runner):
     if pool.get("provisioningState") != "Succeeded" or pool.get("osType") != "Linux" \
             or pool.get("osSku") != "Ubuntu" or pool_type != "VirtualMachineScaleSets":
         raise ReceiptError("AKS node pool is not the claimed managed Ubuntu Linux row")
-    if pool.get("enableAutoScaling") is not False or pool.get("count") != 3:
-        raise ReceiptError("AKS qualification requires a fixed three-Node pool with autoscaling disabled")
+    if pool.get("enableAutoScaling") is not False or pool.get("count") != expected_nodes:
+        count = "three" if expected_nodes == 3 else "two"
+        raise ReceiptError(f"AKS qualification requires a fixed {count}-Node pool with autoscaling disabled")
     network = require_object(cluster.get("networkProfile", {}), "AKS network profile")
     policy = network.get("networkPolicy")
     if network.get("networkPlugin") != "azure" or policy not in {"azure", "calico", "cilium"}:

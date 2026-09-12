@@ -16,7 +16,7 @@ from provider_source import bind_files
 from release.package_chart import package_chart
 
 
-class ProviderPreparationTest(unittest.TestCase):
+class ProviderFixture:
     @classmethod
     def setUpClass(cls):
         cls.temporary = tempfile.TemporaryDirectory(prefix="node-provider-preparation-")
@@ -45,7 +45,11 @@ class ProviderPreparationTest(unittest.TestCase):
 
     def config(self, provider="gke-standard", inventory="gke-cos-containerd-amd64"):
         root = self.root
-        return {"schemaVersion": 1, "inventoryProfile": inventory,
+        selectors = {"gke-standard": {"project": "fixture", "location": "fixture", "cluster": "fixture"},
+                     "eks-managed-nodes": {"region": "fixture", "cluster": "fixture"},
+                     "aks-node-pools": {"subscription": "fixture", "resourceGroup": "fixture", "cluster": "fixture"},
+                     "self-managed": {}}
+        return {"schemaVersion": 2, "inventoryProfile": inventory, "providerSelectors": selectors[provider],
                 "namespace": "kube-memlens-qualification-fixture", "context": "fixture",
                 "kubeconfigPath": str(root / "kubeconfig"), "kubernetesVersion": "v1.37.0",
                 "imageRepository": "ghcr.io/example/kube-memlens", "imageDigest": "sha256:" + "a" * 64,
@@ -57,6 +61,8 @@ class ProviderPreparationTest(unittest.TestCase):
                 "apiServerCIDRs": ["10.0.0.1/32"], "nodeCIDRs": ["10.0.1.2/32", "10.0.1.3/32"],
                 "poolName": None if provider == "self-managed" else "fixture-pool"}
 
+
+class ProviderPreparationTest(ProviderFixture, unittest.TestCase):
     def test_all_provider_bundles_render_privately_without_executing_credentials(self):
         cases = [("gke-standard", "gke-cos-containerd-amd64"),
                  ("eks-managed-linux", "eks-al2023-containerd-amd64"),
