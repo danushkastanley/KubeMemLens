@@ -11,7 +11,7 @@ import (
 )
 
 func TestSnapshotSchemaNegotiation(t *testing.T) {
-	for input, want := range map[string]int{"": 1, "1": 1, "2": 2, "3": 3, "4": 4, "5": 4} {
+	for input, want := range map[string]int{"": 1, "1": 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 5} {
 		got, err := NegotiateSnapshotSchema(input)
 		if err != nil || got != want {
 			t.Fatalf("schema %q = %d, %v; want %d", input, got, err, want)

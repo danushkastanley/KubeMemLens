@@ -9,6 +9,7 @@
       "required": ["enabled", "namespaces"],
       "properties": {
         "enabled": {"type": "boolean"},
+        "health": {"type": "boolean"},
         "namespaces": {"type": "array", "maxItems": 64, "uniqueItems": true,
           "items": {"type": "string", "maxLength": 63, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"}}
       }

@@ -72,6 +72,10 @@ assert a['inodesUsed']-b['inodesUsed']==65 and b['inodesFree']-a['inodesFree']==
 assert a['capturedAt']>b['capturedAt'] and row['usage']['freshness']=='fresh'
 (root/'volume-deltas.json').write_text(json.dumps({'capacityBytes':a['capacityBytes'],'usedDeltaBytes':a['usedBytes']-b['usedBytes'],'inodeDelta':a['inodesUsed']-b['inodesUsed'],'sourceTimestampAdvanced':True}))
 PY
+  if [ -n "${NODE_CONTEXT_VOLUME_HEALTH_PROFILE:-}" ]; then
+    source hack/lib/volume-health-verification.sh
+    volume_health_verification
+  fi
   source hack/lib/volume-stats-lifecycle.sh
   volume_stats_lifecycle
   python3 - "${work_dir}" "${upstream}" <<'PY'

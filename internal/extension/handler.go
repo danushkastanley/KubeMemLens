@@ -37,6 +37,7 @@ type HandlerOptions struct {
 	AgentUsername       string
 	NodeContextUsername string
 	VolumeStatsEnabled  bool
+	VolumeHealthEnabled bool
 	VolumeNamespaces    []string
 	MaxSnapshotBytes    int64
 	MaxConcurrent       int
@@ -79,6 +80,11 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 		return nil, err
 	}
 	opts.VolumeNamespaces = namespaces
+	if opts.VolumeHealthEnabled {
+		if len(namespaces) == 0 {
+			return nil, fmt.Errorf("volume health requires configured volume namespaces")
+		}
+	}
 	if opts.MaxSnapshotBytes <= 0 || opts.MaxConcurrent <= 0 || opts.RequestsPerSec <= 0 || opts.Burst <= 0 || opts.MaxIdentities <= 0 {
 		return nil, fmt.Errorf("ingestion request limits must be greater than zero")
 	}
@@ -87,6 +93,11 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	}
 	if opts.Logf == nil {
 		opts.Logf = func(string, ...any) {}
+	}
+	if opts.VolumeHealthEnabled {
+		if err := coordinator.store.ReserveVolumeHealth(); err != nil {
+			return nil, err
+		}
 	}
 	reads := NewReadHandler(coordinator.store, coordinator.opts.Handler)
 	reads.nodeContextEnabled = opts.NodeContextUsername != ""

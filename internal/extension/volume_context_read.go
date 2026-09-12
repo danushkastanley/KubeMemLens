@@ -72,13 +72,14 @@ func (h *ReadHandler) servePodVolumes(w http.ResponseWriter, r *http.Request, in
 			return
 		}
 	}
-	result, err := volumecontext.JoinSamples(resolved.Scope, resolved.Bindings, samples, nil, h.now())
+	result, err := volumecontext.JoinSamples(resolved.Scope, resolved.Bindings, samples, resolved.Health, h.now())
 	if err != nil {
 		writeVolumeReadError(w, err)
 		return
 	}
-	writeBoundedReadJSON(w, api.PodVolumeContext{TypeMeta: metav1.TypeMeta{APIVersion: readAPIVersion, Kind: "PodVolumeContext"},
-		ObjectMeta: metav1.ObjectMeta{Namespace: info.Namespace, Name: info.Name, UID: types.UID(resolved.Scope.PodUID)}, Context: result.Authorised()}, min(h.opts.MaxResponseBytes, volumecontext.MaxPageBytes))
+	response := api.PodVolumeContext{TypeMeta: metav1.TypeMeta{APIVersion: readAPIVersion, Kind: "PodVolumeContext"},
+		ObjectMeta: metav1.ObjectMeta{Namespace: info.Namespace, Name: info.Name, UID: types.UID(resolved.Scope.PodUID)}, Context: result.Authorised()}
+	writeBoundedReadJSON(w, api.PodVolumeContextForSchema(response, schema), min(h.opts.MaxResponseBytes, volumecontext.MaxPageBytes))
 }
 
 func writeVolumeReadError(w http.ResponseWriter, err error) {
@@ -94,7 +95,7 @@ func writeVolumeReadError(w http.ResponseWriter, err error) {
 	writeReadError(w, http.StatusServiceUnavailable, metav1.StatusReasonServiceUnavailable, "current volume context is unavailable")
 }
 
-func (h *Handler) configureVolumeResolver(kubeconfig string) error {
+func (h *Handler) configureVolumeResolver(ctx context.Context, kubeconfig string) error {
 	if len(h.opts.VolumeNamespaces) == 0 {
 		return nil
 	}
@@ -102,7 +103,12 @@ func (h *Handler) configureVolumeResolver(kubeconfig string) error {
 	if err != nil {
 		return errors.New("cannot configure volume context acquisition")
 	}
-	resolver, err := kube.NewVolumeResolver(config, h.reads.authoriseVolumeObject, h.coordinator.store.VolumeNodeUID)
+	var resolver kube.VolumeResolver
+	if h.opts.VolumeHealthEnabled {
+		resolver, err = kube.NewHealthVolumeResolver(ctx, config, h.reads.authoriseVolumeObject, h.coordinator.store.VolumeNodeUID)
+	} else {
+		resolver, err = kube.NewVolumeResolver(config, h.reads.authoriseVolumeObject, h.coordinator.store.VolumeNodeUID)
+	}
 	if err != nil {
 		return errors.New("cannot configure verified volume context resolver")
 	}

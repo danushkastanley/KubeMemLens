@@ -103,6 +103,19 @@ func validateViewUsage(u Usage, now time.Time) error {
 }
 
 func validateViewHealth(h Health, now time.Time) error {
+	if err := validateHealthReport(h.HealthReport, now); err != nil {
+		return err
+	}
+	if h.LastGood == nil {
+		return nil
+	}
+	if (h.Observation.Availability != volumehealth.Unavailable && h.Observation.Availability != volumehealth.Unreported) || h.LastGood.Observation.Availability != volumehealth.Reported || h.LastGood.Observation.Source != h.Observation.Source || h.LastGood.Observation.Scope != h.Observation.Scope || h.LastGood.Observation.ObservedAt.After(h.Observation.ObservedAt) || h.LastGood.Observation.ObservationFreshness != volumehealth.Stale {
+		return ErrInvalid
+	}
+	return validateHealthReport(*h.LastGood, now)
+}
+
+func validateHealthReport(h HealthReport, now time.Time) error {
 	if len(h.Conditions) > volumehealth.MaxConditions {
 		return ErrInvalid
 	}

@@ -13,8 +13,23 @@ import (
 )
 
 func TestVolumeRetentionCapacityRejectsWithoutPartialNodeAdvance(t *testing.T) {
+	for _, health := range []bool{false, true} {
+		t.Run(fmt.Sprintf("health-%t", health), func(t *testing.T) { checkVolumeRetentionCapacity(t, health) })
+	}
+}
+
+func checkVolumeRetentionCapacity(t *testing.T, health bool) {
 	now := time.Now().UTC()
 	store := NewStore()
+	if health {
+		if err := store.ReserveVolumeHealth(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	limit := volumecontext.MaxRetainedBytes
+	if health {
+		limit -= volumecontext.MaxHealthBytes
+	}
 	store.now = func() time.Time { return now }
 	identities := map[string]string{}
 	for i := 0; i < 128; i++ {
@@ -46,7 +61,7 @@ func TestVolumeRetentionCapacityRejectsWithoutPartialNodeAdvance(t *testing.T) {
 		before := store.volumes.bytes
 		err = store.ReplaceNodeContextWithVolumes(node, body)
 		if errors.Is(err, ErrStoreCapacity) {
-			if accepted == 0 || store.volumes.bytes != before || store.volumes.bytes > volumecontext.MaxRetainedBytes {
+			if accepted == 0 || store.volumes.bytes != before || store.volumes.bytes > limit {
 				t.Fatal("capacity changed retained data")
 			}
 			record, _ := store.GetNodeContext(node.NodeName, now)

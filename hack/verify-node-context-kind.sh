@@ -6,6 +6,13 @@ umask 077
 artifact_dir=${NODE_CONTEXT_ARTIFACT_DIR:?NODE_CONTEXT_ARTIFACT_DIR is required}
 node_image=${NODE_CONTEXT_NODE_IMAGE:-kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5}
 case "${node_image}" in kindest/node:v1.3[67].*@sha256:*) ;; *) echo 'use a pinned local Kubernetes 1.36 or 1.37 image' >&2; exit 1 ;; esac
+case "${NODE_CONTEXT_VOLUME_HEALTH_PROFILE:-}" in ''|off) ;; alpha)
+  case "${node_image}" in kindest/node:v1.37.*) ;; *) echo 'alpha CSI health fixture requires Kubernetes 1.37' >&2; exit 1 ;; esac ;;
+  *) echo 'unknown local volume health profile' >&2; exit 1 ;;
+esac
+if [ -n "${NODE_CONTEXT_VOLUME_HEALTH_PROFILE:-}" ]; then
+  [ "${NODE_CONTEXT_VERIFY_VOLUME_STATS:-false}" = true ] || { echo 'volume health fixture requires volume statistics verification' >&2; exit 1; }
+fi
 python3 - "${node_image}" <<'PY'
 import re,sys
 assert re.fullmatch(r'kindest/node:v1\.(36|37)\.\d+@sha256:[a-f0-9]{64}',sys.argv[1]), 'invalid pinned node image'
@@ -117,6 +124,12 @@ kubeadmConfigPatches:
     kind: KubeletConfiguration
     volumeStatsAggPeriod: 5s
 YAML
+  if [ "${NODE_CONTEXT_VOLUME_HEALTH_PROFILE:-}" = alpha ]; then
+    cat >> "${work_dir}/kind.yaml" <<'YAML'
+featureGates:
+  CSIVolumeHealth: true
+YAML
+  fi
   kind_args+=(--config "${work_dir}/kind.yaml")
 fi
 created=true
@@ -218,6 +231,8 @@ volumes=root/'volume-result.json'
 if volumes.exists():
     summary['volumes']=json.loads(volumes.read_text())
     summary['hostMountsScope']='producer'
+health=root/'volume-health-result.json'
+if health.exists(): summary['volumeHealth']=json.loads(health.read_text())
 if sys.argv[4] or sys.argv[5]=='kubernetes':
     summary['hostMountsScope']='producer'
     summary['observer']={'method':'kubernetes-probes-v1','readOnlyHostCgroups':True,'hostPID':False,'hostNetwork':False}

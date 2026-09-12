@@ -1,7 +1,7 @@
 # ADR 0008: Separate volume evidence and disclosure
 
 Status: model, optional Summary collection and scoped collector read API implemented.
-CSI health, presentation and incident integration remain separate work.
+CSI health acquisition is integrated; presentation and incident integration remain separate work.
 
 ## Context
 
@@ -25,7 +25,8 @@ driver text. Discard free-form backend messages before retaining joined data.
 
 Activate snapshot schema 4 with private batch ingestion and a separate named
 Pod-volume read resource. Project out new fields for schemas 1/2/3. Incident
-schema 5 remains reserved until capture/replay integration exists.
+schema 5 remains reserved until capture/replay integration exists. Snapshot schema
+5 separately adds historical health; schema4 readers receive only current health.
 
 The [volume contract](../volume-context.md) defines the permission matrix,
 source states, field/byte bounds, retention requirements and rollback order.
@@ -65,3 +66,27 @@ The optional viewer role is not automatically bound. Existing memory and Node
 viewer permissions remain unchanged. Disable enrichment before collector downgrade and
 export a compatible incident for older readers. No durable data migration is
 required.
+
+## Health acquisition and retention
+
+Reuse the existing live Pod/PVC/PV binding reads for health and cache only
+sanitised immutable status. Use bounded target-specific CSINode GETs for the
+Node/driver backend source. This keeps namespace acquisition at `get` only;
+list/watch would broaden collection without removing the live identity checks.
+Request rate, concurrency, source deadlines and refresh/backoff bounds are part
+of the [volume contract](../volume-context.md), and consumers use a separate
+volume refresh cadence. No Kubernetes health-status writes are introduced.
+
+Reserve16 MiB for health from the shared64 MiB volume retention ceiling while
+health is enabled. Keep current failure/absence separate from an explicitly stale
+last-good health observation. Deduplicate condition bytes independently of read
+and transition times; preserve old adverse flags without presenting them as a
+current report. Do not cache caller permissions or let a short/cancelled caller
+request alter shared source availability. Node-scoped backend reports may predate
+a newly selected Pod, provided the current Node UID and authorised driver binding
+match. They keep their original API observation time.
+
+Snapshot schema5 is intentional: adding `health.lastGood` to schema4 would break
+its strict readers. Project the new field out for schema4 while preserving current
+failure state, filesystem values and schema4 producer ingestion. This snapshot
+version is separate from the reserved incident schema5.

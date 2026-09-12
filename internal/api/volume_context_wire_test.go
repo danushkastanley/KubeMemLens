@@ -21,6 +21,7 @@ func TestVolumeResponseRejectsDuplicateAndOversizedFields(t *testing.T) {
 }
 
 func FuzzPodVolumeContext(f *testing.F) {
+	f.Add([]byte(`{"metadata":{},"context":{"volumes":[{"health":[{"observation":{"source":"csi-node-backend"},"lastGood":{"conditions":[{"status":"StorageDegraded"}]}}]}]}}`))
 	f.Add([]byte(`{"kind":"PodVolumeContext","metadata":{},"context":{"schemaVersion":1,"volumes":[]}}`))
 	f.Add([]byte(`{"metadata":{"name":"a","Name":"b"}}`))
 	f.Fuzz(func(t *testing.T, data []byte) {

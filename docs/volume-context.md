@@ -3,8 +3,8 @@
 The volume context model keeps filesystem usage, memory-backed configuration
 and CSI health separate. It does not add volume bytes to cgroup memory charge.
 The optional collector API provides current Pod volume configuration and kubelet
-filesystem measurements. Collection defaults to off; CLI/TUI presentation and
-volume incident capture are separate integrations.
+filesystem measurements, with separately enabled CSI health. Collection defaults
+to off; CLI/TUI presentation and volume incident capture are separate integrations.
 
 ## Identity and access
 
@@ -59,7 +59,10 @@ reported, including measured zeros. It remains separate from source freshness.
 Pod, PVC controller and CSINode backend health retain separate states and
 timestamps. Backend health describes a Node/driver, not a measured fault in
 each attached volume. Unknown future conditions remain visible and adverse.
-Staleness does not remove adverse evidence. A health transition is not a probe
+A current unavailable or unreported health source can retain a separate
+`health.lastGood` report for up to two minutes. That historical report is explicitly
+stale, retains adverse/unknown flags and its original observation time, and is
+removed from protected output after permission loss. A health transition is not a probe
 heartbeat, and a recent API read does not establish recent driver probing.
 
 Availability distinguishes reported, unreported, disabled, driver-unsupported,
@@ -81,7 +84,8 @@ Adapters supply source-specific health availability when no conditions exist.
 | Producer volume batch | 1,024 records and 1 MiB encoded |
 | Named Pod result | 256 KiB encoded, including all health and configuration fields |
 | Future paged query | At most 100 records and 256 KiB per page |
-| Collector volume retention | 64 MiB total including last-good records and indexes |
+| Collector volume retention | 64 MiB total including last-good records and indexes; health reserves 16 MiB, leaving 48 MiB for usage when enabled |
+| Health cache | 1,024 entries, 16 MiB, 32 KiB per sanitised status payload |
 | Usage freshness / expiry | Stale after 45 seconds; omitted after two minutes |
 
 Encoded-byte limits apply in addition to field counts. A maximum count of
@@ -125,14 +129,18 @@ or default incident captures. Free-form backend messages are never retained by
 the join, even in the named representation.
 
 The volume wire contract is version 1. Snapshot schema 4 carries private volume
-batches and enables the named Pod-volume resource. Schemas 1/2/3 omit the new
-batch and keep their existing representations; the new route is hidden from
-readers that negotiate an older schema. Incident schema 5 is reserved; existing readers still reject it until
+batches and enables the named Pod-volume resource. Snapshot schema 5 adds the
+optional historical health report. Schema 4 readers receive current health with
+`health.lastGood` projected out; usage ingestion remains compatible. Schemas 1/2/3
+omit volume batches and keep their existing representations; the new route is
+hidden from readers that negotiate those older schemas. Incident schema 5 is reserved; existing readers still reject it until
 capture and replay integration exists. Deep incident schemas 1/2, restricted 3
 and Node 4 keep their meanings. Integration must explicitly project unsupported
 fields for old readers and report omitted evidence in legacy captures.
 
-No durable database migration is required. Disable `nodeContext.volumeStats`
+No durable database migration is required. Disable `volumeContext.health` to
+stop health acquisition while preserving filesystem and memory evidence. Disable
+`nodeContext.volumeStats`
 first, then `volumeContext.enabled`, before downgrading the collector. Node and
 cgroup memory continue when only volume collection is disabled.
 
@@ -166,11 +174,11 @@ kubectl create rolebinding memlens-volume-viewer --namespace team-a \
 ```
 
 Using that viewer's kubeconfig, run `kubectl proxy --address=127.0.0.1 --port=8001`
-in one terminal. In another, explicitly negotiate schema 4:
+in one terminal. In another, explicitly negotiate schema 5:
 
 ```sh
 curl --fail --silent --show-error \
-  --header "X-KubeMemLens-Snapshot-Schema: 4" \
+  --header "X-KubeMemLens-Snapshot-Schema: 5" \
   http://127.0.0.1:8001/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods/app/volumes
 ```
 
@@ -185,7 +193,7 @@ For direct process configuration, the collector uses
 Node-context producer uses `--volume-stats`. Empty namespace configuration leaves
 the route disabled. Stats ingestion requires the Node producer role. A profile
 with the route enabled but stats disabled reports configuration with disabled
-usage. This endpoint currently supplies filesystem usage, not CSI health.
+usage. `--volume-health-enabled` adds the independently controlled health adapter.
 
 Operational counters use no PVC or Pod labels:
 `kubememlens_volume_stats_reads_total`,
@@ -214,3 +222,57 @@ collection cadence remains unchanged. It removes its owned cluster, images and
 private credentials. Only sanitised receipts leave the temporary work directory.
 This proves the local path and does not qualify managed CSI providers, network
 policy enforcement, storage latency or memory attribution.
+
+## Optional CSI health
+
+Set `volumeContext.health: true` alongside the enabled volume profile. Pod and
+PVC health use the same live, authorised binding reads as filesystem context.
+Backend health uses target-specific CSINode reads. The profile adds only collector
+`get` access to CSINodes; it does not enable the Kubernetes alpha feature gate,
+install a controller health sidecar or add status-write permissions.
+
+The existing namespace volume viewer can inspect Pod and PVC-controller health.
+Backend health also requires current caller access to the bound PV and CSINode.
+The optional `kube-memlens-volume-backend-viewer` ClusterRole grants those
+cluster-scoped reads and remains unbound. Use a custom ClusterRole with
+`resourceNames` when access should cover specific PVs and Nodes.
+
+```sh
+kubectl create clusterrolebinding memlens-volume-backend-viewer \
+  --clusterrole kube-memlens-volume-backend-viewer \
+  --serviceaccount team-a:viewer
+```
+
+Authorisation is checked on every query, including cache hits. Revoking PVC access
+removes protected controller/backend detail while authorised Pod health remains.
+Revoking PV or CSINode access removes backend detail independently. A cache never
+stores caller permission decisions. No driver messages enter retained payloads;
+named output may contain bounded condition reasons from an authorised source.
+
+The collector limits health-enabled queries to four concurrent operations and
+20 combined acquisition/authorisation operations per second, with burst 40.
+Core object reads retain the five-second query and 8 MiB byte budgets. Backend
+reads have a two-second timeout, four concurrent requests and a global five-read
+per-second limit with burst 10. Each Node/driver refreshes no more often than
+15 seconds; source failures back off to 30 then 60 seconds. A short caller budget
+cannot turn into a shared backend failure. Source failure and caller denial stay
+separate, and caller cancellation cannot poison another reader's cached health.
+
+Status payloads are immutable and deduplicated independently of observation time.
+Unchanged health does not rewrite condition payloads or advance transition times.
+Idle entries and expired last-good payloads are pruned every 15 seconds; expired
+values stop appearing in responses after two minutes. New object lifetimes cannot
+join old entries. Cache cleanup stops with the server and rejects late writes.
+
+Targeted reads preserve the profile's existing `get`-only namespace permissions.
+They also reuse the fresh Pod/PVC/PV reads needed to validate live bindings;
+namespace-wide list/watch permissions would not replace those checks. Consumers
+should use a separate 15-second volume refresh cadence rather than attaching a
+multi-object volume read to every memory refresh.
+
+For local gate-off verification, add `NODE_CONTEXT_VOLUME_HEALTH_PROFILE=off` to
+the volume fixture command. Use `alpha` with Kubernetes 1.37 to test driver-originated
+Pod/backend health, separately labelled API-seeded PVC-controller conditions,
+conflicts, recovery, historical health projection and individual source revocation.
+The fixture's direct CSI socket access and status patches belong only to the
+owned test resources. Product acquisition remains read-only through Kubernetes.
