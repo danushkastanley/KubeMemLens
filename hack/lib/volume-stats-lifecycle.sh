@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Existing variables and helpers belong to the owned volume fixture run.
+# shellcheck disable=SC2154
 volume_stats_lifecycle() {
   # Retain route and core Pod access, revoke only the already-used PVC right.
   kctl patch clusterrole kube-memlens-volume-viewer --type=json \

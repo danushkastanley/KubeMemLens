@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Called inside the owned Node-context kind run; never uses the current context.
+# The parent supplies the validated fixture context and Helm argument array.
+# shellcheck disable=SC2154
 volume_stats_verification() {
   local upstream=eccd681b18a2c96332f33c2cac5db38656edd500
   local volume_path=/namespaces/kube-memlens-csi-e2e/pods/persistent/volumes
@@ -11,6 +13,8 @@ volume_stats_verification() {
   tar -xzf "${work_dir}/hostpath.tar.gz" -C "${work_dir}"
   mkdir -p "${work_dir}/csi-driver-host-path-${upstream}/cmd/volume-seed"
   cp hack/fixtures/volume-stats/seed.go.txt "${work_dir}/csi-driver-host-path-${upstream}/cmd/volume-seed/main.go"
+  # Consumed by the parent verifier's EXIT trap, including failed builds.
+  # shellcheck disable=SC2034
   volume_image_created=true
   docker build -f hack/fixtures/volume-stats/Dockerfile -t "${volume_image}" "${work_dir}/csi-driver-host-path-${upstream}" > "${work_dir}/csi-build.log" 2>&1
   docker image inspect "${volume_image}" --format '{{.Id}}' > "${work_dir}/csi-image-id"
@@ -53,6 +57,8 @@ PY
   volume_wait 'd["context"]["volumes"][0]["usage"].get("filesystem",{}).get("capacityBytes")==134217728' volume-before.json
   go build -o "${work_dir}/volume-probe" ./hack/fixtures/volume-stats-probe
   "${work_dir}/volume-probe" --kubeconfig "${kubeconfig}" --token-file "${work_dir}/volume-viewer.token" > "${work_dir}/volume-client.json"
+  # Expand counters inside the fixture container, never in the caller's shell.
+  # shellcheck disable=SC2016
   kctl exec persistent -n kube-memlens-csi-e2e -- sh -c 'dd if=/dev/zero of=/data/known-bytes bs=1048576 count=8 2>/dev/null; i=0; while [ "$i" -lt 64 ]; do : > "/data/inode-$i"; i=$((i+1)); done; sync' >/dev/null
   volume_wait 'd["context"]["volumes"][0]["usage"].get("filesystem",{}).get("usedBytes",0)>=previous["context"]["volumes"][0]["usage"]["filesystem"]["usedBytes"]+8388608' volume-written.json volume-before.json
   python3 - "${work_dir}" <<'PY'
@@ -82,6 +88,8 @@ PY
   echo 'PASS isolated CSI bytes/inodes, authenticated volume publication, bounded client, scoped reads and lifecycle'
 }
 
+# These are the caller's dynamically scoped fixture arguments.
+# shellcheck disable=SC2154
 volume_wait() {
   node_context_wait_read "${work_dir}" volume-viewer "${volume_path}" "$1" "$2" "${3:-}" 4
 }
