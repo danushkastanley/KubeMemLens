@@ -52,6 +52,7 @@ for binary in memlens-agent memlens-collector memlens-cert-bootstrap memlens-nod
     -o "${work_dir}/image/${binary}" "./cmd/${binary}"
   printf 'COPY --chmod=0555 %s /%s\n' "${binary}" "${binary}" >> "${work_dir}/image/Dockerfile"
 done
+CGO_ENABLED=0 go build -trimpath -o "${work_dir}/host-cli" ./cmd/kubectl-memlens
 for tool in api-bridge chart-inventory; do
   CGO_ENABLED=0 go build -trimpath -o "${work_dir}/${tool}" "./hack/node-qualification/${tool}"
 done

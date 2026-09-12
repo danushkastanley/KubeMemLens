@@ -3,11 +3,16 @@
 import json
 import time
 
-from common import require
+from common import ContractError, require
 from owned_resources import Resource
 
 RBAC = "rbac.authorization.k8s.io/v1"
 PREFIX = "kube-memlens-node-qualification"
+# Only the producer's fixed reason vocabulary may leave its private log stream.
+PROBE_FAILURES = {"node-context read failed: " + reason: "production stats probe failed: " + reason
+                  for reason in ("unsupported-profile", "invalid-target", "untrusted-tls", "authentication-failed",
+                                 "access-denied", "timed-out", "unreachable", "invalid-response", "response-too-large",
+                                 "throttled", "source-unavailable")}
 
 
 def identities(namespace):
@@ -89,6 +94,8 @@ def run_probes(config, bindings, ownership, k, timeout=90):
                 require(time.monotonic() < deadline, "production probe did not finish within its deadline")
                 time.sleep(1)
             output = k("logs", resource.name, "-n", resource.namespace, "-c", "probe", maximum=32 * 1024)
+            if case == "allowed" and phase == "Failed" and output.strip() in PROBE_FAILURES:
+                raise ContractError(PROBE_FAILURES[output.strip()])
             require(phase == expected, "production probe reached the wrong terminal state")
             if reason:
                 require(output.strip() == "node-context read failed: " + reason, "production probe returned an unexpected failure")

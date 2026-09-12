@@ -36,7 +36,7 @@ def provider_environment(profile, config):
     return environment
 
 
-def collect_inventory(bundle, run=execute):
+def inspect_inventory(bundle, run=execute):
     p, c = bundle.profile, bundle.configuration
     inventory = load(REPOSITORY / "hack/provider-profiles" / (c["inventoryProfile"] + ".json"))
     validate_inventory_profile(inventory)
@@ -77,7 +77,14 @@ def collect_inventory(bundle, run=execute):
     receipt["receiptDigest"] = digest(receipt, "receiptDigest")
     validate_receipt(receipt); privacy(receipt)
     nodes = json.loads(reader(["kubectl", "--context", c["context"], "get", "nodes", "-o", "json"]).stdout)
-    return receipt, bind_nodes(p, c, inventory, receipt, nodes)
+    return receipt, nodes
+
+
+def collect_inventory(bundle, run=execute):
+    receipt, nodes = inspect_inventory(bundle, run)
+    c = bundle.configuration
+    inventory = load(REPOSITORY / "hack/provider-profiles" / (c["inventoryProfile"] + ".json"))
+    return receipt, bind_nodes(bundle.profile, c, inventory, receipt, nodes)
 
 
 def bind_nodes(profile, config, inventory, receipt, document):

@@ -90,10 +90,17 @@ class OwnedResources:
     def create(self, manifest):
         resource = Resource.from_object(manifest)
         require(resource not in self.owned, "resource was already created by this run")
-        document = json.loads(self.k("create", "-f", "-", "-o", "json", data=json.dumps(manifest).encode()))
-        require(Resource.from_object(document) == resource, "create returned a different resource")
-        self.remember(resource, document["metadata"]["uid"])
-        return document
+        try:
+            document = json.loads(self.k("create", "-f", "-", "-o", "json", data=json.dumps(manifest).encode()))
+            require(Resource.from_object(document) == resource, "create returned a different resource")
+            self.remember(resource, document["metadata"]["uid"])
+            return document
+        except (Exception, KeyboardInterrupt):
+            # A failed response does not prove the API rejected the create. Keep
+            # its scope uncertain so cleanup cannot delete the parent namespace
+            # or claim removal without the original object's UID.
+            self.conflict(resource)
+            raise
 
     def verify(self, resource):
         require(resource in self.owned, "resource is not owned by this run")
