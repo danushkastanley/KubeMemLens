@@ -107,3 +107,24 @@ func TestPublicationBackoffBoundedAndCancellationStopsCollection(t *testing.T) {
 		t.Fatalf("backoff=%v", waits)
 	}
 }
+
+func TestPublishObserverMeasuresEachDeliveryOutcome(t *testing.T) {
+	for _, failure := range []error{nil, errors.New("unavailable")} {
+		source := sourceFunc(func(context.Context) (nodecontext.Observation, error) {
+			return nodecontext.Observation{NodeName: "node-a", NodeUID: "uid-a", ReportedAt: time.Now().UTC(), Availability: capability.Available}, nil
+		})
+		observed := 0
+		err := Run(context.Background(), source, publisherFunc(func(context.Context, string, api.AgentSnapshot) error { return failure }), Options{
+			Wait: func(context.Context, time.Duration) error { return context.Canceled },
+			ObservePublish: func(duration time.Duration, err error) {
+				observed++
+				if duration < 0 || !errors.Is(err, failure) {
+					t.Fatal("delivery outcome changed")
+				}
+			},
+		})
+		if !errors.Is(err, context.Canceled) || observed != 1 {
+			t.Fatal("delivery observation missing or duplicated", observed, err)
+		}
+	}
+}

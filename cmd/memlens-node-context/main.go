@@ -86,7 +86,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 			return errors.New("cannot configure authenticated Node-context publisher")
 		}
 		return runWithMetrics(ctx, *metricsListen, telemetry, func(ctx context.Context) error {
-			return nodeproducer.Run(ctx, source, publisher, nodeproducer.Options{Report: func(reason string) { fmt.Fprintln(stderr, "node-context", reason) }})
+			return nodeproducer.Run(ctx, source, publisher, nodeproducer.Options{Report: func(reason string) { fmt.Fprintln(stderr, "node-context", reason) }, ObservePublish: telemetry.RecordPublish})
 		})
 	}
 	report, readErr := source.Read(ctx)

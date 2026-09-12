@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "id": "kind-csi-137",
+  "scope": "local-reference",
+  "kubernetes": "v1.37.0",
+  "nodeImage": "kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5",
+  "driverSource": "eccd681b18a2c96332f33c2cac5db38656edd500",
+  "driverArchive": "sha256:3b9e40a1f49435d1b264a28bc821580647d51fdec69d514e61bb70ec83f72bd8",
+  "registrarImage": "registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0@sha256:f9de845b170155199f2a2a3f9531cf13d78e31235e9db6b6582a8b0db0a50dad",
+  "measurement": {
+    "baselineSeconds": 120,
+    "enabledSeconds": 300,
+    "intervalSeconds": 15,
+    "settleSeconds": 30
+  },
+  "budgets": {
+    "collectorHeapPeakBytes": 268435456,
+    "collectorHeapIncreaseBytes": 67108864,
+    "collectorCPUIncreaseMilli": 100,
+    "producerCPUMilli": 50,
+    "producerMemoryBytes": 67108864,
+    "kubeletCPUIncreaseMilli": 100,
+    "kubeletMemoryIncreaseBytes": 67108864,
+    "sourceReadP95Seconds": 1,
+    "deliveryP95Seconds": 1,
+    "podReadP95Seconds": 2,
+    "workloadReadP95Seconds": 5,
+    "apiReadRate": 20,
+    "apiWriteRateIncrease": 0.1,
+    "usageCommitsPerMinute": 6,
+    "healthPayloadWrites": 0,
+    "usageRetainedBytes": 50331648,
+    "healthRetainedBytes": 16777216,
+    "responseBytes": 4194304,
+    "recoverySeconds": 120
+  },
+  "profileDigest": "sha256:f4c0801f5eaf5c28a92553d09e1c7ba14af7aa06deeb799730a0190ca6983346"
+}

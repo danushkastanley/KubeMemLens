@@ -18,10 +18,11 @@ type Publisher interface {
 }
 
 type Options struct {
-	Now    func() time.Time
-	Wait   func(context.Context, time.Duration) error
-	Jitter func() time.Duration
-	Report func(string)
+	Now            func() time.Time
+	Wait           func(context.Context, time.Duration) error
+	Jitter         func() time.Duration
+	Report         func(string)
+	ObservePublish func(time.Duration, error)
 }
 
 // Run requires a successful bounded preflight before recurring collection.
@@ -54,7 +55,11 @@ func Run(ctx context.Context, source nodestats.SampleSource, publisher Publisher
 			return err
 		}
 		publishCtx, cancel := context.WithTimeout(ctx, nodecontext.RequestTimeout)
+		started := time.Now()
 		err = publisher.Publish(publishCtx, report.Node.NodeUID, snapshot)
+		if opts.ObservePublish != nil {
+			opts.ObservePublish(time.Since(started), err)
+		}
 		cancel()
 		if ctx.Err() != nil {
 			return ctx.Err()

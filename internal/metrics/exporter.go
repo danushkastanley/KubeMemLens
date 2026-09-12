@@ -21,11 +21,12 @@ type Source interface {
 }
 
 type Exporter struct {
-	Source   Source
-	TTL      time.Duration
-	Now      func() time.Time
-	Opts     Options
-	MaxBytes int
+	Source      Source
+	TTL         time.Duration
+	Now         func() time.Time
+	Opts        Options
+	MaxBytes    int
+	Operational *Operational
 }
 
 func (e Exporter) Render() (string, error) {
@@ -43,5 +44,8 @@ func (e Exporter) Render() (string, error) {
 
 	renderer := newRenderer(e.MaxBytes)
 	renderer.render(e.Source, now, e.TTL, opts)
+	if e.Operational != nil {
+		renderer.operational(*e.Operational)
+	}
 	return renderer.String()
 }

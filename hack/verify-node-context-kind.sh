@@ -13,6 +13,19 @@ esac
 if [ -n "${NODE_CONTEXT_VOLUME_HEALTH_PROFILE:-}" ]; then
   [ "${NODE_CONTEXT_VERIFY_VOLUME_STATS:-false}" = true ] || { echo 'volume health fixture requires volume statistics verification' >&2; exit 1; }
 fi
+if [ -n "${VOLUME_QUALIFICATION_PROFILE:-}" ]; then
+  if [ "${NODE_CONTEXT_VERIFY_VOLUME_STATS:-false}" != true ] || [ "${NODE_CONTEXT_VERIFY_INGESTION:-false}" != true ] || [ "${NODE_CONTEXT_VOLUME_HEALTH_PROFILE:-}" != alpha ]; then
+    echo 'volume qualification requires the complete alpha CSI fixture' >&2; exit 1
+  fi
+  [ -z "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}${NODE_CONTEXT_OBSERVER_PROFILE:-}${NODE_CONTEXT_LIFECYCLE_PROFILE:-}" ] || { echo 'run volume measurements independently of other campaigns' >&2; exit 1; }
+  python3 - "${VOLUME_QUALIFICATION_PROFILE}" "${node_image}" <<'PY'
+import sys
+sys.path.insert(0,'hack/volume-qualification')
+from common import load,require
+from profile import validate
+p=validate(load(sys.argv[1]));require(p['nodeImage']==sys.argv[2],'volume profile/Node image mismatch')
+PY
+fi
 python3 - "${node_image}" <<'PY'
 import re,sys
 assert re.fullmatch(r'kindest/node:v1\.(36|37)\.\d+@sha256:[a-f0-9]{64}',sys.argv[1]), 'invalid pinned node image'
@@ -81,6 +94,16 @@ cleanup() {
 }
 trap cleanup EXIT
 mkdir -p "${artifact_dir}" "${work_dir}/image"
+if [ -n "${VOLUME_QUALIFICATION_PROFILE:-}" ]; then
+  python3 - "${VOLUME_QUALIFICATION_PROFILE}" "${artifact_dir}/volume-profile.json" <<'PY'
+import sys
+sys.path.insert(0,'hack/volume-qualification')
+from common import load,write_new
+from profile import validate
+write_new(sys.argv[2],validate(load(sys.argv[1])))
+PY
+  VOLUME_QUALIFICATION_PROFILE=${artifact_dir}/volume-profile.json
+fi
 python3 - "${work_dir}/source.json" <<'PY'
 import hashlib,json,pathlib,subprocess,sys
 files=[pathlib.Path('go.mod'),pathlib.Path('go.sum')]
@@ -243,6 +266,9 @@ if sys.argv[4] or sys.argv[5]=='kubernetes':
     privacy(summary)
 with (output/'summary.json').open('x') as file: file.write(json.dumps(summary,indent=2)+'\n')
 PY
+if [ -n "${VOLUME_QUALIFICATION_PROFILE:-}" ]; then
+  python3 hack/volume-qualification/record.py --profile "${VOLUME_QUALIFICATION_PROFILE}" --work-dir "${work_dir}" --output-dir "${artifact_dir}"
+fi
 kind delete cluster --name "${cluster}" > "${work_dir}/cleanup.log" 2>&1
 created=false
 remaining=$(kind get clusters)
@@ -264,5 +290,8 @@ PY
 if [ -n "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}" ]; then
   python3 hack/node-qualification/record_kind.py --profile "${NODE_CONTEXT_QUALIFICATION_PROFILE}" \
     --output-dir "${artifact_dir}" --cleanup-confirmed
+fi
+if [ -n "${VOLUME_QUALIFICATION_PROFILE:-}" ]; then
+  python3 hack/volume-qualification/record.py --profile "${VOLUME_QUALIFICATION_PROFILE}" --output-dir "${artifact_dir}" --finalise
 fi
 echo 'PASS direct kubelet TLS, Pod-bound token audience, stats-only RBAC, denial, bad CA, bounded normalisation and cleanup'

@@ -397,3 +397,25 @@ samples cannot establish sustained growth, latency or causality.
 Disable `volumeContext.workloads` to remove its acquisition roles and route.
 Before downgrading, disable the optional volume profiles and explicitly export
 any incident needed by an older reader. There is no database migration.
+
+## Aggregate operational measurements
+
+The existing authenticated metrics resource adds fixed aggregate process and
+retention measurements for qualification and operations. It adds no volume,
+PVC, driver or caller labels and grants no new permissions:
+
+- `kubememlens_collector_heap_objects_bytes` measures native Go heap objects.
+- `kubememlens_volume_usage_enabled`, `volume_usage_entries`,
+  `volume_usage_retained_bytes` and `volume_usage_commits_total` describe usage
+  configuration and in-memory retention. Each name has the `kubememlens_` prefix.
+- `kubememlens_volume_health_enabled`, `volume_health_entries`,
+  `volume_health_retained_bytes`, `volume_health_payload_writes_total` and the
+  `volume_health_backend_reads_total`, `failures_total` and `throttled_total`
+  counters describe the health cache. Each full name starts with `kubememlens_`;
+  backend counters share the `volume_health_backend_` stem.
+
+The Node producer also exposes `kubememlens_node_context_posts_total` with fixed
+success/failure labels and `kubememlens_node_context_last_post_seconds`. An
+unobserved delivery duration is omitted. Delivery errors never enter metric text.
+These counters measure operations, not storage health, disk persistence or
+memory attribution. See [local volume qualification](volume-qualification.md).
