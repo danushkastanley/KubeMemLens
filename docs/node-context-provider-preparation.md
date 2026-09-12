@@ -258,6 +258,9 @@ GitHub attestation, proposed chart checksum and the host CLI bytes from the sign
 archive. Candidate executables are not run during these checks. Signature checks
 may read public registry, GitHub and Sigstore data; they do not contact Kubernetes
 or start a provider run.
+An approved registry mirror is permitted when it preserves the exact signed
+image digest. Signature authority is checked at the candidate's original
+repository; live Pods must use the mirror reference recorded in the proposal.
 
 Supply the candidate build's reproducible OCI archive and a producer binary
 copied from that exact image for the intended Linux architecture. The image

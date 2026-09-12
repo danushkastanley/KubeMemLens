@@ -87,6 +87,13 @@ class CandidateManifestTest(unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "proposed binary"):
             self.check()
 
+    def test_approved_mirror_keeps_the_original_signature_authority(self):
+        self.config["imageRepository"] = "registry.example/approved-mirror"
+        result = self.check()
+        self.assertEqual(result["imageDigest"], self.config["imageDigest"])
+        self.assertEqual(self.commands[-2][-1], self.image + "@" + self.config["imageDigest"])
+        self.assertEqual(self.commands[-1][3], "oci://" + self.image + "@" + self.config["imageDigest"])
+
     def test_archive_symlinks_duplicate_members_and_escape_are_rejected(self):
         for name, kind, duplicate in (("kubectl-memlens", tarfile.SYMTYPE, False),
                                      ("../kubectl-memlens", tarfile.REGTYPE, False),

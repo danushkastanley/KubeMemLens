@@ -76,8 +76,8 @@ def verify(directory, candidate_tag, configuration, host_platform, run=execute):
         snapshot(root / signature.name, signature, 4 * 1024 * 1024)
         manifest = json.loads(run([str(REPOSITORY / "hack/release/validate_candidate_manifest.sh"), str(manifest_path),
                                   candidate_tag, ga_tag, configuration["sourceCommit"]]))
-        require(manifest["image"] == {"repository": configuration["imageRepository"], "digest": configuration["imageDigest"]},
-                "candidate image differs from the approved proposal")
+        require(manifest["image"]["digest"] == configuration["imageDigest"],
+                "candidate image digest differs from the approved proposal")
         chart_digest = "sha256:" + manifest["chart"]["package"]["sha256"]
         require(chart_digest == configuration["chartDigest"] == file_digest(configuration["chartArchive"], 20 * 1024 * 1024),
                 "candidate chart differs from the proposed bytes")
@@ -90,7 +90,9 @@ def verify(directory, candidate_tag, configuration, host_platform, run=execute):
         cli_digest = cli_archive_digest(archive)
         require(cli_digest == configuration["cliDigest"] == file_digest(configuration["cliBinary"], MAX_BINARY),
                 "candidate CLI differs from the proposed binary")
-        image = configuration["imageRepository"] + "@" + configuration["imageDigest"]
+        # An approved mirror may serve the same immutable image. Verify source
+        # authority at the signed candidate repository and match its exact digest.
+        image = manifest["image"]["repository"] + "@" + configuration["imageDigest"]
         run(["cosign", "verify", "--certificate-identity", identity, "--certificate-oidc-issuer", ISSUER, image],
             timeout=60, maximum=2 * 1024 * 1024)
         run(["gh", "attestation", "verify", "oci://" + image, "--repo", REPOSITORY_NAME], timeout=60, maximum=2 * 1024 * 1024)
