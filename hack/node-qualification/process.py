@@ -10,7 +10,7 @@ import time
 from common import ContractError, require
 
 
-def execute(argv, data=None, timeout=12, maximum=16 * 1024 * 1024, environment=None):
+def execute(argv, data=None, timeout=12, maximum=16 * 1024 * 1024, environment=None, failure_codes=None):
     require(data is None or isinstance(data, bytes) and len(data) <= 512 * 1024,
             "command input exceeds its bound")
     with tempfile.TemporaryFile() as source:
@@ -45,7 +45,7 @@ def execute(argv, data=None, timeout=12, maximum=16 * 1024 * 1024, environment=N
                 result = child.wait(timeout=remaining)
             except subprocess.TimeoutExpired as error:
                 raise ContractError("qualification command timed out") from error
-            require(result == 0, "qualification command failed")
+            require(result == 0, (failure_codes or {}).get(result, "qualification command failed"))
             return output.decode("utf-8")
         finally:
             # Do not signal a reaped PID: the OS could have reused it. Until wait

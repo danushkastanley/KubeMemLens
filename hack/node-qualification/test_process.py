@@ -30,6 +30,12 @@ class BoundedProcessTest(unittest.TestCase):
         with self.assertRaises(ContractError):
             execute(["nonexistent-command"], data=b"x" * (512 * 1024 + 1))
 
+    def test_known_failure_exit_code_preserves_category_without_stderr(self):
+        with self.assertRaisesRegex(ContractError, "qualification API read failed: rate-limited") as caught:
+            execute([sys.executable, "-c", "import sys;sys.stderr.write('private-value');sys.exit(13)"],
+                    failure_codes={13: "qualification API read failed: rate-limited"})
+        self.assertNotIn("private-value", str(caught.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

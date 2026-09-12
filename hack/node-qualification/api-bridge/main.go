@@ -33,7 +33,7 @@ func main() {
 	if err := run(ctx, opts, os.Stdout); err != nil {
 		// The runner also bounds and keeps credential-plugin stderr private.
 		fmt.Fprintln(os.Stderr, "qualification API read failed")
-		os.Exit(1)
+		os.Exit(failureExitCode(err))
 	}
 }
 

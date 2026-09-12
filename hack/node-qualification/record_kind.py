@@ -10,6 +10,7 @@ from common import digest, load, require, utc_text, write_new
 from evidence import PRIVACY, validate_evidence
 from evaluate import evaluate
 from profiles import validate_profile
+from source_summary import summarise
 from window_contract import join_windows
 
 
@@ -20,17 +21,10 @@ def sha(data):
 def assemble(root, profile):
     p = validate_profile(profile)
     source = load(root / "source.json")
-    node = json.loads((root / "node.json").read_text())["status"]["nodeInfo"]
+    node_object = json.loads((root / "node.json").read_text())
+    node = node_object["status"]["nodeInfo"]
     observation = json.loads((root / "allowed.log").read_text())["observation"]
-    stats = observation["stats"]
-    memory, swap = stats.get("memory", {}), stats.get("swap") or {}
-    fields = {k: "available" if memory.get(v) is not None else "unreported"
-              for k, v in {"usage": "usageBytes", "available": "availableBytes", "workingSet": "workingSetBytes",
-                           "rss": "rssBytes", "faults": "pageFaults", "majorFaults": "majorPageFaults", "psi": "psi"}.items()}
-    for key, value in (("swapUsage", swap.get("usageBytes")), ("swapAvailable", swap.get("availableBytes")),
-                       ("systemContainers", stats.get("systemContainers")),
-                       ("hugepages", observation.get("context", {}).get("hugepages"))):
-        fields[key] = "available" if value is not None else "unreported"
+    source_summary = summarise([observation], [node_object["metadata"]["name"]])
     baseline, enabled = [load(root / ("qualification-" + phase + ".json")) for phase in ("baseline", "enabled")]
     binding = {"id": p["id"], "digest": p["profileDigest"]}
     require(baseline["profile"] == binding and enabled["profile"] == binding,
@@ -60,7 +54,7 @@ def assemble(root, profile):
                          "linuxNodes": 1, "providerReceiptDigest": None},
          "transport": {"result": "passed", "reason": "none", "directTLS": True, "podBoundIdentity": True,
                        "statsOnlyRBAC": True, "proxyAccess": False, "networkPolicy": "not-qualified", "servingTrust": "fixture-ca"},
-         "fields": fields, "provenance": stats["provenance"],
+         **source_summary,
          **measurements, "lifecycle": load(root / "qualification-lifecycle.json"),
          "cleanup": {"workloadsRemoved": False, "rbacRemoved": False, "cloudResources": "not-applicable"},
          "privacy": dict(PRIVACY)}

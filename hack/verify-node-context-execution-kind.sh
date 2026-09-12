@@ -6,6 +6,12 @@ umask 077
 artifact_dir=${NODE_CONTEXT_ARTIFACT_DIR:?NODE_CONTEXT_ARTIFACT_DIR is required}
 [ ! -e "${artifact_dir}/execution.json" ] || { echo 'execution evidence already exists' >&2; exit 1; }
 cluster=${NODE_CONTEXT_CLUSTER:-kube-memlens-node-context-execution}
+execution_mode=${NODE_CONTEXT_EXECUTION_MODE:-qualification}
+case "${execution_mode}" in
+  qualification) execution_script=local_execution.py ;;
+  api-reads) execution_script=check_api_reads.py ;;
+  *) echo 'unsupported local execution mode' >&2; exit 1 ;;
+esac
 case "${cluster}" in kube-memlens-node-context-*) ;; *) echo 'unexpected local fixture name' >&2; exit 1 ;; esac
 [ "${KIND_EXPERIMENTAL_PROVIDER:-docker}" = docker ] || { echo 'the fixture requires local Docker' >&2; exit 1; }
 endpoint=${DOCKER_HOST:-$(docker context inspect --format '{{.Endpoints.docker.Host}}')}
@@ -72,7 +78,7 @@ sys.path.insert(0,'hack')
 from release.package_chart import package_chart
 package_chart(pathlib.Path('charts/kube-memlens'),pathlib.Path(sys.argv[1]),0)
 PY
-python3 hack/node-qualification/local_execution.py --profile "${profile}" --kubeconfig "${kubeconfig}" \
+python3 "hack/node-qualification/${execution_script}" --profile "${profile}" --kubeconfig "${kubeconfig}" \
   --context "kind-${cluster}" --private "${work_dir}" --output "${work_dir}/execution.json" \
   --image-repository "${repository}" --image-digest "${digest}"
 kind delete cluster --name "${cluster}" > "${work_dir}/cleanup.log" 2>&1
@@ -87,4 +93,4 @@ from common import load,privacy,write_new
 root=pathlib.Path(sys.argv[1]); result=load(root/'execution.json');result.update(load(root/'source.json'));result['fixtureCleanup']='passed'
 privacy(result);write_new(sys.argv[2],result)
 PY
-echo 'PASS two-Node chart execution, production probes, fixed measurements and UID-owned cleanup'
+echo "PASS two-Node ${execution_mode} execution and UID-owned cleanup"

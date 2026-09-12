@@ -9,6 +9,10 @@ from kind_runtime import metrics
 from observer_specs import HOST_OBSERVER, IDENTITY_OBSERVER, METRICS_OBSERVER
 from process import execute
 
+API_FAILURE_CODES = {code: "qualification API read failed: " + category for code, category in {
+    10: "authentication", 11: "forbidden", 12: "not-found", 13: "rate-limited", 14: "server-unavailable",
+    15: "deadline", 16: "cancelled", 17: "transport", 18: "invalid-response"}.items()}
+
 
 class KubernetesRuntime:
     def __init__(self, kubeconfig, context, namespace, namespace_uid, node, bridge,
@@ -45,7 +49,8 @@ class KubernetesRuntime:
             operation, args = "history", ["--node", self.node]
         else:
             raise ValueError("unsupported qualification API read")
-        return json.loads(self.run(self.bridge + ["--namespace", namespace, "--operation", operation] + args))
+        return json.loads(self.run(self.bridge + ["--namespace", namespace, "--operation", operation] + args,
+                                   failure_codes=API_FAILURE_CODES))
 
     def pods(self):
         self.verify_namespace()
