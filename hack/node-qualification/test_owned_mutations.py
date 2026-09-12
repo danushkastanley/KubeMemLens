@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 from common import ContractError
-from owned_mutations import restart_workload, suspended_producer_access
+from owned_mutations import restart_workload, suspended_network_rule, suspended_producer_access
 from owned_resources import OwnedResources, Resource
 from test_owned_resources import Kubernetes
 
@@ -111,6 +111,19 @@ class MutationTest(unittest.TestCase):
             with self.assertRaises(ContractError):
                 restart_workload(self.owner, "fixture", component)
         self.assertEqual(self.k.patch_count, 0)
+
+    def test_network_positive_control_is_restored_without_changing_other_direction(self):
+        policy = {"apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy",
+                  "metadata": {"name": "node-qualification-network-egress", "namespace": "fixture"},
+                  "spec": {"ingress": [], "egress": [{"to": [{"podSelector": {"matchLabels": {"probe": "target"}}}]}]}}
+        self.owner.create(policy)
+        resource = Resource.from_object(policy)
+        with suspended_network_rule(self.owner, resource, "egress"):
+            self.assertEqual(self.owner.verify(resource)["spec"], {"ingress": [], "egress": []})
+        self.assertEqual(self.owner.verify(resource)["spec"], policy["spec"])
+        with self.assertRaises(ContractError):
+            with suspended_network_rule(self.owner, resource, "ingress"):
+                self.fail("wrong policy direction must not be modified")
 
 
 if __name__ == "__main__":

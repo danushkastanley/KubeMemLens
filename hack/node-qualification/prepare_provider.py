@@ -11,6 +11,7 @@ from pathlib import Path
 
 from common import ContractError, digest, load, require, utc_text, write_new
 from observer_specs import ephemeral_observer, host_observer, host_policy
+from network_specs import preview as network_preview
 from provider_plan import serving_ca, validate_config, values
 from provider_source import bind_files
 from provider_probes import identities, pod as probe_pod
@@ -95,10 +96,11 @@ def prepare(profile, config, output, repository=REPOSITORY):
     write_new(output / "probe-pods.preview.json", {"reviewOnly": True, "items": [
         probe_pod(c, "<selected-node-0>", 0, case, "<selected-node-1>" if case == "wrong-node" else "<selected-node-0>")
         for case in ("allowed", "denied", "bad-ca", "wrong-node")]})
+    write_new(output / "network-probes.preview.json", network_preview(c["namespace"], observer_image))
     write_new(output / "configuration.private.json", c)
     names = ("baseline-values.json", "enabled-values.json", "baseline.preview.yaml", "enabled.preview.yaml",
              "serving-trust.json", "workload.json", "host-observers.json", "ephemeral-observers.json",
-             "probe-identities.json", "probe-pods.preview.json", "configuration.private.json")
+             "probe-identities.json", "probe-pods.preview.json", "network-probes.preview.json", "configuration.private.json")
     files = {name: "sha256:" + hashlib.sha256((output / name).read_bytes()).hexdigest() for name in names}
     plan = {
         "schemaVersion": 2, "state": "prepared-not-approved", "qualified": False,
