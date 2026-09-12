@@ -58,6 +58,7 @@ done
 if docker image inspect "${image}" >/dev/null 2>&1; then echo 'refusing to adopt an existing image' >&2; exit 1; fi
 image_created=true
 docker build -t "${image}" "${work_dir}/image" > "${work_dir}/image-build.log" 2>&1
+docker save --output "${work_dir}/image-archive.tar" "${image}"
 cat > "${work_dir}/kind.yaml" <<'EOF'
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
@@ -78,7 +79,7 @@ if [ "${execution_mode}" = network-policy ]; then
   echo 'local execution fixture: install pinned Cilium network policy enforcement'
   python3 hack/node-qualification/cilium_kind.py --kubeconfig "${kubeconfig}" --context "kind-${cluster}" --private "${work_dir}"
 fi
-kind load docker-image "${image}" --name "${cluster}" > "${work_dir}/image-load.log" 2>&1
+kind load image-archive "${work_dir}/image-archive.tar" --name "${cluster}" > "${work_dir}/image-load.log" 2>&1
 python3 hack/node-qualification/prepare_execution_kind.py --cluster "${cluster}" --kubeconfig "${kubeconfig}" \
   --private "${work_dir}" --image "${image}" --repository "${repository}"
 digest=$(cat "${work_dir}/image-digest")

@@ -62,7 +62,7 @@ def prepare(args):
     write_new(proposal / "workload.json", deployment(profile["workload"], namespace, {"nodeSelector": selector, "tolerations": tolerations}))
     write_new(proposal / "host-observers.json", {"apiVersion": "v1", "kind": "List", "items": [host_policy(namespace), host_observer(namespace, profile["workload"]["image"], selector, tolerations)]})
     bundle = SimpleNamespace(directory=proposal, profile=profile, configuration=config)
-    execution = Execution(bundle, binding, k, root, str(root / "chart-inventory"), root / "api-bridge")
+    execution = Execution(bundle, binding, k, root, str(root / "chart-inventory"), root / "api-bridge", load(root / "image-proof.json"))
     return execution, profile, binding
 
 
@@ -100,7 +100,7 @@ def run(args):
               "profile": {"id": profile["id"], "digest": profile["profileDigest"]}, "linuxNodes": 2,
               "positiveTransportProbes": len(execution.observations), "negativeTransportProbes": 6,
               "measurementChecksPassed": passed, "cleanup": "passed", "measurements": measured,
-              "lifecycle": lifecycle,
+              "lifecycle": lifecycle, "liveImages": execution.image_checks,
               **summarise(execution.observations, [n["name"] for n in binding["nodes"]]), **additional}
     privacy(result)
     write_new(args.output, result)
