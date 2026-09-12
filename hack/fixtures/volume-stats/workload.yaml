@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: volume-workload
+  namespace: kube-memlens-csi-e2e
+spec:
+  replicas: 2
+  selector:
+    matchLabels: {app: volume-workload}
+  template:
+    metadata:
+      labels: {app: volume-workload}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: worker
+          image: public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
+          command: [sh, -c, 'dd if=/dev/zero of=/scratch/known-bytes bs=1048576 count=2 2>/dev/null; exec sleep 86400']
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits: {cpu: 100m, memory: 32Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: [ALL]}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: scratch, mountPath: /scratch}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: data}
+        - name: scratch
+          emptyDir: {medium: Memory, sizeLimit: 8Mi}

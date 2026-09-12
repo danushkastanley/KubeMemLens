@@ -45,6 +45,7 @@ func main() {
 	volumeNamespacesText := flag.String("volume-context-namespaces", "", "comma-separated namespaces for optional volume context reads")
 	volumeStatsEnabled := flag.Bool("volume-stats-enabled", false, "accept bounded volume statistics from the optional Node-context producer")
 	volumeHealthEnabled := flag.Bool("volume-health-enabled", false, "read source-separated CSI health for configured volume namespaces")
+	volumeWorkloadsEnabled := flag.Bool("volume-workloads-enabled", false, "read bounded live workload ownership for configured volume namespaces")
 	agentUsername := flag.String("agent-username", "system:serviceaccount:kube-memlens:kube-memlens-agent", "exact Kubernetes agent ServiceAccount username")
 	ingestionMaxConcurrent := flag.Int("ingestion-max-concurrent", 4, "maximum snapshot bodies decoded concurrently")
 	ingestionRequestsPerSecond := flag.Float64("ingestion-requests-per-second-per-agent", 1, "accepted request rate per authenticated agent Pod")
@@ -106,7 +107,7 @@ func main() {
 		os.Exit(2)
 	}
 	volumeNamespaces, err := extension.VolumeNamespaces(*volumeNamespacesText)
-	if err != nil || ((len(volumeNamespaces) > 0 || *volumeStatsEnabled || *volumeHealthEnabled) && *ingestionMode != ingestionAuthenticated) {
+	if err != nil || ((len(volumeNamespaces) > 0 || *volumeStatsEnabled || *volumeHealthEnabled || *volumeWorkloadsEnabled) && *ingestionMode != ingestionAuthenticated) {
 		fmt.Fprintln(os.Stderr, "volume context requires valid namespaces and authenticated ingestion")
 		os.Exit(2)
 	}
@@ -155,7 +156,7 @@ func main() {
 			os.Exit(1)
 		}
 		handler, err := extension.NewHandler(coordinator, extension.HandlerOptions{
-			VolumeNamespaces: volumeNamespaces, VolumeStatsEnabled: *volumeStatsEnabled, VolumeHealthEnabled: *volumeHealthEnabled,
+			VolumeNamespaces: volumeNamespaces, VolumeStatsEnabled: *volumeStatsEnabled, VolumeHealthEnabled: *volumeHealthEnabled, VolumeWorkloadsEnabled: *volumeWorkloadsEnabled,
 			NodeAccounting: accounting, AgentUsername: *agentUsername, NodeContextUsername: *nodeContextUsername, MaxSnapshotBytes: handlerOpts.MaxSnapshotBytes,
 			MaxConcurrent: *ingestionMaxConcurrent, RequestsPerSec: *ingestionRequestsPerSecond,
 			Burst: *ingestionBurst, MaxIdentities: storeLimits.MaxNodes,

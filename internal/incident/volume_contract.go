@@ -1,6 +1,5 @@
 package incident
 
-// VolumeSchemaVersion reserves volume-enriched Pod incidents. Existing deep,
-// restricted and Node document versions keep their meanings. Capture and replay
-// must be implemented before this version is accepted by the document reader.
+// VolumeSchemaVersion carries volume-enriched Pod incidents. Existing deep,
+// restricted and Node document versions keep their meanings.
 const VolumeSchemaVersion = 5

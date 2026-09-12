@@ -18,6 +18,8 @@ type View struct {
 }
 
 type NamedVolume struct {
+	EvidenceID    string        `json:"evidenceID,omitempty"`
+	FilesystemID  string        `json:"filesystemID,omitempty"`
 	VolumeName    string        `json:"volumeName"`
 	PVCName       string        `json:"pvcName,omitempty"`
 	Driver        string        `json:"driver,omitempty"`
@@ -57,6 +59,7 @@ func (r Report) Authorised() View {
 		usage.LastGood = cloneFilesystem(usage.LastGood)
 		value := NamedVolume{VolumeName: binding.VolumeName, PVCName: binding.PVCName, Driver: binding.Driver,
 			Configuration: binding.Configuration, Usage: usage, Health: make([]Health, len(row.Health))}
+		value.EvidenceID, value.FilesystemID = evidenceKeys(r.scope, binding)
 		for j, input := range row.Health {
 			h := Health{HealthReport: namedHealth(input.Observation)}
 			if input.LastGood != nil {

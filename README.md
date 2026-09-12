@@ -226,6 +226,13 @@ go run ./cmd/kubectl-memlens compare --before before.json --after after.json --w
 
 Restricted mode also supports [private capture, offline replay and working-set comparison](docs/restricted-incidents.md), with schema 3 and explicit partial-evidence caveats.
 
+Development builds include an optional [volume context profile](docs/volume-context.md) showing filesystem
+usage, CSI health and tmpfs configuration beside memory evidence. Use
+`kubectl memlens volumes pod <name> -n <namespace>` or press `v` in a Pod/workload
+TUI view. Capture, replay, comparison and read-only recommendations preserve
+source uncertainty; filesystem bytes never enter memory totals. Managed CSI
+provider qualification and storage-operation latency are not claimed.
+
 Pod budgets and in-place resize appear in detailed explanations, comparisons and captures; configured, allocated and applied values remain distinct from cgroup limits. See [memory semantics](docs/memory-semantics.md#pod-budgets-and-in-place-resize).
 
 Pod and workload explanations show investigation severity, independent confidence, caveats, and exact gauge/counter evidence windows. They support a versioned, privacy-restrained machine contract through `-o json|yaml`; see [the schema](docs/explanation-schema.md). An optional read-only [K9s plugin](docs/k9s-integration.md) opens the selected Pod explanation with `Shift-M`.

@@ -4,24 +4,29 @@ import (
 	"context"
 	"errors"
 	"golang.org/x/time/rate"
+	"reflect"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/volumecontext"
 	"github.com/danushkastanley/kube-memlens/internal/volumehealth"
 	corev1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/rest"
 )
 
-type VolumeAccess struct{ Group, Resource, Namespace, Name string }
+type VolumeAccess struct{ Group, Resource, Namespace, Name, Verb string }
 type VolumeAuthorizer func(context.Context, VolumeAccess) error
 type VolumeNodeIdentity func(string, time.Time) (string, bool)
 
 type ResolvedVolumes struct {
-	Scope    volumecontext.PodScope
-	Bindings []volumecontext.Binding
-	Health   []volumecontext.HealthObservation
+	Scope           volumecontext.PodScope
+	Bindings        []volumecontext.Binding
+	Health          []volumecontext.HealthObservation
+	OwnerReferences []metav1.OwnerReference
 }
 
 type VolumeResolver interface {
@@ -37,6 +42,7 @@ type volumeResolver struct {
 	health    *healthCache
 	queries   chan struct{}
 	calls     *rate.Limiter
+	workloads chan struct{}
 }
 
 // NewVolumeResolver uses the collector's explicitly granted acquisition rights.
@@ -53,7 +59,7 @@ func newVolumeResolver(config *rest.Config, authorize VolumeAuthorizer, nodeUID 
 	if err != nil {
 		return nil, err
 	}
-	return &volumeResolver{reader: reader, authorize: authorize, nodeUID: nodeUID}, nil
+	return &volumeResolver{reader: reader, authorize: authorize, nodeUID: nodeUID, calls: rate.NewLimiter(20, 40), queries: make(chan struct{}, 4), workloads: make(chan struct{}, 1)}, nil
 }
 
 func (r *volumeResolver) Resolve(ctx context.Context, namespace, podName string) (ResolvedVolumes, error) {
@@ -63,21 +69,14 @@ func (r *volumeResolver) Resolve(ctx context.Context, namespace, podName string)
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	q := volumeBindingQuery{healthQuery: healthQuery{reader: r.reader, remaining: maxHealthQueryBytes, validateJSON: boundedVolumeObject}, authorize: r.authorize}
+	select {
+	case r.queries <- struct{}{}:
+		defer func() { <-r.queries }()
+	default:
+		return ResolvedVolumes{}, &HealthReadError{Reason: volumehealth.ReadFailed}
+	}
+	q := r.bindingQuery()
 	if r.health != nil {
-		select {
-		case r.queries <- struct{}{}:
-			defer func() { <-r.queries }()
-		default:
-			return ResolvedVolumes{}, &HealthReadError{Reason: volumehealth.ReadFailed}
-		}
-		q.beforeRequest = r.calls.Wait
-		q.authorize = func(ctx context.Context, a VolumeAccess) error {
-			if err := r.calls.Wait(ctx); err != nil {
-				return &HealthReadError{Reason: volumehealth.ReadFailed, cause: err}
-			}
-			return r.authorize(ctx, a)
-		}
 		q.healthSeeds = map[string]claimHealthSeed{}
 	}
 	var pod corev1.Pod
@@ -123,10 +122,20 @@ func (r *volumeResolver) Resolve(ctx context.Context, namespace, podName string)
 	if current.Kind != "Pod" || current.APIVersion != "v1" || current.UID != pod.UID || current.Spec.NodeName != pod.Spec.NodeName || current.Namespace != namespace || current.Name != podName {
 		return ResolvedVolumes{}, &HealthReadError{Reason: volumehealth.BindingUnavailable}
 	}
+	currentMounts, err := volumeMountCounts(&current)
+	if err != nil {
+		return ResolvedVolumes{}, err
+	}
+	// Quantity.String caches its formatted value during binding extraction. Use
+	// Kubernetes semantic equality so that cache mutation is not a spec change.
+	if !apiequality.Semantic.DeepEqual(pod.Spec.Volumes, current.Spec.Volumes) || !reflect.DeepEqual(mounts, currentMounts) {
+		return ResolvedVolumes{}, &HealthReadError{Reason: volumehealth.BindingUnavailable}
+	}
 	if _, err := volumecontext.Join(result.Scope, result.Bindings, nil, nil, volumecontext.SourceState(volumehealth.Unreported, volumecontext.NoReport), time.Now().UTC()); err != nil {
 		return ResolvedVolumes{}, invalidHealth()
 	}
 	result.Health = r.resolveHealth(ctx, &q, &current, result)
+	result.OwnerReferences = slices.Clone(current.OwnerReferences)
 	if callerCtx.Err() != nil {
 		return ResolvedVolumes{}, callerCtx.Err()
 	}
@@ -139,8 +148,9 @@ func (r *volumeResolver) Resolve(ctx context.Context, namespace, podName string)
 
 type volumeBindingQuery struct {
 	healthQuery
-	authorize   VolumeAuthorizer
-	healthSeeds map[string]claimHealthSeed
+	authorize       VolumeAuthorizer
+	healthSeeds     map[string]claimHealthSeed
+	workloadParents map[string]workloadObject
 }
 
 func (q *volumeBindingQuery) authorisedGet(ctx context.Context, a VolumeAccess, path string, target any) error {

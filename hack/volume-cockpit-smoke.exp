@@ -1,0 +1,45 @@
+#!/usr/bin/expect -f
+set timeout 60
+if {$argc != 5} { puts stderr "usage: volume-cockpit-smoke.exp cli kubeconfig capture columns rows"; exit 2 }
+lassign $argv cli kubeconfig capture columns rows
+if {[file exists $capture]} { puts stderr "volume PTY refuses an existing capture"; exit 2 }
+set send_slow {1 0.005}
+proc require_pattern {pattern description} {
+  expect {
+    -re $pattern { puts "PASS $description" }
+    timeout { puts stderr "volume PTY timed out: $description"; exit 1 }
+    eof { puts stderr "volume PTY exited early: $description"; exit 1 }
+  }
+}
+log_user 0
+spawn -noecho env TERM=xterm-256color NO_COLOR=1 $cli --kubeconfig $kubeconfig tui -n kube-memlens-csi-e2e --refresh 1s
+set child_tty $spawn_out(slave,name)
+stty columns $columns rows $rows < $child_tty
+require_pattern {A/F/S/O} "initial Pod view"
+send -- "/persistent\r"
+send -- "v"
+require_pattern {Volume context} "volume detail"
+require_pattern {Filesystem source:} "filesystem observation"
+send -- "G"
+require_pattern {Next check:|Uncertainty:|causality} "last section reachable"
+send -- "g"
+require_pattern {Volume context} "return to first section"
+send -- " "
+# Terminal frame differences may contain only the changed state word.
+require_pattern {paused} "pause"
+send -- " "
+require_pattern {automatic} "resume"
+send -- "C"
+require_pattern {Redacted incident capture} "capture action"
+send -s -- $capture
+send -- "\r"
+require_pattern {volume capture written} "fresh volume capture"
+if {![file isfile $capture]} { puts stderr "volume capture file missing"; exit 1 }
+send -- "\r"
+send -- "q"
+expect {
+  eof { puts "PASS volume PTY exited cleanly" }
+  timeout { puts stderr "volume PTY failed to exit"; exit 1 }
+}
+lassign [wait] pid spawn_id os_error status
+if {$os_error != 0 || $status != 0} { exit 1 }

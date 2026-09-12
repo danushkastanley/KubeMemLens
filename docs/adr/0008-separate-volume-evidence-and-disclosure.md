@@ -90,3 +90,23 @@ Snapshot schema5 is intentional: adding `health.lastGood` to schema4 would break
 its strict readers. Project the new field out for schema4 while preserving current
 failure state, filesystem values and schema4 producer ingestion. This snapshot
 version is separate from the reserved incident schema5.
+
+## Volume correlation integration
+
+Snapshot schema 6 carries optional per-container I/O pressure and authorised
+binding references. Older schemas omit those fields. Incident schema 5 now stores
+one Pod with its volume evidence and optional same-instance memory history.
+Default redaction removes cross-capture identity, so comparison cannot use aliases
+to infer continuity. Sensitive export is explicit, private and freshly authorised.
+
+Workload queries compose live UID-owned Pods and deduplicate verified shared PVC
+bindings without adding filesystem bytes to memory. The workload acquisition and
+viewer roles are separate opt-ins. Query count, bytes, deadlines and concurrent
+work are bounded, and volume requests cannot occupy the ordinary memory read
+gate. Permission decisions are never cached. These boundaries permit scoped
+operator diagnosis without granting storage mutation or cluster-wide disclosure.
+
+A single pure explanation module owns correlations. CLI and TUI render its source
+labels, separate severities and uncertainty. No diagnostic rule belongs to the
+presentation layer. PSI remains container-scoped; correlation and binding identity
+do not prove causality, storage latency or continuity through a filesystem reset.

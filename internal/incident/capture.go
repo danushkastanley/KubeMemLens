@@ -33,6 +33,7 @@ func Redact(bundle *api.IncidentBundle) {
 }
 
 func Write(stdout io.Writer, output string, overwrite bool, bundle api.IncidentBundle) error {
+	bundle = api.WithoutIOIncident(bundle)
 	if err := ValidateSchema(bundle); err != nil {
 		return err
 	}

@@ -96,32 +96,12 @@ func Workloads(pods []api.PodSnapshot) []api.WorkloadSnapshot {
 			keys = append(keys, key)
 		}
 		workload.Pods = append(workload.Pods, pod)
-		if pod.CapturedAt.After(workload.CapturedAt) {
-			workload.CapturedAt = pod.CapturedAt
-		}
-		if workload.LargestPodName == "" || pod.Memory.TotalBytes > workload.LargestPodBytes {
-			workload.LargestPodBytes = pod.Memory.TotalBytes
-			workload.LargestPodName = pod.PodName
-		}
 	}
 	sort.Strings(keys)
 	items := make([]api.WorkloadSnapshot, 0, len(keys))
 	for _, key := range keys {
-		workload := *byWorkload[key]
-		workload.PodCount = len(workload.Pods)
-		memories := make([]model.MemoryBreakdown, 0, len(workload.Pods))
-		for _, pod := range workload.Pods {
-			memories = append(memories, pod.Memory)
-		}
-		workload.Memory = model.SumMemory(workload.Namespace+"/"+workload.Kind+"/"+workload.Name, memories)
-		for _, pod := range workload.Pods {
-			mergeEvidence(&workload.Freshness, &workload.Completeness, pod.Freshness, pod.Completeness)
-		}
-		normaliseWorkloadBoundaries(&workload.Memory, workload.Pods)
-		sort.Slice(workload.Pods, func(i, j int) bool {
-			return workload.Pods[i].Memory.TotalBytes > workload.Pods[j].Memory.TotalBytes
-		})
-		items = append(items, workload)
+		workload := byWorkload[key]
+		items = append(items, SummariseWorkload(workload.Namespace, workload.Kind, workload.Name, workload.Pods))
 	}
 	return items
 }

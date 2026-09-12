@@ -166,6 +166,7 @@ func (m *appModel) openSelectedDetail() tea.Cmd {
 		return nil
 	}
 	m.detail = ref
+	m.detailSection = detailMemory
 	m.detailParent = m.view
 	m.selectedPodNS = ref.namespace
 	m.selectedPodName = ref.podName
@@ -173,7 +174,7 @@ func (m *appModel) openSelectedDetail() tea.Cmd {
 	m.resetCurrentViewport()
 	if ref.kind == entityPod || ref.kind == entityContainer {
 		m.selectHistoryTarget(ref.namespace, ref.podName)
-		return tea.Batch(m.historyRefreshCmd(), m.beginCompleteFetch())
+		return tea.Batch(m.historyRefreshCmd(), m.beginCompleteFetch(), m.ensureVolumeTarget())
 	}
 	m.clearHistoryTarget()
 	return m.ensureHistoryTarget()

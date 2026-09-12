@@ -23,20 +23,22 @@ import (
 const readAPIVersion = api.MemoryAPIGroup + "/" + api.MemoryAPIVersion
 
 type ReadHandler struct {
-	podAuthorizer      authorizer.Authorizer
-	accounting         map[string]nodeanalysis.Qualification
-	nodeContextEnabled bool
-	volumeStatsEnabled bool
-	volumeNamespaces   map[string]bool
-	volumeResolver     kube.VolumeResolver
-	store              *collector.Store
-	opts               collector.HandlerOptions
-	now                func() time.Time
-	gate               chan struct{}
+	podAuthorizer          authorizer.Authorizer
+	accounting             map[string]nodeanalysis.Qualification
+	nodeContextEnabled     bool
+	volumeStatsEnabled     bool
+	volumeWorkloadsEnabled bool
+	volumeNamespaces       map[string]bool
+	volumeResolver         kube.VolumeResolver
+	store                  *collector.Store
+	opts                   collector.HandlerOptions
+	now                    func() time.Time
+	gate                   chan struct{}
+	volumeGate             chan struct{}
 }
 
 func NewReadHandler(store *collector.Store, opts collector.HandlerOptions) *ReadHandler {
-	return &ReadHandler{store: store, opts: opts, now: func() time.Time { return time.Now().UTC() }, gate: make(chan struct{}, 1)}
+	return &ReadHandler{store: store, opts: opts, now: func() time.Time { return time.Now().UTC() }, gate: make(chan struct{}, 1), volumeGate: make(chan struct{}, 1)}
 }
 
 func (h *ReadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -64,12 +66,24 @@ func (h *ReadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set(api.SnapshotSchemaHeader, strconv.Itoa(schema))
-	select {
-	case h.gate <- struct{}{}:
-		defer func() { <-h.gate }()
-	case <-r.Context().Done():
-		writeReadError(w, http.StatusServiceUnavailable, metav1.StatusReasonServiceUnavailable, "read request was cancelled")
-		return
+	if info.Subresource == "volumes" {
+		// Volume metadata reads can wait on Kubernetes. Keep memory reads independent
+		// and reject excess volume queries instead of occupying server read slots.
+		select {
+		case h.volumeGate <- struct{}{}:
+			defer func() { <-h.volumeGate }()
+		default:
+			writeReadError(w, http.StatusTooManyRequests, metav1.StatusReasonTooManyRequests, "a volume read is already in progress")
+			return
+		}
+	} else {
+		select {
+		case h.gate <- struct{}{}:
+			defer func() { <-h.gate }()
+		case <-r.Context().Done():
+			writeReadError(w, http.StatusServiceUnavailable, metav1.StatusReasonServiceUnavailable, "read request was cancelled")
+			return
+		}
 	}
 
 	switch info.Resource {
@@ -194,6 +208,10 @@ func (h *ReadHandler) serveContainers(w http.ResponseWriter, r *http.Request, in
 }
 
 func (h *ReadHandler) serveWorkloads(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo, schema int) {
+	if info.Subresource == "volumes" {
+		h.serveWorkloadVolumes(w, r, info, schema)
+		return
+	}
 	if info.Verb != "list" || info.Name != "" || info.Subresource != "" {
 		writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
 		return

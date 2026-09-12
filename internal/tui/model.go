@@ -38,6 +38,7 @@ type appModel struct {
 	selectedPodName     string
 	detail              entityRef
 	detailParent        viewMode
+	detailSection       detailSection
 
 	data             snapshotData
 	podTrends        map[string]int8
@@ -51,6 +52,8 @@ type appModel struct {
 	historyCancel    context.CancelFunc
 	selectedNode     selectedNode
 	nodeCancel       context.CancelFunc
+	selectedVolumes  selectedVolumes
+	volumeCancel     context.CancelFunc
 }
 
 type fetchMsg struct {
@@ -110,10 +113,11 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reconcileCurrentViewport("")
 		return m, m.ensureHistoryTarget()
 	case tickMsg:
+		m.expireVolumes(time.Now().UTC())
 		if m.paused {
 			return m, m.tickCmd()
 		}
-		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd(), m.nodeRefreshCmd(), m.tickCmd())
+		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd(), m.nodeRefreshCmd(), m.volumeRefreshCmd(), m.tickCmd())
 	case fetchMsg:
 		if msg.generation != 0 && msg.generation != m.fetchGeneration {
 			return m, nil
@@ -185,6 +189,9 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case nodeMsg:
 		command := m.receiveNode(msg)
 		return m, command
+	case volumeMsg:
+		m.receiveVolumes(msg)
+		return m, nil
 	case actionMsg:
 		m.completeAction(msg)
 		return m, nil
@@ -196,12 +203,13 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *appModel) clearRevokedData() {
+	m.clearVolumeTarget()
 	m.clearNodeTarget()
 	m.clearHistoryTarget()
 	m.data = snapshotData{}
 	m.podTrends = make(map[string]int8)
 	m.lastRefresh = time.Time{}
-	m.action = actionState{}
+	m.invalidateActions()
 	m.currentNamespace = ""
 	m.currentNode = ""
 	m.currentWorkloadKind = ""
@@ -264,6 +272,7 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "q", "ctrl+c":
 		m.cancelHistoryRequest()
 		m.cancelNodeRequest()
+		m.cancelVolumeRequest()
 		return m, tea.Quit
 	case "?":
 		m.help = !m.help
@@ -279,15 +288,16 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "y":
 		return m.copyCurrentCommand()
 	case "r":
-		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd(), m.nodeRefreshCmd())
+		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd(), m.nodeRefreshCmd(), m.volumeRefreshCmd())
 	case "/":
 		m.searching = true
 	case "space":
 		m.paused = !m.paused
 		if m.paused {
 			m.cancelNodeRequest()
+			m.cancelVolumeRequest()
 		} else {
-			return m, m.nodeRefreshCmd()
+			return m, tea.Batch(m.nodeRefreshCmd(), m.volumeRefreshCmd())
 		}
 	case "esc":
 		if m.query != "" {
@@ -334,7 +344,14 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.resetCurrentViewport()
 		return m, tea.Batch(m.beginCompleteFetch(), m.ensureHistoryTarget())
 	case "e":
+		if m.view == viewDetail && m.detailSection == detailVolumes {
+			m.detailSection = detailMemory
+			m.resetCurrentViewport()
+			return m, m.ensureHistoryTarget()
+		}
 		return m, m.openSelectedDetail()
+	case "v":
+		return m, m.openVolumeDetail()
 	case "enter":
 		return m, m.enter()
 	case "backspace", "h":

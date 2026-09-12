@@ -46,6 +46,7 @@ type Binding struct {
 	VolumeName        string                    `json:"-"`
 	PVCName           string                    `json:"-"`
 	PVCUID            string                    `json:"-"`
+	PVUID             string                    `json:"-"`
 	PVCCreatedAt      time.Time                 `json:"-"`
 	Driver            string                    `json:"-"`
 	ClaimAvailability volumehealth.Availability `json:"-"`

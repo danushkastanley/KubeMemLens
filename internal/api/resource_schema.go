@@ -37,36 +37,39 @@ func AgentSnapshotForSchema(snapshot AgentSnapshot, version int) AgentSnapshot {
 	if version < 3 {
 		snapshot.NodeContext = nil
 	}
-	if version == LegacySchemaVersion {
-		snapshot.Containers = legacyContainers(snapshot.Containers)
+	if version < IOPressureSnapshotSchemaVersion {
+		snapshot.Containers = containersForSchema(snapshot.Containers, version)
 	}
 	return snapshot
 }
 
 func LegacyPodSnapshot(pod PodSnapshot) PodSnapshot {
-	pod.Context.Resources = model.PodMemoryResources{}
-	pod.Containers = legacyContainers(pod.Containers)
-	return pod
+	return podForSchema(pod, LegacySchemaVersion)
 }
 
-func legacyContainers(containers []ContainerSnapshot) []ContainerSnapshot {
+func containersForSchema(containers []ContainerSnapshot, version int) []ContainerSnapshot {
 	items := slices.Clone(containers)
 	for index := range items {
-		items[index].Context.Resources = model.ContainerMemoryResources{}
+		items[index] = containerForSchema(items[index], version)
 	}
 	return items
 }
 
 func legacyPods(pods []PodSnapshot) []PodSnapshot {
+	return podsForSchema(pods, LegacySchemaVersion)
+}
+
+func podsForSchema(pods []PodSnapshot, version int) []PodSnapshot {
 	items := slices.Clone(pods)
 	for index := range items {
-		items[index] = LegacyPodSnapshot(items[index])
+		items[index] = podForSchema(items[index], version)
 	}
 	return items
 }
 
-func legacyWorkload(workload WorkloadSnapshot) WorkloadSnapshot {
-	workload.Pods = legacyPods(workload.Pods)
+func workloadForSchema(workload WorkloadSnapshot, version int) WorkloadSnapshot {
+	workload.Pods = podsForSchema(workload.Pods, version)
+	workload.Memory.IOPressure = model.IOPressure{}
 	return workload
 }
 
@@ -84,50 +87,50 @@ func SnapshotView(value any, version int) any {
 			value = data
 		}
 	}
-	if version != LegacySchemaVersion {
+	if version >= IOPressureSnapshotSchemaVersion {
 		return value
 	}
 	switch data := value.(type) {
 	case ContainerPage:
-		data.Items = legacyContainers(data.Items)
+		data.Items = containersForSchema(data.Items, version)
 		return data
 	case []ContainerSnapshot:
-		return legacyContainers(data)
+		return containersForSchema(data, version)
 	case []PodSnapshot:
-		return legacyPods(data)
+		return podsForSchema(data, version)
 	case PodSnapshot:
-		return LegacyPodSnapshot(data)
+		return podForSchema(data, version)
 	case []WorkloadSnapshot:
 		items := slices.Clone(data)
 		for index := range items {
-			items[index] = legacyWorkload(items[index])
+			items[index] = workloadForSchema(items[index], version)
 		}
 		return items
 	case PodMemory:
-		data.Snapshot = LegacyPodSnapshot(data.Snapshot)
+		data.Snapshot = podForSchema(data.Snapshot, version)
 		return data
 	case PodMemoryList:
 		data.Items = slices.Clone(data.Items)
 		for index := range data.Items {
-			data.Items[index].Snapshot = LegacyPodSnapshot(data.Items[index].Snapshot)
+			data.Items[index].Snapshot = podForSchema(data.Items[index].Snapshot, version)
 		}
 		return data
 	case ContainerMemory:
-		data.Snapshot.Context.Resources = model.ContainerMemoryResources{}
+		data.Snapshot = containerForSchema(data.Snapshot, version)
 		return data
 	case ContainerMemoryList:
 		data.Items = slices.Clone(data.Items)
 		for index := range data.Items {
-			data.Items[index].Snapshot.Context.Resources = model.ContainerMemoryResources{}
+			data.Items[index].Snapshot = containerForSchema(data.Items[index].Snapshot, version)
 		}
 		return data
 	case WorkloadMemory:
-		data.Snapshot = legacyWorkload(data.Snapshot)
+		data.Snapshot = workloadForSchema(data.Snapshot, version)
 		return data
 	case WorkloadMemoryList:
 		data.Items = slices.Clone(data.Items)
 		for index := range data.Items {
-			data.Items[index].Snapshot = legacyWorkload(data.Items[index].Snapshot)
+			data.Items[index].Snapshot = workloadForSchema(data.Items[index].Snapshot, version)
 		}
 		return data
 	default:
@@ -157,6 +160,7 @@ func PodHasResourceContext(pod PodSnapshot) bool {
 }
 
 func LegacyIncident(bundle IncidentBundle) IncidentBundle {
+	bundle = WithoutIOIncident(bundle)
 	if IncidentSchema(bundle.Pods) != LegacySchemaVersion {
 		bundle.Partial = true
 		bundle.Caveats = append(slices.Clone(bundle.Caveats), "Pod resource and resize context was omitted for incident schema 1.")

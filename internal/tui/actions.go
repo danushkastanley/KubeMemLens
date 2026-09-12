@@ -12,6 +12,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
+	"github.com/danushkastanley/kube-memlens/internal/client"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/danushkastanley/kube-memlens/internal/model"
@@ -31,28 +32,34 @@ const (
 )
 
 type actionRequest struct {
-	kind              actionKind
-	restricted        *incident.RestrictedBundle
-	observationBefore *observationview.Row
-	observationAfter  *observationview.Row
-	beforeAt          time.Time
-	afterAt           time.Time
-	ref               entityRef
-	pods              []api.PodSnapshot
-	nodes             []api.NodeSnapshotStatus
-	histories         []api.PodHistory
-	before            *api.PodSnapshot
-	after             *api.PodSnapshot
-	outputPath        string
-	overwrite         bool
-	partial           bool
-	caveats           []string
-	reliability       *api.CollectorReliability
-	nodeReader        incident.NodeCaptureReader
-	nodeRank          nodeanalysis.Metric
+	kind                 actionKind
+	restricted           *incident.RestrictedBundle
+	observationBefore    *observationview.Row
+	observationAfter     *observationview.Row
+	beforeAt             time.Time
+	afterAt              time.Time
+	ref                  entityRef
+	pods                 []api.PodSnapshot
+	nodes                []api.NodeSnapshotStatus
+	histories            []api.PodHistory
+	before               *api.PodSnapshot
+	after                *api.PodSnapshot
+	outputPath           string
+	overwrite            bool
+	partial              bool
+	caveats              []string
+	reliability          *api.CollectorReliability
+	nodeReader           incident.NodeCaptureReader
+	nodeRank             nodeanalysis.Metric
+	volumeReader         incident.VolumeCaptureReader
+	volumeExpectedUID    string
+	volumeHistory        bool
+	volumeBefore         *explain.VolumeInput
+	volumeWorkloadReader client.WorkloadVolumeReader
 }
 
 type actionResult struct {
+	volumeSource      *explain.VolumeInput
 	title             string
 	lines             []string
 	outputPath        string
@@ -71,10 +78,19 @@ func (localActionExecutor) Run(ctx context.Context, request actionRequest) (acti
 	}
 	switch request.kind {
 	case actionRecommend:
+		if request.volumeReader != nil || request.volumeWorkloadReader != nil {
+			return volumeRecommendationResult(ctx, request)
+		}
 		return recommendationResult(request)
 	case actionCompare:
+		if request.volumeReader != nil {
+			return volumeCompareResult(ctx, request)
+		}
 		return compareResult(request)
 	case actionCapture:
+		if request.volumeReader != nil {
+			return volumeCaptureResult(ctx, request)
+		}
 		if request.nodeReader != nil {
 			return nodeCaptureResult(ctx, request)
 		}

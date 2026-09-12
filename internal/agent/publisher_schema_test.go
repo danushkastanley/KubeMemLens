@@ -23,6 +23,7 @@ func schemaEpoch(version int, epoch string) api.IngestionEpoch {
 func schemaSnapshot() api.AgentSnapshot {
 	snapshot := publisherSnapshot()
 	snapshot.Containers = []api.ContainerSnapshot{{
+		Memory:      model.MemoryBreakdown{IOPressure: model.IOPressure{State: model.IOAvailable}},
 		ContainerID: "id-app", Context: api.ContainerContext{Resources: model.ContainerMemoryResources{
 			Pod: model.PodMemoryResources{Configured: model.MemoryResourceBudget{Limit: model.ResourceValue{Bytes: 384, Known: true}}},
 		}},
@@ -31,7 +32,7 @@ func schemaSnapshot() api.AgentSnapshot {
 }
 
 func TestPublisherNegotiatesLegacyAndCurrentCollectors(t *testing.T) {
-	for _, version := range []int{api.LegacySchemaVersion, 2, api.CurrentSnapshotSchemaVersion} {
+	for _, version := range []int{api.LegacySchemaVersion, 2, 3, 4, 5, api.CurrentSnapshotSchemaVersion} {
 		t.Run(strconv.Itoa(version), func(t *testing.T) {
 			var posted api.NodeSnapshotRequest
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +65,9 @@ func TestPublisherNegotiatesLegacyAndCurrentCollectors(t *testing.T) {
 			}
 			if snapshot.Containers[0].Context.Resources.IsZero() {
 				t.Fatal("compatibility projection mutated the scanner snapshot")
+			}
+			if (posted.Snapshot.Containers[0].Memory.IOPressure.State != "") != (version >= api.IOPressureSnapshotSchemaVersion) {
+				t.Fatal("wire I/O context did not match the negotiated schema")
 			}
 		})
 	}

@@ -86,6 +86,7 @@ func (q *volumeBindingQuery) claimBinding(ctx context.Context, pod *corev1.Pod, 
 	b.ClaimAvailability = volumehealth.Reported
 	b.PVCName = pvc.Name
 	b.PVCUID = string(pvc.UID)
+	b.PVUID = string(pv.UID)
 	b.PVCCreatedAt = pvc.CreationTimestamp.Time
 	var pvAccess error
 	if pv.Spec.CSI != nil || q.healthSeeds != nil {

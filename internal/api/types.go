@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const CurrentSnapshotSchemaVersion = VolumeHealthSnapshotSchemaVersion
+const CurrentSnapshotSchemaVersion = IOPressureSnapshotSchemaVersion
 const CurrentIncidentSchemaVersion = 2
 const CurrentExplanationSchemaVersion = 3
 const CurrentRecommendationSchemaVersion = 1

@@ -200,7 +200,7 @@ func (m *appModel) historyRefreshCmd() tea.Cmd {
 }
 
 func (m *appModel) ensureHistoryTarget() tea.Cmd {
-	return tea.Batch(m.ensurePodHistoryTarget(), m.ensureNodeTarget())
+	return tea.Batch(m.ensurePodHistoryTarget(), m.ensureNodeTarget(), m.ensureVolumeTarget())
 }
 
 func (m *appModel) ensurePodHistoryTarget() tea.Cmd {

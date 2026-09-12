@@ -37,6 +37,9 @@ func validateScope(scope PodScope, now time.Time) error {
 }
 
 func validateBinding(b Binding, now time.Time) error {
+	if b.PVUID != "" && !validUID(b.PVUID) {
+		return ErrInvalid
+	}
 	c := b.Configuration
 	if !validName(b.VolumeName) || len(b.VolumeName) > 63 || c.MountCount < 0 || c.MountCount > MaxMountsPerVolume ||
 		c.ReadOnlyMountCount < 0 || c.ReadOnlyMountCount > c.MountCount || (b.Driver != "" && !validName(b.Driver)) {
@@ -51,7 +54,7 @@ func validateBinding(b Binding, now time.Time) error {
 			return ErrInvalid
 		}
 	case InlineCSI, EmptyDir, Other:
-		if b.PVCName != "" || b.PVCUID != "" || !b.PVCCreatedAt.IsZero() || b.ClaimAvailability != "" {
+		if b.PVCName != "" || b.PVCUID != "" || b.PVUID != "" || !b.PVCCreatedAt.IsZero() || b.ClaimAvailability != "" {
 			return ErrInvalid
 		}
 	default:
@@ -70,7 +73,7 @@ func validateBinding(b Binding, now time.Time) error {
 }
 
 func validateUnavailableClaim(b Binding) error {
-	if b.PVCName != "" || b.PVCUID != "" || !b.PVCCreatedAt.IsZero() || b.Driver != "" || b.Configuration.MemoryBacked || b.Configuration.SizeLimitBytes != nil {
+	if b.PVCName != "" || b.PVCUID != "" || b.PVUID != "" || !b.PVCCreatedAt.IsZero() || b.Driver != "" || b.Configuration.MemoryBacked || b.Configuration.SizeLimitBytes != nil {
 		return ErrInvalid
 	}
 	switch b.ClaimAvailability {

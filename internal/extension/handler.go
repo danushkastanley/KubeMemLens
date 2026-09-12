@@ -33,19 +33,20 @@ const (
 )
 
 type HandlerOptions struct {
-	NodeAccounting      map[string]nodeanalysis.Qualification
-	AgentUsername       string
-	NodeContextUsername string
-	VolumeStatsEnabled  bool
-	VolumeHealthEnabled bool
-	VolumeNamespaces    []string
-	MaxSnapshotBytes    int64
-	MaxConcurrent       int
-	RequestsPerSec      float64
-	Burst               int
-	MaxIdentities       int
-	IdentityTTL         time.Duration
-	Logf                func(string, ...any)
+	NodeAccounting         map[string]nodeanalysis.Qualification
+	AgentUsername          string
+	NodeContextUsername    string
+	VolumeStatsEnabled     bool
+	VolumeHealthEnabled    bool
+	VolumeWorkloadsEnabled bool
+	VolumeNamespaces       []string
+	MaxSnapshotBytes       int64
+	MaxConcurrent          int
+	RequestsPerSec         float64
+	Burst                  int
+	MaxIdentities          int
+	IdentityTTL            time.Duration
+	Logf                   func(string, ...any)
 }
 
 type Handler struct {
@@ -80,6 +81,9 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 		return nil, err
 	}
 	opts.VolumeNamespaces = namespaces
+	if opts.VolumeWorkloadsEnabled && len(namespaces) == 0 {
+		return nil, fmt.Errorf("workload volume context requires configured volume namespaces")
+	}
 	if opts.VolumeHealthEnabled {
 		if len(namespaces) == 0 {
 			return nil, fmt.Errorf("volume health requires configured volume namespaces")
@@ -102,6 +106,7 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	reads := NewReadHandler(coordinator.store, coordinator.opts.Handler)
 	reads.nodeContextEnabled = opts.NodeContextUsername != ""
 	reads.volumeStatsEnabled = opts.VolumeStatsEnabled
+	reads.volumeWorkloadsEnabled = opts.VolumeWorkloadsEnabled
 	reads.volumeNamespaces = map[string]bool{}
 	for _, namespace := range namespaces {
 		reads.volumeNamespaces[namespace] = true

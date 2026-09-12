@@ -9,7 +9,8 @@ package model
 // presenting mutually exclusive subcategories. TotalBytes comes from
 // memory.current when available. Some fields may be zero on older kernels.
 type MemoryBreakdown struct {
-	Name string
+	Name       string
+	IOPressure IOPressure `json:"ioPressure,omitzero"`
 
 	TotalBytes             uint64
 	AnonBytes              uint64
@@ -212,6 +213,7 @@ func (m MemoryBreakdown) RecentEventCounts() (oom, oomKill, high, maxEvents uint
 }
 
 func WithEventDeltas(current MemoryBreakdown, previous MemoryBreakdown, hasPrevious bool) MemoryBreakdown {
+	current.IOPressure = withIODeltas(current.IOPressure, previous.IOPressure, hasPrevious)
 	current.EventDeltasKnown = true
 	current.LocalEventDeltasKnown = current.LocalEventsKnown
 	current.SwapEventDeltasKnown = current.SwapEventsKnown
