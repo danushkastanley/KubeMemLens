@@ -13,9 +13,11 @@ ENVIRONMENT = {"provider", "kubernetes", "kernel", "runtime", "nodeImage", "osIm
 
 def validate_evidence(p, e):
     validate_profile(p)
-    exact(e, {"schemaVersion", "profile", "startedAt", "completedAt", "orchestration", "artefacts", "environment", "transport", "fields", "provenance", "samples", "rotation", "lifecycle", "cleanup", "privacy", "recordDigest"}, "evidence")
+    require(isinstance(e, dict) and type(e.get("schemaVersion")) is int and e["schemaVersion"] in {1, 2}, "unsupported evidence schema")
+    measurement_keys = {"samples", "rotation"} if e["schemaVersion"] == 1 else {"nodes", "observation"}
+    exact(e, {"schemaVersion", "profile", "startedAt", "completedAt", "orchestration", "artefacts", "environment", "transport", "fields", "provenance", "lifecycle", "cleanup", "privacy", "recordDigest"} | measurement_keys, "evidence")
     privacy(e)
-    require(type(e["schemaVersion"]) is int and e["schemaVersion"] == 1 and e["profile"] == {"id": p["id"], "digest": p["profileDigest"]}, "evidence profile mismatch")
+    require(e["profile"] == {"id": p["id"], "digest": p["profileDigest"]}, "evidence profile mismatch")
     require(instant(e["completedAt"]) >= instant(e["startedAt"]), "reversed qualification window")
     choice(e["orchestration"], {"completed", "failed"}, "invalid orchestration outcome")
     exact(e["artefacts"], ARTEFACTS, "artefacts")
@@ -53,12 +55,7 @@ def validate_evidence(p, e):
     exact(e["fields"], FIELDS, "source fields")
     require(all(isinstance(v, str) and v in {"available", "unreported"} for v in e["fields"].values()), "invalid source field availability")
     choice(e["provenance"], {"unknown", "cadvisor", "cri"}, "invalid source provenance")
-    exact(e["samples"], {"baseline", "enabled"}, "samples")
-    for phase in ("baseline", "enabled"):
-        validate_samples(e["samples"][phase], phase)
-    exact(e["rotation"], {"observed", "sameProducer", "continuedAcquisition", "elapsedSeconds"}, "rotation")
-    require(all(type(e["rotation"][k]) is bool for k in ("observed", "sameProducer", "continuedAcquisition")), "invalid rotation observation")
-    require(e["rotation"]["elapsedSeconds"] is None or number(e["rotation"]["elapsedSeconds"]), "invalid rotation duration")
+    validate_measurements(p, e)
     exact(e["lifecycle"], EVENTS, "lifecycle")
     for event in e["lifecycle"].values():
         exact(event, {"state", "elapsedSeconds", "identityVerified", "freshEvidence", "staleRetained"}, "lifecycle event")
@@ -70,6 +67,34 @@ def validate_evidence(p, e):
     require(e["privacy"] == PRIVACY and all(type(v) is bool for v in e["privacy"].values()), "qualification privacy assertions are missing")
     require(isinstance(e["recordDigest"], str) and DIGEST.fullmatch(e["recordDigest"]) and e["recordDigest"] == digest(e, "recordDigest"), "evidence digest mismatch")
     return e
+
+
+def measurement_sets(e):
+    if e["schemaVersion"] == 1:
+        return [{"samples": e["samples"], "rotation": e["rotation"]}]
+    return e["nodes"]
+
+
+def validate_rotation(rotation):
+    exact(rotation, {"observed", "sameProducer", "continuedAcquisition", "elapsedSeconds"}, "rotation")
+    require(all(type(rotation[k]) is bool for k in ("observed", "sameProducer", "continuedAcquisition")), "invalid rotation observation")
+    require(rotation["elapsedSeconds"] is None or number(rotation["elapsedSeconds"]), "invalid rotation duration")
+
+
+def validate_measurements(p, e):
+    if e["schemaVersion"] == 2:
+        require(e["observation"] == {"method": "kubernetes-probes-v1", "image": p["workload"]["image"]},
+                "observation method or image differs from the fixed protocol")
+        require(isinstance(e["nodes"], list) and len(e["nodes"]) == p["workload"]["linuxNodes"],
+                "measurement slots must cover every profile Node")
+        for slot, node in enumerate(e["nodes"]):
+            exact(node, {"slot", "samples", "rotation"}, "Node measurement")
+            require(type(node["slot"]) is int and node["slot"] == slot, "measurement slots must be unique and ordered")
+    for node in measurement_sets(e):
+        exact(node["samples"], {"baseline", "enabled"}, "samples")
+        for phase in ("baseline", "enabled"):
+            validate_samples(node["samples"][phase], phase)
+        validate_rotation(node["rotation"])
 
 
 def validate_samples(samples, phase):

@@ -15,6 +15,7 @@ class Window:
     def __init__(self, runtime, phase, clock=time.monotonic):
         self.runtime, self.phase, self.clock = runtime, phase, clock
         self.initial_id = None
+        self.initial_components = None
         self.initial_identity = None
         self.rotation_reads = None
         self.rotation = {"observed": False, "sameProducer": False,
@@ -25,6 +26,10 @@ class Window:
         now = self.clock()
         containers = r.containers()
         require(("node-context" in containers) == enabled, "producer state differs from phase")
+        components = {name: value["id"] for name, value in containers.items()}
+        if self.initial_components is None:
+            self.initial_components = components
+        require(components == self.initial_components, "component replaced during the measurement window")
         kubelet_cpu, kubelet_memory = r.kubelet(now)
         agent = r.component_metrics(containers["agent"], 8082)
         workload, mapped = r.workload()
