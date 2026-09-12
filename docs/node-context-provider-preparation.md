@@ -249,3 +249,54 @@ see [Cilium's CIDR behaviour](https://docs.cilium.io/en/stable/security/policy/l
 The installer accepts only the explicit local kind target and rejects an
 existing CNI. It does not alter a provider's CNI or establish a provider support
 row. The fixture is removed after verification.
+
+## Candidate artefact authority
+
+The artefact verifier uses the existing signed candidate manifest and the exact
+candidate workflow identity. It checks the manifest signature, image signature,
+GitHub attestation, proposed chart checksum and the host CLI bytes from the signed
+archive. Candidate executables are not run during these checks. Signature checks
+may read public registry, GitHub and Sigstore data; they do not contact Kubernetes
+or start a provider run.
+An approved registry mirror is permitted when it preserves the exact signed
+image digest. Signature authority is checked at the candidate's original
+repository; live Pods must use the mirror reference recorded in the proposal.
+
+Supply the candidate build's reproducible OCI archive and a producer binary
+copied from that exact image for the intended Linux architecture. The image
+verifier checks the signed index identity, platform/configuration descriptors,
+compressed layer hashes, uncompressed diff IDs and the repository's five-file
+scratch executable layout. It rejects missing binaries, symlinks, unsupported
+entries and later-layer executable replacements. The proposed producer hash must
+match the image's bytes. Source hashing reads the approved Git commit's production
+Go files, so later working-tree changes cannot alter the recorded source identity.
+
+From a clean checkout with a freshly prepared proposal:
+
+```sh
+python3 hack/node-qualification/verify_provider_artifacts.py \
+  --proposal /absolute/path/to/private-proposal \
+  --profile hack/node-qualification/profiles/gke-standard.json \
+  --candidate-bundle /absolute/path/to/candidate-bundle \
+  --candidate-tag v1.0.0-rc.3 \
+  --image-archive /absolute/path/to/kube-memlens-image.tar \
+  --architecture amd64 \
+  --output /absolute/path/to/new-artefact-verification.json
+```
+
+The tag is an example; use an existing approved candidate containing the intended
+source. The bundle needs its candidate manifest, manifest Sigstore bundle and the
+CLI archive for the verifier's Linux or macOS host. Use the repository's verifier
+tools, including Cosign 3.1.2 and GitHub CLI. A newly published candidate or image
+requires its own release authority. This command does not publish anything.
+
+The output remains `qualified: false` and `providerRunStarted: false`. A saved
+verification result grants no run approval. The provider runner must perform
+these checks against the current inputs and verify the actual pool architecture
+before installation.
+
+Execution checks actual Pod/container identity, approved image references and
+phase-specific commands/arguments against the verified image graph. It rejects
+volumes that shadow the executable. CRI can report an imported archive wrapper;
+that digest is accepted only when the archive's sole descriptor links to the
+expected image. Baseline and enabled phases use their respective chart templates.

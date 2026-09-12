@@ -8,6 +8,7 @@ from pathlib import Path
 from common import ContractError, load, require, write_new
 from install_observers import attach
 from kubernetes_runtime import KubernetesRuntime
+from live_images import verify as verify_images
 from owned_resources import OwnedResources, Resource
 from provider_install import Installer
 from provider_probes import identities, require_no_extra_access, run_probes
@@ -30,11 +31,14 @@ def wait_until(predicate, timeout, label):
 
 
 class Execution:
-    def __init__(self, bundle, binding, commands, private, inventory_binary, api_bridge):
+    def __init__(self, bundle, binding, commands, private, inventory_binary, api_bridge, image_proof):
         self.bundle, self.binding, self.k, self.private = bundle, binding, commands, Path(private)
         self.ownership = OwnedResources(commands, self.private / "ownership")
         self.installer = Installer(bundle, self.ownership, inventory_binary)
         self.api_bridge, self.runtimes, self.windows, self.observations = api_bridge, [], {}, []
+        self.image_proof, self.image_checks = image_proof, {}
+        require(image_proof["imageDigest"] == bundle.configuration["imageDigest"]
+                and image_proof["architecture"] == binding["runtime"]["architecture"], "image proof differs from the execution target")
 
     def preflight(self):
         self.installer.preflight()
@@ -81,6 +85,7 @@ class Execution:
         wait_until(lambda: all(r.workload() == (expected, expected) for r in self.runtimes), 120, "workload mapping")
         for runtime in self.runtimes:
             attach(runtime, self.bundle.profile["workload"]["image"], "agent")
+        self.image_checks["baseline"] = verify_images(self, self.image_proof, "baseline")
 
     def measure(self, phase):
         require(phase in {"baseline", "enabled"} and phase not in self.windows, "measurement phase is invalid or already complete")
@@ -105,6 +110,7 @@ class Execution:
         wait_until(fresh, 120, "Node context")
         for runtime in self.runtimes:
             attach(runtime, self.bundle.profile["workload"]["image"], "node-context", audience=c["kubeletAudience"])
+        self.image_checks["enabled"] = verify_images(self, self.image_proof, "enabled")
 
     def measurements(self):
         require(set(self.windows) == {"baseline", "enabled"}, "both measurement phases are required")

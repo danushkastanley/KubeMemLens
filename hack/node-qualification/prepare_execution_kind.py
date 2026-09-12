@@ -5,7 +5,9 @@ import json
 import re
 from pathlib import Path
 
-from common import require
+from common import require, write_new
+from local_image_graph import inspect as inspect_image
+from archive_index import from_archive
 from process import execute
 
 
@@ -33,6 +35,7 @@ def prepare(args):
     k = ["kubectl", "--kubeconfig", args.kubeconfig, "--context", "kind-" + args.cluster, "--request-timeout=10s"]
     observed = json.loads(execute(k + ["get", "nodes", "-o", "json"]))["items"]
     manifests = set()
+    image_proofs = []
     for index, node in enumerate(nodes):
         rows = execute(["docker", "exec", node, "ctr", "-n", "k8s.io", "images", "ls"]).splitlines()
         images = [row.split() for row in rows if row.split() and row.split()[0] == args.image]
@@ -42,6 +45,7 @@ def prepare(args):
         if not any(row.split() and row.split()[0] == alias for row in rows):
             execute(["docker", "exec", node, "ctr", "-n", "k8s.io", "images", "tag", args.image, alias])
         record = next(n for n in observed if n["metadata"]["name"] == node)
+        image_proofs.append(inspect_image(node, digest, record["status"]["nodeInfo"]["architecture"]))
         addresses = [a["address"] for a in record["status"]["addresses"] if a["type"] == "InternalIP" and ":" not in a["address"]]
         require(len(addresses) == 1, "fixture requires one IPv4 Node address")
         config = f"[req]\ndistinguished_name=dn\nprompt=no\n[dn]\nCN={node}\n[serving]\nbasicConstraints=CA:FALSE\nkeyUsage=digitalSignature,keyEncipherment\nextendedKeyUsage=serverAuth\nsubjectAltName=IP:{addresses[0]},DNS:{node}\n"
@@ -56,6 +60,9 @@ def prepare(args):
         transfer_public(control, "/tmp/qualification-signed.crt", node, "/var/lib/kubelet/pki/qualification.crt")
         execute(["docker", "exec", node, "sh", "-c", 'sed -i "/^tlsCertFile:/d; /^tlsPrivateKeyFile:/d" /var/lib/kubelet/config.yaml; printf "\\ntlsCertFile: /var/lib/kubelet/pki/qualification.crt\\ntlsPrivateKeyFile: /var/lib/kubelet/pki/qualification.key\\n" >> /var/lib/kubelet/config.yaml; systemctl restart kubelet'])
     require(len(manifests) == 1, "fixture Nodes loaded different image manifests")
+    require(all(proof == image_proofs[0] for proof in image_proofs), "fixture Nodes resolved different image platforms")
+    image_proofs[0]["archiveIndexDigest"] = from_archive(root / "image-archive.tar", next(iter(manifests)))
+    write_new(root / "image-proof.json", image_proofs[0])
     (root / "image-digest").write_text(next(iter(manifests)))
     execute(["docker", "cp", control + ":/etc/kubernetes/pki/ca.crt", str(root / "serving-ca.crt")])
     execute(k + ["wait", "nodes", "--all", "--for=condition=Ready", "--timeout=90s"], timeout=95)

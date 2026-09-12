@@ -39,7 +39,7 @@ def run(args):
     passed = all(state == "passed" for batch in observations for state in batch["results"])
     result = {"schemaVersion": 1, "scope": "local-concurrent-api-read-diagnostic", "qualified": False,
               "profile": {"id": profile["id"], "digest": profile["profileDigest"]}, "linuxNodes": len(execution.runtimes),
-              "observations": observations, "readChecksPassed": passed, "cleanup": "passed"}
+              "observations": observations, "readChecksPassed": passed, "cleanup": "passed", "liveImages": execution.image_checks}
     privacy(result)
     write_new(args.output, result)
     require(passed, "concurrent API read diagnostic observed a failure")
