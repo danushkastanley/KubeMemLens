@@ -38,6 +38,11 @@ jobs:
             profile: kind-137-execution
             image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
             kubectl-sha256: 6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
+          - version: 1.37.0
+            mode: api-reads
+            profile: kind-137-execution
+            image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+            kubectl-sha256: 6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -77,9 +82,10 @@ jobs:
           NODE_CONTEXT_NODE_IMAGE: ${{ matrix.image }}
           NODE_CONTEXT_QUALIFICATION_PROFILE: hack/node-qualification/profiles/${{ matrix.profile }}.json
           NODE_CONTEXT_MEASUREMENT_METHOD: ${{ matrix.mode == 'kubernetes-qualification' && 'kubernetes' || 'docker' }}
+          NODE_CONTEXT_EXECUTION_MODE: ${{ matrix.mode == 'api-reads' && 'api-reads' || 'qualification' }}
           NODE_CONTEXT_ARTIFACT_DIR: ${{ runner.temp }}/node-qualification-evidence
         run: |
-          if [ '${{ matrix.mode }}' = execution ]; then
+          if [ '${{ matrix.mode }}' = execution ] || [ '${{ matrix.mode }}' = api-reads ]; then
             hack/verify-node-context-execution-kind.sh
           else
             hack/verify-node-context-kind.sh

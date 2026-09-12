@@ -13,10 +13,11 @@ from measurement_checks import measurement_checks
 from observer_specs import host_observer, host_policy
 from provider_execution import Execution
 from provider_recovery import PoolRecovery
+from source_summary import summarise
 from workload import deployment
 
 
-def run(args):
+def prepare(args):
     profile = load(args.profile)
     require(profile["id"] == "kind-137-execution" and profile["profileClass"] == "local-kind"
             and profile["workload"]["linuxNodes"] == 2, "owned two-Node diagnostic profile required")
@@ -61,6 +62,11 @@ def run(args):
     write_new(proposal / "host-observers.json", {"apiVersion": "v1", "kind": "List", "items": [host_policy(namespace), host_observer(namespace, profile["workload"]["image"], selector, tolerations)]})
     bundle = SimpleNamespace(directory=proposal, profile=profile, configuration=config)
     execution = Execution(bundle, binding, k, root, str(root / "chart-inventory"), root / "api-bridge")
+    return execution, profile, binding
+
+
+def run(args):
+    execution, profile, binding = prepare(args)
     try:
         print("local coordinator: preparation and production probes", flush=True)
         execution.prepare()
@@ -86,9 +92,10 @@ def run(args):
               "profile": {"id": profile["id"], "digest": profile["profileDigest"]}, "linuxNodes": 2,
               "positiveTransportProbes": len(execution.observations), "negativeTransportProbes": 6,
               "measurementChecksPassed": passed, "cleanup": "passed", "measurements": measured,
-              "lifecycle": lifecycle}
+              "lifecycle": lifecycle,
+              **summarise(execution.observations, [n["name"] for n in binding["nodes"]])}
     privacy(result)
-    write_new(output, result)
+    write_new(args.output, result)
     require(passed, "local pool measurement checks failed")
 
 

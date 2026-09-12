@@ -192,3 +192,19 @@ hack/verify-node-context-execution-kind.sh
 Only a local Docker socket is accepted. Serving private keys remain inside the
 owned Nodes; public CSRs and certificates use bounded exec streams because
 Docker's archive-copy API cannot reliably read kind's tmpfs mounts.
+
+The saved field summary requires each selected Node to report a field before
+marking it available for the pool. Measured zero remains available; a missing
+field on either Node stays unreported. Mixed or unknown source provenance is
+reported as unknown. Raw values and Node identifiers are omitted from this
+summary.
+
+For a shorter API failure investigation, set
+`NODE_CONTEXT_EXECUTION_MODE=api-reads` on the same command. It prepares the owned
+baseline fixture and runs 40 concurrent container-read batches across both
+Nodes. Its output is a diagnostic with `qualified: false`; it has no fixed-window
+measurements or recovery result. The normal mode still runs the full protocol.
+API failures report fixed authentication, permission, HTTP availability,
+deadline, transport or response categories without retaining response bodies,
+addresses or credential-plugin diagnostics. Failures remain failures; this
+diagnostic adds no retry or tolerance to qualification.
