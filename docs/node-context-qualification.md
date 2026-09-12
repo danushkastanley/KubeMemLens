@@ -3,8 +3,9 @@
 Node-context qualification is separate from the existing cgroup provider matrix.
 The profiles and validators under `hack/node-qualification/` define the required
 evidence and budgets. They do not claim that any provider run has taken place.
-The owned kind runner supplies local measurements. Provider execution remains a
-separate, explicitly approved run; provider rows cannot be inferred from kind.
+The owned kind runner supplies local measurements. The
+[provider command](node-context-provider-execution.md) requires a separate,
+explicitly approved run; provider rows cannot be inferred from kind.
 
 ## Fixed profiles
 

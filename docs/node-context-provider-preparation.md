@@ -2,11 +2,10 @@
 
 `hack/node-qualification/prepare_provider.py` prepares configuration for review.
 It does not contact Kubernetes, invoke provider CLIs, execute the supplied
-binaries, install resources, start a run or grant approval. The current live
-qualification runner remains specific to owned kind fixtures. The proposal
-includes the fixed [Kubernetes observer footprint](node-context-kubernetes-observer.md).
-Provider execution still needs to bind it to owner-supplied targets before a
-provider run is approved.
+binaries, install resources, start a run or grant approval. The proposal includes
+the fixed [Kubernetes observer footprint](node-context-kubernetes-observer.md).
+The separate [provider command](node-context-provider-execution.md) binds it to
+owner-supplied targets only after explicit run approval.
 
 Use this after selecting a disposable target and obtaining its local kubeconfig
 path, exact context, pool, Node addresses, API addresses and public kubelet CA.
@@ -159,10 +158,9 @@ when ownership is uncertain. Secret payloads are excluded from the receipts.
 The coordinator removes recorded objects directly so Helm cannot delete a
 replacement object by name during uninstall.
 
-These are execution components, not a completed provider qualification command.
-Provider-instance replacement, candidate artefact identity, the provider command,
-final evidence assembly and explicit provider cleanup confirmation must still be
-completed before a provider run can be approved. Each provider's CNI behaviour
+The [provider command](node-context-provider-execution.md) connects these
+components to approved runs. Candidate artefact verification and record
+assembly/cleanup confirmation are described below. Each provider's CNI behaviour
 also requires its own live evidence.
 
 The recovery component tests source loss, agent restart and collector restart
@@ -300,3 +298,108 @@ phase-specific commands/arguments against the verified image graph. It rejects
 volumes that shadow the executable. CRI can report an imported archive wrapper;
 that digest is accepted only when the archive's sole descriptor links to the
 expected image. Baseline and enabled phases use their respective chart templates.
+
+## Provider records and cleanup confirmation
+
+`provider_record.assemble` combines both fixed measurement windows, transport
+observations, live image checks, lifecycle outcomes and the fresh provider
+inventory receipt. It rejects mismatched candidate/producer identities, missing
+image phases and incomplete Node coverage. The values digest covers the proposal
+file-digest map and its observation settings, binding both phases and every
+probe/observer without retaining private file contents.
+
+The initial record leaves Kubernetes and provider cleanup pending. Missing
+replacement observations or NetworkPolicy controls cannot become successful
+evidence. A measured zero remains available, missing fields remain unreported,
+and unknown provenance remains unknown.
+
+`provider_record.cleanup_cluster` removes the execution's UID-owned resources
+through the existing cleanup implementation. Only successful removal sets
+`workloadsRemoved` and `rbacRemoved`. Failure leaves the original record unchanged;
+provider cleanup remains pending after Kubernetes cleanup succeeds.
+
+After the independent cleanup check confirms removal of every disposable provider
+resource covered by the approved run, retain its attestation alongside the
+Kubernetes-cleaned observation record. The attestation has these exact fields:
+
+| Field | Required value |
+| --- | --- |
+| `schemaVersion` | `1` |
+| `recordDigest` | Digest of the observation record after Kubernetes cleanup |
+| `profileDigest` | Digest of the exact qualification profile |
+| `independentCheck` | `true`, asserted by the separate cleanup checker |
+| `cloudResourcesRemoved` | `true`, after all approved disposable resources are removed |
+| `checkedAt` | UTC timestamp after collection, without fractional seconds |
+| `attestationDigest` | Canonical SHA256 digest using the existing `common.digest` contract, excluding this field |
+
+This is an operator attestation, not cryptographic proof of resource removal. The
+runner does not author it. Private account/resource inventories remain with the
+checker and outside the public record. Run the read-only finaliser with that
+completed attestation:
+
+```sh
+python3 hack/node-qualification/finalize_provider_record.py \
+  --profile hack/node-qualification/profiles/gke-standard.json \
+  --evidence /absolute/path/to/kubernetes-cleaned-observations.json \
+  --provider-receipt /absolute/path/to/provider-inventory.json \
+  --cleanup-attestation /absolute/path/to/independent-cleanup.json \
+  --output-dir /absolute/path/to/new-final-evidence \
+  --acknowledge confirm-independent-provider-cleanup
+```
+
+The command checks the receipt, profile, attestation digest and time, then writes
+a new private directory containing the unchanged input record, supplied cleanup
+attestation, provider receipt, final record and evaluation. It makes no provider
+or Kubernetes requests. Existing output is never replaced. Exit 0 means the
+measurements pass after cleanup confirmation; exit 1 preserves a failed measured
+result; exit 2 rejects malformed or unbound input. Every result still has
+`qualified: false` and needs the separate independent qualification review.
+
+## Replacement identity binding
+
+The existing provider qualification workflow uses an operator-triggered machine
+replacement. The Node-context replacement component follows that boundary: it
+reads inventory and validates identity changes without replacing infrastructure.
+The [provider command](node-context-provider-execution.md) connects the recovery
+observer to the complete measurement and cleanup sequence.
+
+`replacement_binding.capture` records private Node-reported system UUIDs and boot
+IDs for the original pool. Missing, malformed and placeholder identities fail
+this prerequisite. Replacement detection requires exactly the approved Node UID
+to disappear and one new UID to register. Detection occurs before readiness, so
+waiting for the new Node to become ready cannot shorten the measured recovery
+interval. Temporary overlap while a provider replaces a machine is not a
+completed two-Node transition.
+
+Rebinding requires a new system UUID and boot ID, an unchanged retained machine,
+the same exact runtime and provider inventory, and membership in the selected
+pool. Re-registering a Node object or rebooting the existing machine cannot pass
+this check. A provider may reuse a Node or resource name when the machine and
+Node identities actually change. These are Node-reported identity checks; the
+approved operator procedure and independent evidence review must establish that
+a real provider replacement occurred.
+
+The component returns one replacement host route in the original address family
+and preserves measurement slot order. It does not mutate the approved proposal,
+change API routes or widen CIDRs. The recovery observer applies the validated route to its owned policy with
+UID/version guards and verifies fresh collection within the existing recovery
+budget. No replacement result is qualified by this
+component alone.
+
+`ProviderReplacement.run` requires an explicit target slot and the existing
+`provider-action-approved` acknowledgement. It writes the exact target and
+machine identities into a private receipt for the operator. It allows up to
+1,800 seconds for the approved external action and new Node registration, as in
+the existing provider workflow. The separate 120-second recovery budget starts
+at first observed replacement registration and includes readiness, inventory
+validation, the guarded route update, observer attachment and fresh collection.
+This measures application recovery after registration, not provider provisioning
+time. No cloud mutation command is executed by the observer.
+
+The observer retains the original measurement identities, records the changed
+binding and policy privately, and checks both current sources and all five live
+component images. Final record values bind the replacement digest as well as the
+original proposal. A partially completed route change is retained without a
+successful replacement result. Field/provenance claims combine the original and
+replacement observations conservatively; a missing replacement field cannot
+become available because it existed before the replacement.

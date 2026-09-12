@@ -1,9 +1,11 @@
 import json
 import unittest
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 from common import ContractError
 from kubernetes_commands import KubernetesCommands
-from provider_probes import identities, pod
+from provider_probes import identities, pod, run_probes
 
 
 class ProbeContractTest(unittest.TestCase):
@@ -41,6 +43,25 @@ class ProbeContractTest(unittest.TestCase):
         self.assertIn("--as", args)
         self.assertEqual(args.count("--as-group"), 3)
         self.assertIn("system:serviceaccounts:fixture", args)
+
+    def test_failed_allowed_probe_retains_only_the_fixed_producer_reason(self):
+        config = {"namespace": "fixture", "imageRepository": "registry.example/image", "imageDigest": "sha256:" + "a" * 64,
+                  "kubeletAudience": "kubelet-fixture"}
+        owner = SimpleNamespace(require_absent=Mock(), create=lambda document: document,
+                                verify=lambda resource: {"status": {"phase": "Failed"}})
+        class Reader:
+            def allowed(self, *args):
+                return False
+            def __call__(self, *args, **kwargs):
+                return self.output
+        reader = Reader()
+        reader.output = "node-context read failed: access-denied"
+        with self.assertRaisesRegex(ContractError, "production stats probe failed: access-denied"):
+            run_probes(config, [{"name": "first"}, {"name": "second"}], owner, reader)
+        reader.output = "node-context read failed: private-credential-data"
+        with self.assertRaises(ContractError) as caught:
+            run_probes(config, [{"name": "first"}, {"name": "second"}], owner, reader)
+        self.assertNotIn("private-credential-data", str(caught.exception))
 
     def test_authorisation_error_does_not_count_as_denied(self):
         for status in ({}, {"allowed": False, "evaluationError": "unavailable"}, {"allowed": "false"}):

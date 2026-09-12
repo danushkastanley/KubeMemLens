@@ -12,6 +12,8 @@ from kubernetes_commands import KubernetesCommands
 from measurement_checks import measurement_checks
 from network_probes import NetworkChecks
 from observer_specs import host_observer, host_policy
+from provider_cli import verify as verify_cli
+from provider_plan import file_digest
 from provider_execution import Execution
 from provider_recovery import PoolRecovery
 from source_summary import summarise
@@ -44,6 +46,7 @@ def prepare(args):
     service = json.loads(k("get", "service", "kubernetes", "-n", "default", "-o", "json"))["spec"]["clusterIP"]
     config = {"namespace": namespace, "kubeconfigPath": args.kubeconfig, "context": args.context,
               "inventoryProfile": "self-managed-containerd", "kubernetesVersion": infos[0]["kubernetes"],
+              "cliBinary": str(root / "host-cli"), "cliDigest": file_digest(root / "host-cli", 128 * 1024 * 1024),
               "chartArchive": str(root / "chart.tgz"), "imageRepository": args.image_repository,
               "imageDigest": args.image_digest, "kubeletAudience": audience}
     proposal = root / "local-proposal"; proposal.mkdir(mode=0o700)
@@ -91,6 +94,8 @@ def run(args):
             print("local network policy: " + json.dumps(network), flush=True)
             require(network["passed"], "local network policy controls failed")
             additional = {"networkPolicy": network, "cni": load(Path(args.private) / "cni.json")}
+        print("local coordinator: verified production CLI", flush=True)
+        additional["productionCLI"] = verify_cli(execution)
     finally:
         print("local coordinator: UID-owned resource cleanup", flush=True)
         execution.cleanup()

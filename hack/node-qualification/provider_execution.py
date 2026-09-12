@@ -1,5 +1,6 @@
 """Coordinate an already validated target through installation and fixed measurements."""
 
+import copy
 import ipaddress
 import json
 import time
@@ -36,6 +37,7 @@ class Execution:
         self.ownership = OwnedResources(commands, self.private / "ownership")
         self.installer = Installer(bundle, self.ownership, inventory_binary)
         self.api_bridge, self.runtimes, self.windows, self.observations = api_bridge, [], {}, []
+        self.initial_binding, self.replacement = copy.deepcopy(binding), None
         self.image_proof, self.image_checks = image_proof, {}
         require(image_proof["imageDigest"] == bundle.configuration["imageDigest"]
                 and image_proof["architecture"] == binding["runtime"]["architecture"], "image proof differs from the execution target")

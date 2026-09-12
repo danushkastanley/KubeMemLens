@@ -69,6 +69,23 @@ class OwnershipTest(unittest.TestCase):
         self.assertIn(Resource.from_object(self.namespace), self.k.objects)
         self.assertFalse(self.k.deletes)
 
+    def test_create_response_loss_retains_unknown_child_and_parent_for_inspection(self):
+        self.owned.create(self.namespace)
+        def response_lost(*args, data=None):
+            result = self.k(*args, data=data)
+            if args[0] == "create":
+                raise ContractError("response lost after creation")
+            return result
+        self.owned.k = response_lost
+        with self.assertRaises(ContractError):
+            self.owned.create(self.secret)
+        with self.assertRaises(ContractError):
+            self.owned.cleanup()
+        self.assertIn(Resource.from_object(self.namespace), self.k.objects)
+        self.assertIn(Resource.from_object(self.secret), self.k.objects)
+        self.assertFalse(self.k.deletes)
+        self.assertNotIn("private-payload", "".join(p.read_text() for p in self.owned.journal.glob("*.json")))
+
     def test_existing_resource_is_never_adopted(self):
         self.k("create", data=json.dumps(self.namespace).encode())
         with self.assertRaises(ContractError):
