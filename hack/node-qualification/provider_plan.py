@@ -21,8 +21,10 @@ CONFIG_KEYS = {
     "imageRepository", "imageDigest", "sourceCommit", "chartArchive", "chartDigest",
     "cliBinary", "cliDigest", "producerBinary", "producerDigest", "kubeletCAFile",
     "kubeletAudience", "apiServerCIDRs", "nodeCIDRs", "poolName",
-    "kubernetesVersion",
+    "kubernetesVersion", "providerSelectors",
 }
+SELECTORS = {"gke-standard": {"project", "location", "cluster"}, "eks-managed-nodes": {"region", "cluster"},
+             "aks-node-pools": {"subscription", "resourceGroup", "cluster"}, "self-managed": set()}
 
 
 def file_digest(path, maximum):
@@ -78,7 +80,11 @@ def validate_config(profile, config):
     bounded(config)
     require(p["profileClass"] == "provider", "provider preparation requires a provider profile")
     exact(config, CONFIG_KEYS, "private provider configuration")
-    require(type(config["schemaVersion"]) is int and config["schemaVersion"] == 1, "invalid preparation schema")
+    require(type(config["schemaVersion"]) is int and config["schemaVersion"] == 2, "provider selectors require configuration schema 2")
+    exact(config["providerSelectors"], SELECTORS[p["provider"]], "provider selectors")
+    for value in config["providerSelectors"].values():
+        require(isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._() -]{0,127}", value)
+                and value.strip() == value, "invalid provider selector")
     require(isinstance(config["inventoryProfile"], str) and config["inventoryProfile"] in RECEIPT_PROFILES[p["provider"]], "inventory profile does not match provider")
     require(isinstance(config["kubernetesVersion"], str) and re.fullmatch(r"v?1\.(36|37)\.\d+(?:[-+][A-Za-z0-9.-]+)?", config["kubernetesVersion"]), "an exact Kubernetes 1.36 or 1.37 version is required")
     require(isinstance(config["namespace"], str) and re.fullmatch(r"kube-memlens-qualification-[a-z0-9](?:[a-z0-9-]{0,34}[a-z0-9])?", config["namespace"]), "invalid disposable namespace")

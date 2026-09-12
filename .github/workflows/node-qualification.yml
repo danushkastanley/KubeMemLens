@@ -2,7 +2,7 @@ name: Node-context qualification
 
 on:
   pull_request:
-    paths: ['hack/node-qualification/**', 'hack/lib/node-qualification-kind.sh', 'hack/lib/node-observer-kind.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-context-fixture.sh', 'internal/nodestats/**', 'internal/nodeproducer/**', 'internal/agent/**', 'internal/collector/**', 'internal/extension/**', 'charts/kube-memlens/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', '.github/workflows/node-qualification.yml']
+    paths: ['hack/node-qualification/**', 'hack/provider-inventory/**', 'hack/lib/node-qualification-kind.sh', 'hack/lib/node-observer-kind.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-context-fixture.sh', 'internal/nodestats/**', 'internal/nodeproducer/**', 'internal/agent/**', 'internal/collector/**', 'internal/extension/**', 'charts/kube-memlens/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/verify-node-context-execution-kind.sh', '.github/workflows/node-qualification.yml']
   workflow_dispatch:
 
 permissions:
@@ -31,6 +31,11 @@ jobs:
             kubectl-sha256: 629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7
           - version: 1.37.0
             profile: kind-137
+            image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
+            kubectl-sha256: 6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
+          - version: 1.37.0
+            mode: execution
+            profile: kind-137-execution
             image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
             kubectl-sha256: 6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
     steps:
@@ -73,7 +78,12 @@ jobs:
           NODE_CONTEXT_QUALIFICATION_PROFILE: hack/node-qualification/profiles/${{ matrix.profile }}.json
           NODE_CONTEXT_MEASUREMENT_METHOD: ${{ matrix.mode == 'kubernetes-qualification' && 'kubernetes' || 'docker' }}
           NODE_CONTEXT_ARTIFACT_DIR: ${{ runner.temp }}/node-qualification-evidence
-        run: hack/verify-node-context-kind.sh
+        run: |
+          if [ '${{ matrix.mode }}' = execution ]; then
+            hack/verify-node-context-execution-kind.sh
+          else
+            hack/verify-node-context-kind.sh
+          fi
       - name: Upload bounded sanitised evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

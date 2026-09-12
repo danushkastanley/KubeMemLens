@@ -5,6 +5,8 @@
 # shellcheck disable=SC2154
 node_qualification_baseline() {
   local profile=${NODE_CONTEXT_QUALIFICATION_PROFILE:?}
+  python3 hack/node-qualification/check_resource_ownership.py --kubeconfig "${kubeconfig}" \
+    --context "kind-${cluster}" --output "${artifact_dir}/ownership-check.json"
   python3 - "${profile}" "${node_image}" "${work_dir}/qualification-start" <<'PY'
 import pathlib,sys
 sys.path.insert(0,'hack/node-qualification')

@@ -34,8 +34,13 @@ private keys in this file.
 
 ```json
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "inventoryProfile": "gke-cos-containerd-amd64",
+  "providerSelectors": {
+    "project": "exact-project",
+    "location": "exact-location",
+    "cluster": "exact-cluster"
+  },
   "namespace": "kube-memlens-qualification-example",
   "context": "exact-disposable-context",
   "kubeconfigPath": "/absolute/path/to/kubeconfig",
@@ -60,6 +65,12 @@ private keys in this file.
 Use `null` for `poolName` on self-managed targets. Managed pool selectors use
 the provider's existing Kubernetes label. The tool does not add wildcard
 tolerations or assume that tainted Nodes are schedulable.
+
+Configuration schema 2 binds the provider CLI selectors into the proposal.
+Use `project`, `location` and `cluster` for GKE; `region` and `cluster` for EKS;
+`subscription`, `resourceGroup` and `cluster` for AKS; and an empty object for
+self-managed targets. Do not reuse a schema-1 configuration without adding the
+explicit selectors and preparing a new proposal.
 
 The address examples are placeholders. Supply explicit `/32` or `/128` host
 routes, including one selected address per profile Node. Broad networks,
@@ -100,6 +111,12 @@ The new directory uses mode `0700`; each file uses `0600`:
 - `ephemeral-observers.json`: the agent metrics and producer identity/metrics
   container specifications. These are review fragments for existing Pods, not
   standalone resources to apply.
+- `probe-identities.json`: the isolated positive and negative probe identities
+  with only the declared Node-object and stats grants.
+- `probe-pods.preview.json`: review-only examples of the production producer's
+  positive, denied-stats, bad-CA and cross-Node checks. Node placeholders are
+  bound to the selected live pool at execution. API and kubelet projections
+  have separate audiences.
 - `configuration.private.json`: the exact private input configuration.
 - `plan.private.json`: version-2 profile/configuration/file digests, explicit
   observation method/image, frozen measurement settings and budgets, required
@@ -116,3 +133,48 @@ The plan always says `prepared-not-approved`, `providerRunStarted: false` and
 resources, read-only host observation method, provider replacement action and
 cleanup. Follow the [qualification protocol](node-context-qualification.md) for
 actual measurements, sanitisation, independent review and expiry.
+
+## Execution validation and ownership
+
+The execution modules recheck the exact plan acknowledgement, private file set,
+file hashes, clean tool commit, candidate chart source and generated resources.
+Rehashing a modified privileged probe does not make it valid: its resource
+definition must still match the fixed generator. Kubernetes API TLS is checked
+before any provider inventory command. Provider selectors come from the private
+proposal, rather than an unrelated current CLI selection.
+
+The live pool must contain exactly the profile's two Linux Nodes, with matching
+runtime data, unique identities and the approved host routes. The current AKS
+inventory adapter requests this two-Node protocol explicitly. It does not
+change the older cgroup profile's unsupported result or its three-Node protocol.
+An unavailable aggregation-proxy identity remains a hard prerequisite failure.
+
+Resource cleanup records private UID receipts and sends Kubernetes deletion
+preconditions. It refuses replacement objects and retains the parent namespace
+when ownership is uncertain. Secret payloads are excluded from the receipts.
+The coordinator removes recorded objects directly so Helm cannot delete a
+replacement object by name during uninstall.
+
+These are execution components, not a completed provider qualification command.
+Provider recovery/replacement, NetworkPolicy checks, final evidence assembly and
+explicit provider cleanup confirmation must still be connected and verified
+before a provider run can be approved.
+
+## Local two-Node integration
+
+`hack/verify-node-context-execution-kind.sh` exercises these components against
+two newly created local kind Nodes. It builds a local test image, checks the
+production TLS and denial probes, installs the chart, measures the fixed windows
+and removes UID-owned objects plus the fixture. The dedicated
+`kind-137-execution` profile declares the workload and budgets before the run.
+This diagnostic does not qualify a managed or self-managed provider row.
+
+```sh
+NODE_CONTEXT_ACKNOWLEDGE=create-and-remove-node-context-kind \
+NODE_CONTEXT_ARTIFACT_DIR=/absolute/path/to/new-evidence \
+hack/verify-node-context-execution-kind.sh
+```
+
+Only a local Docker socket is accepted. Serving private keys remain inside the
+owned Nodes; public CSRs and certificates use bounded exec streams because
+Docker's archive-copy API cannot reliably read kind's tmpfs mounts.
