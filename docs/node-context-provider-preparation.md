@@ -117,6 +117,10 @@ The new directory uses mode `0700`; each file uses `0600`:
   positive, denied-stats, bad-CA and cross-Node checks. Node placeholders are
   bound to the selected live pool at execution. API and kubelet projections
   have separate audiences.
+- `network-probes.preview.json`: the token-free controlled targets, clients and
+  temporary allow rules for ingress and egress verification. Node aliases are
+  replaced only with the bound live Node names. The serving targets use Jobs to
+  prevent the producer DaemonSet adopting their matching labels.
 - `configuration.private.json`: the exact private input configuration.
 - `plan.private.json`: version-2 profile/configuration/file digests, explicit
   observation method/image, frozen measurement settings and budgets, required
@@ -156,9 +160,10 @@ The coordinator removes recorded objects directly so Helm cannot delete a
 replacement object by name during uninstall.
 
 These are execution components, not a completed provider qualification command.
-Provider replacement, NetworkPolicy checks, final evidence assembly and
-explicit provider cleanup confirmation must still be connected and verified
-before a provider run can be approved.
+Provider-instance replacement, candidate artefact identity, the provider command,
+final evidence assembly and explicit provider cleanup confirmation must still be
+completed before a provider run can be approved. Each provider's CNI behaviour
+also requires its own live evidence.
 
 The recovery component tests source loss, agent restart and collector restart
 across both bound Nodes after the fixed measurement windows. Source loss removes
@@ -208,3 +213,39 @@ API failures report fixed authentication, permission, HTTP availability,
 deadline, transport or response categories without retaining response bodies,
 addresses or credential-plugin diagnostics. Failures remain failures; this
 diagnostic adds no retry or tolerance to qualification.
+
+## Local NetworkPolicy verification
+
+Set `NODE_CONTEXT_EXECUTION_MODE=network-policy` to create the dedicated
+`kind-136-network` fixture. It uses the pinned Kubernetes 1.36.1 image and Cilium
+1.20.1, then runs the same fixed measurement windows and recovery checks before
+testing ingress and egress. The Cilium chart is pulled by OCI digest, checked
+against its package checksum, rendered and checked for the exact pinned image
+inventory before installation. Its configuration and image references are
+recorded in the diagnostic.
+
+Cilium is trusted local test infrastructure: its system workloads configure the
+owned Nodes' network and BPF state with the chart's host access. The application
+and traffic probes retain their existing least-privilege settings. Hubble and
+the L7 proxy are disabled in this fixture; probe evidence contains only fixed
+outcomes and public artefact identities.
+
+The ingress target inherits the actual producer policy selector. Egress probes
+run from the real producer's existing observer and target a controlled Pod on
+the other Node. Each direction requires successful traffic before the temporary
+allow is removed, blocked traffic while it is removed, and successful traffic
+after restoration. The target is checked locally throughout. UID and resource
+version guards protect the temporary rules; the chart's policy stays intact.
+Probe requests carry no credentials and retain at most 64 response bytes.
+After the controls, both original producers must still supply new fresh reports
+within the existing recovery budget. API omission of empty policy directions is
+normalised for comparison; an added permission or changed selector still fails.
+
+This verifies the declared policy behaviour, with own-Node isolation explicitly
+unclaimed. The [Kubernetes NetworkPolicy documentation](https://kubernetes.io/docs/concepts/services-networking/network-policies/)
+describes the local-Node exception. This local Cilium configuration enables
+`policyCIDRMatchMode: [nodes]` so the chart's host routes can match Node addresses;
+see [Cilium's CIDR behaviour](https://docs.cilium.io/en/stable/security/policy/layer3/#selecting-pods-or-nodes-with-cidr-ipblock).
+The installer accepts only the explicit local kind target and rejects an
+existing CNI. It does not alter a provider's CNI or establish a provider support
+row. The fixture is removed after verification.

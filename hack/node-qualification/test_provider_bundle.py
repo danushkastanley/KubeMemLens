@@ -59,6 +59,15 @@ class BundleTest(ProviderFixture, unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "fixed generator"):
             self.validate()
 
+    def test_rehashed_network_scope_change_is_rejected(self):
+        path = self.output / "network-probes.preview.json"
+        preview = load(path)
+        preview["items"][1]["spec"]["egress"] = [{"to": [{"namespaceSelector": {}}]}]
+        path.write_text(json.dumps(preview))
+        self.plan["files"][path.name] = file_digest(path, 2 * 1024 * 1024); self.reseal()
+        with self.assertRaisesRegex(ContractError, "fixed generator"):
+            self.validate()
+
     def test_changed_bytes_or_extra_files_are_not_adopted(self):
         path = self.output / "baseline-values.json"
         path.write_text(path.read_text() + "\n")

@@ -10,6 +10,7 @@ from check_kubernetes_observer import verify_kind_target
 from common import load, privacy, require, write_new
 from kubernetes_commands import KubernetesCommands
 from measurement_checks import measurement_checks
+from network_probes import NetworkChecks
 from observer_specs import host_observer, host_policy
 from provider_execution import Execution
 from provider_recovery import PoolRecovery
@@ -19,7 +20,7 @@ from workload import deployment
 
 def prepare(args):
     profile = load(args.profile)
-    require(profile["id"] == "kind-137-execution" and profile["profileClass"] == "local-kind"
+    require(profile["id"] in {"kind-137-execution", "kind-136-network"} and profile["profileClass"] == "local-kind"
             and profile["workload"]["linuxNodes"] == 2, "owned two-Node diagnostic profile required")
     verify_kind_target(args.kubeconfig, args.context)
     root, output = Path(args.private), Path(args.output)
@@ -67,6 +68,7 @@ def prepare(args):
 
 def run(args):
     execution, profile, binding = prepare(args)
+    additional = {}
     try:
         print("local coordinator: preparation and production probes", flush=True)
         execution.prepare()
@@ -83,6 +85,12 @@ def run(args):
             print("local coordinator: " + name, flush=True)
             lifecycle[name] = observe()
             require(lifecycle[name]["state"] == "passed", "local pool recovery failed: " + name)
+        if profile["id"] == "kind-136-network":
+            print("local coordinator: network policy controls", flush=True)
+            network = NetworkChecks(execution).run()
+            print("local network policy: " + json.dumps(network), flush=True)
+            require(network["passed"], "local network policy controls failed")
+            additional = {"networkPolicy": network, "cni": load(Path(args.private) / "cni.json")}
     finally:
         print("local coordinator: UID-owned resource cleanup", flush=True)
         execution.cleanup()
@@ -93,7 +101,7 @@ def run(args):
               "positiveTransportProbes": len(execution.observations), "negativeTransportProbes": 6,
               "measurementChecksPassed": passed, "cleanup": "passed", "measurements": measured,
               "lifecycle": lifecycle,
-              **summarise(execution.observations, [n["name"] for n in binding["nodes"]])}
+              **summarise(execution.observations, [n["name"] for n in binding["nodes"]]), **additional}
     privacy(result)
     write_new(args.output, result)
     require(passed, "local pool measurement checks failed")

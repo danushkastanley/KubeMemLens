@@ -7,9 +7,11 @@ artifact_dir=${NODE_CONTEXT_ARTIFACT_DIR:?NODE_CONTEXT_ARTIFACT_DIR is required}
 [ ! -e "${artifact_dir}/execution.json" ] || { echo 'execution evidence already exists' >&2; exit 1; }
 cluster=${NODE_CONTEXT_CLUSTER:-kube-memlens-node-context-execution}
 execution_mode=${NODE_CONTEXT_EXECUTION_MODE:-qualification}
+profile=hack/node-qualification/profiles/kind-137-execution.json
 case "${execution_mode}" in
   qualification) execution_script=local_execution.py ;;
   api-reads) execution_script=check_api_reads.py ;;
+  network-policy) execution_script=local_execution.py; profile=hack/node-qualification/profiles/kind-136-network.json ;;
   *) echo 'unsupported local execution mode' >&2; exit 1 ;;
 esac
 case "${cluster}" in kube-memlens-node-context-*) ;; *) echo 'unexpected local fixture name' >&2; exit 1 ;; esac
@@ -33,7 +35,6 @@ cleanup() {
 }
 trap cleanup EXIT
 mkdir -p "${artifact_dir}" "${work_dir}/image"
-profile=hack/node-qualification/profiles/kind-137-execution.json
 node_image=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["nodeImage"])' "${profile}")
 architecture=$(docker info --format '{{.Architecture}}')
 case "${architecture}" in aarch64|arm64) architecture=arm64 ;; x86_64|amd64) architecture=amd64 ;; *) echo 'unsupported Docker architecture' >&2; exit 1 ;; esac
@@ -64,10 +65,19 @@ nodes:
   - role: control-plane
   - role: worker
 EOF
+ready_wait=90s
+if [ "${execution_mode}" = network-policy ]; then
+  printf '\nnetworking:\n  disableDefaultCNI: true\n' >> "${work_dir}/kind.yaml"
+  ready_wait=0s
+fi
 echo 'local execution fixture: create two owned Nodes'
 created=true
 kind create cluster --name "${cluster}" --image "${node_image}" --config "${work_dir}/kind.yaml" \
-  --kubeconfig "${kubeconfig}" --wait 90s > "${work_dir}/kind-create.log" 2>&1
+  --kubeconfig "${kubeconfig}" --wait "${ready_wait}" > "${work_dir}/kind-create.log" 2>&1
+if [ "${execution_mode}" = network-policy ]; then
+  echo 'local execution fixture: install pinned Cilium network policy enforcement'
+  python3 hack/node-qualification/cilium_kind.py --kubeconfig "${kubeconfig}" --context "kind-${cluster}" --private "${work_dir}"
+fi
 kind load docker-image "${image}" --name "${cluster}" > "${work_dir}/image-load.log" 2>&1
 python3 hack/node-qualification/prepare_execution_kind.py --cluster "${cluster}" --kubeconfig "${kubeconfig}" \
   --private "${work_dir}" --image "${image}" --repository "${repository}"

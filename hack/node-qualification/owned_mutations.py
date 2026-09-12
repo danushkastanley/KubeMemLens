@@ -57,3 +57,19 @@ def restart_workload(ownership, namespace, component):
     annotations["kubememlens.io/qualification-restart"] = str(uuid.uuid4())
     return _patch(ownership, resource, document, [{"op": "add", "path": "/spec/template/metadata/annotations",
                                                 "value": annotations}])
+
+
+@contextmanager
+def suspended_network_rule(ownership, resource, direction):
+    require(direction in {"ingress", "egress"} and resource.kind == "NetworkPolicy"
+            and resource.name == "node-qualification-network-" + direction,
+            "only a dedicated qualification policy rule may be suspended")
+    document = ownership.verify(resource)
+    rules = document["spec"].get(direction)
+    require(isinstance(rules, list) and rules, "qualification policy has no positive control")
+    path = "/spec/" + direction
+    revoked = _patch(ownership, resource, document, [{"op": "replace", "path": path, "value": []}])
+    try:
+        yield
+    finally:
+        _patch(ownership, resource, revoked, [{"op": "add", "path": path, "value": rules}])

@@ -8,6 +8,7 @@ from pathlib import Path
 
 from common import digest, exact, instant, load, require, utc_now
 from observer_specs import ephemeral_observer, host_observer, host_policy
+from network_specs import preview as network_preview
 from prepare_provider import REPOSITORY, local_command
 from provider_plan import file_digest, serving_ca, validate_config, values
 from provider_source import bind_files
@@ -21,7 +22,7 @@ PLAN_KEYS = {"schemaVersion", "state", "qualified", "providerRunStarted", "prepa
              "cleanupRequirements", "planDigest"}
 FILES = {"baseline-values.json", "enabled-values.json", "baseline.preview.yaml", "enabled.preview.yaml",
          "serving-trust.json", "workload.json", "host-observers.json", "ephemeral-observers.json",
-         "probe-identities.json", "probe-pods.preview.json", "configuration.private.json"}
+         "probe-identities.json", "probe-pods.preview.json", "network-probes.preview.json", "configuration.private.json"}
 
 
 @dataclass(frozen=True)
@@ -104,6 +105,7 @@ def validate_resources(root, profile, config, plan):
         "probe-pods.preview.json": {"reviewOnly": True, "items": [
             probe_pod(config, "<selected-node-0>", 0, case, "<selected-node-1>" if case == "wrong-node" else "<selected-node-0>")
             for case in ("allowed", "denied", "bad-ca", "wrong-node")]},
+        "network-probes.preview.json": network_preview(namespace, image),
     }
     for name, document in expected.items():
         require(load(root / name) == document, "proposal resources differ from the fixed generator")
