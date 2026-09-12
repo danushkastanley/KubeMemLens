@@ -76,12 +76,18 @@ func (e *HealthReadError) Unwrap() error { return e.cause }
 func invalidHealth() error { return &HealthReadError{Reason: volumehealth.InvalidResponse} }
 
 type healthQuery struct {
-	reader       *volumeHealthReader
-	remaining    int64
-	validateJSON func([]byte) error
+	reader        *volumeHealthReader
+	remaining     int64
+	validateJSON  func([]byte) error
+	beforeRequest func(context.Context) error
 }
 
 func (q *healthQuery) get(ctx context.Context, path string, target any) error {
+	if q.beforeRequest != nil {
+		if err := q.beforeRequest(ctx); err != nil {
+			return &HealthReadError{Reason: volumehealth.ReadFailed, cause: err}
+		}
+	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, q.reader.baseURL+path, nil)
 	if err != nil {
 		return &HealthReadError{volumehealth.ReadFailed, err}

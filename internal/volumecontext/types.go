@@ -17,6 +17,8 @@ const (
 	MaxPageRecords     = 100
 	MaxPageBytes       = 256 << 10
 	MaxRetainedBytes   = 64 << 20
+	MaxHealthBytes     = 16 << 20
+	MaxHealthRecords   = 1024
 	MaxNameBytes       = 253
 	MaxUIDBytes        = 128
 	MaxMountsPerVolume = 64
@@ -117,16 +119,17 @@ type RawUsage struct {
 }
 
 type Volume struct {
-	Binding Binding                    `json:"-"`
-	Usage   Usage                      `json:"usage"`
-	Health  []volumehealth.Observation `json:"health"`
+	Binding Binding             `json:"-"`
+	Usage   Usage               `json:"usage"`
+	Health  []HealthObservation `json:"health"`
 }
 
 // HealthObservation binds a Kubernetes health read to the currently resolved
 // Node lifetime. The adapter must invalidate cached reports on Node replacement.
 type HealthObservation struct {
 	volumehealth.Observation
-	NodeUID string `json:"-"`
+	NodeUID  string                    `json:"-"`
+	LastGood *volumehealth.Observation `json:"-"`
 }
 
 // Report defaults to a redacted export. Authorised is the deliberate named

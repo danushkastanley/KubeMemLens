@@ -26,7 +26,7 @@ func (q *healthQuery) backend(ctx context.Context, id volumehealth.Identity) (vo
 		o.Availability, o.Reason = healthFailure(err)
 		return o, fatalHealthError(ctx, err)
 	}
-	if node.Kind != "CSINode" || node.APIVersion != "storage.k8s.io/v1" || node.Name != id.NodeName || node.Namespace != "" || node.UID == "" || len(node.Spec.Drivers) > 128 || len(node.Status.StorageHealth) > 128 {
+	if node.Kind != "CSINode" || node.APIVersion != "storage.k8s.io/v1" || node.Name != id.NodeName || node.Namespace != "" || node.UID == "" || len(node.UID) > 128 || len(node.Spec.Drivers) > 128 || len(node.Status.StorageHealth) > 128 {
 		return o, invalidHealth()
 	}
 	registered := false

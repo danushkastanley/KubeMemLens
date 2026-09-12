@@ -53,6 +53,9 @@ spec:
             - "--agent-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-agent"
 {{- if .Values.volumeContext.enabled }}
             - {{ printf "--volume-context-namespaces=%s" (join "," .Values.volumeContext.namespaces) | quote }}
+            {{- if .Values.volumeContext.health }}
+            - "--volume-health-enabled=true"
+            {{- end }}
 {{- end }}
 {{- if .Values.nodeContext.volumeStats }}
             - "--volume-stats-enabled=true"

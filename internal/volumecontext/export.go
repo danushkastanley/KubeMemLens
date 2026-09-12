@@ -27,6 +27,11 @@ type NamedVolume struct {
 }
 
 type Health struct {
+	HealthReport
+	LastGood *HealthReport `json:"lastGood,omitempty"`
+}
+
+type HealthReport struct {
 	Observation  volumehealth.Observation `json:"observation"`
 	TransitionAt time.Time                `json:"transitionAt,omitzero"`
 	Conditions   []Condition              `json:"conditions,omitempty"`
@@ -53,13 +58,10 @@ func (r Report) Authorised() View {
 		value := NamedVolume{VolumeName: binding.VolumeName, PVCName: binding.PVCName, Driver: binding.Driver,
 			Configuration: binding.Configuration, Usage: usage, Health: make([]Health, len(row.Health))}
 		for j, input := range row.Health {
-			h := Health{Observation: input, TransitionAt: input.TransitionAt}
-			h.Observation.Identity = volumehealth.Identity{}
-			h.Observation.Conditions = nil
-			h.Observation.TransitionAt = time.Time{}
-			for _, c := range input.Conditions {
-				h.Conditions = append(h.Conditions, Condition{Status: c.Status, Reason: c.Reason, TransitionAt: c.TransitionAt,
-					AccessMode: c.AccessMode, VolumeMode: c.VolumeMode})
+			h := Health{HealthReport: namedHealth(input.Observation)}
+			if input.LastGood != nil {
+				last := namedHealth(*input.LastGood)
+				h.LastGood = &last
 			}
 			value.Health[j] = h
 		}
@@ -71,9 +73,14 @@ func (r Report) Authorised() View {
 // RedactedVolume retains source evidence without names or free-form text.
 // Its position is not an identity that can be joined across captures.
 type RedactedVolume struct {
-	Configuration Configuration              `json:"configuration"`
-	Usage         Usage                      `json:"usage"`
-	Health        []volumehealth.Observation `json:"health"`
+	Configuration Configuration    `json:"configuration"`
+	Usage         Usage            `json:"usage"`
+	Health        []RedactedHealth `json:"health"`
+}
+
+type RedactedHealth struct {
+	volumehealth.Observation
+	LastGood *volumehealth.Observation `json:"lastGood,omitempty"`
 }
 
 type Redacted struct {
@@ -85,9 +92,13 @@ func (r Report) Redacted() Redacted {
 	view := r.Authorised()
 	result := Redacted{SchemaVersion: SchemaVersion, Volumes: make([]RedactedVolume, len(view.Volumes))}
 	for i, row := range view.Volumes {
-		value := RedactedVolume{Configuration: row.Configuration, Usage: row.Usage, Health: make([]volumehealth.Observation, len(row.Health))}
+		value := RedactedVolume{Configuration: row.Configuration, Usage: row.Usage, Health: make([]RedactedHealth, len(row.Health))}
 		for j, health := range row.Health {
-			value.Health[j] = health.Observation
+			value.Health[j].Observation = health.Observation
+			if health.LastGood != nil {
+				last := health.LastGood.Observation
+				value.Health[j].LastGood = &last
+			}
 		}
 		result.Volumes[i] = value
 	}
@@ -114,10 +125,10 @@ func (r Report) Summary() Summary {
 			result.UsageStale++
 		}
 		for _, h := range row.Health {
-			if h.Adverse {
+			if h.Adverse || (h.LastGood != nil && h.LastGood.Adverse) {
 				result.AdverseReports++
 			}
-			if h.UnknownStatus || h.State == volumehealth.StateUnknown {
+			if h.UnknownStatus || h.State == volumehealth.StateUnknown || (h.LastGood != nil && h.LastGood.UnknownStatus) {
 				result.UnknownReports++
 			}
 		}

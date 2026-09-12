@@ -18,8 +18,9 @@ type volumeEntry struct {
 }
 
 type volumeStore struct {
-	entries map[string]volumeEntry
-	bytes   int
+	entries        map[string]volumeEntry
+	bytes          int
+	healthReserved bool
 }
 
 func newVolumeStore() *volumeStore { return &volumeStore{entries: map[string]volumeEntry{}} }
@@ -73,10 +74,29 @@ func (s *Store) prepareVolumeEntryLocked(node nodecontext.Observation, raw []byt
 	if previous, exists := s.volumes.entries[node.NodeName]; exists {
 		oldBytes = previous.bytes()
 	}
-	if s.volumes.bytes-oldBytes+entry.bytes() > volumecontext.MaxRetainedBytes {
+	if s.volumes.bytes-oldBytes+entry.bytes() > s.volumeUsageLimitLocked() {
 		return volumeEntry{}, ErrStoreCapacity
 	}
 	return entry, nil
+}
+
+// ReserveVolumeHealth keeps usage plus sanitised health within the shared
+// retention ceiling. Configuration happens before the server accepts traffic.
+func (s *Store) ReserveVolumeHealth() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.volumes.bytes > volumecontext.MaxRetainedBytes-volumecontext.MaxHealthBytes {
+		return ErrStoreCapacity
+	}
+	s.volumes.healthReserved = true
+	return nil
+}
+
+func (s *Store) volumeUsageLimitLocked() int {
+	if s.volumes.healthReserved {
+		return volumecontext.MaxRetainedBytes - volumecontext.MaxHealthBytes
+	}
+	return volumecontext.MaxRetainedBytes
 }
 
 func retainVolumeEntry(prior volumeEntry, current *volumecontext.Batch, node nodecontext.Observation, now time.Time) ([]byte, error) {

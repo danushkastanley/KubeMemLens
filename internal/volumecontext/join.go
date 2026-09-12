@@ -85,16 +85,15 @@ func Join(scope PodScope, bindings []Binding, usage []RawUsage, health []HealthO
 			return Report{}, ErrInvalid
 		}
 		seenHealth[key] = true
-		if input.ObservedAt.IsZero() || input.ObservedAt.After(now.Add(FutureSkew)) || input.ObservedAt.Before(scope.CreatedAt) {
+		if input.ObservedAt.IsZero() || input.ObservedAt.After(now.Add(FutureSkew)) || (input.Source != volumehealth.BackendSource && input.ObservedAt.Before(scope.CreatedAt)) {
 			return Report{}, ErrInvalid
 		}
 		if input.Source == volumehealth.ControllerSource && !row.Binding.PVCCreatedAt.IsZero() && input.ObservedAt.Before(row.Binding.PVCCreatedAt) {
 			return Report{}, ErrScope
 		}
-		value := volumehealth.Evaluate(input.Observation, now)
-		// Messages can contain backend handles. They never enter retained context.
-		for i := range value.Conditions {
-			value.Conditions[i].Message = ""
+		value, err := evaluateHealth(input, scope, row.Binding, now)
+		if err != nil {
+			return Report{}, err
 		}
 		row.Health = append(row.Health, value)
 		rows[id.VolumeName] = row

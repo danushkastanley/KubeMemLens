@@ -129,7 +129,7 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	}
 
 	o.Handler.reads.podAuthorizer = config.Authorization.Authorizer
-	if err := o.Handler.configureVolumeResolver(o.KubeconfigFile); err != nil {
+	if err := o.Handler.configureVolumeResolver(probeCtx, o.KubeconfigFile); err != nil {
 		return err
 	}
 	server, err := config.Complete(nil).New("kube-memlens-extension", genericapiserver.NewEmptyDelegate())

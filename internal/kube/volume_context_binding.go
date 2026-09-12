@@ -87,15 +87,23 @@ func (q *volumeBindingQuery) claimBinding(ctx context.Context, pod *corev1.Pod, 
 	b.PVCName = pvc.Name
 	b.PVCUID = string(pvc.UID)
 	b.PVCCreatedAt = pvc.CreationTimestamp.Time
+	var pvAccess error
+	if pv.Spec.CSI != nil || q.healthSeeds != nil {
+		pvAccess = q.authorize(ctx, VolumeAccess{Resource: "persistentvolumes", Name: pv.Name})
+		if ctx.Err() != nil {
+			return b, &HealthReadError{Reason: volumehealth.ReadFailed, cause: ctx.Err()}
+		}
+	}
 	if pv.Spec.CSI != nil {
 		if !validHealthName(pv.Spec.CSI.Driver) {
 			return b, invalidHealth()
 		}
-		if err := q.authorize(ctx, VolumeAccess{Resource: "persistentvolumes", Name: pv.Name}); err == nil {
+		if pvAccess == nil {
 			b.Driver = pv.Spec.CSI.Driver
-		} else if ctx.Err() != nil {
-			return b, &HealthReadError{Reason: volumehealth.ReadFailed, cause: ctx.Err()}
 		}
+	}
+	if q.healthSeeds != nil {
+		q.healthSeeds[v.Name] = claimHealth(pvc, pv, pvAccess)
 	}
 	// Do not retain upstream objects, backend handles, paths or driver text.
 	if b.PVCCreatedAt.After(time.Now().UTC().Add(volumecontext.FutureSkew)) {

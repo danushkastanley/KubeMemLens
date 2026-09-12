@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	if len(os.Args) != 3 {
+	if len(os.Args) != 3 && len(os.Args) != 4 {
 		fail("expected default and enabled renders")
 	}
 	base, enabled := read(os.Args[1]), read(os.Args[2])
@@ -53,6 +53,9 @@ func main() {
 	expectArg(enabled["DaemonSet/kube-memlens/kube-memlens-node-context"], "--volume-stats")
 	expectArg(enabled["Deployment/kube-memlens/kube-memlens-collector"], "--volume-stats-enabled=true")
 	expectArg(enabled["Deployment/kube-memlens/kube-memlens-collector"], "--volume-context-namespaces=team-a,team-b")
+	if len(os.Args) == 4 {
+		checkHealth(enabled, read(os.Args[3]))
+	}
 	fmt.Println("optional volume roles and flags match the namespace disclosure contract")
 }
 

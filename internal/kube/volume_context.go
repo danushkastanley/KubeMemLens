@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"errors"
+	"golang.org/x/time/rate"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ type VolumeNodeIdentity func(string, time.Time) (string, bool)
 type ResolvedVolumes struct {
 	Scope    volumecontext.PodScope
 	Bindings []volumecontext.Binding
+	Health   []volumecontext.HealthObservation
 }
 
 type VolumeResolver interface {
@@ -32,11 +34,18 @@ type volumeResolver struct {
 	reader    *volumeHealthReader
 	authorize VolumeAuthorizer
 	nodeUID   VolumeNodeIdentity
+	health    *healthCache
+	queries   chan struct{}
+	calls     *rate.Limiter
 }
 
 // NewVolumeResolver uses the collector's explicitly granted acquisition rights.
 // Every disclosed object additionally requires the original caller's rights.
 func NewVolumeResolver(config *rest.Config, authorize VolumeAuthorizer, nodeUID VolumeNodeIdentity) (VolumeResolver, error) {
+	return newVolumeResolver(config, authorize, nodeUID)
+}
+
+func newVolumeResolver(config *rest.Config, authorize VolumeAuthorizer, nodeUID VolumeNodeIdentity) (*volumeResolver, error) {
 	if config == nil || config.Insecure || !strings.HasPrefix(config.Host, "https://") || authorize == nil || nodeUID == nil {
 		return nil, errors.New("volume resolver requires verified transport and caller authorisation")
 	}
@@ -48,12 +57,29 @@ func NewVolumeResolver(config *rest.Config, authorize VolumeAuthorizer, nodeUID 
 }
 
 func (r *volumeResolver) Resolve(ctx context.Context, namespace, podName string) (ResolvedVolumes, error) {
+	callerCtx := ctx
 	if len(validation.IsDNS1123Label(namespace)) != 0 || !validHealthName(podName) {
 		return ResolvedVolumes{}, invalidHealth()
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	q := volumeBindingQuery{healthQuery: healthQuery{reader: r.reader, remaining: maxHealthQueryBytes, validateJSON: boundedVolumeObject}, authorize: r.authorize}
+	if r.health != nil {
+		select {
+		case r.queries <- struct{}{}:
+			defer func() { <-r.queries }()
+		default:
+			return ResolvedVolumes{}, &HealthReadError{Reason: volumehealth.ReadFailed}
+		}
+		q.beforeRequest = r.calls.Wait
+		q.authorize = func(ctx context.Context, a VolumeAccess) error {
+			if err := r.calls.Wait(ctx); err != nil {
+				return &HealthReadError{Reason: volumehealth.ReadFailed, cause: err}
+			}
+			return r.authorize(ctx, a)
+		}
+		q.healthSeeds = map[string]claimHealthSeed{}
+	}
 	var pod corev1.Pod
 	access := VolumeAccess{Resource: "pods", Namespace: namespace, Name: podName}
 	path := "/api/v1/namespaces/" + namespace + "/pods/" + podName
@@ -100,12 +126,21 @@ func (r *volumeResolver) Resolve(ctx context.Context, namespace, podName string)
 	if _, err := volumecontext.Join(result.Scope, result.Bindings, nil, nil, volumecontext.SourceState(volumehealth.Unreported, volumecontext.NoReport), time.Now().UTC()); err != nil {
 		return ResolvedVolumes{}, invalidHealth()
 	}
+	result.Health = r.resolveHealth(ctx, &q, &current, result)
+	if callerCtx.Err() != nil {
+		return ResolvedVolumes{}, callerCtx.Err()
+	}
+	currentUID, known := r.nodeUID(result.Scope.NodeName, time.Now().UTC())
+	if !known || currentUID != result.Scope.NodeUID {
+		return ResolvedVolumes{}, &HealthReadError{Reason: volumehealth.BindingUnavailable}
+	}
 	return result, nil
 }
 
 type volumeBindingQuery struct {
 	healthQuery
-	authorize VolumeAuthorizer
+	authorize   VolumeAuthorizer
+	healthSeeds map[string]claimHealthSeed
 }
 
 func (q *volumeBindingQuery) authorisedGet(ctx context.Context, a VolumeAccess, path string, target any) error {

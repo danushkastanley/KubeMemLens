@@ -65,6 +65,8 @@ func volumeObjectValue(d *json.Decoder, field string, depth int) error {
 			limit = 256
 		case "healthconditions":
 			limit = 16
+		case "drivers", "storagehealth":
+			limit = 128
 		}
 		for count := 0; d.More(); count++ {
 			if count >= limit {

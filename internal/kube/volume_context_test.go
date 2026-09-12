@@ -13,6 +13,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/volumehealth"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -22,6 +23,9 @@ type volumeResolverFixture struct {
 	pod            corev1.Pod
 	pvc            corev1.PersistentVolumeClaim
 	pv             corev1.PersistentVolume
+	csinode        storagev1.CSINode
+	backendStatus  int
+	config         *rest.Config
 	denied         map[string]bool
 	reads          []string
 	authorisations []VolumeAccess
@@ -38,6 +42,7 @@ func newVolumeResolverFixture(t *testing.T) *volumeResolverFixture {
 	f.pod = corev1.Pod{TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Pod"}, ObjectMeta: metav1.ObjectMeta{Namespace: "tenant-a", Name: "app", UID: "pod-uid", CreationTimestamp: now}, Spec: corev1.PodSpec{NodeName: "node-a", Volumes: []corev1.Volume{{Name: "data", VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "claim"}}}}, Containers: []corev1.Container{{Name: "app", VolumeMounts: []corev1.VolumeMount{{Name: "data", MountPath: "/private/mount"}}}}}}
 	f.pvc = corev1.PersistentVolumeClaim{TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "PersistentVolumeClaim"}, ObjectMeta: metav1.ObjectMeta{Namespace: "tenant-a", Name: "claim", UID: "claim-uid", CreationTimestamp: now}, Spec: corev1.PersistentVolumeClaimSpec{VolumeName: "bound-pv"}}
 	f.pv = corev1.PersistentVolume{TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "PersistentVolume"}, ObjectMeta: metav1.ObjectMeta{Name: "bound-pv", UID: "pv-uid"}, Spec: corev1.PersistentVolumeSpec{ClaimRef: &corev1.ObjectReference{Namespace: "tenant-a", Name: "claim", UID: "claim-uid"}, PersistentVolumeSource: corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: "fixture.csi.test", VolumeHandle: "private-backend-handle"}}}}
+	f.csinode = storagev1.CSINode{TypeMeta: metav1.TypeMeta{APIVersion: "storage.k8s.io/v1", Kind: "CSINode"}, ObjectMeta: metav1.ObjectMeta{Name: "node-a", UID: "csi-uid"}, Spec: storagev1.CSINodeSpec{Drivers: []storagev1.CSINodeDriver{{Name: "fixture.csi.test", NodeID: "private-node-id"}}}}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.reads = append(f.reads, r.URL.Path)
 		if r.Method != http.MethodGet || r.Header.Get("Authorization") != "Bearer collector-acquisition" || r.Header.Get("Impersonate-User") != "" {
@@ -60,6 +65,12 @@ func newVolumeResolverFixture(t *testing.T) *volumeResolverFixture {
 			_ = json.NewEncoder(w).Encode(f.pvc)
 		case r.URL.Path == "/api/v1/persistentvolumes/bound-pv":
 			_ = json.NewEncoder(w).Encode(f.pv)
+		case r.URL.Path == "/apis/storage.k8s.io/v1/csinodes/node-a":
+			if f.backendStatus != 0 {
+				w.WriteHeader(f.backendStatus)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(f.csinode)
 		default:
 			t.Errorf("unexpected path %s", r.URL.Path)
 			w.WriteHeader(http.StatusNotFound)
@@ -67,6 +78,7 @@ func newVolumeResolverFixture(t *testing.T) *volumeResolverFixture {
 	}))
 	t.Cleanup(server.Close)
 	config := &rest.Config{Host: server.URL, BearerToken: "collector-acquisition", TLSClientConfig: rest.TLSClientConfig{CAData: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})}}
+	f.config = config
 	resolver, err := NewVolumeResolver(config, func(_ context.Context, a VolumeAccess) error {
 		f.authorisations = append(f.authorisations, a)
 		if f.denied[a.Resource] {
