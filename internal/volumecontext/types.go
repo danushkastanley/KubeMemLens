@@ -101,6 +101,7 @@ type Usage struct {
 	Freshness    volumehealth.Freshness    `json:"freshness"`
 	Completeness capability.Completeness   `json:"completeness"`
 	Filesystem   *Filesystem               `json:"filesystem,omitempty"`
+	LastGood     *Filesystem               `json:"lastGood,omitempty"`
 }
 
 // RawUsage is a private adapter observation. Summary has no PVC UID; joining

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -17,8 +18,8 @@ func TestNodeCommandsUseOnlyAuthorisedNodeResources(t *testing.T) {
 	denied := false
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		if r.Header.Get(api.SnapshotSchemaHeader) != "3" {
-			t.Error("Node command did not negotiate schema 3")
+		if r.Header.Get(api.SnapshotSchemaHeader) != strconv.Itoa(api.CurrentSnapshotSchemaVersion) {
+			t.Error("Node command did not negotiate the current schema")
 		}
 		if denied {
 			w.WriteHeader(http.StatusForbidden)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
@@ -16,8 +17,8 @@ func TestReadUsesProductionSchemaAndNamespace(t *testing.T) {
 	var paths []string
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.URL.Path)
-		if r.Header.Get(api.SnapshotSchemaHeader) != "3" {
-			t.Error("schema 3 was not negotiated")
+		if r.Header.Get(api.SnapshotSchemaHeader) != strconv.Itoa(api.CurrentSnapshotSchemaVersion) {
+			t.Error("current schema was not negotiated")
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"items":[],"metadata":{}}`))

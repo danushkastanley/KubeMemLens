@@ -40,6 +40,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	once := flags.Bool("once", false, "collect one normalised observation without publishing")
 	output := flags.String("output", "", "new private observation file; empty writes JSON to stdout")
 	metricsListen := flags.String("metrics-listen", "127.0.0.1:8083", "Pod-local operational metrics for --publish; empty disables the listener")
+	volumeStats := flags.Bool("volume-stats", false, "collect bounded volume filesystem statistics in the same Summary request")
 	metrics := flags.String("metrics-output", "", "optional new private file for operational metrics")
 	version := flags.Bool("version", false, "print build information and exit")
 	if err := flags.Parse(args); err != nil {
@@ -70,7 +71,11 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	config.UserAgent = "kube-memlens-node-context/" + buildinfo.Version
 	telemetry := &nodestats.Telemetry{}
-	source, err := nodestats.New(config, nodestats.Options{NodeName: *node, CAFile: *ca, TokenFile: *token, Timeout: *timeout, Telemetry: telemetry})
+	volumeMode := nodestats.VolumeStatsDisabled
+	if *volumeStats {
+		volumeMode = nodestats.VolumeStatsEnabled
+	}
+	source, err := nodestats.New(config, nodestats.Options{NodeName: *node, CAFile: *ca, TokenFile: *token, Timeout: *timeout, Telemetry: telemetry, VolumeStats: volumeMode})
 	if err != nil {
 		return err
 	}

@@ -120,4 +120,17 @@ helm uninstall kube-memlens --namespace kube-memlens --wait
 kubectl delete namespace kube-memlens
 ```
 
-The chart creates no CRDs or persistent volumes. Helm removes the three viewer ClusterRoles, but bindings created by an administrator are not owned by the release. Remove those bindings before uninstall and confirm all cluster-scoped KubeMemLens RBAC objects are absent as described in the repository runbook.
+The chart creates no CRDs or persistent volumes. Helm removes the viewer ClusterRoles, including any enabled optional profiles, but bindings created by an administrator are not owned by the release. Remove those bindings before uninstall and confirm all cluster-scoped KubeMemLens RBAC objects are absent as described in the repository runbook.
+
+### Optional Pod volume context
+
+`volumeContext.enabled` defaults to `false`. Set `volumeContext.namespaces` to
+existing namespaces to install scoped Pod/PVC acquisition permissions and the
+separate, unbound `kube-memlens-volume-viewer` role. Enable
+`nodeContext.volumeStats` only with both the volume and verified Node-context
+profiles enabled. It shares the existing Summary request and adds no producer
+permissions. Namespace viewers need no PV access to read their PVC usage;
+PV-derived driver disclosure remains separately authorised. See the
+[volume context runbook](../../docs/volume-context.md) for access, bounds and
+rollback. CLI/TUI volume presentation and incident capture are not enabled by
+these settings alone.

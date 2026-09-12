@@ -2,10 +2,10 @@ name: Node-context verification
 
 on:
   pull_request:
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'hack/lib/node-cockpit-pty.exp', 'hack/test_node_cockpit_pty.py', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/volume-stats-*.sh', 'hack/fixtures/volume-stats-probe/**', 'hack/fixtures/volume-stats/**', 'hack/fixtures/csi-health/**', 'hack/test-volume-context-contract.sh', 'hack/volume-context-contract/**', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'hack/lib/node-cockpit-pty.exp', 'hack/test_node_cockpit_pty.py', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
   push:
     branches: [main]
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'hack/lib/node-cockpit-pty.exp', 'hack/test_node_cockpit_pty.py', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/volume-stats-*.sh', 'hack/fixtures/volume-stats-probe/**', 'hack/fixtures/volume-stats/**', 'hack/fixtures/csi-health/**', 'hack/test-volume-context-contract.sh', 'hack/volume-context-contract/**', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'hack/lib/node-cockpit-pty.exp', 'hack/test_node_cockpit_pty.py', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
 
 permissions:
   contents: read
@@ -18,7 +18,7 @@ jobs:
   direct-kubelet:
     name: Node context / Kubernetes ${{ matrix.version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
@@ -69,10 +69,16 @@ jobs:
           go test ./internal/extension -run '^$' -fuzz '^FuzzNodeWire$' -fuzztime=10s
           go test ./internal/nodeanalysis -run '^$' -fuzz '^FuzzNodeAnalysis$' -fuzztime=10s
           go test ./internal/incident -run '^$' -fuzz '^FuzzNodeIncidentDecoder$' -fuzztime=10s
+      - name: Fuzz bounded volume decoders
+        run: |
+          go test ./internal/nodestats -run '^$' -fuzz '^FuzzVolumes$' -fuzztime=10s
+          go test ./internal/kube -run '^$' -fuzz '^FuzzBoundedVolumeObject$' -fuzztime=10s
+          go test ./internal/api -run '^$' -fuzz '^FuzzPodVolumeContext$' -fuzztime=10s
       - name: Verify direct TLS, authenticated ingestion and reader isolation
         env:
           NODE_CONTEXT_ACKNOWLEDGE: create-and-remove-node-context-kind
           NODE_CONTEXT_VERIFY_INGESTION: "true"
+          NODE_CONTEXT_VERIFY_VOLUME_STATS: "true"
           NODE_CONTEXT_NODE_IMAGE: ${{ matrix.image }}
           NODE_CONTEXT_ARTIFACT_DIR: ${{ runner.temp }}/node-context-evidence
         run: hack/verify-node-context-kind.sh

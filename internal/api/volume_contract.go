@@ -1,5 +1,4 @@
 package api
 
-// VolumeSnapshotSchemaVersion reserves the volume-capable representation.
-// It is not advertised until authenticated collection and projection exist.
+// VolumeSnapshotSchemaVersion adds the separately bounded private volume batch.
 const VolumeSnapshotSchemaVersion = 4

@@ -19,6 +19,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/nodeanalysis"
 	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
+	"github.com/danushkastanley/kube-memlens/internal/volumecontext"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -35,6 +36,8 @@ type HandlerOptions struct {
 	NodeAccounting      map[string]nodeanalysis.Qualification
 	AgentUsername       string
 	NodeContextUsername string
+	VolumeStatsEnabled  bool
+	VolumeNamespaces    []string
 	MaxSnapshotBytes    int64
 	MaxConcurrent       int
 	RequestsPerSec      float64
@@ -68,6 +71,14 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	if opts.NodeContextUsername != "" && opts.NodeContextUsername == opts.AgentUsername {
 		return nil, fmt.Errorf("producer ServiceAccounts must be distinct")
 	}
+	if opts.VolumeStatsEnabled && opts.NodeContextUsername == "" {
+		return nil, fmt.Errorf("volume statistics require the separate Node-context producer")
+	}
+	namespaces, err := VolumeNamespaces(strings.Join(opts.VolumeNamespaces, ","))
+	if err != nil {
+		return nil, err
+	}
+	opts.VolumeNamespaces = namespaces
 	if opts.MaxSnapshotBytes <= 0 || opts.MaxConcurrent <= 0 || opts.RequestsPerSec <= 0 || opts.Burst <= 0 || opts.MaxIdentities <= 0 {
 		return nil, fmt.Errorf("ingestion request limits must be greater than zero")
 	}
@@ -79,6 +90,11 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	}
 	reads := NewReadHandler(coordinator.store, coordinator.opts.Handler)
 	reads.nodeContextEnabled = opts.NodeContextUsername != ""
+	reads.volumeStatsEnabled = opts.VolumeStatsEnabled
+	reads.volumeNamespaces = map[string]bool{}
+	for _, namespace := range namespaces {
+		reads.volumeNamespaces[namespace] = true
+	}
 	reads.accounting = copyAccounting(opts.NodeAccounting)
 	if reads.nodeContextEnabled {
 		coordinator.store.EnableNodeContext()
@@ -197,7 +213,11 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 	}
 	maxBytes := h.opts.MaxSnapshotBytes
 	if claims.Role == NodeContextProducer {
-		maxBytes = min(maxBytes, nodecontext.MaxObservationBytes+8192)
+		nodeLimit := int64(nodecontext.MaxObservationBytes + 8192)
+		if h.opts.VolumeStatsEnabled {
+			nodeLimit += volumecontext.MaxBatchBytes
+		}
+		maxBytes = min(maxBytes, nodeLimit)
 	}
 	if r.ContentLength > maxBytes {
 		result = "payload_too_large"
@@ -233,7 +253,7 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "body_error", "could not read snapshot body")
 		return
 	}
-	if claims.Role == NodeContextProducer && boundedNodeWire(body) != nil {
+	if claims.Role == NodeContextProducer && boundedNodeWireWithVolumes(body, volumecontext.MaxBatchRecords) != nil {
 		result = "invalid_json"
 		writeAPIError(w, http.StatusBadRequest, "invalid_json", "invalid bounded Node-only snapshot JSON")
 		return
@@ -249,6 +269,11 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
 		result = "invalid_json"
 		writeAPIError(w, http.StatusBadRequest, "invalid_json", "snapshot must contain one JSON object")
+		return
+	}
+	if len(request.Snapshot.VolumeBatch) > 0 && !h.opts.VolumeStatsEnabled {
+		result = "invalid_snapshot"
+		writeAPIError(w, http.StatusForbidden, "producer_scope", "volume statistics are disabled")
 		return
 	}
 	response, duplicate, err := h.coordinator.Accept(claims, request)

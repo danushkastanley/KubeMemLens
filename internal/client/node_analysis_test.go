@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -20,7 +21,7 @@ func TestNodeAnalysisTransportAndRevocation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
 		if r.Method != http.MethodGet || r.URL.Path != "/apis/memory.kubememlens.io/v1alpha1/nodecontexts/node-a/analysis" ||
-			r.Header.Get(api.SnapshotSchemaHeader) != "3" || r.URL.Query().Get("rank") != "psi" || r.URL.Query().Get("limit") != "20" {
+			r.Header.Get(api.SnapshotSchemaHeader) != strconv.Itoa(api.CurrentSnapshotSchemaVersion) || r.URL.Query().Get("rank") != "psi" || r.URL.Query().Get("limit") != "20" {
 			t.Error("analysis request changed its negotiated resource or bounds")
 		}
 		if status != http.StatusOK {

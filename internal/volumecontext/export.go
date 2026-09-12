@@ -49,6 +49,7 @@ func (r Report) Authorised() View {
 		binding := cloneBinding(row.Binding)
 		usage := row.Usage
 		usage.Filesystem = cloneFilesystem(usage.Filesystem)
+		usage.LastGood = cloneFilesystem(usage.LastGood)
 		value := NamedVolume{VolumeName: binding.VolumeName, PVCName: binding.PVCName, Driver: binding.Driver,
 			Configuration: binding.Configuration, Usage: usage, Health: make([]Health, len(row.Health))}
 		for j, input := range row.Health {

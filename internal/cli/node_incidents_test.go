@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -29,7 +30,7 @@ func TestNodeCLIAuthenticatedCaptureOfflineReplayCompareAndRevocation(t *testing
 	denyHistory, denyAnalysis := false, false
 	var order []string
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(api.SnapshotSchemaHeader) != "3" || r.Header.Get("Authorization") != "Bearer fixture-reader" {
+		if r.Header.Get(api.SnapshotSchemaHeader) != strconv.Itoa(api.CurrentSnapshotSchemaVersion) || r.Header.Get("Authorization") != "Bearer fixture-reader" {
 			t.Error("capture lost schema or identity")
 		}
 		var value any

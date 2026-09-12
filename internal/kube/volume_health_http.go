@@ -36,6 +36,10 @@ type volumeHealthReader struct {
 // NewVolumeHealthSource uses only the supplied caller identity. A Pod informer
 // is optional and never substitutes for live object-level API authorisation.
 func NewVolumeHealthSource(config *rest.Config, opts VolumeHealthOptions) (volumehealth.SourceReader, error) {
+	return newVolumeHealthReader(config, opts)
+}
+
+func newVolumeHealthReader(config *rest.Config, opts VolumeHealthOptions) (*volumeHealthReader, error) {
 	if config == nil || len(validation.IsDNS1123Label(opts.Namespace)) != 0 {
 		return nil, errors.New("volume health requires Kubernetes configuration and one namespace")
 	}
@@ -64,14 +68,17 @@ type HealthReadError struct {
 	cause  error
 }
 
+var errHealthObjectNotFound = errors.New("Kubernetes object was not found")
+
 func (e *HealthReadError) Error() string { return "volume-health read failed: " + string(e.Reason) }
 func (e *HealthReadError) Unwrap() error { return e.cause }
 
 func invalidHealth() error { return &HealthReadError{Reason: volumehealth.InvalidResponse} }
 
 type healthQuery struct {
-	reader    *volumeHealthReader
-	remaining int64
+	reader       *volumeHealthReader
+	remaining    int64
+	validateJSON func([]byte) error
 }
 
 func (q *healthQuery) get(ctx context.Context, path string, target any) error {
@@ -89,6 +96,9 @@ func (q *healthQuery) get(ctx context.Context, path string, target any) error {
 		return &HealthReadError{Reason: volumehealth.AccessDenied}
 	}
 	if response.StatusCode != http.StatusOK {
+		if response.StatusCode == http.StatusNotFound {
+			return &HealthReadError{Reason: volumehealth.ReadFailed, cause: errHealthObjectNotFound}
+		}
 		return &HealthReadError{Reason: volumehealth.ReadFailed}
 	}
 	limit := min(int64(maxHealthResponse), q.remaining)
@@ -100,6 +110,11 @@ func (q *healthQuery) get(ctx context.Context, path string, target any) error {
 		return invalidHealth()
 	}
 	q.remaining -= int64(len(body))
+	if q.validateJSON != nil {
+		if err := q.validateJSON(body); err != nil {
+			return invalidHealth()
+		}
+	}
 	if err := json.Unmarshal(body, target); err != nil {
 		return invalidHealth()
 	}

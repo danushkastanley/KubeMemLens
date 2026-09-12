@@ -26,7 +26,7 @@ type Options struct {
 
 // Run requires a successful bounded preflight before recurring collection.
 // Only this goroutine owns collection and publication; neither can overlap.
-func Run(ctx context.Context, source nodestats.NodeStatsSource, publisher Publisher, opts Options) error {
+func Run(ctx context.Context, source nodestats.SampleSource, publisher Publisher, opts Options) error {
 	if opts.Now == nil {
 		opts.Now = func() time.Time { return time.Now().UTC() }
 	}
@@ -41,17 +41,20 @@ func Run(ctx context.Context, source nodestats.NodeStatsSource, publisher Publis
 	if opts.Report == nil {
 		opts.Report = func(string) {}
 	}
-	first, err := source.Read(ctx)
+	first, err := source.ReadSample(ctx)
 	if err != nil {
 		return err
 	}
-	identity := nodecontext.Observation{NodeName: first.NodeName, NodeUID: first.NodeUID}
+	identity := nodecontext.Observation{NodeName: first.Node.NodeName, NodeUID: first.Node.NodeUID}
 	delay := nodecontext.CollectionInterval
 	report := first
 	for {
+		snapshot, err := sourceSnapshot(report)
+		if err != nil {
+			return err
+		}
 		publishCtx, cancel := context.WithTimeout(ctx, nodecontext.RequestTimeout)
-		err = publisher.Publish(publishCtx, report.NodeUID, api.AgentSnapshot{SchemaVersion: api.CurrentSnapshotSchemaVersion,
-			NodeName: report.NodeName, CapturedAt: report.ReportedAt, NodeContext: &report})
+		err = publisher.Publish(publishCtx, report.Node.NodeUID, snapshot)
 		cancel()
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -61,7 +64,7 @@ func Run(ctx context.Context, source nodestats.NodeStatsSource, publisher Publis
 			delay = min(delay*2, nodecontext.MaxBackoff)
 		} else {
 			opts.Report("published")
-			if report.Availability == capability.Available {
+			if report.Node.Availability == capability.Available {
 				delay = nodecontext.CollectionInterval
 			}
 		}
@@ -69,19 +72,31 @@ func Run(ctx context.Context, source nodestats.NodeStatsSource, publisher Publis
 		if err := opts.Wait(ctx, min(nodecontext.MaxBackoff, delay+jitter)); err != nil {
 			return err
 		}
-		value, readErr := source.Read(ctx)
+		value, readErr := source.ReadSample(ctx)
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
 		if readErr != nil {
-			report = failure(identity, opts.Now(), readErr)
-			opts.Report(string(report.Reason))
+			report = nodestats.Sample{Node: failure(identity, opts.Now(), readErr)}
+			opts.Report(string(report.Node.Reason))
 			delay = min(delay*2, nodecontext.MaxBackoff)
 			continue
 		}
 		report = value
-		identity = nodecontext.Observation{NodeName: value.NodeName, NodeUID: value.NodeUID}
+		identity = nodecontext.Observation{NodeName: value.Node.NodeName, NodeUID: value.Node.NodeUID}
 	}
+}
+
+func sourceSnapshot(sample nodestats.Sample) (api.AgentSnapshot, error) {
+	result := api.AgentSnapshot{SchemaVersion: api.CurrentSnapshotSchemaVersion, NodeName: sample.Node.NodeName, CapturedAt: sample.Node.ReportedAt, NodeContext: &sample.Node}
+	if sample.Volumes != nil {
+		body, err := sample.Volumes.EncodePrivate()
+		if err != nil {
+			return api.AgentSnapshot{}, errors.New("cannot encode bounded volume observation")
+		}
+		result.VolumeBatch = body
+	}
+	return result, nil
 }
 
 func failure(identity nodecontext.Observation, now time.Time, err error) nodecontext.Observation {

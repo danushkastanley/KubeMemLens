@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -16,8 +17,8 @@ func TestNodeContextClientUsesBoundedClusterResources(t *testing.T) {
 	denied := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		if r.Header.Get(api.SnapshotSchemaHeader) != "3" || r.Method != http.MethodGet {
-			t.Error("Node read did not negotiate schema 3")
+		if r.Header.Get(api.SnapshotSchemaHeader) != strconv.Itoa(api.CurrentSnapshotSchemaVersion) || r.Method != http.MethodGet {
+			t.Error("Node read did not negotiate the current schema")
 		}
 		if denied {
 			w.WriteHeader(http.StatusForbidden)

@@ -44,6 +44,7 @@ type Store struct {
 	expectedNodes         map[string]struct{}
 	expectedNodeUIDs      map[string]string
 	nodeContext           *nodeContextStore
+	volumes               *volumeStore
 	nodeContextEnabled    bool
 	inventoryKnown        bool
 	inventoryUpdatedAt    time.Time
@@ -84,6 +85,7 @@ func newStore(historyOpts HistoryOptions, limits StoreLimits) *Store {
 		expectedNodes:    map[string]struct{}{},
 		expectedNodeUIDs: map[string]string{},
 		nodeContext:      newNodeContextStore(),
+		volumes:          newVolumeStore(),
 	}
 }
 
@@ -96,7 +98,7 @@ func (s *Store) ReplaceNodeSnapshot(snapshot api.AgentSnapshot) (int, error) {
 }
 
 func (s *Store) ReplaceAuthenticatedNodeSnapshot(snapshot api.AgentSnapshot, uid string) (int, error) {
-	if snapshot.NodeContext != nil {
+	if snapshot.NodeContext != nil || len(snapshot.VolumeBatch) > 0 {
 		return 0, nodecontext.ErrInvalidObservation
 	}
 	s.mu.Lock()

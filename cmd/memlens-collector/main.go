@@ -42,6 +42,8 @@ func main() {
 	expectedNodeTolerationsJSON := flag.String("expected-node-tolerations-json", `[]`, "JSON Node tolerations matching the agent DaemonSet")
 	nodeAccountingFile := flag.String("node-accounting-file", "", "optional operator-owned Node accounting qualifications")
 	nodeContextUsername := flag.String("node-context-username", "", "optional distinct Node-context producer ServiceAccount username")
+	volumeNamespacesText := flag.String("volume-context-namespaces", "", "comma-separated namespaces for optional volume context reads")
+	volumeStatsEnabled := flag.Bool("volume-stats-enabled", false, "accept bounded volume statistics from the optional Node-context producer")
 	agentUsername := flag.String("agent-username", "system:serviceaccount:kube-memlens:kube-memlens-agent", "exact Kubernetes agent ServiceAccount username")
 	ingestionMaxConcurrent := flag.Int("ingestion-max-concurrent", 4, "maximum snapshot bodies decoded concurrently")
 	ingestionRequestsPerSecond := flag.Float64("ingestion-requests-per-second-per-agent", 1, "accepted request rate per authenticated agent Pod")
@@ -102,6 +104,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Node context requires authenticated ingestion")
 		os.Exit(2)
 	}
+	volumeNamespaces, err := extension.VolumeNamespaces(*volumeNamespacesText)
+	if err != nil || ((len(volumeNamespaces) > 0 || *volumeStatsEnabled) && *ingestionMode != ingestionAuthenticated) {
+		fmt.Fprintln(os.Stderr, "volume context requires valid namespaces and authenticated ingestion")
+		os.Exit(2)
+	}
 	accounting, err := extension.LoadNodeAccounting(*nodeAccountingFile)
 	if err != nil || (*nodeAccountingFile != "" && *nodeContextUsername == "") {
 		fmt.Fprintln(os.Stderr, "Node accounting requires valid operator configuration and the optional producer")
@@ -147,6 +154,7 @@ func main() {
 			os.Exit(1)
 		}
 		handler, err := extension.NewHandler(coordinator, extension.HandlerOptions{
+			VolumeNamespaces: volumeNamespaces, VolumeStatsEnabled: *volumeStatsEnabled,
 			NodeAccounting: accounting, AgentUsername: *agentUsername, NodeContextUsername: *nodeContextUsername, MaxSnapshotBytes: handlerOpts.MaxSnapshotBytes,
 			MaxConcurrent: *ingestionMaxConcurrent, RequestsPerSec: *ingestionRequestsPerSecond,
 			Burst: *ingestionBurst, MaxIdentities: storeLimits.MaxNodes,

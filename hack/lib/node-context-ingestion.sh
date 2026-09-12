@@ -64,6 +64,10 @@ PY
   node_analysis_verification "${work_dir}" "${namespace}" "${node}"
   source hack/lib/node-cockpit-verification.sh
   node_cockpit_verification "${work_dir}" "${namespace}" "${node}" "${kubeconfig}" "kind-${cluster}"
+  if [ "${NODE_CONTEXT_VERIFY_VOLUME_STATS:-false}" = true ]; then
+    source hack/lib/volume-stats-verification.sh
+    volume_stats_verification
+  fi
   if [ -n "${NODE_CONTEXT_QUALIFICATION_PROFILE:-}" ]; then
     node_qualification_lifecycle
   elif [ -n "${NODE_CONTEXT_LIFECYCLE_PROFILE:-}" ]; then
@@ -100,21 +104,21 @@ PY
 }
 
 node_context_request() {
-  local work_dir=$1 principal=$2 path=$3 output=$4
+  local work_dir=$1 principal=$2 path=$3 output=$4 schema=${5:-3}
   local server
   server=$(cat "${work_dir}/api-server")
   local credentials=(--cert "${work_dir}/api-client.crt" --key "${work_dir}/api-client.key")
   if [ "${principal}" != admin ]; then credentials=(--header "@${work_dir}/${principal}.header"); fi
   curl --silent --show-error --max-time 8 --cacert "${work_dir}/api-ca.crt" "${credentials[@]}" \
-    --header 'X-KubeMemLens-Snapshot-Schema: 3' --output "${output}" --write-out '%{http_code}' \
+    --header "X-KubeMemLens-Snapshot-Schema: ${schema}" --output "${output}" --write-out '%{http_code}' \
     "${server}/apis/memory.kubememlens.io/v1alpha1${path}"
 }
 
 node_context_wait_read() {
-  local work_dir=$1 principal=$2 path=$3 predicate=$4 output=$5 previous=${6:-}
+  local work_dir=$1 principal=$2 path=$3 predicate=$4 output=$5 previous=${6:-} schema=${7:-3}
   local status
   for _ in $(seq 1 75); do
-    status=$(node_context_request "${work_dir}" "${principal}" "${path}" "${work_dir}/${output}" || true)
+    status=$(node_context_request "${work_dir}" "${principal}" "${path}" "${work_dir}/${output}" "${schema}" || true)
     if [ "${status}" = 200 ] && python3 - "${work_dir}/${output}" "${predicate}" "${work_dir}/${previous}" <<'PY'
 import json,pathlib,sys
 try:
@@ -132,8 +136,8 @@ PY
 }
 
 node_context_expect_status() {
-  local work_dir=$1 principal=$2 path=$3 expected=$4
+  local work_dir=$1 principal=$2 path=$3 expected=$4 schema=${5:-3}
   local status
-  status=$(node_context_request "${work_dir}" "${principal}" "${path}" "${work_dir}/denied-read.json")
+  status=$(node_context_request "${work_dir}" "${principal}" "${path}" "${work_dir}/denied-read.json" "${schema}")
   [ "${status}" = "${expected}" ] || { echo "unexpected Node-context read status: ${status}, expected ${expected}" >&2; return 1; }
 }

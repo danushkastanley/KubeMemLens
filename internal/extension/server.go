@@ -129,6 +129,9 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	}
 
 	o.Handler.reads.podAuthorizer = config.Authorization.Authorizer
+	if err := o.Handler.configureVolumeResolver(o.KubeconfigFile); err != nil {
+		return err
+	}
 	server, err := config.Complete(nil).New("kube-memlens-extension", genericapiserver.NewEmptyDelegate())
 	if err != nil {
 		return fmt.Errorf("create extension server: %w", err)

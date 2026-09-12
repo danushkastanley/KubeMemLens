@@ -114,6 +114,9 @@ units/ranges, integer overflow and trailing JSON. Skip unrelated upstream fields
 within depth/token/byte bounds so legitimate CPU/storage data does not break
 parsing. Unknown system categories are discarded with a fixed partial-evidence
 code. Downstream ingestion remains strict. Never retain raw Pod/volume sections.
+The separately enabled [volume context profile](volume-context.md) decodes only
+bounded identity and filesystem fields into a private batch alongside the Node
+observation. Node-only reads, history and diagnostics continue to omit it.
 
 ## Source, response and storage bounds
 
