@@ -16,10 +16,25 @@ var metricReasons = [...]nodecontext.Reason{"", nodecontext.Unsupported, nodecon
 	nodecontext.ResponseTooLarge, nodecontext.Throttled, nodecontext.SourceUnavailable}
 
 type Telemetry struct {
-	mu       sync.RWMutex
-	counts   [len(metricReasons)]uint64
-	duration time.Duration
-	bytes    int
+	mu              sync.RWMutex
+	counts          [len(metricReasons)]uint64
+	duration        time.Duration
+	bytes           int
+	volumeReads     uint64
+	volumeErrors    uint64
+	volumeRecords   uint64
+	volumeOmissions uint64
+}
+
+func (t *Telemetry) recordVolumes(records, omitted int, err error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.volumeReads++
+	if err != nil {
+		t.volumeErrors++
+	}
+	t.volumeRecords += uint64(records)
+	t.volumeOmissions += uint64(omitted)
 }
 
 func (t *Telemetry) record(err error, duration time.Duration, bytes int) {
@@ -53,6 +68,17 @@ func (t *Telemetry) Render() string {
 	out.WriteString("# HELP kubememlens_node_context_last_read_seconds Duration of the latest acquisition attempt.\n# TYPE kubememlens_node_context_last_read_seconds gauge\n")
 	fmt.Fprintf(&out, "kubememlens_node_context_last_read_seconds %g\n", t.duration.Seconds())
 	out.WriteString("# HELP kubememlens_node_context_last_response_bytes Bytes read from the latest Summary response body.\n# TYPE kubememlens_node_context_last_response_bytes gauge\n")
-	fmt.Fprintf(&out, "kubememlens_node_context_last_response_bytes %d\n# EOF\n", t.bytes)
+	fmt.Fprintf(&out, "kubememlens_node_context_last_response_bytes %d\n", t.bytes)
+	if t.volumeReads > 0 {
+		out.WriteString("# HELP kubememlens_volume_stats_reads_total Volume enrichment attempts from existing Summary responses.\n# TYPE kubememlens_volume_stats_reads_total counter\n")
+		fmt.Fprintf(&out, "kubememlens_volume_stats_reads_total %d\n", t.volumeReads)
+		out.WriteString("# HELP kubememlens_volume_stats_errors_total Rejected volume enrichment attempts.\n# TYPE kubememlens_volume_stats_errors_total counter\n")
+		fmt.Fprintf(&out, "kubememlens_volume_stats_errors_total %d\n", t.volumeErrors)
+		out.WriteString("# HELP kubememlens_volume_stats_records_total Accepted volume filesystem records.\n# TYPE kubememlens_volume_stats_records_total counter\n")
+		fmt.Fprintf(&out, "kubememlens_volume_stats_records_total %d\n", t.volumeRecords)
+		out.WriteString("# HELP kubememlens_volume_stats_omissions_total Volume records without a name or filesystem measurement.\n# TYPE kubememlens_volume_stats_omissions_total counter\n")
+		fmt.Fprintf(&out, "kubememlens_volume_stats_omissions_total %d\n", t.volumeOmissions)
+	}
+	out.WriteString("# EOF\n")
 	return out.String()
 }

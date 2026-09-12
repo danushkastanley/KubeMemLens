@@ -227,6 +227,10 @@ func (c *KubernetesAPIClient) Metrics(ctx context.Context) (api.Metrics, error) 
 }
 
 func (c *KubernetesAPIClient) get(ctx context.Context, operation, path string, out any) error {
+	return c.getBounded(ctx, operation, path, out, aggregatedMaxResponseSize)
+}
+
+func (c *KubernetesAPIClient) getBounded(ctx context.Context, operation, path string, out any, maximum int64) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return readTransportError(operation, err)
@@ -245,13 +249,20 @@ func (c *KubernetesAPIClient) get(ctx context.Context, operation, path string, o
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
 		return nil
 	}
-	decoder := json.NewDecoder(io.LimitReader(response.Body, aggregatedMaxResponseSize+1))
+	if response.ContentLength > maximum {
+		return readDecodeError(operation, fmt.Errorf("response exceeds byte limit"))
+	}
+	limited := &io.LimitedReader{R: response.Body, N: maximum + 1}
+	decoder := json.NewDecoder(limited)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(out); err != nil {
 		return readDecodeError(operation, err)
 	}
 	if err := decoder.Decode(&struct{}{}); err != io.EOF {
 		return readDecodeError(operation, fmt.Errorf("unexpected trailing JSON"))
+	}
+	if limited.N == 0 {
+		return readDecodeError(operation, fmt.Errorf("response exceeds byte limit"))
 	}
 	return nil
 }

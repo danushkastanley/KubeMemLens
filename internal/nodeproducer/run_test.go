@@ -16,6 +16,11 @@ type sourceFunc func(context.Context) (nodecontext.Observation, error)
 
 func (f sourceFunc) Read(ctx context.Context) (nodecontext.Observation, error) { return f(ctx) }
 
+func (f sourceFunc) ReadSample(ctx context.Context) (nodestats.Sample, error) {
+	node, err := f(ctx)
+	return nodestats.Sample{Node: node}, err
+}
+
 type publisherFunc func(context.Context, string, api.AgentSnapshot) error
 
 func (f publisherFunc) Publish(ctx context.Context, uid string, s api.AgentSnapshot) error {

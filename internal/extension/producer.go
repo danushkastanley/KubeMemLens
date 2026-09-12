@@ -50,7 +50,7 @@ func (c AgentClaims) nodeKey() string {
 func validateProducerSnapshot(claims AgentClaims, snapshot api.AgentSnapshot) error {
 	switch claims.Role {
 	case CgroupProducer:
-		if snapshot.NodeContext != nil {
+		if snapshot.NodeContext != nil || len(snapshot.VolumeBatch) > 0 {
 			return fmt.Errorf("cgroup producers cannot submit Node observations")
 		}
 	case NodeContextProducer:
@@ -58,7 +58,7 @@ func validateProducerSnapshot(claims AgentClaims, snapshot api.AgentSnapshot) er
 		environment := snapshot.Environment
 		environment.ContainerRuntimes = nil
 		if snapshot.SchemaVersion < 3 || value == nil || len(snapshot.Containers) != 0 || len(snapshot.Environment.ContainerRuntimes) != 0 || !reflect.DeepEqual(environment, api.NodeEnvironment{}) {
-			return fmt.Errorf("Node-context producers must submit only a schema 3 Node observation")
+			return fmt.Errorf("Node-context producers must submit a schema 3 or newer Node observation without cgroup data")
 		}
 		if value.NodeName != claims.NodeName || value.NodeUID != claims.NodeUID || !value.ReportedAt.Equal(snapshot.CapturedAt) {
 			return fmt.Errorf("nested Node observation does not match the authenticated stream")

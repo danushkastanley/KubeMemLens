@@ -51,6 +51,10 @@ func newNodeContextStore() *nodeContextStore {
 // ReplaceNodeContext requires a fresh, collector-observed Node UID inventory.
 // It never changes container ownership, snapshots, counters or history.
 func (s *Store) ReplaceNodeContext(value nodecontext.Observation) error {
+	return s.ReplaceNodeContextWithVolumes(value, nil)
+}
+
+func (s *Store) ReplaceNodeContextWithVolumes(value nodecontext.Observation, volumes []byte) error {
 	data, err := json.Marshal(value)
 	if err != nil || len(data) > nodecontext.MaxObservationBytes {
 		return nodecontext.ErrInvalidObservation
@@ -79,6 +83,10 @@ func (s *Store) ReplaceNodeContext(value nodecontext.Observation) error {
 	if clock.before(previous.clock) {
 		return ErrSnapshotOutOfOrder
 	}
+	volumeEntry, err := s.prepareVolumeEntryLocked(value, volumes, now)
+	if err != nil {
+		return err
+	}
 	entry := nodeContextEntry{clock: clock.retainingMissing(previous.clock), uid: value.NodeUID, report: data, good: previous.good,
 		reportedAt: value.ReportedAt, capturedAt: previous.capturedAt, receivedAt: now, failed: value.Availability != capability.Available}
 	if value.Stats != nil {
@@ -89,6 +97,7 @@ func (s *Store) ReplaceNodeContext(value nodecontext.Observation) error {
 		}
 	}
 	store.latest[value.NodeName] = entry
+	s.commitVolumeEntryLocked(value.NodeName, volumeEntry)
 	return nil
 }
 

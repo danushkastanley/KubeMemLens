@@ -51,6 +51,12 @@ spec:
             - "--extension-tls-cert-file=/var/run/kube-memlens/tls/tls.crt"
             - "--extension-tls-key-file=/var/run/kube-memlens/tls/tls.key"
             - "--agent-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-agent"
+{{- if .Values.volumeContext.enabled }}
+            - {{ printf "--volume-context-namespaces=%s" (join "," .Values.volumeContext.namespaces) | quote }}
+{{- end }}
+{{- if .Values.nodeContext.volumeStats }}
+            - "--volume-stats-enabled=true"
+{{- end }}
 {{- if .Values.nodeContext.enabled }}
             - "--node-context-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-node-context"
 {{- if .Values.nodeContext.accountingConfigMap }}

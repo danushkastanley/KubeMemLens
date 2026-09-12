@@ -12,6 +12,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/collector"
+	"github.com/danushkastanley/kube-memlens/internal/kube"
 	"github.com/danushkastanley/kube-memlens/internal/metrics"
 	"github.com/danushkastanley/kube-memlens/internal/nodeanalysis"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,6 +26,9 @@ type ReadHandler struct {
 	podAuthorizer      authorizer.Authorizer
 	accounting         map[string]nodeanalysis.Qualification
 	nodeContextEnabled bool
+	volumeStatsEnabled bool
+	volumeNamespaces   map[string]bool
+	volumeResolver     kube.VolumeResolver
 	store              *collector.Store
 	opts               collector.HandlerOptions
 	now                func() time.Time
@@ -89,6 +93,10 @@ func (h *ReadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *ReadHandler) servePods(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo, schema int) {
+	if info.Subresource == "volumes" {
+		h.servePodVolumes(w, r, info, schema)
+		return
+	}
 	if info.Subresource == "history" {
 		if info.Verb != "get" || info.Namespace == "" || info.Name == "" || len(info.Parts) != 3 {
 			writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")

@@ -37,6 +37,12 @@ func (s *Store) ReconcileNodeIdentities(identities map[string]string, observedAt
 			delete(s.nodeContext.latest, name)
 		}
 	}
+	for name, entry := range s.volumes.entries {
+		if uids[name] != entry.uid {
+			s.deleteVolumeEntryLocked(name)
+		}
+	}
+	s.pruneVolumeEntriesLocked(observedAt)
 	s.expectedNodes, s.expectedNodeUIDs = expected, uids
 	s.inventoryKnown, s.inventoryUpdatedAt = true, observedAt
 	return nil

@@ -39,7 +39,7 @@ kind measurements. The extra probes may affect measured cost.
 ## Production API transport
 
 `hack/node-qualification/api-bridge/` uses the existing Go Kubernetes client.
-It negotiates snapshot schema 3 and preserves kubeconfig authentication,
+It negotiates the current snapshot schema (at least 3) and preserves kubeconfig authentication,
 including credential refresh. It accepts only status, namespace-scoped container
 reads, a single Node read and bounded Node history. An explicit kubeconfig,
 context and namespace are required. HTTP, insecure TLS and URL credentials are

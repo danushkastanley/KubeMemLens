@@ -31,6 +31,9 @@ func SupportedSnapshotSchema(version int) bool {
 
 func AgentSnapshotForSchema(snapshot AgentSnapshot, version int) AgentSnapshot {
 	snapshot.SchemaVersion = version
+	if version < VolumeSnapshotSchemaVersion {
+		snapshot.VolumeBatch = nil
+	}
 	if version < 3 {
 		snapshot.NodeContext = nil
 	}

@@ -4,6 +4,15 @@
   "additionalProperties": false,
   "required": ["image", "namespace", "agent", "collector", "extensionTLS", "metrics", "security", "networkPolicy"],
   "properties": {
+    "volumeContext": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "namespaces"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "namespaces": {"type": "array", "maxItems": 64, "uniqueItems": true,
+          "items": {"type": "string", "maxLength": 63, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"}}
+      }
+    },
     "nodeContext": {
       "type": "object",
       "additionalProperties": false,
@@ -17,6 +26,7 @@
         "resources"
       ],
       "properties": {
+        "volumeStats": {"type": "boolean"},
         "enabled": {
           "type": "boolean"
         },

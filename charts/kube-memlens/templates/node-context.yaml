@@ -91,6 +91,9 @@ spec:
           command: ["/memlens-node-context"]
           args:
             - "--publish"
+{{- if .Values.nodeContext.volumeStats }}
+            - "--volume-stats"
+{{- end }}
             - "--node-name=$(NODE_NAME)"
             - "--kubelet-ca=/var/run/kubelet-trust/ca.crt"
             - "--kubelet-token-file=/var/run/kubelet-token/token"

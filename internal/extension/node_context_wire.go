@@ -15,9 +15,13 @@ import (
 // structs before role validation rejects them. Duplicate aliases must also fail
 // here so an empty final field cannot conceal an earlier allocating field.
 func boundedNodeWire(data []byte) error {
+	return boundedNodeWireWithVolumes(data, 0)
+}
+
+func boundedNodeWireWithVolumes(data []byte, volumeLimit int) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
-	if err := nodeWireValue(decoder, "", 0); err != nil {
+	if err := nodeWireValue(decoder, "", 0, volumeLimit); err != nil {
 		return err
 	}
 	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
@@ -26,7 +30,7 @@ func boundedNodeWire(data []byte) error {
 	return nil
 }
 
-func nodeWireValue(decoder *json.Decoder, field string, depth int) error {
+func nodeWireValue(decoder *json.Decoder, field string, depth int, volumeLimit int) error {
 	if depth > 16 {
 		return nodecontext.ErrInvalidObservation
 	}
@@ -52,13 +56,15 @@ func nodeWireValue(decoder *json.Decoder, field string, depth int) error {
 				return nodecontext.ErrInvalidObservation
 			}
 			seen[key] = true
-			if err := nodeWireValue(decoder, key, depth+1); err != nil {
+			if err := nodeWireValue(decoder, key, depth+1, volumeLimit); err != nil {
 				return err
 			}
 		}
 	case '[':
 		limit := 0
 		switch field {
+		case "records":
+			limit = volumeLimit
 		case "systemcontainers":
 			limit = nodecontext.MaxSystemContainers
 		case "hugepages":
@@ -70,7 +76,7 @@ func nodeWireValue(decoder *json.Decoder, field string, depth int) error {
 			if count >= limit {
 				return nodecontext.ErrInvalidObservation
 			}
-			if err := nodeWireValue(decoder, "", depth+1); err != nil {
+			if err := nodeWireValue(decoder, "", depth+1, volumeLimit); err != nil {
 				return err
 			}
 		}

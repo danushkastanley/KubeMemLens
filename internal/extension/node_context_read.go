@@ -62,6 +62,9 @@ func nodeContextResource(record api.NodeContextRecord) api.NodeContextResource {
 
 func (h *Handler) discoveryResources() []metav1.APIResource {
 	resources := discoveryResources()
+	if len(h.opts.VolumeNamespaces) > 0 {
+		resources = append(resources, metav1.APIResource{Name: "pods/volumes", Namespaced: true, Kind: "PodVolumeContext", Verbs: metav1.Verbs{"get"}})
+	}
 	if h.opts.NodeContextUsername != "" {
 		resources = append(resources,
 			metav1.APIResource{Name: "nodecontexts", SingularName: "nodecontext", Namespaced: false, Kind: "NodeContext", Verbs: metav1.Verbs{"get", "list"}},

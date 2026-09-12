@@ -52,6 +52,7 @@ work_dir=$(mktemp -d "${TMPDIR:-/tmp}/kube-memlens-node-context.XXXXXX")
 kubeconfig=${work_dir}/kubeconfig
 created=false
 image_created=false
+volume_image_created=false
 image="kube-memlens-node-context:$(basename "${work_dir}")"
 if docker image inspect "${image}" >/dev/null 2>&1; then echo 'refusing to replace an existing image' >&2; exit 1; fi
 kctl() { kubectl --kubeconfig "${kubeconfig}" --context "kind-${cluster}" "$@"; }
@@ -60,6 +61,7 @@ cleanup() {
   trap - EXIT
   if [ "${created}" = true ]; then kind delete cluster --name "${cluster}" > "${work_dir}/cleanup.log" 2>&1 || result=1; fi
   if [ "${image_created}" = true ]; then docker image rm "${image}" >/dev/null 2>&1 || result=1; fi
+  if [ "${volume_image_created}" = true ]; then docker image rm "${volume_image}" >/dev/null 2>&1 || result=1; fi
   if [ "${result}" -ne 0 ]; then
     # Only bounded failure codes leave the private work directory.
     for log in "${work_dir}"/*-wait.log; do [ ! -f "${log}" ] || tail -2 "${log}" >&2; done
@@ -103,8 +105,22 @@ fi
 image_created=true
 docker build -t "${image}" "${work_dir}/image" > "${work_dir}/image-build.log" 2>&1
 docker image inspect "${image}" --format '{{.Id}}' > "${work_dir}/image-id"
+kind_args=()
+if [ "${NODE_CONTEXT_VERIFY_VOLUME_STATS:-false}" = true ]; then
+  [ "${NODE_CONTEXT_VERIFY_INGESTION:-false}" = true ] || { echo 'volume verification requires ingestion' >&2; exit 1; }
+  cat > "${work_dir}/kind.yaml" <<'YAML'
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+kubeadmConfigPatches:
+  - |
+    apiVersion: kubelet.config.k8s.io/v1beta1
+    kind: KubeletConfiguration
+    volumeStatsAggPeriod: 5s
+YAML
+  kind_args+=(--config "${work_dir}/kind.yaml")
+fi
 created=true
-kind create cluster --name "${cluster}" --image "${node_image}" --kubeconfig "${kubeconfig}" --wait 90s > "${work_dir}/kind-create.log" 2>&1
+kind create cluster --name "${cluster}" --image "${node_image}" --kubeconfig "${kubeconfig}" "${kind_args[@]}" --wait 90s > "${work_dir}/kind-create.log" 2>&1
 kind load docker-image "${image}" --name "${cluster}" > "${work_dir}/image-load.log" 2>&1
 node=$(kind get nodes --name "${cluster}")
 kctl get node "${node}" -o json > "${work_dir}/node.json"
@@ -198,6 +214,10 @@ analysis=root/'analysis-result.json'
 if analysis.exists(): summary['analysis']=json.loads(analysis.read_text())
 cockpit=root/'cockpit-result.json'
 if cockpit.exists(): summary['cockpit']=json.loads(cockpit.read_text())
+volumes=root/'volume-result.json'
+if volumes.exists():
+    summary['volumes']=json.loads(volumes.read_text())
+    summary['hostMountsScope']='producer'
 if sys.argv[4] or sys.argv[5]=='kubernetes':
     summary['hostMountsScope']='producer'
     summary['observer']={'method':'kubernetes-probes-v1','readOnlyHostCgroups':True,'hostPID':False,'hostNetwork':False}
@@ -212,6 +232,10 @@ remaining=$(kind get clusters)
 if printf '%s\n' "${remaining}" | grep -Fxq "${cluster}"; then echo 'cluster cleanup incomplete' >&2; exit 1; fi
 docker image rm "${image}" >/dev/null
 image_created=false
+if [ "${volume_image_created}" = true ]; then
+  docker image rm "${volume_image}" >/dev/null
+  volume_image_created=false
+fi
 python3 - "${artifact_dir}/summary.json" "${NODE_CONTEXT_OBSERVER_PROFILE:-}" <<'PY'
 import json, pathlib, sys
 p=pathlib.Path(sys.argv[1]); data=json.loads(p.read_text()); data['cleanup']='passed'; p.write_text(json.dumps(data,indent=2)+'\n')

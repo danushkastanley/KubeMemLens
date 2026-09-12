@@ -132,7 +132,7 @@ func SourceState(availability volumehealth.Availability, reason Reason) Usage {
 }
 
 func validateUsageState(u Usage) error {
-	if u.Source != "kubelet-summary" || u.Filesystem != nil || u.Freshness != volumehealth.FreshnessUnknown || u.Completeness != capability.Partial {
+	if u.Source != "kubelet-summary" || u.Filesystem != nil || u.LastGood != nil || u.Freshness != volumehealth.FreshnessUnknown || u.Completeness != capability.Partial {
 		return ErrInvalid
 	}
 	want, valid := map[volumehealth.Availability]Reason{

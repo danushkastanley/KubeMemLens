@@ -13,6 +13,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/collector"
 	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
+	"github.com/danushkastanley/kube-memlens/internal/volumecontext"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -175,7 +176,7 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 	}
 	var count int
 	if claims.Role == NodeContextProducer {
-		err = c.store.ReplaceNodeContext(*request.Snapshot.NodeContext)
+		err = c.store.ReplaceNodeContextWithVolumes(*request.Snapshot.NodeContext, request.Snapshot.VolumeBatch)
 	} else {
 		count, err = c.store.ReplaceAuthenticatedNodeSnapshot(request.Snapshot, claims.NodeUID)
 	}
@@ -184,6 +185,12 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 	}
 	if errors.Is(err, nodecontext.ErrInvalidObservation) {
 		return api.NodeSnapshotResponse{}, false, reject(400, "invalid_snapshot", err.Error(), "invalid_snapshot")
+	}
+	if errors.Is(err, volumecontext.ErrInvalid) || errors.Is(err, volumecontext.ErrScope) {
+		return api.NodeSnapshotResponse{}, false, reject(400, "invalid_snapshot", "invalid bounded volume observation", "invalid_snapshot")
+	}
+	if errors.Is(err, volumecontext.ErrOutOfOrder) {
+		return api.NodeSnapshotResponse{}, false, reject(409, "snapshot_out_of_order", err.Error(), "out_of_order")
 	}
 	if errors.Is(err, collector.ErrSnapshotOutOfOrder) {
 		return api.NodeSnapshotResponse{}, false, reject(409, "snapshot_out_of_order", err.Error(), "out_of_order")

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/model"
@@ -8,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const CurrentSnapshotSchemaVersion = 3
+const CurrentSnapshotSchemaVersion = VolumeSnapshotSchemaVersion
 const CurrentIncidentSchemaVersion = 2
 const CurrentExplanationSchemaVersion = 3
 const CurrentRecommendationSchemaVersion = 1
@@ -24,6 +25,9 @@ type AgentSnapshot struct {
 	Environment   NodeEnvironment          `json:"environment"`
 	Containers    []ContainerSnapshot      `json:"containers"`
 	NodeContext   *nodecontext.Observation `json:"nodeContext,omitempty"`
+	// VolumeBatch is the explicitly private producer wire format. Node-only
+	// responses and history use NodeContext and never include this batch.
+	VolumeBatch json.RawMessage `json:"volumeBatch,omitempty"`
 }
 
 type NodeEnvironment struct {

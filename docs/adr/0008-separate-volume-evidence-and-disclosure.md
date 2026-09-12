@@ -1,6 +1,7 @@
 # ADR 0008: Separate volume evidence and disclosure
 
-Status: model and private wire contract implemented; acquisition and read integration pending.
+Status: model, optional Summary collection and scoped collector read API implemented.
+CSI health, presentation and incident integration remain separate work.
 
 ## Context
 
@@ -22,9 +23,9 @@ producer credentials, Node access and cached objects do not grant that access.
 Default formatting, metrics and redacted captures cannot expose volume names or
 driver text. Discard free-form backend messages before retaining joined data.
 
-Reserve snapshot schema 4 and incident schema 5 for their respective integration
-changes. Do not advertise those versions or relax strict readers before the
-corresponding production paths and compatibility projections exist.
+Activate snapshot schema 4 with private batch ingestion and a separate named
+Pod-volume read resource. Project out new fields for schemas 1/2/3. Incident
+schema 5 remains reserved until capture/replay integration exists.
 
 The [volume contract](../volume-context.md) defines the permission matrix,
 source states, field/byte bounds, retention requirements and rollback order.
@@ -40,9 +41,9 @@ source states, field/byte bounds, retention requirements and rollback order.
 | Large Summary or ingestion payload exhausts memory | Independent input byte, record, per-Pod, nesting and output bounds; malformed-wire and fuzz tests |
 | Old client breaks on optional fields | Reserved versions activated only alongside negotiated projections and strict-decoder compatibility tests |
 
-The pure model proves its join, validation and export rules. It does not prove
-production authentication, acquisition isolation, storage capacity or runtime
-revocation. Those controls require integration tests before enabling the paths.
+Verification covers model joins, strict decoders, separate retention capacity,
+original-principal checks and the disposable local Summary-to-viewer path.
+Provider and network-enforcement qualification remain profile-specific.
 
 ## Alternatives and consequences
 
@@ -58,8 +59,9 @@ necessary. No CSI sockets, Kubernetes status writes or cloud APIs are added.
 
 ## Migration and rollback
 
-This change enables no acquisition or read route. Later integration upgrades
-the collector first, uses separately switchable enrichment, and retains old
-memory representations. Disable enrichment before collector downgrade and
+Acquisition and read routes default to off. Upgrade the collector first, enable
+the namespaced volume profile, then enable producer filesystem collection.
+The optional viewer role is not automatically bound. Existing memory and Node
+viewer permissions remain unchanged. Disable enrichment before collector downgrade and
 export a compatible incident for older readers. No durable data migration is
 required.

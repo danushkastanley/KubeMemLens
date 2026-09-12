@@ -2,8 +2,9 @@
 
 The volume context model keeps filesystem usage, memory-backed configuration
 and CSI health separate. It does not add volume bytes to cgroup memory charge.
-The contract is implemented in `internal/volumecontext`; collection and user
-interfaces are not enabled by the model alone.
+The optional collector API provides current Pod volume configuration and kubelet
+filesystem measurements. Collection defaults to off; CLI/TUI presentation and
+volume incident capture are separate integrations.
 
 ## Identity and access
 
@@ -39,7 +40,8 @@ An unavailable claim binding retains the authorised Pod's volume configuration
 with a forbidden, unavailable or unreported usage state. It cannot retain a PVC
 name, UID, creation time, driver or filesystem sample.
 
-No access endpoint or additional RBAC is installed by this contract change.
+The optional `pods/volumes` endpoint and its viewer role are separate from the
+existing memory and Node viewer roles. No viewer is bound automatically.
 
 ## Evidence and uncertainty
 
@@ -79,7 +81,7 @@ Adapters supply source-specific health availability when no conditions exist.
 | Producer volume batch | 1,024 records and 1 MiB encoded |
 | Named Pod result | 256 KiB encoded, including all health and configuration fields |
 | Future paged query | At most 100 records and 256 KiB per page |
-| Future collector volume retention | 64 MiB total including last-good records and indexes |
+| Collector volume retention | 64 MiB total including last-good records and indexes |
 | Usage freshness / expiry | Stale after 45 seconds; omitted after two minutes |
 
 Encoded-byte limits apply in addition to field counts. A maximum count of
@@ -89,10 +91,23 @@ keys, case aliases, oversized collections, excessive nesting, invalid integers
 and trailing JSON before admitting records. Error text contains no identities.
 
 The existing Node observation stays limited to 16 KiB. Volume batches are
-separate from Node memory. Integration must preserve the 4 MiB Summary-response
-ceiling, existing timeout/interval and single-request concurrency. The storage
-and pagination constants define integration ceilings, not a measured scale
-claim or an already implemented volume store.
+separate from Node memory. The opt-in parser shares the existing single Summary request, 4 MiB response
+ceiling, five-second deadline and 15-second producer interval. It bounds both
+scanned Pod/volume entries and retained records; omitted measurements still count
+towards input ceilings. Malformed volume data produces an independent source
+failure while a valid Node memory observation remains usable.
+
+The collector retains current and last-good volume batches separately from Node
+latest/history data. Last-good measurements keep their original source time and
+appear only as `usage.lastGood`, labelled stale, after omission or source failure.
+Denied, disabled and explicitly unsupported sources clear them. Binding changes
+exclude earlier Pod/PVC samples, and expired values disappear after two minutes.
+Retention limits include encoded current/last-good data and conservative index
+charges. They are ceilings, not a measured scale qualification.
+
+Current binding resolution has a five-second total deadline, 1 MiB per upstream
+object and 8 MiB total read budget. Typed Pod/PVC/PV collections are bounded before
+allocation. The named response and client decoder both enforce 256 KiB.
 
 ## Output and compatibility
 
@@ -109,13 +124,93 @@ availability. Do not use the private encoder for diagnostic files, logs, metrics
 or default incident captures. Free-form backend messages are never retained by
 the join, even in the named representation.
 
-The volume wire contract is version 1. Snapshot schema 4 is reserved for future
-volume integration but is not yet advertised. Snapshot schemas 1/2/3 continue
-unchanged. Incident schema 5 is reserved; existing readers still reject it until
+The volume wire contract is version 1. Snapshot schema 4 carries private volume
+batches and enables the named Pod-volume resource. Schemas 1/2/3 omit the new
+batch and keep their existing representations; the new route is hidden from
+readers that negotiate an older schema. Incident schema 5 is reserved; existing readers still reject it until
 capture and replay integration exists. Deep incident schemas 1/2, restricted 3
 and Node 4 keep their meanings. Integration must explicitly project unsupported
 fields for old readers and report omitted evidence in legacy captures.
 
-The model has no runtime switch or database migration. Removing it removes only
-the unused enrichment contract. Collection integration must allow disabling
-volumes without disabling Node or cgroup memory before collector downgrade.
+No durable database migration is required. Disable `nodeContext.volumeStats`
+first, then `volumeContext.enabled`, before downgrading the collector. Node and
+cgroup memory continue when only volume collection is disabled.
+
+## Enable the scoped API
+
+Start with the verified [Node-context profile](node-context.md), including its
+explicit kubelet CA, token audience and network settings. Add these values to the
+same Helm values file; the listed namespaces must already exist:
+
+```yaml
+nodeContext:
+  enabled: true
+  volumeStats: true
+volumeContext:
+  enabled: true
+  namespaces: [team-a]
+```
+
+Upgrade the collector before enabling the producer flag when managing components
+separately. The chart creates Pod/PVC `get` acquisition roles only in the listed
+namespaces, plus a private collector PV `get` role for claim-reference validation.
+It adds no Kubernetes mutation rights, CSI socket access or cloud credentials.
+Volume collection reuses the existing Node-context producer identity and its
+`nodes/stats` permission.
+
+Bind the optional viewer role only in the namespace the viewer should inspect:
+
+```sh
+kubectl create rolebinding memlens-volume-viewer --namespace team-a \
+  --clusterrole kube-memlens-volume-viewer --serviceaccount team-a:viewer
+```
+
+Using that viewer's kubeconfig, run `kubectl proxy --address=127.0.0.1 --port=8001`
+in one terminal. In another, explicitly negotiate schema 4:
+
+```sh
+curl --fail --silent --show-error \
+  --header "X-KubeMemLens-Snapshot-Schema: 4" \
+  http://127.0.0.1:8001/apis/memory.kubememlens.io/v1alpha1/namespaces/team-a/pods/app/volumes
+```
+
+Stop the local proxy after the read. This viewer role grants `get` on the
+aggregated `pods/volumes` resource and the underlying Pods/PVCs. It grants no
+Node, CSINode or PV access. PV-derived driver names are omitted unless separately
+authorised. The response metadata carries the authorised Pod UID so asynchronous
+clients can reject a replaced selection; default redacted captures omit UIDs.
+
+For direct process configuration, the collector uses
+`--volume-context-namespaces=team-a` and `--volume-stats-enabled`; the separate
+Node-context producer uses `--volume-stats`. Empty namespace configuration leaves
+the route disabled. Stats ingestion requires the Node producer role. A profile
+with the route enabled but stats disabled reports configuration with disabled
+usage. This endpoint currently supplies filesystem usage, not CSI health.
+
+Operational counters use no PVC or Pod labels:
+`kubememlens_volume_stats_reads_total`,
+`kubememlens_volume_stats_errors_total`,
+`kubememlens_volume_stats_records_total` and
+`kubememlens_volume_stats_omissions_total`.
+
+## Local verification
+
+The disposable kind check extends Node-context authentication and isolation tests
+with the pinned upstream CSI hostpath driver, a volume created through its local
+CSI controller API, an isolated 128 MiB tmpfs test backend, controlled writes,
+byte/inode deltas, original-caller revocation,
+Pod replacement, expiry and independent volume rollback:
+
+```sh
+NODE_CONTEXT_ACKNOWLEDGE=create-and-remove-node-context-kind \
+NODE_CONTEXT_VERIFY_INGESTION=true NODE_CONTEXT_VERIFY_VOLUME_STATS=true \
+NODE_CONTEXT_CLUSTER=kube-memlens-node-context-volumes \
+NODE_CONTEXT_ARTIFACT_DIR=/absolute/path/to/new-evidence \
+  hack/verify-node-context-kind.sh
+```
+
+The fixture accelerates kubelet filesystem aggregation to five seconds; production
+collection cadence remains unchanged. It removes its owned cluster, images and
+private credentials. Only sanitised receipts leave the temporary work directory.
+This proves the local path and does not qualify managed CSI providers, network
+policy enforcement, storage latency or memory attribution.

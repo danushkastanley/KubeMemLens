@@ -22,12 +22,13 @@ type NodeStatsSource interface {
 }
 
 type Options struct {
-	NodeName  string
-	CAFile    string
-	TokenFile string
-	Timeout   time.Duration
-	Now       func() time.Time
-	Telemetry *Telemetry
+	VolumeStats VolumeStatsMode
+	NodeName    string
+	CAFile      string
+	TokenFile   string
+	Timeout     time.Duration
+	Now         func() time.Time
+	Telemetry   *Telemetry
 }
 
 type Source struct {
@@ -39,7 +40,7 @@ type Source struct {
 }
 
 func New(config *rest.Config, opts Options) (*Source, error) {
-	if config == nil || config.TLSClientConfig.Insecure || len(validation.IsDNS1123Subdomain(opts.NodeName)) != 0 || opts.CAFile == "" || opts.TokenFile == "" {
+	if (opts.VolumeStats != VolumeStatsDisabled && opts.VolumeStats != VolumeStatsEnabled) || config == nil || config.TLSClientConfig.Insecure || len(validation.IsDNS1123Subdomain(opts.NodeName)) != 0 || opts.CAFile == "" || opts.TokenFile == "" {
 		return nil, &Error{Reason: nodecontext.InvalidTarget}
 	}
 	base, err := url.Parse(config.Host)
@@ -70,7 +71,12 @@ func New(config *rest.Config, opts Options) (*Source, error) {
 
 func (s *Source) Close() { s.api.CloseIdleConnections() }
 
-func (s *Source) Read(ctx context.Context) (report nodecontext.Observation, err error) {
+func (s *Source) Read(ctx context.Context) (nodecontext.Observation, error) {
+	sample, err := s.ReadSample(ctx)
+	return sample.Node, err
+}
+
+func (s *Source) ReadSample(ctx context.Context) (report Sample, err error) {
 	if !s.mu.TryLock() {
 		return report, &Error{Reason: nodecontext.Throttled}
 	}
@@ -129,10 +135,19 @@ func (s *Source) Read(ctx context.Context) (report nodecontext.Observation, err 
 	if err != nil {
 		return report, &Error{Reason: nodecontext.InvalidResponse}
 	}
-	report = observation(node, parsed, s.opts.Now().UTC())
-	encoded, err := json.Marshal(report)
+	report.Node = observation(node, parsed, s.opts.Now().UTC())
+	encoded, err := json.Marshal(report.Node)
 	if err != nil || len(encoded) > nodecontext.MaxObservationBytes {
-		return nodecontext.Observation{}, &Error{Reason: nodecontext.ResponseTooLarge}
+		return Sample{}, &Error{Reason: nodecontext.ResponseTooLarge}
+	}
+	if s.opts.VolumeStats == VolumeStatsEnabled {
+		report.Volumes, err = s.volumeBatch(ctx, data, node.name, node.uid, report.Node.ReportedAt)
+		if ctx.Err() != nil {
+			return Sample{}, transportError(ctx.Err())
+		}
+		if err != nil {
+			return Sample{}, err
+		}
 	}
 	return report, nil
 }
