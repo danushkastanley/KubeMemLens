@@ -215,7 +215,9 @@ if analysis.exists(): summary['analysis']=json.loads(analysis.read_text())
 cockpit=root/'cockpit-result.json'
 if cockpit.exists(): summary['cockpit']=json.loads(cockpit.read_text())
 volumes=root/'volume-result.json'
-if volumes.exists(): summary['volumes']=json.loads(volumes.read_text())
+if volumes.exists():
+    summary['volumes']=json.loads(volumes.read_text())
+    summary['hostMountsScope']='producer'
 if sys.argv[4] or sys.argv[5]=='kubernetes':
     summary['hostMountsScope']='producer'
     summary['observer']={'method':'kubernetes-probes-v1','readOnlyHostCgroups':True,'hostPID':False,'hostNetwork':False}

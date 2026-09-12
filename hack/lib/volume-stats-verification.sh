@@ -73,6 +73,7 @@ import json,pathlib,sys
 p=pathlib.Path(sys.argv[1])
 d={'outcome':'passed','upstreamDriverCommit':sys.argv[2],'driverImageDigest':(p/'csi-image-id').read_text().strip(),
  'backend':'isolated 128 MiB tmpfs in disposable CSI fixture','kubeletStatsCadenceSeconds':5,'producerCadenceSeconds':15,
+ 'fixtureDriverPrivileged':True,'fixtureDriverHostMounts':True,'producerHostMounts':False,
  'measurement':json.loads((p/'volume-deltas.json').read_text()),'productionClient':json.loads((p/'volume-client.json').read_text()),
  'callerPVCWithoutPV':True,'nodeViewerDenied':True,'crossNamespaceDenied':True,'oldSchemaHidden':True,
  **json.loads((p/'volume-lifecycle.json').read_text()),'credentialsRetained':False,'runtimeIdentifiersIncluded':False}
