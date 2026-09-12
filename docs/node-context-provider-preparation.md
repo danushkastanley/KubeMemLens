@@ -156,16 +156,30 @@ The coordinator removes recorded objects directly so Helm cannot delete a
 replacement object by name during uninstall.
 
 These are execution components, not a completed provider qualification command.
-Provider recovery/replacement, NetworkPolicy checks, final evidence assembly and
+Provider replacement, NetworkPolicy checks, final evidence assembly and
 explicit provider cleanup confirmation must still be connected and verified
 before a provider run can be approved.
+
+The recovery component tests source loss, agent restart and collector restart
+across both bound Nodes after the fixed measurement windows. Source loss removes
+the dedicated producer binding's subject temporarily, requires stable stale
+evidence on both Nodes, then restores that exact subject. Mutations test the
+resource UID and resource version atomically; restoration refuses an intervening
+edit. Workload restarts retain existing Pod-template annotations.
+
+Agent recovery requires new containers and successful snapshot posts on both
+Nodes while preserving history generations. Collector recovery requires a new
+container and changed history generations. Every event requires fresh reports
+from both original Node identities within the frozen recovery budget. These
+checks do not establish provider-instance replacement or network isolation.
 
 ## Local two-Node integration
 
 `hack/verify-node-context-execution-kind.sh` exercises these components against
 two newly created local kind Nodes. It builds a local test image, checks the
-production TLS and denial probes, installs the chart, measures the fixed windows
-and removes UID-owned objects plus the fixture. The dedicated
+production TLS and denial probes, installs the chart, measures the fixed windows,
+exercises source loss and agent/collector restart recovery, then removes
+UID-owned objects plus the fixture. The dedicated
 `kind-137-execution` profile declares the workload and budgets before the run.
 This diagnostic does not qualify a managed or self-managed provider row.
 

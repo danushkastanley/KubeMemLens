@@ -12,6 +12,7 @@ from kubernetes_commands import KubernetesCommands
 from measurement_checks import measurement_checks
 from observer_specs import host_observer, host_policy
 from provider_execution import Execution
+from provider_recovery import PoolRecovery
 from workload import deployment
 
 
@@ -68,6 +69,14 @@ def run(args):
         execution.enable()
         execution.measure("enabled")
         measured = execution.measurements()
+        recovery = PoolRecovery(execution)
+        lifecycle = {}
+        for name, observe in (("sourceLoss", recovery.source_loss),
+                              ("agentRestart", lambda: recovery.restart("agent")),
+                              ("collectorRestart", lambda: recovery.restart("collector"))):
+            print("local coordinator: " + name, flush=True)
+            lifecycle[name] = observe()
+            require(lifecycle[name]["state"] == "passed", "local pool recovery failed: " + name)
     finally:
         print("local coordinator: UID-owned resource cleanup", flush=True)
         execution.cleanup()
@@ -76,7 +85,8 @@ def run(args):
     result = {"schemaVersion": 1, "scope": "local-provider-coordinator-diagnostic", "qualified": False,
               "profile": {"id": profile["id"], "digest": profile["profileDigest"]}, "linuxNodes": 2,
               "positiveTransportProbes": len(execution.observations), "negativeTransportProbes": 6,
-              "measurementChecksPassed": passed, "cleanup": "passed", "measurements": measured}
+              "measurementChecksPassed": passed, "cleanup": "passed", "measurements": measured,
+              "lifecycle": lifecycle}
     privacy(result)
     write_new(output, result)
     require(passed, "local pool measurement checks failed")

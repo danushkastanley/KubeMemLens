@@ -18,8 +18,9 @@ def install_host(runtime, image, selector, tolerations=()):
     return created
 
 
-def attach(runtime, image, component, audience=None, lifetime=600):
+def attach(runtime, image, component, audience=None, lifetime=600, timeout=120):
     require(component in {"agent", "node-context"}, "unsupported observer target")
+    require(0 < timeout <= 120, "observer startup deadline is invalid")
     runtime.verify_namespace()
     current = runtime.containers()[component]
     pod = json.loads(runtime.k("get", "pod", current["pod"], "-n", runtime.namespace, "-o", "json"))
@@ -43,7 +44,7 @@ def attach(runtime, image, component, audience=None, lifetime=600):
     # modification fail, rather than silently overwriting another operator's work.
     path = f"/api/v1/namespaces/{runtime.namespace}/pods/{current['pod']}/ephemeralcontainers"
     runtime.k("replace", "--raw", path, "-f", "-", data=json.dumps(pod).encode())
-    deadline = time.monotonic() + 120
+    deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         runtime.verify_namespace()
         observed = json.loads(runtime.k("get", "pod", current["pod"], "-n", runtime.namespace, "-o", "json"))
