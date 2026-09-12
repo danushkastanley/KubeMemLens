@@ -21,6 +21,7 @@ type volumeStore struct {
 	entries        map[string]volumeEntry
 	bytes          int
 	healthReserved bool
+	commits        uint64
 }
 
 func newVolumeStore() *volumeStore { return &volumeStore{entries: map[string]volumeEntry{}} }
@@ -130,6 +131,7 @@ func (s *Store) commitVolumeEntryLocked(name string, entry volumeEntry) {
 	}
 	s.volumes.entries[name] = entry
 	s.volumes.bytes += entry.bytes()
+	s.volumes.commits++
 }
 
 func (s *Store) deleteVolumeEntryLocked(name string) {

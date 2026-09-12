@@ -299,6 +299,7 @@ func (h *ReadHandler) serveMetrics(w http.ResponseWriter, info *apirequest.Reque
 	content, err := (metrics.Exporter{
 		Source: view, TTL: h.opts.SnapshotTTL, Now: func() time.Time { return now },
 		Opts: effectiveMetrics, MaxBytes: h.nestedReadBudget(),
+		Operational: h.operationalMetrics(),
 	}).Render()
 	if err != nil {
 		if errors.Is(err, metrics.ErrOutputTooLarge) {

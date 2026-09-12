@@ -4,6 +4,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Local CSI qualification
+
+- Add a frozen local volume qualification profile with measured Go heap, retention, CPU, API activity, source/delivery and operator latency.
+- Verify source/build identities, controlled filesystem/inode pressure, source-specific health, scoped CLI/TUI workflows, recovery and cleanup. Keep managed CSI providers unqualified.
+- Expose fixed aggregate retention and heap metrics through the existing authenticated endpoint, and delivery counters on the optional Node producer. No new permissions or volume identity labels are added.
+
 ### Volume correlation
 
 - Add caller-authorised Pod and workload volume views, with filesystem bytes/inodes, CSI health and tmpfs configuration separate from memory totals.

@@ -2,10 +2,10 @@ name: Node-context verification
 
 on:
   pull_request:
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/volume-stats-*.sh', 'hack/lib/volume-health-verification.sh', 'hack/fixtures/volume-stats-probe/**', 'hack/fixtures/volume-stats/**', 'hack/fixtures/csi-health/**', 'hack/test-volume-context-contract.sh', 'hack/volume-context-contract/**', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'hack/lib/node-cockpit-pty.exp', 'hack/test_node_cockpit_pty.py', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/volume-*.sh', 'hack/volume-qualification/**', 'hack/qualify-volume-kind.sh', 'hack/volume-cockpit-smoke.exp', 'hack/fixtures/volume-stats-probe/**', 'hack/fixtures/volume-stats/**', 'hack/fixtures/csi-health/**', 'hack/test-volume-context-contract.sh', 'hack/volume-context-contract/**', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'hack/lib/node-cockpit-pty.exp', 'hack/test_node_cockpit_pty.py', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
   push:
     branches: [main]
-    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/volume-stats-*.sh', 'hack/lib/volume-health-verification.sh', 'hack/fixtures/volume-stats-probe/**', 'hack/fixtures/volume-stats/**', 'hack/fixtures/csi-health/**', 'hack/test-volume-context-contract.sh', 'hack/volume-context-contract/**', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'hack/lib/node-cockpit-pty.exp', 'hack/test_node_cockpit_pty.py', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
+    paths: ['internal/**', 'cmd/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/lib/node-context-fixture.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/volume-*.sh', 'hack/volume-qualification/**', 'hack/qualify-volume-kind.sh', 'hack/volume-cockpit-smoke.exp', 'hack/fixtures/volume-stats-probe/**', 'hack/fixtures/volume-stats/**', 'hack/fixtures/csi-health/**', 'hack/test-volume-context-contract.sh', 'hack/volume-context-contract/**', 'hack/lib/node-analysis-verification.sh', 'hack/lib/node-cockpit-verification.sh', 'hack/node-cockpit-smoke.exp', 'hack/lib/node-cockpit-pty.exp', 'hack/test_node_cockpit_pty.py', 'charts/kube-memlens/**', 'Dockerfile', '.github/workflows/node-context.yml']
 
 permissions:
   contents: read
@@ -18,17 +18,22 @@ jobs:
   direct-kubelet:
     name: Node context / Kubernetes ${{ matrix.version }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # The alpha job additionally runs seven minutes of fixed cost windows.
+    timeout-minutes: ${{ matrix.timeout-minutes }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - version: 1.36.1
             volume-health-profile: off
+            volume-qualification-profile: ""
+            timeout-minutes: 25
             image: kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5
             kubectl-sha256: 629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7
           - version: 1.37.0
             volume-health-profile: alpha
+            volume-qualification-profile: hack/volume-qualification/profiles/kind-csi-137.json
+            timeout-minutes: 40
             image: kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5
             kubectl-sha256: 6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
     steps:
@@ -83,6 +88,7 @@ jobs:
           NODE_CONTEXT_VERIFY_VOLUME_STATS: "true"
           NODE_CONTEXT_VOLUME_HEALTH_PROFILE: ${{ matrix.volume-health-profile }}
           NODE_CONTEXT_NODE_IMAGE: ${{ matrix.image }}
+          VOLUME_QUALIFICATION_PROFILE: ${{ matrix.volume-qualification-profile }}
           NODE_CONTEXT_ARTIFACT_DIR: ${{ runner.temp }}/node-context-evidence
         run: hack/verify-node-context-kind.sh
       - name: Upload sanitised result
@@ -90,6 +96,8 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: node-context-${{ matrix.version }}
-          path: ${{ runner.temp }}/node-context-evidence/summary.json
+          path: |
+            ${{ runner.temp }}/node-context-evidence/summary.json
+            ${{ runner.temp }}/node-context-evidence/volume-*.json
           if-no-files-found: ignore
           retention-days: 14

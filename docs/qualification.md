@@ -306,3 +306,8 @@ support matrix. Publish all rows together so a partial matrix cannot imply
 provider support. Later releases consume this historical record without
 provisioning cloud resources; if a provider-sensitive change invalidates a row,
 narrow the public claim or run a new explicitly authorised qualification.
+
+The [local volume qualification workflow](volume-qualification.md) has a separate
+frozen profile, actual volume-cost measurements and source-specific CSI evidence.
+Existing memory-only Node results cannot establish its collection cost. Managed
+CSI providers remain unqualified pending their own approved campaigns.

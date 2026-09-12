@@ -24,6 +24,9 @@ type Telemetry struct {
 	volumeErrors    uint64
 	volumeRecords   uint64
 	volumeOmissions uint64
+	postAttempts    uint64
+	postFailures    uint64
+	postDuration    time.Duration
 }
 
 func (t *Telemetry) recordVolumes(records, omitted int, err error) {
@@ -79,6 +82,7 @@ func (t *Telemetry) Render() string {
 		out.WriteString("# HELP kubememlens_volume_stats_omissions_total Volume records without a name or filesystem measurement.\n# TYPE kubememlens_volume_stats_omissions_total counter\n")
 		fmt.Fprintf(&out, "kubememlens_volume_stats_omissions_total %d\n", t.volumeOmissions)
 	}
+	t.renderPosts(&out)
 	out.WriteString("# EOF\n")
 	return out.String()
 }

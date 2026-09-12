@@ -80,6 +80,10 @@ PY
     source hack/lib/volume-health-verification.sh
     volume_health_verification
   fi
+  if [ -n "${VOLUME_QUALIFICATION_PROFILE:-}" ]; then
+    source hack/lib/volume-qualification-kind.sh
+    volume_qualification_measurements
+  fi
   source hack/lib/volume-stats-lifecycle.sh
   volume_stats_lifecycle
   python3 - "${work_dir}" "${upstream}" <<'PY'

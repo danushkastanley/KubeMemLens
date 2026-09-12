@@ -43,5 +43,15 @@ func create() error {
 	if response.Volume == nil || response.Volume.VolumeId == "" {
 		return fmt.Errorf("missing fixture identity")
 	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]string{"volumeID": response.Volume.VolumeId})
+	capabilities, err := csi.NewNodeClient(connection).NodeGetCapabilities(ctx, &csi.NodeGetCapabilitiesRequest{})
+	if err != nil {
+		return err
+	}
+	var names []string
+	for _, capability := range capabilities.Capabilities {
+		if rpc := capability.GetRpc(); rpc != nil {
+			names = append(names, rpc.Type.String())
+		}
+	}
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"volumeID": response.Volume.VolumeId, "nodeCapabilities": names})
 }
