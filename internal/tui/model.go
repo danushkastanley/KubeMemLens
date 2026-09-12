@@ -8,11 +8,13 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/client"
+	"github.com/danushkastanley/kube-memlens/internal/observation"
 )
 
 type appModel struct {
 	ctx                   context.Context
 	client                client.SnapshotReader
+	observationReader     observation.Reader
 	connectionDescription string
 	opts                  Options
 	view                  viewMode
@@ -47,6 +49,8 @@ type appModel struct {
 	containerErr     error
 	selectedHistory  selectedHistory
 	historyCancel    context.CancelFunc
+	selectedNode     selectedNode
+	nodeCancel       context.CancelFunc
 }
 
 type fetchMsg struct {
@@ -94,6 +98,8 @@ func (m appModel) Init() tea.Cmd {
 
 func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case discoveryMsg:
+		return m.receiveDiscovery(msg)
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
@@ -107,7 +113,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.paused {
 			return m, m.tickCmd()
 		}
-		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd(), m.tickCmd())
+		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd(), m.nodeRefreshCmd(), m.tickCmd())
 	case fetchMsg:
 		if msg.generation != 0 && msg.generation != m.fetchGeneration {
 			return m, nil
@@ -127,7 +133,9 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.beginCompleteFetch()
 		}
 		selectedKey := m.selectedEntityKey()
-		m.updatePodTrends(msg.data.Pods)
+		if !m.restricted() {
+			m.updatePodTrends(msg.data.Pods)
+		}
 		m.data = msg.data
 		m.lastRefresh = time.Now()
 		m.statusErr = nil
@@ -174,6 +182,9 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.syncDetailViewport()
 		}
 		return m, nil
+	case nodeMsg:
+		command := m.receiveNode(msg)
+		return m, command
 	case actionMsg:
 		m.completeAction(msg)
 		return m, nil
@@ -185,6 +196,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *appModel) clearRevokedData() {
+	m.clearNodeTarget()
 	m.clearHistoryTarget()
 	m.data = snapshotData{}
 	m.podTrends = make(map[string]int8)
@@ -251,6 +263,7 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		m.cancelHistoryRequest()
+		m.cancelNodeRequest()
 		return m, tea.Quit
 	case "?":
 		m.help = !m.help
@@ -262,17 +275,20 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "x":
 		return m, m.startCompare()
 	case "C":
-		m.action.mode = actionCapturePath
-		m.action.input = ""
-		m.action.err = nil
+		m.beginCapture()
 	case "y":
 		return m.copyCurrentCommand()
 	case "r":
-		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd())
+		return m, tea.Batch(m.beginFetch(), m.historyRefreshCmd(), m.nodeRefreshCmd())
 	case "/":
 		m.searching = true
 	case "space":
 		m.paused = !m.paused
+		if m.paused {
+			m.cancelNodeRequest()
+		} else {
+			return m, m.nodeRefreshCmd()
+		}
 	case "esc":
 		if m.query != "" {
 			m.query = ""
@@ -336,8 +352,11 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "G":
 		m.activeViewport().last()
 	case "s":
+		if m.nodeTarget() != "" {
+			return m, m.cycleNodeRank()
+		}
 		selectedKey := m.selectedEntityKey()
-		m.sort = nextSort(m.sort)
+		m.cycleSort()
 		m.reconcileCurrentViewport(selectedKey)
 	}
 	return m, m.ensureHistoryTarget()

@@ -3,9 +3,11 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/observationview"
 )
 
 type actionMode int
@@ -18,15 +20,18 @@ const (
 )
 
 type actionState struct {
-	mode             actionMode
-	input            string
-	result           actionResult
-	err              error
-	inFlight         bool
-	nextID           uint64
-	activeID         uint64
-	compareSource    *api.PodSnapshot
-	overwriteRequest *actionRequest
+	mode                actionMode
+	input               string
+	result              actionResult
+	err                 error
+	inFlight            bool
+	nextID              uint64
+	activeID            uint64
+	compareSource       *api.PodSnapshot
+	observationSource   *observationview.Row
+	observationSourceAt time.Time
+	pendingRequest      *actionRequest
+	overwriteRequest    *actionRequest
 }
 
 type actionMsg struct {
@@ -47,9 +52,7 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 		case "x":
 			return m, m.startCompare()
 		case "c":
-			m.action.mode = actionCapturePath
-			m.action.input = ""
-			m.action.err = nil
+			m.beginCapture()
 		case "y":
 			return m.copyCurrentCommand()
 		}
@@ -77,6 +80,10 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 			if m.action.overwriteRequest != nil {
 				request := *m.action.overwriteRequest
 				request.overwrite = true
+				if m.restricted() && m.statusErr != nil {
+					m.setActionError(fmt.Errorf("capture is unavailable while the current source cannot be read"))
+					return m, nil
+				}
 				return m, m.startAction(request)
 			}
 		}
@@ -85,6 +92,10 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 }
 
 func (m *appModel) startRecommendation() tea.Cmd {
+	if m.restricted() {
+		m.showObservationRecommendations()
+		return nil
+	}
 	if !m.data.ContainersLoaded || m.containerErr != nil {
 		m.setActionError(fmt.Errorf("recommendations require complete container evidence; retry after loading finishes"))
 		return m.beginCompleteFetch()
@@ -102,6 +113,9 @@ func (m *appModel) startRecommendation() tea.Cmd {
 }
 
 func (m *appModel) startCompare() tea.Cmd {
+	if m.restricted() {
+		return m.startObservationCompare()
+	}
 	if !m.data.ContainersLoaded || m.containerErr != nil {
 		m.setActionError(fmt.Errorf("comparison requires complete container evidence; retry after loading finishes"))
 		return m.beginCompleteFetch()
@@ -133,6 +147,12 @@ func (m *appModel) startCompare() tea.Cmd {
 }
 
 func (m *appModel) startCapture(overwrite bool) tea.Cmd {
+	if m.restricted() {
+		return m.startObservationCapture(overwrite)
+	}
+	if ref, ok := m.currentActionRef(); ok && ref.kind == entityNode {
+		return m.startNodeCapture(ref, overwrite)
+	}
 	if !m.data.ContainersLoaded || m.containerErr != nil {
 		m.setActionError(fmt.Errorf("capture requires complete container evidence; retry after loading finishes"))
 		return m.beginCompleteFetch()
@@ -194,6 +214,7 @@ func (m *appModel) startAction(request actionRequest) tea.Cmd {
 	m.action.nextID++
 	id := m.action.nextID
 	m.action.activeID = id
+	m.action.pendingRequest = &request
 	m.action.inFlight = true
 	m.action.mode = actionResultMode
 	m.action.err = nil
@@ -214,19 +235,12 @@ func (m *appModel) completeAction(message actionMsg) {
 	m.action.result = message.result
 	m.action.err = message.err
 	m.action.overwriteRequest = nil
-	if message.result.overwriteRequired {
-		ref, ok := m.currentActionRef()
-		if ok {
-			m.action.overwriteRequest = &actionRequest{
-				kind: actionCapture, ref: ref,
-				pods: append([]api.PodSnapshot(nil), m.data.Pods...), nodes: append([]api.NodeSnapshotStatus(nil), m.data.Nodes...),
-				histories: append([]api.PodHistory(nil), m.selectedHistory.series...), outputPath: message.result.outputPath,
-				partial:     !m.opts.AllNamespaces || m.data.Reliability.State != api.CollectorReady,
-				caveats:     m.captureCaveats(),
-				reliability: &m.data.Reliability,
-			}
-		}
+	if message.result.overwriteRequired && m.action.pendingRequest != nil {
+		request := *m.action.pendingRequest
+		request.outputPath = message.result.outputPath
+		m.action.overwriteRequest = &request
 	}
+	m.action.pendingRequest = nil
 }
 
 func (m *appModel) setActionError(err error) {
@@ -263,11 +277,16 @@ func (m appModel) currentActionPod() (api.PodSnapshot, bool) {
 }
 
 func (m appModel) currentCommand() (string, bool) {
+	if m.restricted() {
+		return m.observationCommand()
+	}
 	ref, ok := m.currentActionRef()
 	if !ok {
 		return "", false
 	}
 	switch ref.kind {
+	case entityNode:
+		return "kubectl memlens explain node " + ref.nodeName, true
 	case entityPod, entityContainer:
 		return "kubectl memlens explain pod " + ref.podName + " -n " + ref.namespace, true
 	case entityWorkload:

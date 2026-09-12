@@ -17,6 +17,8 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/nodeanalysis"
+	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/authentication/user"
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
@@ -30,14 +32,16 @@ const (
 )
 
 type HandlerOptions struct {
-	AgentUsername    string
-	MaxSnapshotBytes int64
-	MaxConcurrent    int
-	RequestsPerSec   float64
-	Burst            int
-	MaxIdentities    int
-	IdentityTTL      time.Duration
-	Logf             func(string, ...any)
+	NodeAccounting      map[string]nodeanalysis.Qualification
+	AgentUsername       string
+	NodeContextUsername string
+	MaxSnapshotBytes    int64
+	MaxConcurrent       int
+	RequestsPerSec      float64
+	Burst               int
+	MaxIdentities       int
+	IdentityTTL         time.Duration
+	Logf                func(string, ...any)
 }
 
 type Handler struct {
@@ -61,6 +65,9 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	if strings.TrimSpace(opts.AgentUsername) == "" {
 		return nil, fmt.Errorf("agent username is required")
 	}
+	if opts.NodeContextUsername != "" && opts.NodeContextUsername == opts.AgentUsername {
+		return nil, fmt.Errorf("producer ServiceAccounts must be distinct")
+	}
 	if opts.MaxSnapshotBytes <= 0 || opts.MaxConcurrent <= 0 || opts.RequestsPerSec <= 0 || opts.Burst <= 0 || opts.MaxIdentities <= 0 {
 		return nil, fmt.Errorf("ingestion request limits must be greater than zero")
 	}
@@ -70,9 +77,15 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	if opts.Logf == nil {
 		opts.Logf = func(string, ...any) {}
 	}
+	reads := NewReadHandler(coordinator.store, coordinator.opts.Handler)
+	reads.nodeContextEnabled = opts.NodeContextUsername != ""
+	reads.accounting = copyAccounting(opts.NodeAccounting)
+	if reads.nodeContextEnabled {
+		coordinator.store.EnableNodeContext()
+	}
 	return &Handler{
 		coordinator: coordinator,
-		reads:       NewReadHandler(coordinator.store, coordinator.opts.Handler),
+		reads:       reads,
 		opts:        opts,
 		concurrent:  make(chan struct{}, opts.MaxConcurrent),
 		limiters:    map[string]identityLimiter{},
@@ -100,7 +113,7 @@ func (h *Handler) discovery(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, metav1.APIResourceList{
 		TypeMeta:     metav1.TypeMeta{APIVersion: "v1", Kind: "APIResourceList"},
 		GroupVersion: api.MemoryAPIGroup + "/" + api.MemoryAPIVersion,
-		APIResources: discoveryResources(),
+		APIResources: h.discoveryResources(),
 	})
 }
 
@@ -119,8 +132,8 @@ func discoveryResources() []metav1.APIResource {
 
 }
 
-func aggregatedDiscoveryResources() []metav1.APIResource {
-	resources := discoveryResources()
+func (h *Handler) aggregatedDiscoveryResources() []metav1.APIResource {
+	resources := h.discoveryResources()
 	for index := range resources {
 		resources[index].Group = api.MemoryAPIGroup
 		resources[index].Version = api.MemoryAPIVersion
@@ -133,12 +146,19 @@ func (h *Handler) epoch(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
 		return
 	}
-	claims, err := agentClaims(r, h.opts.AgentUsername)
+	claims, err := h.producerClaims(r)
 	if err != nil {
 		writeAPIError(w, http.StatusForbidden, "agent_identity", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, h.coordinator.Epoch(claims.PodUID))
+	schema, err := api.NegotiateSnapshotSchema(r.Header.Get(api.SnapshotSchemaHeader))
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, "snapshot_schema", err.Error())
+		return
+	}
+	epoch := h.coordinator.Epoch(claims.instanceKey())
+	epoch.SchemaVersion = schema
+	writeJSON(w, http.StatusOK, epoch)
 }
 
 func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
@@ -159,7 +179,7 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
 		return
 	}
-	claims, err := agentClaims(r, h.opts.AgentUsername)
+	claims, err := h.producerClaims(r)
 	if err != nil {
 		writeAPIError(w, http.StatusForbidden, "agent_identity", err.Error())
 		return
@@ -175,7 +195,11 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusUnsupportedMediaType, "content_type", "Content-Type must be application/json")
 		return
 	}
-	if r.ContentLength > h.opts.MaxSnapshotBytes {
+	maxBytes := h.opts.MaxSnapshotBytes
+	if claims.Role == NodeContextProducer {
+		maxBytes = min(maxBytes, nodecontext.MaxObservationBytes+8192)
+	}
+	if r.ContentLength > maxBytes {
 		result = "payload_too_large"
 		writeAPIError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "snapshot exceeds maximum request size")
 		return
@@ -196,7 +220,7 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.Body = http.MaxBytesReader(w, r.Body, h.opts.MaxSnapshotBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		var limitErr *http.MaxBytesError
@@ -207,6 +231,11 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 		}
 		result = "body_error"
 		writeAPIError(w, http.StatusBadRequest, "body_error", "could not read snapshot body")
+		return
+	}
+	if claims.Role == NodeContextProducer && boundedNodeWire(body) != nil {
+		result = "invalid_json"
+		writeAPIError(w, http.StatusBadRequest, "invalid_json", "invalid bounded Node-only snapshot JSON")
 		return
 	}
 	var request api.NodeSnapshotRequest

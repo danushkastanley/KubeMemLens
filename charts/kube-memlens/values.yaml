@@ -11,6 +11,23 @@ namespace:
   create: false
   name: kube-memlens
 
+# Optional deep-mode producer; trust, audience and network ranges must be qualified.
+# See profiles/node-context.yaml for explicit collector capacity and sizing.
+nodeContext:
+  enabled: false
+  kubeletCAConfigMap: ""
+  kubeletAudience: ""
+  kubeletPort: 10250
+  accountingConfigMap: ""
+  apiServerCIDRs: []
+  nodeCIDRs: []
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+
 agent:
   enabled: true
   nodeSelector:

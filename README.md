@@ -22,7 +22,7 @@ The installation commands below still refer to the published RC1.
 
 [`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public candidate for `v1.0.0`. It is an immutable prerelease for evaluation on disposable or explicitly authorised clusters, not a production stability or support guarantee. Stable `v1.0.0` is not approved or published. The v1 code authenticates node-bound writes and tenant-scoped reads through the Kubernetes aggregation layer and has passed the local adversarial isolation gate. The legacy `v0.0.1-alpha.3` release is not suitable for shared multi-tenant clusters. Provider claims remain limited to the exact reviewed combinations below. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI uses the caller's kubeconfig and the aggregated API by default. Conservative Prometheus/OpenMetrics output is available through a separately authorised metrics resource.
 
-The required lifecycle gate targets the current upstream-supported Kubernetes 1.35, 1.36 and 1.37 minors. Runtime-sensitive changes run all three lanes. A documentation-only release alignment may reuse the latest green result for the same runtime, chart and image inputs. The [local `rc-5000` result](docs/qualification-results/rc-5000-local-kind-2026-08-26.md) passed for 5,000 containers over 30 minutes on the recorded four-Node kind `v1.35.5` environment. The one-time [provider/runtime qualification record](docs/qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md) supports the exact recorded GKE Standard, EKS managed-node, self-managed containerd and CRI-O combinations. Standard AKS, GKE Autopilot, EKS Fargate, AKS virtual nodes, Windows nodes and cgroup v1 are unsupported for deep mode. This evidence is historical and version-bound; its freshness date is advisory rather than a recurring release gate. Configured store ceilings above the measured profile remain rejection bounds, not live-scale claims.
+The required lifecycle gate targets the current upstream-supported Kubernetes 1.35, 1.36 and 1.37 minors. Runtime-sensitive changes run all three lanes. A documentation-only release alignment may reuse the latest green result for the same runtime, chart and image inputs. The [local `rc-5000` result](docs/qualification-results/rc-5000-local-kind-2026-08-26.md) passed for 5,000 containers over 30 minutes on the recorded four-Node kind `v1.35.5` environment. `v1.0.0-rc.1` was tested on AWS EKS. Current provider support is focused on EKS managed Linux nodes with AL2023, containerd and amd64. Earlier provider results remain in the [historical qualification record](docs/qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md). Configured store ceilings above the measured profile remain rejection bounds, not live-scale claims.
 
 ## Install candidate or stable
 
@@ -215,7 +215,7 @@ go run ./cmd/kubectl-memlens top ns
 go run ./cmd/kubectl-memlens explain pod <pod-name> -n <namespace>
 go run ./cmd/kubectl-memlens explain workload deployment/<name> -n <namespace>
 go run ./cmd/kubectl-memlens history pod <pod-name> -n <namespace>
-go run ./cmd/kubectl-memlens capture -n <namespace> --pod <pod-name> --include-history -o incident.json
+go run ./cmd/kubectl-memlens --mode=deep capture -n <namespace> --pod <pod-name> --include-history -o incident.json
 go run ./cmd/kubectl-memlens replay incident.json --pod <namespace>/<pod-name>
 go run ./cmd/kubectl-memlens compare pod/<first> pod/<second> -n <namespace>
 go run ./cmd/kubectl-memlens compare --before before.json --after after.json --pod <namespace>/<pod-name>
@@ -224,13 +224,19 @@ go run ./cmd/kubectl-memlens compare --before before.json --after after.json --w
 
 `top pods`, `top containers`, and `top workloads` accept Kubernetes Pod label selectors with `-l`, safe field selectors, `--sort-by`, `--no-headers`, and `-o table|json|yaml|csv`. Add `--watch` for a two-second terminal refresh, or set a bounded interval with `--watch-interval`.
 
+Restricted mode also supports [private capture, offline replay and working-set comparison](docs/restricted-incidents.md), with schema 3 and explicit partial-evidence caveats.
+
+Pod budgets and in-place resize appear in detailed explanations, comparisons and captures; configured, allocated and applied values remain distinct from cgroup limits. See [memory semantics](docs/memory-semantics.md#pod-budgets-and-in-place-resize).
+
 Pod and workload explanations show investigation severity, independent confidence, caveats, and exact gauge/counter evidence windows. They support a versioned, privacy-restrained machine contract through `-o json|yaml`; see [the schema](docs/explanation-schema.md). An optional read-only [K9s plugin](docs/k9s-integration.md) opens the selected Pod explanation with `Shift-M`.
 
 Read-only composition-aware guidance is exportable with `kubectl memlens recommend pod <name> -n <namespace> -o text|json|yaml` or the corresponding `workload` command. Recommendations include rationale and guard conditions and never mutate resources.
 
 ## Using Without Port-Forward
 
-By default, KubeMemLens uses the caller's kubeconfig to reach `memory.kubememlens.io/v1alpha1`. Namespace commands use namespaced resource paths; `-A`, `status`, strict `doctor` and node views require the explicit cluster-viewer role.
+By default, KubeMemLens tries the caller-authorised `memory.kubememlens.io/v1alpha1` query. The development build can use [restricted working-set workflows](docs/restricted-mode.md) when deep access is absent or forbidden. Explicit `--mode=deep` disables that fallback.
+
+Deep namespace commands use namespaced resource paths; deep `-A`, `status` without a namespace, strict `doctor` and node views require the explicit cluster-viewer role. Restricted reads use Kubernetes RBAC directly. Use `status -n <namespace>` for scoped [source discovery](docs/evidence-sources.md).
 
 ```sh
 go run ./cmd/kubectl-memlens status

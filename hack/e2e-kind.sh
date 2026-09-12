@@ -63,6 +63,35 @@ run_live_density_smoke() {
     hack/soak-live-density.sh
 }
 
+run_resource_metrics_smoke() {
+  if [ "${E2E_RUN_RESOURCE_METRICS_SMOKE:-false}" != true ]; then return; fi
+  RESOURCE_METRICS_KUBECONFIG="${kubeconfig}" RESOURCE_METRICS_CONTEXT="kind-${cluster_name}" \
+    RESOURCE_METRICS_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/resource-metrics" \
+    RESOURCE_METRICS_ACKNOWLEDGE=run-and-remove-metrics-api-fixture hack/verify-resource-metrics-kind.sh
+}
+
+run_memory_qos_smoke() {
+  if [ "${E2E_RUN_MEMORY_QOS_SMOKE:-false}" != true ]; then return; fi
+  QOS_KUBECONFIG="${kubeconfig}" QOS_CONTEXT="kind-${cluster_name}" QOS_CLI="${cli}" \
+    QOS_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/memory-qos" \
+    QOS_PROFILE="${E2E_MEMORY_QOS_PROFILE:-default}" \
+    QOS_ACKNOWLEDGE=run-and-remove-memory-qos-fixtures hack/verify-memory-qos-kind.sh
+}
+
+run_pod_resource_smoke() {
+  if [ "${E2E_RUN_POD_RESOURCE_SMOKE:-false}" != true ]; then
+    return
+  fi
+  POD_RESOURCE_KUBECONFIG="${kubeconfig}" \
+    POD_RESOURCE_CONTEXT="kind-${cluster_name}" \
+    POD_RESOURCE_CLI="${cli}" \
+    POD_RESOURCE_COLLECTOR_NAMESPACE="${namespace}" \
+    POD_RESOURCE_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/pod-resources" \
+    POD_RESOURCE_TEST_VOLUME_RESIZE="${E2E_TEST_VOLUME_RESIZE:-false}" \
+    POD_RESOURCE_ACKNOWLEDGE=run-and-remove-pod-resource-fixtures \
+    hack/verify-pod-resources-kind.sh
+}
+
 run_tui_smoke() {
   if [ "${E2E_RUN_TUI_SMOKE:-false}" != true ]; then
     return
@@ -189,12 +218,17 @@ docker build \
 go build -trimpath -o "${cli}" ./cmd/kubectl-memlens
 
 echo "Creating ${cluster_name} with ${node_image}"
-kind create cluster \
-  --name "${cluster_name}" \
-  --image "${node_image}" \
-  --kubeconfig "${kubeconfig}" \
-  --wait 120s
+kind_args=(--name "${cluster_name}" --image "${node_image}" --kubeconfig "${kubeconfig}" --wait 120s)
+if [ -n "${E2E_KIND_CONFIG:-}" ]; then
+  kind_args+=(--config "${E2E_KIND_CONFIG}")
+fi
+kind create cluster "${kind_args[@]}"
 cluster_created=true
+if [ "${E2E_RUN_AGENTLESS_SMOKE:-false}" = true ]; then
+  AGENTLESS_KUBECONFIG="${kubeconfig}" AGENTLESS_CONTEXT="kind-${cluster_name}" \
+    AGENTLESS_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/agentless" \
+    AGENTLESS_ACKNOWLEDGE=run-and-remove-agentless-fixture hack/verify-agentless-kind.sh
+fi
 kind load docker-image "${image}" --name "${cluster_name}"
 run_linux_fixture_benchmarks
 
@@ -272,7 +306,7 @@ grep -q '^Live comparison:' "${work_dir}/compare-live.txt"
 evidence_window_ok=false
 for _ in $(seq 1 12); do
   "${cli}" "${cli_args[@]}" explain pod "${collector_pod}" -n "${namespace}" --output json > "${work_dir}/explain.json"
-  if jq -e '.schemaVersion == 1 and (.finding.severity | length > 0) and
+  if jq -e '.schemaVersion == 3 and (.finding.severity | length > 0) and
     (.finding.confidence | length > 0) and (.finding.caveats | length > 0) and
     (.finding.evidenceWindow.observationStart != null) and
     .finding.evidenceWindow.counterDeltaKnown == true' "${work_dir}/explain.json" >/dev/null; then
@@ -282,7 +316,7 @@ for _ in $(seq 1 12); do
   sleep 2
 done
 [ "${evidence_window_ok}" = true ] || {
-  echo "Pod explanation did not acquire a counter-delta evidence window" >&2
+  echo "Pod explanation did not match schema 3 with a counter-delta evidence window" >&2
   exit 1
 }
 "${cli}" "${cli_args[@]}" explain pod "${collector_pod}" -n "${namespace}" > "${work_dir}/explain.txt"
@@ -335,6 +369,9 @@ if KUBECONFIG="${kubeconfig}" kubectl get --raw \
   echo "agent metrics are remotely reachable through the Pod proxy" >&2
   exit 1
 fi
+run_resource_metrics_smoke
+run_memory_qos_smoke
+run_pod_resource_smoke
 run_tui_smoke
 run_live_density_smoke
 [ "${E2E_RUN_RELIABILITY_SMOKE:-false}" != true ] || RELIABILITY_KUBECONFIG="${kubeconfig}" RELIABILITY_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/reliability" RELIABILITY_ACKNOWLEDGE=disrupt-and-restore-kube-memlens-components hack/verify-reliability-kind.sh

@@ -51,6 +51,12 @@ spec:
             - "--extension-tls-cert-file=/var/run/kube-memlens/tls/tls.crt"
             - "--extension-tls-key-file=/var/run/kube-memlens/tls/tls.key"
             - "--agent-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-agent"
+{{- if .Values.nodeContext.enabled }}
+            - "--node-context-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-node-context"
+{{- if .Values.nodeContext.accountingConfigMap }}
+            - "--node-accounting-file=/var/run/node-accounting/qualifications.json"
+{{- end }}
+{{- end }}
             - "--ingestion-max-concurrent={{ .Values.collector.ingestion.maxConcurrentRequests }}"
             - "--ingestion-requests-per-second-per-agent={{ .Values.collector.ingestion.requestsPerSecondPerAgent }}"
             - "--ingestion-burst-per-agent={{ .Values.collector.ingestion.burstPerAgent }}"
@@ -107,6 +113,11 @@ spec:
           resources:
 {{ toYaml .Values.collector.resources | nindent 12 }}
           volumeMounts:
+{{- if and .Values.nodeContext.enabled .Values.nodeContext.accountingConfigMap }}
+            - name: node-accounting
+              mountPath: /var/run/node-accounting
+              readOnly: true
+{{- end }}
             - name: extension-tls
               mountPath: /var/run/kube-memlens/tls
               readOnly: true
@@ -114,6 +125,15 @@ spec:
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
       volumes:
+{{- if and .Values.nodeContext.enabled .Values.nodeContext.accountingConfigMap }}
+        - name: node-accounting
+          configMap:
+            name: {{ .Values.nodeContext.accountingConfigMap | quote }}
+            defaultMode: 0440
+            items:
+              - key: qualifications.json
+                path: qualifications.json
+{{- end }}
         - name: extension-tls
           secret:
             secretName: {{ .Values.extensionTLS.secretName | quote }}

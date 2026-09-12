@@ -12,10 +12,12 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/collector"
+	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 type AgentClaims struct {
+	Role         ProducerRole
 	PodUID       string
 	NodeName     string
 	NodeUID      string
@@ -43,6 +45,10 @@ type Coordinator struct {
 }
 
 type agentState struct {
+	nodeUID  string
+	nodeKey  string
+	nodeName string
+	role     ProducerRole
 	sequence uint64
 	digest   [sha256.Size]byte
 	response api.NodeSnapshotResponse
@@ -103,6 +109,9 @@ func (c *Coordinator) Epoch(podUID string) api.IngestionEpoch {
 }
 
 func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest) (api.NodeSnapshotResponse, bool, error) {
+	if err := validateProducerSnapshot(claims, request.Snapshot); err != nil {
+		return api.NodeSnapshotResponse{}, false, reject(403, "producer_scope", err.Error(), "node_mismatch")
+	}
 	canonical, err := json.Marshal(request)
 	if err != nil {
 		return api.NodeSnapshotResponse{}, false, reject(400, "invalid_snapshot", "snapshot request cannot be canonicalised", "invalid_snapshot")
@@ -121,10 +130,13 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 	if request.Sequence == 0 {
 		return api.NodeSnapshotResponse{}, false, reject(400, "invalid_sequence", "sequence must be greater than zero", "invalid_sequence")
 	}
-	if _, retired := c.retired[claims.PodUID]; retired {
+	if _, retired := c.retired[claims.instanceKey()]; retired {
 		return api.NodeSnapshotResponse{}, false, reject(409, "agent_replaced", "agent instance has been replaced", "replaced_agent")
 	}
-	state, exists := c.agents[claims.PodUID]
+	state, exists := c.agents[claims.instanceKey()]
+	if exists && (state.nodeKey != claims.nodeKey() || state.nodeName != claims.NodeName) {
+		return api.NodeSnapshotResponse{}, false, reject(403, "node_claim_mismatch", "producer instance changed Node identity", "node_mismatch")
+	}
 	if exists && request.Sequence == state.sequence {
 		if state.digest != digest {
 			return api.NodeSnapshotResponse{}, false, reject(409, "sequence_conflict", "sequence was already used for different content", "replay_conflict")
@@ -136,8 +148,19 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 	if exists && request.Sequence < state.sequence {
 		return api.NodeSnapshotResponse{}, false, reject(409, "sequence_replayed", "snapshot sequence is older than the last accepted sequence", "replayed")
 	}
-	owner := c.nodes[claims.NodeName]
-	newOwner := owner != "" && owner != claims.PodUID
+	if !exists && len(c.agents) >= c.opts.MaxAgents {
+		c.pruneInactive(c.opts.Now())
+	}
+	owner := c.nodes[claims.nodeKey()]
+	if owner == "" {
+		for key, previous := range c.agents {
+			if previous.nodeName == claims.NodeName && previous.role == claims.Role {
+				owner = key
+				break
+			}
+		}
+	}
+	newOwner := owner != "" && owner != claims.instanceKey()
 	if !exists && !newOwner && len(c.agents) >= c.opts.MaxAgents {
 		return api.NodeSnapshotResponse{}, false, reject(507, "agent_capacity", "collector agent identity capacity is exhausted", "agent_capacity")
 	}
@@ -150,7 +173,18 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 	if err := collector.ValidateSnapshot(request.Snapshot, c.opts.Now(), c.opts.Handler); err != nil {
 		return api.NodeSnapshotResponse{}, false, reject(400, "invalid_snapshot", err.Error(), "invalid_snapshot")
 	}
-	count, err := c.store.ReplaceNodeSnapshot(request.Snapshot)
+	var count int
+	if claims.Role == NodeContextProducer {
+		err = c.store.ReplaceNodeContext(*request.Snapshot.NodeContext)
+	} else {
+		count, err = c.store.ReplaceAuthenticatedNodeSnapshot(request.Snapshot, claims.NodeUID)
+	}
+	if errors.Is(err, collector.ErrNodeIdentityUnavailable) {
+		return api.NodeSnapshotResponse{}, false, reject(409, "node_inventory", err.Error(), "node_mismatch")
+	}
+	if errors.Is(err, nodecontext.ErrInvalidObservation) {
+		return api.NodeSnapshotResponse{}, false, reject(400, "invalid_snapshot", err.Error(), "invalid_snapshot")
+	}
 	if errors.Is(err, collector.ErrSnapshotOutOfOrder) {
 		return api.NodeSnapshotResponse{}, false, reject(409, "snapshot_out_of_order", err.Error(), "out_of_order")
 	}
@@ -166,11 +200,12 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 		Containers: count,
 	}
 	if newOwner {
+		delete(c.nodes, c.agents[owner].nodeKey)
 		delete(c.agents, owner)
 		c.retired[owner] = c.opts.Now().Add(c.opts.RetiredTTL)
 	}
-	c.nodes[claims.NodeName] = claims.PodUID
-	c.agents[claims.PodUID] = agentState{sequence: request.Sequence, digest: digest, response: response}
+	c.nodes[claims.nodeKey()] = claims.instanceKey()
+	c.agents[claims.instanceKey()] = agentState{nodeUID: claims.NodeUID, nodeKey: claims.nodeKey(), nodeName: claims.NodeName, role: claims.Role, sequence: request.Sequence, digest: digest, response: response}
 	return response, false, nil
 }
 

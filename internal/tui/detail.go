@@ -7,12 +7,17 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	memmodel "github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/qosview"
+	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 )
 
 func (m appModel) detailLines(width int) []string {
+	if m.restricted() {
+		return m.observationDetail(m.detail, width)
+	}
 	switch m.detail.kind {
 	case entityNode:
-		return m.nodeDetailLines()
+		return m.nodeCockpitLines(m.detail.nodeName, width)
 	case entityNamespace:
 		return m.namespaceDetailLines()
 	case entityWorkload:
@@ -157,6 +162,8 @@ func (m appModel) containerDetailLines(width int) []string {
 		"QoS:          " + tuiValue(container.Context.QoSClass),
 		"Workload:     " + strings.Trim(strings.Join([]string{container.Context.WorkloadKind, container.Context.WorkloadName}, "/"), "/"),
 	}
+	lines = append(lines, resourceview.ContainerLines(container)...)
+	lines = append(lines, qosview.ContainerLines(container)...)
 	if pod, found := m.findPod(container.Namespace, container.PodName); found {
 		lines = append(lines, "", "Parent-Pod history (container history is not retained):")
 		lines = append(lines, renderHistoryTrend(pod, m.selectedHistory.series, width)...)

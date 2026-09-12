@@ -33,16 +33,18 @@ func (m appModel) viewString() string {
 
 	var b strings.Builder
 	b.WriteString(m.renderHeader(width))
-	b.WriteString("\n\n")
+	b.WriteString("\n")
+	b.WriteString(truncate(m.sourceLabel(), width))
+	b.WriteString("\n")
 	if m.action.mode != actionClosed {
 		b.WriteString(m.renderAction(width))
 	} else if m.help {
 		b.WriteString(m.renderHelp(width))
-	} else if m.statusErr != nil && len(m.data.Namespaces) == 0 {
+	} else if m.statusErr != nil && !m.hasData() {
 		b.WriteString(m.renderConnectionError(width))
-	} else if len(m.data.Namespaces) == 0 && m.loading {
-		b.WriteString("Loading collector snapshots...")
-	} else if len(m.data.Namespaces) == 0 && m.statusErr == nil && !m.loading {
+	} else if !m.hasData() && m.loading {
+		b.WriteString(m.loadingLabel())
+	} else if !m.hasData() && m.statusErr == nil && !m.loading {
 		b.WriteString(m.renderEmpty(width))
 	} else if m.requiresContainers() && !m.data.ContainersLoaded {
 		if m.containerErr != nil {
@@ -62,10 +64,13 @@ func (m appModel) renderContent(plan layoutPlan) string {
 	if m.view == viewDetail {
 		return m.renderDetail(plan.width)
 	}
-	if m.view == viewPods && plan.mode == layoutWide {
+	if m.view == viewPods && plan.mode == layoutWide && !m.restricted() {
 		return m.renderWideDashboard(plan)
 	}
 	renderTable := func(width int) string {
+		if m.restricted() {
+			return m.renderObservationTable(width)
+		}
 		switch m.view {
 		case viewNodes:
 			return m.renderNodes(width)
@@ -97,9 +102,10 @@ func (m appModel) renderContent(plan layoutPlan) string {
 }
 
 func (m appModel) renderHeader(width int) string {
-	parts := []string{
-		"KubeMemLens",
-		"sort: " + m.sort.String(),
+	restricted := m.restricted()
+	parts := []string{"KubeMemLens"}
+	if !restricted {
+		parts = append(parts, "sort: "+m.sortLabel())
 	}
 	states := make([]string, 0, 1)
 	if m.statusErr != nil {
@@ -112,10 +118,16 @@ func (m appModel) renderHeader(width int) string {
 		if m.lastRefresh.IsZero() && m.loading {
 			states = append(states, "connecting")
 		} else {
-			states = append(states, string(m.currentEvidenceState()))
+			states = append(states, m.evidenceStateLabel())
 		}
 	}
 	parts = append(parts, "state: "+strings.Join(states, "/"))
+	if restricted {
+		if m.paused {
+			parts = append(parts, "paused")
+		}
+		parts = append(parts, "sort: "+m.sortLabel())
+	}
 	if m.statusErr != nil {
 		status := "connection error"
 		if client.IsForbidden(m.statusErr) {
@@ -127,7 +139,9 @@ func (m appModel) renderHeader(width int) string {
 	if m.paused {
 		refreshState = "paused"
 	}
-	parts = append(parts, "refresh: "+refreshState)
+	if !restricted || !m.paused {
+		parts = append(parts, "refresh: "+refreshState)
+	}
 	if m.paused || m.statusErr != nil {
 		lastUpdate := "never"
 		if !m.lastRefresh.IsZero() {
@@ -189,6 +203,17 @@ func renderMinimumSize(plan layoutPlan) string {
 }
 
 func (m appModel) renderHelp(width int) string {
+	if m.restricted() {
+		lines := wrapText(append(m.restrictedHelpLines(),
+			"q quit; ? close help; Space pause; r refresh",
+			"N/n/w/p/c views; Enter drill; e explain; h back",
+			"j/k move; PgUp/PgDown page; g/G first/last",
+			"/ filter; s sort; Tab focus; R recommendations"), width)
+		if len(lines) > m.bodyRows() {
+			lines = lines[:m.bodyRows()]
+		}
+		return truncateLines(lines, width)
+	}
 	lines := []string{
 		"Keybindings",
 		"",
@@ -199,13 +224,13 @@ func (m appModel) renderHelp(width int) string {
 		"Esc          clear filter or leave detail view",
 		"Tab          switch table/detail focus in wide layouts",
 		"N / n / w / p / c jump to node, namespace, workload, pod, or container view",
-		"Enter        drill into namespace, pod, or container's pod",
-		"e            explain selected pod",
+		"Enter        drill into Node/namespace Pods or Pod detail",
+		"e            explain selected entity, including Node context",
 		"h / Backspace go back",
 		"k/j or arrows move selection",
 		"PgUp/PgDown  move faster",
 		"g / G        jump to first or last row",
-		"s            cycle sort: total, rss, cache, shmem, name",
+		"s            sort; in Node views, cycle contributor metric",
 		"a            incident action menu",
 		"R / x / C    recommendations / compare / capture",
 		"y            copy safe follow-up command",
@@ -241,8 +266,11 @@ func (m appModel) renderWorkloads(width int) string {
 }
 
 func (m appModel) renderEmpty(width int) string {
+	if m.restricted() {
+		return m.restrictedEmpty(width)
+	}
 	lines := []string{
-		"No collector snapshots are available yet. Collector state: " + string(m.currentEvidenceState()) + ".",
+		"No collector snapshots are available yet. Collector state: " + m.evidenceStateLabel() + ".",
 		"",
 		"Check that the agent is running and posting snapshots:",
 		"  kubectl logs -n kube-memlens ds/kube-memlens-agent",

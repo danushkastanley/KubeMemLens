@@ -8,6 +8,13 @@ This is the canonical support contract for KubeMemLens. Other documents link her
 
 [`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public evaluation candidate for `v1.0.0`. It is an immutable prerelease, not a stable production-support promise. Stable `v1.0.0` is not approved or published. Provider support below is limited to the immutable artefacts and environment versions in the one-time reviewed evidence; it is not a promise that every later provider or KubeMemLens version has been rerun.
 
+## Current provider scope
+
+`v1.0.0-rc.1` was tested on AWS EKS. Current provider support is focused on EKS
+managed Linux nodes with AL2023, containerd and amd64. Other providers and
+self-managed environments are outside the current support scope. The historical
+results below retain their original version and environment boundaries.
+
 ## Status terms
 
 | Status | Meaning |
@@ -19,7 +26,7 @@ This is the canonical support contract for KubeMemLens. Other documents link her
 | Unsupported | The current deep-mode contract rejects or excludes the profile. This may be reconsidered after an architecture or provider-capability change and fresh evidence. |
 | Deferred | The capability belongs to a later release and is not part of v1. |
 
-## v1 profile matrix
+## Recorded profile evidence
 
 | Profile | v1 contract | Current evidence | Evidence owner | Status |
 | --- | --- | --- | --- | --- |
@@ -49,6 +56,24 @@ The [Kubernetes 1.37 release audit](kubernetes-1.37-audit.md) records final feat
 defaults and the distinction between runtime compatibility and optional API
 features that require separate implementation and qualification.
 
+## Node-context qualification
+
+The optional direct-kubelet Node-context producer has a separate qualification
+contract. Historical cgroup provider rows above do not qualify its serving TLS,
+Pod-bound audience, `nodes/stats` authorisation or refresh overhead.
+
+| Node-context profile | Current status | Required evidence |
+| --- | --- | --- |
+| Local kind 1.36.1 and 1.37.0 | Locally verified | Owned-fixture preflight, fixed workload and overhead measurements, projected credential rotation and lifecycle recovery. Fixture TLS and Node re-registration do not prove provider TLS or machine replacement. |
+| GKE Standard | Outside current support scope | Historical tooling retained. |
+| EKS managed Linux | Locally verified implementation | Earlier cgroup results do not establish Node-context behaviour. |
+| AKS Linux | Outside current support scope | Historical tooling retained. |
+| Self-managed Linux | Outside current support scope | Historical tooling retained. |
+
+See the [Node-context qualification protocol](node-context-qualification.md) for
+the digest-bound profiles, budgets, privacy rules, review gate and expiry.
+Neither an unrun profile nor a local result adds a managed-provider support claim.
+
 ## Unsupported and deferred profiles
 
 | Environment or capability | v1 position | Reason |
@@ -61,11 +86,24 @@ features that require separate implementation and qualification.
 | cgroup v1 | Unsupported | KubeMemLens has no cgroup v1 parser or deployment path. |
 | Provider modes without an enforcing CNI | Unsupported for v1 deep mode | The standard profile requires NetworkPolicy enforcement, although NetworkPolicy is not tenant authorisation. |
 | High-availability collector or durable history | Deferred | v1 deliberately uses one in-memory collector. |
-| Restricted or agentless mode | Deferred until after the deep-mode v1 boundary | It has a separate data and completeness contract. |
+| Restricted or agentless mode | Development preview with local validation; managed-provider qualification pending | [Working-set workflows](restricted-mode.md) have a separate source and completeness contract. |
 | eBPF tracing, process inspection and path telemetry | Deferred | These capabilities require separate packaging, admission, privacy, benchmark and security gates. |
 | Automatic remediation or workload mutation | Unsupported | KubeMemLens is read-only. |
 
 The provider restrictions above are sourced and exercised by the [qualification runbook](qualification.md). They describe the current deep-mode candidate, not an irreversible promise about future architectures. The project will not add a privileged or weaker-authentication workaround merely to turn a restricted profile into deep mode.
+
+Restricted provider results are tracked separately from deep deployment results:
+
+| Restricted profile | Qualification |
+| --- | --- |
+| Local kind | CLI/TUI and incident workflows exercised with a controlled Metrics API; fixture behaviour does not prove provider accuracy. |
+| GKE Autopilot | Unqualified; no approved restricted-mode provider run recorded. |
+| EKS Fargate | Unqualified; no approved restricted-mode provider run recorded. |
+| AKS virtual nodes | Unqualified; no approved restricted-mode provider run recorded. |
+
+The [restricted qualification runbook](restricted-qualification.md) records exact
+versions, binary digests, served sources, permissions and unavailable operations.
+The harness does not grant permissions or install node workloads.
 
 ## Multi-tenant security boundary
 

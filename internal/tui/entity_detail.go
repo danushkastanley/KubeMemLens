@@ -9,9 +9,9 @@ import (
 	memmodel "github.com/danushkastanley/kube-memlens/internal/model"
 )
 
-func (m appModel) nodeDetailLines() []string {
+func (m appModel) fallbackNodeDetailLines(name string) []string {
 	for _, node := range buildNodeViews(m.data.Nodes, m.data.Pods, "") {
-		if node.name != m.detail.nodeName {
+		if node.name != name {
 			continue
 		}
 		lines := []string{

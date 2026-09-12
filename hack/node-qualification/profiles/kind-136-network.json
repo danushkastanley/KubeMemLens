@@ -1,0 +1,32 @@
+{
+  "budgets": {
+    "agentScanP99Seconds": 4,
+    "kubeletMeanCPUIncreaseMilli": 100,
+    "kubeletPeakMemoryIncreaseBytes": 67108864,
+    "producerMeanCPUMilli": 50,
+    "producerPeakMemoryBytes": 67108864,
+    "readP95Seconds": 1,
+    "recoverySeconds": 120,
+    "responseMaxBytes": 4194304
+  },
+  "id": "kind-136-network",
+  "measurement": {
+    "baselineSeconds": 120,
+    "enabledSeconds": 660,
+    "projectedLifetimeSeconds": 600,
+    "sampleIntervalSeconds": 15,
+    "settleSeconds": 30
+  },
+  "nodeImage": "kindest/node:v1.36.1@sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5",
+  "profileClass": "local-kind",
+  "profileDigest": "sha256:33a9a32ee0ab4310fec31fa9f6915fe1c73faa21e06af6ed2d67184211849684",
+  "provider": "kind",
+  "requalificationDays": 30,
+  "schemaVersion": 1,
+  "workload": {
+    "containers": 32,
+    "containersPerPod": 8,
+    "image": "public.ecr.aws/docker/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028",
+    "linuxNodes": 2
+  }
+}

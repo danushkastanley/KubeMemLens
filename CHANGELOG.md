@@ -4,6 +4,68 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Node commands and incidents
+
+- Add Node explain/history commands with source ages, missing-field states, qualified estimates and bounded contributor rankings.
+- Add selected-Node TUI detail and wide panes, contributor ranking, cancellable polling, retained history and freshly authorised capture actions.
+- Add redacted schema-4 Node capture, offline replay and compatible same-instance comparison, with fresh export authorisation and strict file/identity bounds. Preserve deep Pod schemas 1/2 and restricted schema 3.
+
+### Node memory analysis
+
+- Add a pure Node analysis model with source-labelled severity, bounded Pod/workload rankings, checked accounting and explicit unavailable estimates.
+- Require current Node identity, matching source windows, complete cgroup coverage and operator-owned accounting qualification before showing a gap. Keep hugepages separate from ordinary memory values.
+- Add the optional Node analysis API with a separate uncached Pod authorisation check; Node-only readers receive no contributor identities or counts.
+
+### Optional Node-context collection and history
+
+- Add a default-off producer for bounded, verified-TLS kubelet Summary reads, with its own ServiceAccount and no host mounts or Linux capabilities.
+- Add authenticated snapshot schema 3, independent producer ownership, current Node UID binding and bounded Node-only reads/history. Preserve schemas 1/2 and existing viewer permissions.
+- Retain source clocks and last good evidence through collection failures; report rebuilding, freshness and capacity in debug/doctor and aggregate operational metrics.
+- Provide an explicit Helm profile and local upgrade, rollback, restart and reader-isolation verification. Managed-provider qualification remains separate; Node analysis and the incident cockpit are not included in this slice.
+
+### Restricted incidents and qualification tooling
+
+- Add incident schema 3 for restricted capture, deterministic offline replay and working-set comparison in the CLI and TUI. Retain source, sample windows, partial coverage and identity caveats; reject cgroup comparisons and schema downgrades.
+- Preserve deep schemas 1/2. Enforce private, bounded output, atomic no-overwrite publication and explicit replacement without removing the previous capture first.
+- Add a read-only restricted qualification harness with separate local, Autopilot, Fargate and virtual-node profiles. Managed-provider support remains unqualified pending approved runs and review.
+
+### Restricted CLI and TUI workflows
+
+- Add source-labelled working-set views for top, explanation, recommendation and TUI navigation, with explicit unavailable cgroup diagnostics and no automatic resource changes.
+- Keep missing values distinct from measured zero, retain transient frames with source age, and clear data on permission or authentication loss. Preserve get-only deep Pod access and existing deep output.
+- Add restricted explanation schema 4 and recommendation schema 2. Verify CLI and PTY workflows with local namespace credentials, including revocation/recovery and terminal restoration.
+
+### Agentless current reader
+
+- Add scoped Pod, owner, Node and Metrics API reads behind the common current-observation query, without installing KubeMemLens workloads.
+- Preserve pending and missing-metric rows, source times, identity caveats and coverage. Working set remains separate from cgroup charge and composition.
+- Bound request, response, object and output sizes; reauthorise each refresh and retain resource rows when optional sources fail. Existing deep readers and incident formats are unchanged.
+- Verify measured, missing and revoked evidence with a controlled Metrics API on a collector-free local kind cluster.
+
+### Optional CSI volume-health source
+
+- Add caller-authorised, Pod-scoped CSI health reads with separate Pod, PVC and node-backend observations, bounded requests and aggregate-only exports.
+- Keep missing alpha data unreported and unknown conditions adverse. Existing memory collection, permissions and persisted schemas are unchanged.
+- Verify alpha-off, degradation, recovery and namespace isolation on disposable local Kubernetes 1.37 clusters with a pinned upstream CSI driver.
+
+### Optional Metrics API source
+
+- Add caller-authorised, namespace-scoped resource-metrics discovery and bounded reads, preferring served v1 with a discovery-driven v1beta1 transition path.
+- Preserve working-set memory, CPU nanocores, source times and identities; distinguish missing, denied, partial, stale and unavailable data. Existing cgroup paths do not depend on this source.
+- Verify both API versions and namespace denial through a local TLS fixture. Correct CI path classification so source and fixture directory changes trigger kind checks.
+
+### MemoryQoS diagnostics
+
+- Interpret observed reclaim protection, throttle and hard-limit controls, with separate freshness, resize, resource-correlation and pressure evidence.
+- Keep unlimited leaf throttling distinct from unavailable controls and unobserved parent policy. Cumulative high counts no longer imply recent pressure.
+- Show the shared interpretation in explanations, doctor, comparisons, replay and TUI detail, with read-only investigation recommendations. Explanation schema 3 adds the derived observations; snapshot and incident formats are unchanged.
+
+### Pod memory resources and resize
+
+- Show effective Pod memory budgets alongside container contributions, kubelet allocated/applied values and distinct resize states, without changing cgroup accounting.
+- Refresh resource context through the existing informer and preserve it in CLI/TUI details, machine explanations, comparisons and redacted captures.
+- Negotiate snapshot schemas for mixed-version readers and agents. Capture supports an explicit schema-1 export with an omitted-context caveat for older replay binaries.
+
 ### Kubernetes 1.37 client compatibility
 
 - Align the Kubernetes client, API server and supporting modules on 0.37.0 while retaining the newer security-patched dependencies already selected for RC2.

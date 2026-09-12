@@ -159,6 +159,9 @@ func mergeEvidence(freshness *api.EvidenceFreshness, completeness *api.EvidenceC
 }
 
 func addContainerContext(pod *api.PodContext, container api.ContainerContext) {
+	if pod.Resources.IsZero() {
+		pod.Resources = container.Resources.Pod
+	}
 	if container.MemoryRequestKnown {
 		pod.MemoryRequestBytes += container.MemoryRequestBytes
 		pod.MemoryRequestContainers++

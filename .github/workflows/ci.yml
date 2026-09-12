@@ -39,13 +39,11 @@ jobs:
           if [ -z "${base_sha}" ] || [ "${base_sha}" = 0000000000000000000000000000000000000000 ]; then
             base_sha=$(git rev-parse "${GITHUB_SHA}^")
           fi
-          git diff --name-only "${base_sha}" "${GITHUB_SHA}" > "${RUNNER_TEMP}/changed-files.txt"
-          if grep -Eq '^(Dockerfile|go\.(mod|sum)|cmd/|internal/|charts/kube-memlens/|hack/(e2e-kind\.sh|e2e-tui-kind\.sh|soak-live-density\.sh|verify-.*-kind\.sh|observe_kind_telemetry\.py|measure-tui-latency\.exp|tui-smoke\.exp|lib/|scale-profiles/)|\.github/workflows/ci\.yml)$' \
-            "${RUNNER_TEMP}/changed-files.txt"; then
-            echo 'run-kind=true' >> "${GITHUB_OUTPUT}"
-          else
-            echo 'run-kind=false' >> "${GITHUB_OUTPUT}"
-          fi
+          python3 hack/test_ci_scope.py
+          git diff --no-renames --name-only -z "${base_sha}" "${GITHUB_SHA}" > "${RUNNER_TEMP}/changed-files.bin"
+          run_kind=$(python3 hack/ci_scope.py "${RUNNER_TEMP}/changed-files.bin")
+          echo "run-kind=${run_kind}" >> "${GITHUB_OUTPUT}"
+
 
   go:
     name: Go checks
@@ -196,6 +194,12 @@ jobs:
       - name: Fuzz snapshot decoding
         run: go test ./internal/collector -run='^$' -fuzz='^FuzzDecodeSnapshot$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
 
+      - name: Fuzz resource-metrics quantities
+        run: go test ./internal/resourcemetrics -run='^$' -fuzz='^FuzzUsageValue$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
+
+      - name: Fuzz CSI condition text
+        run: go test ./internal/volumehealth -run='^$' -fuzz='^FuzzConditionText$' -fuzztime=10s -fuzzminimizetime=5s -parallel=2 -timeout=2m
+
   security:
     name: Supply-chain checks
     runs-on: ubuntu-latest
@@ -229,7 +233,7 @@ jobs:
           -v "${{ runner.temp }}/trivy-cache:/root/.cache/trivy"
           -w /work
           ghcr.io/aquasecurity/trivy:0.72.0@sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f
-          config --exit-code 1 --severity HIGH,CRITICAL --skip-dirs .git .
+          config --exit-code 1 --severity HIGH,CRITICAL --ignorefile hack/fixtures/csi-health/trivy-exceptions.yaml --skip-dirs .git .
 
       - name: Scan the repository for committed secrets
         run: >-
@@ -490,6 +494,9 @@ jobs:
             kubectl-sha256: 90f75ea6ecc9ea5633262e1c0b83a40560003b30fc94a04cb099404fcef0c224
             density_benchmarks: false
             density_smoke: false
+            resource_metrics_smoke: false
+            memory_qos_smoke: false
+            pod_resource_smoke: false
             tui_smoke: false
             authenticated_ingestion_smoke: false
             tenant_scoped_read_smoke: false
@@ -500,6 +507,9 @@ jobs:
             kubectl-sha256: 629d3f410e09bf49b64ae7079f7f0bda1191efed311f7d37fdbab0ad5b0ec2b7
             density_benchmarks: false
             density_smoke: false
+            resource_metrics_smoke: false
+            memory_qos_smoke: false
+            pod_resource_smoke: false
             tui_smoke: false
             authenticated_ingestion_smoke: false
             tenant_scoped_read_smoke: false
@@ -510,6 +520,9 @@ jobs:
             kubectl-sha256: 6129359f4e1f3848a5572ccb0b26cf28b8ca08cef38c95a765b2f64a2c961a2f
             density_benchmarks: true
             density_smoke: true
+            resource_metrics_smoke: true
+            memory_qos_smoke: true
+            pod_resource_smoke: true
             tui_smoke: true
             authenticated_ingestion_smoke: true
             tenant_scoped_read_smoke: true
@@ -572,8 +585,12 @@ jobs:
       - name: Install TUI smoke dependency
         if: needs.ci-scope.outputs.run-kind == 'true' && matrix.tui_smoke
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends expect
+          # Expect comes from Ubuntu; unrelated preinstalled vendor indexes can
+          # fail independently during publication. Keep normal APT verification.
+          test -s /etc/apt/sources.list.d/ubuntu.sources
+          apt_options=(-o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources -o Dir::Etc::sourceparts=-)
+          sudo apt-get "${apt_options[@]}" update
+          sudo apt-get "${apt_options[@]}" install --yes --no-install-recommends expect
 
       - name: Run install, diagnosis, upgrade, rollback, and uninstall
         if: needs.ci-scope.outputs.run-kind == 'true'
@@ -582,12 +599,68 @@ jobs:
           E2E_ARTIFACT_DIR: ${{ runner.temp }}/kube-memlens-e2e
           E2E_RUN_DENSITY_BENCHMARKS: ${{ matrix.density_benchmarks }}
           E2E_RUN_LIVE_DENSITY_SMOKE: ${{ matrix.density_smoke }}
+          E2E_RUN_RESOURCE_METRICS_SMOKE: ${{ matrix.resource_metrics_smoke }}
+          E2E_RUN_AGENTLESS_SMOKE: 'true'
+          E2E_RUN_MEMORY_QOS_SMOKE: ${{ matrix.memory_qos_smoke }}
+          E2E_RUN_POD_RESOURCE_SMOKE: ${{ matrix.pod_resource_smoke }}
           E2E_RUN_TUI_SMOKE: ${{ matrix.tui_smoke }}
           E2E_RUN_AUTHENTICATED_INGESTION_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
           E2E_RUN_TENANT_SCOPED_READ_SMOKE: ${{ matrix.tenant_scoped_read_smoke }}
           E2E_RUN_TENANT_ISOLATION_SMOKE: ${{ matrix.tenant_isolation_smoke }}
           E2E_RUN_RELIABILITY_SMOKE: ${{ matrix.authenticated_ingestion_smoke }}
         run: hack/e2e-kind.sh
+
+      - name: Verify local CSI volume health with alpha off and on
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.kubernetes == '1.37.0'
+        env:
+          CSI_HEALTH_ACKNOWLEDGE: create-and-remove-local-csi-clusters
+          CSI_HEALTH_ARTIFACT_DIR: ${{ runner.temp }}/kube-memlens-volume-health
+        run: hack/verify-volume-health-kind.sh
+
+      - name: Upload sanitised CSI health evidence
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.kubernetes == '1.37.0'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: csi-health-kubernetes-${{ matrix.kubernetes }}
+          path: ${{ runner.temp }}/kube-memlens-volume-health/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload sanitised agentless evidence
+        if: needs.ci-scope.outputs.run-kind == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: agentless-kubernetes-${{ matrix.kubernetes }}
+          path: ${{ runner.temp }}/kube-memlens-e2e/agentless/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload sanitised resource metrics evidence
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.resource_metrics_smoke
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: resource-metrics-kubernetes-${{ matrix.kubernetes }}
+          path: ${{ runner.temp }}/kube-memlens-e2e/resource-metrics/*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload sanitised MemoryQoS evidence
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.memory_qos_smoke
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: memory-qos-kubernetes-${{ matrix.kubernetes }}
+          path: ${{ runner.temp }}/kube-memlens-e2e/memory-qos/memory-qos-summary.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload sanitised Pod resource evidence
+        if: needs.ci-scope.outputs.run-kind == 'true' && matrix.pod_resource_smoke
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pod-resources-kubernetes-${{ matrix.kubernetes }}
+          path: ${{ runner.temp }}/kube-memlens-e2e/pod-resources/pod-resource-summary.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Upload sanitised density smoke evidence
         if: needs.ci-scope.outputs.run-kind == 'true' && matrix.density_smoke

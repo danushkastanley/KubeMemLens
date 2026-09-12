@@ -9,16 +9,18 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/client"
 	"github.com/spf13/cobra"
 )
 
 type statusReport struct {
-	Connection statusConnection `json:"connection"`
-	Store      *api.DebugStore  `json:"store,omitempty"`
-	Metrics    *statusMetrics   `json:"metrics,omitempty"`
-	Data       statusData       `json:"data"`
-	Error      string           `json:"error,omitempty"`
+	Evidence   *capability.Selection `json:"evidence,omitempty"`
+	Connection statusConnection      `json:"connection"`
+	Store      *api.DebugStore       `json:"store,omitempty"`
+	Metrics    *statusMetrics        `json:"metrics,omitempty"`
+	Data       statusData            `json:"data"`
+	Error      string                `json:"error,omitempty"`
 }
 
 type statusConnection struct {
@@ -40,6 +42,7 @@ type statusMetrics struct {
 
 func newStatusCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	var output string
+	var namespace string
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Check collector connectivity and latest snapshot counts",
@@ -48,7 +51,7 @@ func newStatusCommand(collectorOptions collectorOptionsProvider) *cobra.Command 
 			if output != "text" && output != "json" {
 				return fmt.Errorf("invalid output %q, want text or json", output)
 			}
-			opts, err := withReadScope(collectorOptions(), "", true)
+			opts, err := withReadScope(collectorOptions(), namespace, namespace == "")
 			if err != nil {
 				return err
 			}
@@ -72,6 +75,7 @@ func newStatusCommand(collectorOptions collectorOptionsProvider) *cobra.Command 
 		},
 	}
 	cmd.Flags().StringVar(&output, "output", "text", "output format: text or json")
+	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "check evidence in one namespace; default checks cluster scope")
 	return cmd
 }
 
@@ -91,18 +95,20 @@ func buildStatusReport(ctx context.Context, opts client.Options) (statusReport, 
 		return report, modeErr
 	}
 
-	reader, description, err := client.NewSnapshotReader(ctx, opts)
+	session, err := client.NewEvidenceSession(ctx, opts)
+	report.Evidence = &session.Plan
+	reader, description := session.Reader, session.Description
 	report.Connection.Collector = description
 	report.Connection.Description = description
 	if err != nil {
 		report.Error = client.ConnectionError(opts, description, err).Error()
 		return report, err
 	}
-	if err := reader.Health(ctx); err != nil {
-		report.Error = client.ConnectionError(opts, description, err).Error()
-		return report, err
-	}
 	report.Connection.Healthy = true
+	if session.Plan.Mode == capability.Restricted || !opts.ReadScope.AllNamespaces {
+		report.Data.Status = string(session.Plan.Completeness)
+		return report, nil
+	}
 
 	store, err := reader.DebugStore(ctx)
 	if err != nil {
@@ -134,6 +140,9 @@ func renderStatusReport(report statusReport) string {
 		report.Connection.Collector,
 		health,
 	)
+	if report.Evidence != nil {
+		text += renderEvidencePlan(*report.Evidence)
+	}
 	if report.Store != nil {
 		text += fmt.Sprintf("\nStore:\n  containers: %d\n  stale containers: %d\n  pods: %d\n  namespaces: %d\n",
 			report.Store.TotalContainers,
@@ -165,7 +174,9 @@ func renderStatusReport(report statusReport) string {
 		return text
 	}
 
-	text += "\nError:\n" + indentBlock(report.Error) + "\n"
+	if report.Error != "" {
+		text += "\nError:\n" + indentBlock(report.Error) + "\n"
+	}
 	return text
 }
 

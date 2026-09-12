@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/danushkastanley/kube-memlens/internal/capability"
+
 	"github.com/danushkastanley/kube-memlens/internal/kube"
 )
 
@@ -11,6 +13,9 @@ func NewSnapshotReader(ctx context.Context, opts Options) (SnapshotReader, strin
 	opts, err := opts.WithDefaults()
 	if err != nil {
 		return nil, "", err
+	}
+	if opts.EvidenceMode == capability.Restricted {
+		return nil, "Kubernetes APIs", &capability.SelectionError{Mode: capability.Restricted, Reason: capability.QueryNotImplemented}
 	}
 
 	mode, err := ResolveMode(opts)

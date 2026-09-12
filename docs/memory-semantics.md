@@ -71,3 +71,81 @@ The collector records the previous node-snapshot timestamp only when the same co
 ## Why High Pod Memory Is Not Always A Heap Leak
 
 A pod can be charged for page cache, tmpfs, and kernel memory as well as application heap. KubeMemLens avoids saying "definitely a leak" and instead reports what the available cgroup stats suggest. The right next step depends on which bucket is high.
+
+## Pod budgets and in-place resize
+
+The effective configured request and limit use the Pod's `spec.resources`
+value when present, independently for request and limit. Otherwise they use
+reported container values, with complete or partial coverage shown. Pod budgets
+are never added to container contributions. The existing container totals remain
+available as separate evidence.
+
+Configured values describe intent. `status.allocatedResources` describes the
+kubelet's allocated request; `status.resources` describes its applied request
+and limit. Missing status fields mean “not reported”, not zero or success.
+Actual cgroup limits and charged memory remain separate measurements. An applied
+Kubernetes limit is not evidence that every container has that same cgroup limit.
+
+Pod and container changes arrive through the existing node-filtered informer.
+Resize allocation can be pending, deferred, infeasible or unknown. Application
+can be in progress, errored or unknown. The two tracks may refer to different
+generations and are shown separately, alongside the Pod spec and observed
+generations. Modern resize conditions take precedence over deprecated resize
+status. No free-form kubelet message is copied into snapshots.
+
+Ordinary container-only Pods retain their existing output. Additional context
+appears for a Pod budget, an active resize or a reported allocation/application
+that differs from container configuration. Comparisons report resource changes
+even when charged memory is unchanged; workload changes stay per replica.
+
+Memory-backed `emptyDir` limits follow the observed Pod specification, including
+size changes where the cluster enables the optional resize feature. They do not
+claim that the underlying mount has resized. See Kubernetes' guides to
+[Pod resource resize](https://kubernetes.io/docs/tasks/configure-pod-container/resize-pod-resources/)
+and [container resource resize](https://kubernetes.io/docs/tasks/configure-pod-container/resize-container-resources/).
+
+## MemoryQoS observations
+
+Detailed views and `doctor` interpret observed container cgroup controls.
+`memory.min` is hard reclaim protection; `memory.low` is best-effort reclaim
+protection. Zero means no protection at that cgroup, while an unavailable file
+is unknown. Neither value is usage. `memory.high` is a reclaim/throttle boundary;
+`memory.max` is the hard limit. An unlimited high boundary is ordinary and does
+not produce a warning by itself.
+
+Only a recorded high-event delta with an exact elapsed window is treated as a
+recent crossing. Cumulative high counts retain their raw value in captures but
+are not labelled as recent pressure. PSI strengthens a crossing observation;
+PSI without a recent high crossing can reflect contention or an ancestor.
+Unavailable or stale controls and unsettled resize reduce interpretation
+confidence. Boundary/reference mismatches are evidence for investigation, not
+proof of a kubelet misconfiguration or permission to change a limit.
+
+The interpreter prefers kubelet-applied container resources when available and
+otherwise uses container configuration. Pod budgets remain separate. In the
+released kubelet, a container without an explicit limit inside a limited Pod can
+leave its own high boundary unlimited while the Pod cgroup throttles
+hierarchically. KubeMemLens does not collect the parent control values.
+
+Kubernetes 1.37 defaults to an enabled gate, an unset throttling factor and
+`memoryReservationPolicy: None`. Gate state therefore does not establish whether
+throttling or protection is configured. Finite high limits require corrected
+kernel reclaim behaviour (Linux 5.9+) and a compatible runtime. Hard protection
+at the hard limit can prevent page-cache reclaim and reduce allocation headroom.
+These are caveats, not checks of versions or kubelet configuration.
+
+Sources: the [released kubelet implementation](https://github.com/kubernetes/kubernetes/blob/v1.37.0/pkg/kubelet/kuberuntime/kuberuntime_container_linux.go)
+and [MemoryQoS KEP](https://github.com/kubernetes/enhancements/blob/master/keps/sig-node/2570-memory-qos/README.md).
+
+Local verification:
+
+```sh
+E2E_RUN_MEMORY_QOS_SMOKE=true hack/e2e-kind.sh
+E2E_CLUSTER_NAME=kube-memlens-qos-throttling \
+E2E_KIND_CONFIG=hack/kind-profiles/memory-qos.yaml \
+E2E_RUN_MEMORY_QOS_SMOKE=true E2E_MEMORY_QOS_PROFILE=throttling hack/e2e-kind.sh
+```
+
+The explicit profile sets a factor of 0.5 and TieredReservation in a disposable
+local kubelet. Its time-bounded file-cache fixture generates high-event deltas and PSI below
+the hard limit. The product never reads configz or changes kubelet policy.

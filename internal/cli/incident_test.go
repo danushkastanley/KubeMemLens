@@ -68,7 +68,7 @@ func TestWriteIncidentBundleToStdout(t *testing.T) {
 	if err := writeIncidentBundle(output, "-", false, bundle); err != nil {
 		t.Fatalf("writeIncidentBundle returned error: %v", err)
 	}
-	if !strings.Contains(output.String(), `"schemaVersion": 1`) {
+	if !strings.Contains(output.String(), `"schemaVersion": 2`) {
 		t.Fatalf("unexpected JSON output: %s", output.String())
 	}
 }

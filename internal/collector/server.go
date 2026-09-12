@@ -110,6 +110,11 @@ func registerIngestion(mux *http.ServeMux, store *Store, opts HandlerOptions, lo
 			writeError(w, http.StatusBadRequest, "invalid snapshot JSON")
 			return
 		}
+		if snapshot.NodeContext != nil {
+			result = "invalid_snapshot"
+			writeError(w, http.StatusBadRequest, "Node context requires authenticated ingestion")
+			return
+		}
 		if err := ValidateSnapshot(snapshot, time.Now().UTC(), opts); err != nil {
 			result = "invalid_snapshot"
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -141,11 +146,11 @@ func registerReads(mux *http.ServeMux, store *Store, opts HandlerOptions) {
 	mux.HandleFunc("/api/v1/pages/containers", method(http.MethodGet, func(w http.ResponseWriter, r *http.Request) {
 		writeContainerPage(w, r, store, opts)
 	}))
-	mux.HandleFunc("/api/v1/containers", method(http.MethodGet, func(w http.ResponseWriter, _ *http.Request) {
-		writeBoundedJSON(w, store.ListContainers(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
+	mux.HandleFunc("/api/v1/containers", method(http.MethodGet, func(w http.ResponseWriter, r *http.Request) {
+		writeSnapshotJSON(w, r, store.ListContainers(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
 	}))
-	mux.HandleFunc("/api/v1/pods", method(http.MethodGet, func(w http.ResponseWriter, _ *http.Request) {
-		writeBoundedJSON(w, store.ListPods(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
+	mux.HandleFunc("/api/v1/pods", method(http.MethodGet, func(w http.ResponseWriter, r *http.Request) {
+		writeSnapshotJSON(w, r, store.ListPods(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
 	}))
 	mux.HandleFunc("/api/v1/namespaces", method(http.MethodGet, func(w http.ResponseWriter, _ *http.Request) {
 		writeBoundedJSON(w, store.ListNamespaces(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
@@ -153,8 +158,8 @@ func registerReads(mux *http.ServeMux, store *Store, opts HandlerOptions) {
 	mux.HandleFunc("/api/v1/nodes", method(http.MethodGet, func(w http.ResponseWriter, _ *http.Request) {
 		writeBoundedJSON(w, store.ListNodes(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
 	}))
-	mux.HandleFunc("/api/v1/workloads", method(http.MethodGet, func(w http.ResponseWriter, _ *http.Request) {
-		writeBoundedJSON(w, store.ListWorkloads(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
+	mux.HandleFunc("/api/v1/workloads", method(http.MethodGet, func(w http.ResponseWriter, r *http.Request) {
+		writeSnapshotJSON(w, r, store.ListWorkloads(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
 	}))
 	mux.HandleFunc("/api/v1/history/pods/", method(http.MethodGet, func(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/v1/history/pods/"), "/")
@@ -256,8 +261,8 @@ func method(allowed string, next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ValidateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOptions) error {
-	if snapshot.SchemaVersion != api.CurrentSnapshotSchemaVersion {
-		return fmt.Errorf("unsupported schemaVersion %d; expected %d", snapshot.SchemaVersion, api.CurrentSnapshotSchemaVersion)
+	if !api.SupportedSnapshotSchema(snapshot.SchemaVersion) {
+		return fmt.Errorf("unsupported schemaVersion %d; expected a version from 1 to %d", snapshot.SchemaVersion, api.CurrentSnapshotSchemaVersion)
 	}
 	if strings.TrimSpace(snapshot.NodeName) == "" {
 		return fmt.Errorf("nodeName is required")
@@ -324,6 +329,9 @@ func ValidateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOpt
 		if len(container.CgroupPath) > 4096 {
 			return fmt.Errorf("containers[%d].cgroupPath exceeds 4096 bytes", i)
 		}
+		if snapshot.SchemaVersion == api.LegacySchemaVersion && !container.Context.Resources.IsZero() {
+			return fmt.Errorf("containers[%d].context.resources requires snapshot schema 2", i)
+		}
 		if err := validateContainerContext(container.Context); err != nil {
 			return fmt.Errorf("containers[%d].context: %w", i, err)
 		}
@@ -331,10 +339,13 @@ func ValidateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOpt
 			return fmt.Errorf("containers[%d].nodeName does not match snapshot nodeName", i)
 		}
 	}
-	return nil
+	return validatePodResourceAgreement(snapshot.Containers)
 }
 
 func validateContainerContext(context api.ContainerContext) error {
+	if err := context.Resources.Validate(); err != nil {
+		return err
+	}
 	if context.RestartCount < 0 {
 		return fmt.Errorf("restartCount must not be negative")
 	}

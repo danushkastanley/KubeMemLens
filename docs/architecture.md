@@ -70,6 +70,13 @@ Incident actions call typed internal interfaces rather than spawning the CLI. Re
 
 ### Node-local agent
 
+The separate default-off Node-context producer has a
+[data contract](node-context.md) and [ADR 0007](adr/0007-isolate-node-context-producers-and-reads.md).
+Its ownership and source records remain separate from cgroup replacement.
+The chart enables it only through an explicit profile with qualified trust,
+audience and network configuration. The collector admits each role separately
+and retains bounded Node context/history without replacing cgroup records.
+
 The agent runs as a DaemonSet. It reads cgroup memory files from the node, maps cgroup paths to containers through a node-filtered informer cache, and posts snapshots to the collector.
 
 ### Collector

@@ -4,6 +4,59 @@
   "additionalProperties": false,
   "required": ["image", "namespace", "agent", "collector", "extensionTLS", "metrics", "security", "networkPolicy"],
   "properties": {
+    "nodeContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "kubeletCAConfigMap",
+        "kubeletAudience",
+        "kubeletPort",
+        "apiServerCIDRs",
+        "nodeCIDRs",
+        "resources"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "kubeletCAConfigMap": {
+          "type": "string",
+          "maxLength": 253
+        },
+        "kubeletAudience": {
+          "type": "string",
+          "maxLength": 253
+        },
+        "accountingConfigMap": {"type":"string", "maxLength":253},
+        "kubeletPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "apiServerCIDRs": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "nodeCIDRs": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "resources": {
+          "$ref": "#/definitions/resources"
+        }
+      }
+    },
     "image": {
       "type": "object",
       "additionalProperties": false,

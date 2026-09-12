@@ -51,6 +51,14 @@ The chart validates all values strictly. Before upgrading from a pre-v1 chart, r
 
 The agent targets `kubernetes.io/os: linux`. Node pools with custom taints require explicitly reviewed `agent.tolerations`; the chart does not grant a blanket toleration by default.
 
+## Optional Node-context development profile
+
+The Node-context profile requires a current source image containing
+`memlens-node-context`; earlier candidate images cannot run it. It remains off
+by default. Follow the [Node-context enablement guide](node-context.md#enablement-and-read-contract)
+for CA, audience, network ranges, explicit collector sizing and the separate
+Node-only viewer role. Managed-provider support remains unqualified.
+
 ## Candidate and stable install
 
 ### Candidate prerelease
@@ -126,7 +134,7 @@ kubectl memlens top pods -A
 kubectl memlens history pod <pod-name> -n <namespace>
 ```
 
-`status`, strict `doctor` and `-A` examples require the explicit cluster-viewer binding. A namespace viewer should verify with `kubectl memlens top pods -n <tenant-namespace>` and a Pod/history action in that same namespace.
+`status` without a namespace, strict `doctor` and `-A` examples require the explicit cluster-viewer binding. A namespace viewer can use `kubectl memlens status -n <tenant-namespace>`, `kubectl memlens top pods -n <tenant-namespace>` and a Pod/history action in that same namespace. See [evidence source discovery](evidence-sources.md) for mode selection and [restricted workflows](restricted-mode.md), which use the caller's Kubernetes RBAC without a KubeMemLens installation.
 
 `status` reports the collector evidence state, generation, expected, fresh, stale and missing node counts, and history reset state. A successful connection can still report `rebuilding`, `degraded` or `stale`. Treat the install as populated only after the intended nodes have fresh evidence. The [reliability contract](reliability.md) defines each state and the [reliability runbook](runbooks/reliability.md) covers recovery checks.
 

@@ -71,7 +71,7 @@ func TestSnapshotPublisherRefreshesEpochWithoutResettingSequence(t *testing.T) {
 			}
 			writePublisherJSON(t, w, api.IngestionEpoch{
 				TypeMeta:   metav1.TypeMeta{APIVersion: api.MemoryAPIGroup + "/" + api.MemoryAPIVersion, Kind: "IngestionEpoch"},
-				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: epoch, LastSequence: lastSequence,
+				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: epoch, LastSequence: lastSequence, SchemaVersion: 1,
 			})
 			return
 		}
@@ -106,7 +106,7 @@ func TestSnapshotPublisherDoesNotRetryUnauthorized(t *testing.T) {
 		if r.Method == http.MethodGet {
 			writePublisherJSON(t, w, api.IngestionEpoch{
 				TypeMeta:   metav1.TypeMeta{APIVersion: api.MemoryAPIGroup + "/" + api.MemoryAPIVersion, Kind: "IngestionEpoch"},
-				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: "epoch-a",
+				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: "epoch-a", SchemaVersion: 1,
 			})
 			return
 		}
@@ -132,7 +132,7 @@ func TestSnapshotPublisherRetriesTransientStatusesWithExactRequest(t *testing.T)
 		if r.Method == http.MethodGet {
 			writePublisherJSON(t, w, api.IngestionEpoch{
 				TypeMeta:   metav1.TypeMeta{APIVersion: api.MemoryAPIGroup + "/" + api.MemoryAPIVersion, Kind: "IngestionEpoch"},
-				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: "epoch-a",
+				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: "epoch-a", SchemaVersion: 1,
 			})
 			return
 		}
@@ -175,7 +175,7 @@ func TestSnapshotPublisherRetriesTransportFailure(t *testing.T) {
 		if r.Method == http.MethodGet {
 			writePublisherJSON(t, w, api.IngestionEpoch{
 				TypeMeta:   metav1.TypeMeta{APIVersion: api.MemoryAPIGroup + "/" + api.MemoryAPIVersion, Kind: "IngestionEpoch"},
-				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: "epoch-a",
+				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: "epoch-a", SchemaVersion: 1,
 			})
 			return
 		}
@@ -215,7 +215,7 @@ func TestSnapshotPublisherRetriesTransientEpochRead(t *testing.T) {
 			}
 			writePublisherJSON(t, w, api.IngestionEpoch{
 				TypeMeta:   metav1.TypeMeta{APIVersion: api.MemoryAPIGroup + "/" + api.MemoryAPIVersion, Kind: "IngestionEpoch"},
-				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: "epoch-a",
+				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: "epoch-a", SchemaVersion: 1,
 			})
 			return
 		}
@@ -239,7 +239,7 @@ func TestSnapshotPublisherBackoffHonoursCancellation(t *testing.T) {
 		if r.Method == http.MethodGet {
 			writePublisherJSON(t, w, api.IngestionEpoch{
 				TypeMeta:   metav1.TypeMeta{APIVersion: api.MemoryAPIGroup + "/" + api.MemoryAPIVersion, Kind: "IngestionEpoch"},
-				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: "epoch-a",
+				ObjectMeta: metav1.ObjectMeta{Name: "current"}, Epoch: "epoch-a", SchemaVersion: 1,
 			})
 			return
 		}

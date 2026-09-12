@@ -1,29 +1,47 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/spf13/cobra"
 )
 
-const maxIncidentBytes int64 = 64 << 20
+const maxIncidentBytes int64 = incident.MaxBytes
 
 func newReplayCommand() *cobra.Command {
-	var podRef string
+	var podRef, nodeRef string
 	cmd := &cobra.Command{
 		Use:   "replay <incident.json>",
 		Short: "Replay a captured explanation without cluster access",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			bundle, err := readIncidentBundle(args[0])
+			if podRef != "" && nodeRef != "" {
+				return fmt.Errorf("select either --pod or --node")
+			}
+			document, err := incident.Read(args[0])
 			if err != nil {
 				return err
+			}
+			if document.Node != nil {
+				if podRef != "" {
+					return fmt.Errorf("schema 4 contains Node evidence; --pod is unavailable")
+				}
+				return replayNode(cmd.OutOrStdout(), *document.Node, nodeRef)
+			}
+			if nodeRef != "" {
+				return fmt.Errorf("--node requires a schema-4 incident")
+			}
+			if document.Restricted != nil {
+				return replayRestricted(cmd.OutOrStdout(), *document.Restricted, podRef)
+			}
+			bundle := *document.Deep
+			for _, caveat := range bundle.Caveats {
+				fmt.Fprintf(cmd.OutOrStdout(), "Capture caveat: %q\n", caveat)
 			}
 			if podRef != "" {
 				pod, ok := incidentPod(bundle, podRef)
@@ -46,38 +64,19 @@ func newReplayCommand() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&podRef, "pod", "", "replay one Pod as <namespace>/<name>")
+	cmd.Flags().StringVar(&nodeRef, "node", "", "replay the selected Node from a schema-4 incident")
 	return cmd
 }
 
 func readIncidentBundle(path string) (api.IncidentBundle, error) {
-	file, err := os.Open(path)
+	document, err := incident.Read(path)
 	if err != nil {
-		return api.IncidentBundle{}, fmt.Errorf("open incident bundle: %w", err)
+		return api.IncidentBundle{}, err
 	}
-	defer file.Close()
-	info, err := file.Stat()
-	if err != nil {
-		return api.IncidentBundle{}, fmt.Errorf("inspect incident bundle: %w", err)
+	if document.Deep == nil {
+		return api.IncidentBundle{}, fmt.Errorf("this incident cannot be read as deep Pod evidence")
 	}
-	if info.Size() > maxIncidentBytes {
-		return api.IncidentBundle{}, fmt.Errorf("incident bundle exceeds %d byte limit", maxIncidentBytes)
-	}
-	decoder := json.NewDecoder(io.LimitReader(file, maxIncidentBytes+1))
-	decoder.DisallowUnknownFields()
-	var bundle api.IncidentBundle
-	if err := decoder.Decode(&bundle); err != nil {
-		return api.IncidentBundle{}, fmt.Errorf("decode incident bundle: %w", err)
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return api.IncidentBundle{}, fmt.Errorf("decode incident bundle: unexpected trailing JSON")
-	}
-	if bundle.SchemaVersion != api.CurrentIncidentSchemaVersion {
-		return api.IncidentBundle{}, fmt.Errorf("unsupported incident schemaVersion %d; expected %d", bundle.SchemaVersion, api.CurrentIncidentSchemaVersion)
-	}
-	if len(bundle.Pods) > 10_000 || len(bundle.Nodes) > 10_000 || len(bundle.Histories) > 10_000 {
-		return api.IncidentBundle{}, fmt.Errorf("incident bundle exceeds entity limits")
-	}
-	return bundle, nil
+	return *document.Deep, nil
 }
 
 func incidentPod(bundle api.IncidentBundle, ref string) (api.PodSnapshot, bool) {

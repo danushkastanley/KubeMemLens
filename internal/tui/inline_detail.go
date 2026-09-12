@@ -8,18 +8,17 @@ import (
 	memmodel "github.com/danushkastanley/kube-memlens/internal/model"
 )
 
-func (m appModel) inlineDetailLines(_ int) []string {
+func (m appModel) inlineDetailLines(width int) []string {
+	if m.restricted() {
+		return m.observationInlineDetail(width)
+	}
 	switch m.view {
 	case viewNodes:
 		items := m.visibleNodes()
 		selected := m.viewports[viewNodes].selected
 		if selected >= 0 && selected < len(items) {
 			item := items[selected]
-			lines := summaryLines("Node", item.name, item.podCount, item.memory, item.capturedAt.String())
-			return append(lines,
-				"", "Pressure", nodePressureLabel(item),
-				"Allocatable", tuiKnownBytes(item.environment.MemoryAllocatableBytes, item.environment.MemoryAllocatableKnown),
-				"Pod charge is not total node memory.")
+			return m.nodeInlineLines(item.name, width)
 		}
 	case viewNamespaces:
 		items := m.visibleNamespaces()

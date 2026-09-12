@@ -23,9 +23,10 @@ type SnapshotPublisher struct {
 	baseURL *url.URL
 	retry   retryPolicy
 
-	mu       sync.Mutex
-	epoch    string
-	sequence uint64
+	mu            sync.Mutex
+	epoch         string
+	sequence      uint64
+	schemaVersion int
 }
 
 func NewSnapshotPublisher(config *rest.Config) (*SnapshotPublisher, error) {
@@ -49,7 +50,7 @@ func newSnapshotPublisher(client *http.Client, rawBaseURL string) (*SnapshotPubl
 	if err != nil || baseURL.Scheme == "" || baseURL.Host == "" {
 		return nil, fmt.Errorf("Kubernetes API URL is invalid")
 	}
-	return &SnapshotPublisher{client: client, baseURL: baseURL, retry: defaultRetryPolicy()}, nil
+	return &SnapshotPublisher{client: client, baseURL: baseURL, retry: defaultRetryPolicy(), schemaVersion: api.LegacySchemaVersion}, nil
 }
 
 func (p *SnapshotPublisher) Publish(ctx context.Context, nodeUID string, snapshot api.AgentSnapshot) error {
@@ -79,12 +80,17 @@ func (p *SnapshotPublisher) Publish(ctx context.Context, nodeUID string, snapsho
 	if err != nil {
 		return err
 	}
-	if apiErr != nil && apiErr.Code == "epoch_mismatch" {
+	if p.needsEpochRefresh(apiErr) {
+		previousEpoch, previousSchema := p.epoch, p.schemaVersion
 		if err := p.refreshEpoch(ctx); err != nil {
 			return err
 		}
-		request.Epoch = p.epoch
-		response, apiErr, err = p.postWithRetry(ctx, request)
+		// A rolled-back strict decoder can reject schema 2 before inspecting
+		// the epoch. Retry only when negotiation confirms a changed contract.
+		if p.epoch != previousEpoch || p.schemaVersion != previousSchema {
+			request.Epoch = p.epoch
+			response, apiErr, err = p.postWithRetry(ctx, request)
+		}
 	}
 	if err != nil {
 		return err
@@ -98,6 +104,14 @@ func (p *SnapshotPublisher) Publish(ctx context.Context, nodeUID string, snapsho
 	return nil
 }
 
+func (p *SnapshotPublisher) needsEpochRefresh(apiErr *responseError) bool {
+	if apiErr == nil {
+		return false
+	}
+	return apiErr.Code == "epoch_mismatch" ||
+		(apiErr.Code == "invalid_json" && p.schemaVersion > api.LegacySchemaVersion)
+}
+
 func (p *SnapshotPublisher) refreshEpoch(ctx context.Context) error {
 	for attempt := 1; ; attempt++ {
 		var epoch api.IngestionEpoch
@@ -106,7 +120,11 @@ func (p *SnapshotPublisher) refreshEpoch(ctx context.Context) error {
 			if epoch.APIVersion != api.MemoryAPIGroup+"/"+api.MemoryAPIVersion || epoch.Kind != "IngestionEpoch" || epoch.ObjectMeta.Name != "current" || epoch.Epoch == "" {
 				return fmt.Errorf("get ingestion epoch: response is invalid")
 			}
+			if !api.SupportedSnapshotSchema(epoch.SchemaVersion) {
+				return fmt.Errorf("get ingestion epoch: unsupported snapshot schema %d", epoch.SchemaVersion)
+			}
 			p.epoch = epoch.Epoch
+			p.schemaVersion = epoch.SchemaVersion
 			if epoch.LastSequence > p.sequence {
 				p.sequence = epoch.LastSequence
 			}
@@ -153,6 +171,10 @@ func (p *SnapshotPublisher) postWithRetry(ctx context.Context, request api.NodeS
 
 func (p *SnapshotPublisher) post(ctx context.Context, request api.NodeSnapshotRequest) (api.NodeSnapshotResponse, *responseError, error) {
 	var response api.NodeSnapshotResponse
+	if request.Snapshot.NodeContext != nil && p.schemaVersion < 3 {
+		return response, nil, fmt.Errorf("Node-context ingestion requires collector snapshot schema 3")
+	}
+	request.Snapshot = api.AgentSnapshotForSchema(request.Snapshot, p.schemaVersion)
 	status, body, err := p.doJSON(ctx, http.MethodPost, ingestionPath("nodesnapshots"), request)
 	if err != nil {
 		return response, nil, fmt.Errorf("post authenticated snapshot: %w", err)
@@ -198,6 +220,7 @@ func (p *SnapshotPublisher) doJSON(ctx context.Context, method, path string, req
 		return 0, nil, fmt.Errorf("create request: %w", err)
 	}
 	request.Header.Set("Accept", "application/json")
+	request.Header.Set(api.SnapshotSchemaHeader, fmt.Sprint(api.CurrentSnapshotSchemaVersion))
 	request.Header.Set("User-Agent", "kube-memlens-agent/"+buildinfo.Version)
 	if requestBody != nil {
 		request.Header.Set("Content-Type", "application/json")

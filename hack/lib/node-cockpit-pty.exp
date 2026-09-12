@@ -1,0 +1,35 @@
+# Capture confirmation must tolerate a coalesced frame: the renderer may leave
+# "Redacted " from the input prompt on screen and write only the changed suffix.
+proc require_node_capture {capture} {
+  global timeout
+  set original_timeout $timeout
+  set deadline [expr {[clock milliseconds] + $timeout * 1000}]
+  set timeout 1
+  set confirmed 0
+  while {[clock milliseconds] < $deadline} {
+    expect {
+      -re {Node capture written} { set confirmed 1 }
+      -re {Node evidence changed during the read} {
+        puts stderr "Node PTY capture rejected a changing source sample"
+        exit 1
+      }
+      -re {invalid Node incident|invalid Node analysis|invalid Node record|invalid Node history} {
+        puts stderr "Node PTY capture failed schema or evidence validation"
+        exit 1
+      }
+      -re {access is forbidden|API is unavailable|unexpected response} {
+        puts stderr "Node PTY capture failed its authorised API read"
+        exit 1
+      }
+      timeout {}
+      eof { puts stderr "Node PTY exited before capture confirmation"; exit 1 }
+    }
+    if {$confirmed && [file isfile $capture]} {
+      puts "PASS private Node capture written"
+      set timeout $original_timeout
+      return
+    }
+  }
+  puts stderr "Node PTY capture timed out: file_created=[file isfile $capture] confirmation_seen=$confirmed"
+  exit 1
+}

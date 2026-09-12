@@ -127,6 +127,7 @@ func buildDoctorReport(ctx context.Context, opts client.Options) (doctorReport, 
 			report.Mapping.Mapped++
 		}
 	}
+	report.addMemoryQoSCheck(containers)
 	report.Mapping.Containers = len(containers)
 	report.Mapping.Unmapped = len(containers) - report.Mapping.Mapped
 	if len(containers) > 0 {
@@ -163,6 +164,7 @@ func buildDoctorReport(ctx context.Context, opts client.Options) (doctorReport, 
 	default:
 		report.addCheck("collector bounds", "pass", capacitySummary)
 	}
+	report.addNodeContextChecks(debug.NodeContext)
 	return report, nil
 }
 

@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
-	"github.com/danushkastanley/kube-memlens/internal/client"
+	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 )
@@ -33,10 +33,14 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentPodSession(cmd.Context(), opts, args[0])
 			if err != nil {
-				return collectorUnavailableError(opts, description, err)
+				return collectorUnavailableError(opts, session.Description, err)
 			}
+			if session.Plan.Mode == capability.Restricted {
+				return runRestrictedReport(cmd, session, explanationTarget{Kind: "Pod", Namespace: namespace, Name: args[0]}, capability.PodScope, podOutput, restrictedExplain)
+			}
+			reader, description := session.Reader, session.Description
 			pod, err := readPod(cmd.Context(), reader, namespace, args[0])
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
@@ -70,10 +74,14 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentSession(cmd.Context(), opts)
 			if err != nil {
-				return collectorUnavailableError(opts, description, err)
+				return collectorUnavailableError(opts, session.Description, err)
 			}
+			if session.Plan.Mode == capability.Restricted {
+				return runRestrictedReport(cmd, session, explanationTarget{Kind: parts[0], Namespace: workloadNamespace, Name: parts[1]}, capability.WorkloadScope, workloadOutput, restrictedExplain)
+			}
+			reader, description := session.Reader, session.Description
 			workloads, err := reader.Workloads(cmd.Context())
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
@@ -93,6 +101,7 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	workloadCmd.Flags().StringVarP(&workloadNamespace, "namespace", "n", "default", "Kubernetes namespace")
 	workloadCmd.Flags().StringVarP(&workloadOutput, "output", "o", "text", "output format: text, json, or yaml")
 	cmd.AddCommand(workloadCmd)
+	cmd.AddCommand(newExplainNodeCommand(collectorOptions))
 
 	return cmd
 }

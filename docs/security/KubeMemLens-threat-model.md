@@ -15,6 +15,11 @@ The leading risks are cross-tenant reads, forged or replayed agent writes, trust
 
 ## Scope and assumptions
 
+The optional Node-context design adds direct kubelet stats access through a
+separate producer. Its [threat review](node-context-threat-review.md) defines
+credentials, ownership, tenant policy and required runtime evidence. This
+contract does not add permissions to the standard chart.
+
 In scope:
 
 - `kubectl-memlens`, the standard agent, collector, Helm chart, release artefacts and proposed optional tracer.

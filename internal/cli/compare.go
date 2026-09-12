@@ -7,14 +7,17 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
-	"github.com/danushkastanley/kube-memlens/internal/client"
+	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
+	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/qosview"
+	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 	"github.com/spf13/cobra"
 )
 
 func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
-	var namespace, beforePath, afterPath, incidentPodRef, incidentWorkloadRef string
+	var namespace, beforePath, afterPath, incidentPodRef, incidentWorkloadRef, nodeRef string
 	cmd := &cobra.Command{
 		Use:   "compare [pod-a] [pod-b]",
 		Short: "Compare two live Pods or one Pod across incident bundles",
@@ -28,18 +31,34 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			return cobra.ExactArgs(2)(command, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if nodeRef != "" && (beforePath == "" || afterPath == "") {
+				return fmt.Errorf("--node comparison requires --before and --after")
+			}
 			if beforePath != "" || afterPath != "" {
-				if beforePath == "" || afterPath == "" || (incidentPodRef == "") == (incidentWorkloadRef == "") {
-					return fmt.Errorf("incident comparison requires --before, --after, and exactly one of --pod <namespace>/<name> or --workload <namespace>/<kind>/<name>")
+				selected := 0
+				for _, ref := range []string{incidentPodRef, incidentWorkloadRef, nodeRef} {
+					if ref != "" {
+						selected++
+					}
 				}
-				before, err := readIncidentBundle(beforePath)
+				if beforePath == "" || afterPath == "" || selected != 1 {
+					return fmt.Errorf("incident comparison requires --before, --after, and exactly one of --pod, --workload or --node")
+				}
+				beforeDocument, err := incident.Read(beforePath)
 				if err != nil {
 					return fmt.Errorf("read before bundle: %w", err)
 				}
-				after, err := readIncidentBundle(afterPath)
+				afterDocument, err := incident.Read(afterPath)
 				if err != nil {
 					return fmt.Errorf("read after bundle: %w", err)
 				}
+				if beforeDocument.Node != nil || afterDocument.Node != nil || nodeRef != "" {
+					return compareNodeDocuments(cmd.OutOrStdout(), beforeDocument, afterDocument, nodeRef)
+				}
+				if beforeDocument.Restricted != nil || afterDocument.Restricted != nil {
+					return compareRestrictedDocuments(cmd.OutOrStdout(), beforeDocument, afterDocument, incidentPodRef, incidentWorkloadRef)
+				}
+				before, after := *beforeDocument.Deep, *afterDocument.Deep
 				if incidentPodRef != "" {
 					beforePod, ok := incidentPod(before, incidentPodRef)
 					if !ok {
@@ -61,6 +80,7 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 					return fmt.Errorf("workload %s was not found in the after bundle", incidentWorkloadRef)
 				}
 				printPodComparison(cmd.OutOrStdout(), "Workload incident comparison: "+incidentWorkloadRef, beforeWorkload, afterWorkload, after.CapturedAt.Sub(before.CapturedAt))
+				printWorkloadResourceComparison(cmd.OutOrStdout(), before, after, incidentWorkloadRef)
 				return nil
 			}
 
@@ -68,9 +88,13 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			if err != nil {
 				return err
 			}
-			reader, description, err := client.NewSnapshotReader(cmd.Context(), opts)
+			session, err := currentSession(cmd.Context(), opts)
+			reader, description := session.Reader, session.Description
 			if err != nil {
 				return collectorUnavailableError(opts, description, err)
+			}
+			if session.Plan.Mode == capability.Restricted {
+				return compareRestrictedLive(cmd, session, namespace, args)
 			}
 			pods, err := reader.Pods(cmd.Context())
 			if err != nil {
@@ -98,6 +122,7 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	cmd.Flags().StringVar(&afterPath, "after", "", "after incident bundle")
 	cmd.Flags().StringVar(&incidentPodRef, "pod", "", "Pod to compare across bundles as <namespace>/<name>")
 	cmd.Flags().StringVar(&incidentWorkloadRef, "workload", "", "workload to compare across bundles as <namespace>/<kind>/<name>")
+	cmd.Flags().StringVar(&nodeRef, "node", "", "Node to compare across schema-4 bundles")
 	return cmd
 }
 
@@ -176,6 +201,9 @@ func printPodComparison(w interface{ Write([]byte) (int, error) }, title string,
 	}
 	fmt.Fprintf(tw, "PSI some avg10\t%.2f%%\t%.2f%%\t%+.2fpp\n", before.Memory.PSISomeAvg10, after.Memory.PSISomeAvg10, after.Memory.PSISomeAvg10-before.Memory.PSISomeAvg10)
 	_ = tw.Flush()
+	for _, line := range append(resourceview.ComparisonLines(before, after), qosview.ComparisonLines(before, after)...) {
+		fmt.Fprintln(w, line)
+	}
 	beforeResult, afterResult := explain.AnalyzePod(before), explain.AnalyzePod(after)
 	fmt.Fprintf(w, "\nDiagnosis: %s (%s) → %s (%s)\n", beforeResult.Diagnosis, beforeResult.Confidence, afterResult.Diagnosis, afterResult.Confidence)
 	if elapsed > 0 {

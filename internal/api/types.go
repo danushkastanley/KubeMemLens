@@ -4,21 +4,26 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const CurrentSnapshotSchemaVersion = 1
-const CurrentIncidentSchemaVersion = 1
-const CurrentExplanationSchemaVersion = 1
+const CurrentSnapshotSchemaVersion = 3
+const CurrentIncidentSchemaVersion = 2
+const CurrentExplanationSchemaVersion = 3
+const CurrentRecommendationSchemaVersion = 1
+const RestrictedExplanationSchemaVersion = 4
+const RestrictedRecommendationSchemaVersion = 2
 const MemoryAPIGroup = "memory.kubememlens.io"
 const MemoryAPIVersion = "v1alpha1"
 
 type AgentSnapshot struct {
-	SchemaVersion int                 `json:"schemaVersion"`
-	NodeName      string              `json:"nodeName"`
-	CapturedAt    time.Time           `json:"capturedAt"`
-	Environment   NodeEnvironment     `json:"environment"`
-	Containers    []ContainerSnapshot `json:"containers"`
+	SchemaVersion int                      `json:"schemaVersion"`
+	NodeName      string                   `json:"nodeName"`
+	CapturedAt    time.Time                `json:"capturedAt"`
+	Environment   NodeEnvironment          `json:"environment"`
+	Containers    []ContainerSnapshot      `json:"containers"`
+	NodeContext   *nodecontext.Observation `json:"nodeContext,omitempty"`
 }
 
 type NodeEnvironment struct {
@@ -60,6 +65,8 @@ type ContainerPage struct {
 }
 
 type ContainerContext struct {
+	Resources model.ContainerMemoryResources `json:"resources,omitzero"`
+
 	MemoryRequestBytes         uint64            `json:"memoryRequestBytes"`
 	MemoryRequestKnown         bool              `json:"memoryRequestKnown"`
 	MemoryLimitBytes           uint64            `json:"memoryLimitBytes"`
@@ -100,6 +107,8 @@ type PodSnapshot struct {
 }
 
 type PodContext struct {
+	Resources model.PodMemoryResources `json:"resources,omitzero"`
+
 	MemoryRequestBytes         uint64            `json:"memoryRequestBytes"`
 	MemoryRequestContainers    int               `json:"memoryRequestContainers"`
 	MemoryLimitBytes           uint64            `json:"memoryLimitBytes"`
@@ -322,6 +331,7 @@ type Metrics struct {
 }
 
 type DebugStore struct {
+	NodeContext      *NodeContextDebug    `json:"nodeContext,omitempty"`
 	TotalContainers  int                  `json:"totalContainers"`
 	StaleContainers  int                  `json:"staleContainers"`
 	NodeRecords      int                  `json:"nodeRecords"`

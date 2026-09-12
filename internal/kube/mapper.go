@@ -72,6 +72,7 @@ func BuildPodIndexFromPods(pods []corev1.Pod) PodIndex {
 
 func containerContext(pod corev1.Pod, status corev1.ContainerStatus) api.ContainerContext {
 	context := api.ContainerContext{
+		Resources:        memoryResourceContext(pod, status),
 		QoSClass:         string(pod.Status.QOSClass),
 		RestartCount:     status.RestartCount,
 		PodPhase:         string(pod.Status.Phase),

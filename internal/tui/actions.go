@@ -15,7 +15,11 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/nodeanalysis"
+	"github.com/danushkastanley/kube-memlens/internal/observationview"
+	"github.com/danushkastanley/kube-memlens/internal/qosview"
 	"github.com/danushkastanley/kube-memlens/internal/recommend"
+	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 )
 
 type actionKind int
@@ -27,18 +31,25 @@ const (
 )
 
 type actionRequest struct {
-	kind        actionKind
-	ref         entityRef
-	pods        []api.PodSnapshot
-	nodes       []api.NodeSnapshotStatus
-	histories   []api.PodHistory
-	before      *api.PodSnapshot
-	after       *api.PodSnapshot
-	outputPath  string
-	overwrite   bool
-	partial     bool
-	caveats     []string
-	reliability *api.CollectorReliability
+	kind              actionKind
+	restricted        *incident.RestrictedBundle
+	observationBefore *observationview.Row
+	observationAfter  *observationview.Row
+	beforeAt          time.Time
+	afterAt           time.Time
+	ref               entityRef
+	pods              []api.PodSnapshot
+	nodes             []api.NodeSnapshotStatus
+	histories         []api.PodHistory
+	before            *api.PodSnapshot
+	after             *api.PodSnapshot
+	outputPath        string
+	overwrite         bool
+	partial           bool
+	caveats           []string
+	reliability       *api.CollectorReliability
+	nodeReader        incident.NodeCaptureReader
+	nodeRank          nodeanalysis.Metric
 }
 
 type actionResult struct {
@@ -54,13 +65,19 @@ type actionExecutor interface {
 
 type localActionExecutor struct{}
 
-func (localActionExecutor) Run(_ context.Context, request actionRequest) (actionResult, error) {
+func (localActionExecutor) Run(ctx context.Context, request actionRequest) (actionResult, error) {
+	if err := ctx.Err(); err != nil {
+		return actionResult{}, err
+	}
 	switch request.kind {
 	case actionRecommend:
 		return recommendationResult(request)
 	case actionCompare:
 		return compareResult(request)
 	case actionCapture:
+		if request.nodeReader != nil {
+			return nodeCaptureResult(ctx, request)
+		}
 		return captureResult(request)
 	default:
 		return actionResult{}, fmt.Errorf("unsupported incident action")
@@ -73,6 +90,7 @@ func recommendationResult(request actionRequest) (actionResult, error) {
 		return actionResult{}, fmt.Errorf("selected entity is no longer available for recommendations")
 	}
 	items := recommend.ForFinding(finding)
+	items = append(items, recommend.ForPodMemoryQoS(qosPodsForRef(request.ref, request.pods))...)
 	lines := []string{
 		"Target: " + target,
 		"Diagnosis: " + string(finding.Diagnosis),
@@ -89,6 +107,9 @@ func recommendationResult(request actionRequest) (actionResult, error) {
 }
 
 func compareResult(request actionRequest) (actionResult, error) {
+	if request.observationBefore != nil || request.observationAfter != nil {
+		return restrictedCompareResult(request)
+	}
 	if request.before == nil || request.after == nil {
 		return actionResult{}, fmt.Errorf("comparison requires two Pods")
 	}
@@ -121,10 +142,15 @@ func compareResult(request actionRequest) (actionResult, error) {
 		"After observation: "+afterFinding.EvidenceWindow.ObservationDescription(),
 		"After counters: "+afterFinding.EvidenceWindow.DeltaDescription(),
 	)
+	lines = append(lines, resourceview.ComparisonLines(before, after)...)
+	lines = append(lines, qosview.ComparisonLines(before, after)...)
 	return actionResult{title: "Live Pod comparison", lines: lines}, nil
 }
 
 func captureResult(request actionRequest) (actionResult, error) {
+	if request.restricted != nil {
+		return restrictedCaptureResult(request)
+	}
 	if request.outputPath == "" {
 		return actionResult{}, fmt.Errorf("capture path must not be empty")
 	}
@@ -137,7 +163,7 @@ func captureResult(request actionRequest) (actionResult, error) {
 		return actionResult{}, fmt.Errorf("resolve capture path: %w", err)
 	}
 	bundle := api.IncidentBundle{
-		SchemaVersion: api.CurrentIncidentSchemaVersion,
+		SchemaVersion: api.IncidentSchema([]api.PodSnapshot{pod}),
 		CapturedAt:    time.Now().UTC(),
 		ToolVersion:   buildinfo.Current(runtime.Version(), runtime.GOOS, runtime.GOARCH).String(),
 		Redacted:      true,
