@@ -8,6 +8,13 @@ This is the canonical support contract for KubeMemLens. Other documents link her
 
 [`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public evaluation candidate for `v1.0.0`. It is an immutable prerelease, not a stable production-support promise. Stable `v1.0.0` is not approved or published. Provider support below is limited to the immutable artefacts and environment versions in the one-time reviewed evidence; it is not a promise that every later provider or KubeMemLens version has been rerun.
 
+## Current provider scope
+
+`v1.0.0-rc.1` was tested on AWS EKS. Current provider support is focused on EKS
+managed Linux nodes with AL2023, containerd and amd64. Other providers and
+self-managed environments are outside the current support scope. The historical
+results below retain their original version and environment boundaries.
+
 ## Status terms
 
 | Status | Meaning |
@@ -19,7 +26,7 @@ This is the canonical support contract for KubeMemLens. Other documents link her
 | Unsupported | The current deep-mode contract rejects or excludes the profile. This may be reconsidered after an architecture or provider-capability change and fresh evidence. |
 | Deferred | The capability belongs to a later release and is not part of v1. |
 
-## v1 profile matrix
+## Recorded profile evidence
 
 | Profile | v1 contract | Current evidence | Evidence owner | Status |
 | --- | --- | --- | --- | --- |
@@ -57,11 +64,11 @@ Pod-bound audience, `nodes/stats` authorisation or refresh overhead.
 
 | Node-context profile | Current status | Required evidence |
 | --- | --- | --- |
-| Local kind 1.36.1 and 1.37.0 | Qualification in progress | Owned-fixture preflight, fixed workload and overhead measurements, projected credential rotation and lifecycle recovery. Fixture TLS and Node re-registration do not prove provider TLS or machine replacement. |
-| GKE Standard | Qualification required | Approved exact-pool run, provider inventory, direct TLS and stats-only RBAC, measured overhead, replacement, cleanup and independent review. |
-| EKS managed Linux | Qualification required | The same gates for the exact managed node group; no inference from the older AL2023 cgroup result. |
-| AKS Linux | Qualification required | The same gates, including the current aggregation-proxy prerequisite. The older candidate's failed AKS result remains scoped to that candidate. |
-| Self-managed Linux | Qualification required | The same gates for the exact distribution/runtime, serving trust and replacement procedure. |
+| Local kind 1.36.1 and 1.37.0 | Locally verified | Owned-fixture preflight, fixed workload and overhead measurements, projected credential rotation and lifecycle recovery. Fixture TLS and Node re-registration do not prove provider TLS or machine replacement. |
+| GKE Standard | Outside current support scope | Historical tooling retained. |
+| EKS managed Linux | Locally verified implementation | Earlier cgroup results do not establish Node-context behaviour. |
+| AKS Linux | Outside current support scope | Historical tooling retained. |
+| Self-managed Linux | Outside current support scope | Historical tooling retained. |
 
 See the [Node-context qualification protocol](node-context-qualification.md) for
 the digest-bound profiles, budgets, privacy rules, review gate and expiry.
