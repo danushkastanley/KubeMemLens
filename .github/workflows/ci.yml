@@ -130,6 +130,9 @@ jobs:
           retry_capture 3 5 go install golang.org/x/vuln/cmd/govulncheck@v1.7.0 >/dev/null
           govulncheck ./...
 
+      - name: Verify isolated trace preflight module
+        run: make check-trace-preflight
+
       - name: Build commands
         run: go build ./cmd/...
 
