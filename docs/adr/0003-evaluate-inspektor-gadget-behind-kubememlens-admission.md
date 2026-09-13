@@ -29,6 +29,12 @@ These are prototype inputs, not automatically trusted production dependencies. A
 6. terminate on target replacement, cancellation, disconnect, timeout or tracer restart;
 7. pass the existing multi-tenant threat model, managed-provider matrix and independent review.
 
+The [13 September 2026 engine evaluation](../ebpf/ENGINE_CONTRACT.md) records
+fresh signed artefact checks for v0.56.0 and the source findings that prevent
+using its unmodified gadget set. It defines the KubeMemLens-owned internal
+contract and a constrained SDK integration to evaluate. No runtime programme
+or elevated installation is approved by that record; this ADR's gates remain.
+
 ## Alternatives considered
 
 - A bespoke CO-RE loader and programmes give maximum control but create a larger verifier, compatibility, lifecycle and supply-chain surface.
