@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 2,
+  "mediaType": "application/vnd.oci.image.index.v1+json",
+  "manifests": [
+    {
+      "mediaType": "application/vnd.oci.image.manifest.v1+json",
+      "digest": "sha256:121383f4ab40ea3906e8df15420a4c1f85c9335fbe7117ea1170187c5038d80d",
+      "size": 3700,
+      "platform": {
+        "architecture": "amd64",
+        "os": "linux"
+      }
+    },
+    {
+      "mediaType": "application/vnd.oci.image.manifest.v1+json",
+      "digest": "sha256:e9c5d36b0041b539cd67efa7d65d04991297cad1bc39964f68e9b5e1b438a860",
+      "size": 838,
+      "annotations": {
+        "vnd.docker.reference.digest": "sha256:121383f4ab40ea3906e8df15420a4c1f85c9335fbe7117ea1170187c5038d80d",
+        "vnd.docker.reference.type": "attestation-manifest"
+      },
+      "platform": {
+        "architecture": "unknown",
+        "os": "unknown"
+      }
+    },
+    {
+      "mediaType": "application/vnd.oci.image.manifest.v1+json",
+      "digest": "sha256:03b96ef7a6b31542742950534380160d41e0fdc5b890c52dc6ddac8be672a45d",
+      "size": 3699,
+      "platform": {
+        "architecture": "arm64",
+        "os": "linux"
+      }
+    },
+    {
+      "mediaType": "application/vnd.oci.image.manifest.v1+json",
+      "digest": "sha256:1108efd2355e00f14113ed3c8f1cc264fee5be8ac89bdb08903f87bdb0244947",
+      "size": 838,
+      "annotations": {
+        "vnd.docker.reference.digest": "sha256:03b96ef7a6b31542742950534380160d41e0fdc5b890c52dc6ddac8be672a45d",
+        "vnd.docker.reference.type": "attestation-manifest"
+      },
+      "platform": {
+        "architecture": "unknown",
+        "os": "unknown"
+      }
+    }
+  ],
+  "annotations": {
+    "org.opencontainers.image.description": "Inspektor Gadget is a collection of tools (or gadgets) to debug and inspect Kubernetes resources and applications. This image is used as a long-running DaemonSet in Kubernetes via the kubectl-gadget deploy command or via the Helm charts.",
+    "org.opencontainers.image.documentation": "https://inspektor-gadget.io/docs",
+    "org.opencontainers.image.licenses": "Apache-2.0",
+    "org.opencontainers.image.source": "https://github.com/inspektor-gadget/inspektor-gadget",
+    "org.opencontainers.image.title": "Inspektor Gadget k8s DaemonSet"
+  }
+}
