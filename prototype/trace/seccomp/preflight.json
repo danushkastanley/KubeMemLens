@@ -1,0 +1,144 @@
+{
+  "defaultAction": "SCMP_ACT_ERRNO",
+  "defaultErrnoRet": 1,
+  "syscalls": [
+    {
+      "names": [
+        "read",
+        "write",
+        "readv",
+        "writev",
+        "close",
+        "close_range",
+        "fstat",
+        "newfstatat",
+        "statx",
+        "stat",
+        "lstat",
+        "lseek",
+        "statfs",
+        "fstatfs",
+        "getdents64",
+        "openat",
+        "fcntl",
+        "ioctl",
+        "access",
+        "faccessat",
+        "faccessat2",
+        "readlink",
+        "readlinkat",
+        "getcwd",
+        "chdir",
+        "mmap",
+        "mprotect",
+        "munmap",
+        "mremap",
+        "madvise",
+        "brk",
+        "mincore",
+        "rt_sigaction",
+        "rt_sigprocmask",
+        "rt_sigreturn",
+        "sigaltstack",
+        "tgkill",
+        "tkill",
+        "kill",
+        "getpid",
+        "getppid",
+        "gettid",
+        "getuid",
+        "geteuid",
+        "getgid",
+        "getegid",
+        "getgroups",
+        "getresuid",
+        "getresgid",
+        "clock_gettime",
+        "clock_nanosleep",
+        "nanosleep",
+        "gettimeofday",
+        "futex",
+        "futex_waitv",
+        "sched_yield",
+        "sched_getaffinity",
+        "prlimit64",
+        "getrlimit",
+        "setrlimit",
+        "epoll_create1",
+        "epoll_ctl",
+        "epoll_pwait",
+        "epoll_pwait2",
+        "epoll_wait",
+        "eventfd2",
+        "pipe2",
+        "dup",
+        "dup2",
+        "dup3",
+        "clone",
+        "execve",
+        "execveat",
+        "wait4",
+        "waitid",
+        "uname",
+        "getrandom",
+        "rseq",
+        "set_robust_list",
+        "set_tid_address",
+        "arch_prctl",
+        "prctl",
+        "pidfd_open",
+        "pidfd_send_signal",
+        "exit",
+        "exit_group",
+        "restart_syscall"
+      ],
+      "action": "SCMP_ACT_ALLOW"
+    },
+    {
+      "names": [
+        "clone3"
+      ],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 38
+    },
+    {
+      "names": [
+        "bpf"
+      ],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        {
+          "index": 0,
+          "value": 0,
+          "op": "SCMP_CMP_EQ"
+        }
+      ]
+    },
+    {
+      "names": [
+        "bpf"
+      ],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        {
+          "index": 0,
+          "value": 5,
+          "op": "SCMP_CMP_EQ"
+        }
+      ]
+    },
+    {
+      "names": [
+        "bpf"
+      ],
+      "action": "SCMP_ACT_ALLOW",
+      "args": [
+        {
+          "index": 0,
+          "value": 15,
+          "op": "SCMP_CMP_EQ"
+        }
+      ]
+    }
+  ]
+}

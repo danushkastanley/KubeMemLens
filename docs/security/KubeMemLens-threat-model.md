@@ -212,3 +212,14 @@ Existing eBPF threat IDs TM-001 through TM-010 retain their original meanings. A
 - No credential, tenant identifier or sensitive runtime value is included in this document.
 
 Design baselines include Kubernetes [aggregation-layer authentication](https://kubernetes.io/docs/tasks/extend-kubernetes/configure-aggregation-layer/), [authorisation and SubjectAccessReview](https://kubernetes.io/docs/reference/access-authn-authz/authorization/), [ServiceAccount token administration](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/), Linux [BPF verifier](https://docs.kernel.org/bpf/verifier.html) and Kubernetes [RBAC good practices](https://kubernetes.io/docs/concepts/security/rbac-good-practices/). These mechanisms support the controls, but do not replace KubeMemLens route, payload, lifecycle and tenant-isolation tests.
+
+## Non-attaching preflight baseline
+
+[ADR 0009](../adr/0009-scope-preflight-inventory-to-worker-descriptors.md)
+records the current prototype's administrator-to-kernel boundary. Fixed probes
+load and close descriptors without attaching or pinning. Runtime inspection is
+limited to owned worker descriptors; a separate administrator test performs the
+global census. Node-associated results remain behind namespace RBAC, and the
+worker has no ServiceAccount token or tenant request endpoint. This baseline
+does not satisfy the later trace admission, custom programme or incident teardown
+gates. The [preflight contract](../ebpf/PREFLIGHT.md) records limits and evidence.

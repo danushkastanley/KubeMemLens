@@ -1,4 +1,4 @@
-.PHONY: test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract check-community-settings vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
+.PHONY: check-trace-preflight test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract check-community-settings vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -92,7 +92,16 @@ check-community-settings:
 vuln:
 	go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
-check: fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test coverage test-race vet vuln build
+check-trace-preflight:
+	go -C prototype/trace mod verify
+	go -C prototype/trace test -race ./...
+	go -C prototype/trace vet ./...
+	go -C prototype/trace run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C prototype/trace build ./...
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace build ./...
+	python3 -m unittest discover -s prototype/trace/kubernetes -p 'test_*.py'
+
+check: check-trace-preflight fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test coverage test-race vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh
