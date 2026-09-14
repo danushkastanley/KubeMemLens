@@ -13,6 +13,6 @@ COPY --from=build /usr/local/go/LICENSE /licences/Go.txt
 COPY --from=build /go/pkg/mod/github.com/cilium/ebpf@v0.22.0/LICENSE /licences/cilium-ebpf.txt
 COPY --from=build /go/pkg/mod/golang.org/x/sys@v0.47.0/LICENSE /licences/x-sys.txt
 COPY prototype/trace/testdata/reference /opt/memlens-trace/reference
-USER 0:0
+USER 65532:65532
 ENTRYPOINT ["/memlens-trace"]
 CMD ["doctor", "--json"]

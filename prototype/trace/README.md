@@ -26,6 +26,12 @@ not runtime qualification. The separate module uses cilium/ebpf v0.22.0 and
 x/sys v0.47.0; it does not yet import the Inspektor Gadget SDK. These libraries
 encode fixed probes and parse kernel metadata. No gadget is executed.
 
+The scratch image runs as UID 65532 by default. Invoking it without the explicit
+administrator profile reports unavailable permissions; it cannot elevate itself.
+The Kubernetes Job deliberately selects UID 0 to read protected kernel metadata.
+Local Docker qualification must likewise specify `--user 0:0`, together with the
+reviewed capabilities, seccomp policy and resource limits.
+
 The scratch image contains the project, Go, cilium/ebpf and x/sys licence texts.
 The latter two are MIT and BSD-3-Clause respectively. The licence inventory must
 be refreshed when imports change; upstream references remain evaluation inputs.
