@@ -79,7 +79,7 @@ func NewSpecification(kind Kind, target TargetIdentity, paths PathPolicy, bounds
 	if err := validateTarget(target); err != nil {
 		return Specification{}, err
 	}
-	if err := validateBounds(bounds); err != nil {
+	if err := bounds.Validate(); err != nil {
 		return Specification{}, err
 	}
 	target.ContainerStartedAt = target.ContainerStartedAt.UTC()
@@ -104,6 +104,18 @@ func (Specification) MarshalJSON() ([]byte, error) {
 }
 
 func validateTarget(t TargetIdentity) error {
+	if err := t.ValidateLifetime(); err != nil {
+		return err
+	}
+	if t.CgroupID == 0 {
+		return errors.New("trace target requires a cgroup binding")
+	}
+	return nil
+}
+
+// ValidateLifetime validates identity syntax before the node supplies a cgroup
+// binding. It does not establish authorisation or live Kubernetes identity.
+func (t TargetIdentity) ValidateLifetime() error {
 	for _, value := range []string{t.Namespace, t.PodName, t.PodUID, t.ContainerName, t.NodeUID} {
 		if value == "" || len(value) > 253 || strings.ContainsAny(value, "\x00\r\n\t /\\") {
 			return errors.New("invalid trace target identity")
@@ -117,13 +129,15 @@ func validateTarget(t TargetIdentity) error {
 	if len(t.ContainerID) != 64 || strings.Trim(t.ContainerID, "0123456789abcdef") != "" {
 		return errors.New("trace target requires a full container identifier")
 	}
-	if t.ContainerStartedAt.IsZero() || t.CgroupID == 0 {
-		return errors.New("trace target requires a container lifetime and cgroup binding")
+	if t.ContainerStartedAt.IsZero() {
+		return errors.New("trace target requires a container lifetime")
 	}
 	return nil
 }
 
-func validateBounds(b Bounds) error {
+// Validate enforces the shared absolute trace ceilings. Admission may apply a
+// lower configured policy before constructing a specification.
+func (b Bounds) Validate() error {
 	if b.Duration <= 0 || b.Duration > 5*time.Minute {
 		return errors.New("trace duration exceeds policy")
 	}

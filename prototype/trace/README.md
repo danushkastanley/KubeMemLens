@@ -1,4 +1,4 @@
-# Optional trace preflight prototype
+# Optional trace admission prototype
 
 This separate module provides `memlens-trace doctor`. It runs bounded,
 non-attaching Linux feature probes for the accepted engine baseline. A supported
@@ -7,8 +7,11 @@ result does **not** approve incident tracing or custom programmes. See the
 [engine acceptance](../../docs/ebpf/ENGINE_CONTRACT.md).
 
 The standard agent, collector, doctor, chart and release artefacts do not include
-this command, its dependencies or its privileges. There is no trace service,
-listener, runtime socket, host PID namespace or incident programme in this image.
+these commands, their dependencies or their privileges. The optional image also
+provides `admission-api` and `binding-node` for short-lived, immutable target
+admission. They open separate authenticated listeners only when explicitly
+invoked. See [admission installation and verification](../../docs/ebpf/ADMISSION.md).
+There is no runtime socket, host PID namespace or incident programme.
 
 ## Local build and checks
 
@@ -32,9 +35,11 @@ The Kubernetes Job deliberately selects UID 0 to read protected kernel metadata.
 Local Docker qualification must likewise specify `--user 0:0`, together with the
 reviewed capabilities, seccomp policy and resource limits.
 
-The scratch image contains the project, Go, cilium/ebpf and x/sys licence texts.
-The latter two are MIT and BSD-3-Clause respectively. The licence inventory must
-be refreshed when imports change; upstream references remain evaluation inputs.
+The scratch image contains Go and the licence/notice files of every Go module
+imported by the optional binary. The build derives `/licences/inventory.json` from
+`go list -deps` and fails if a module has no licence file. Kubernetes adapters use
+the same pinned versions as the main module; upstream gadget references remain
+evaluation inputs.
 The embedded fixed probe instruction sequences are authored in this module;
 there is no upstream gadget bytecode embedded in the binary.
 
@@ -82,9 +87,9 @@ qualification evidence into a protected local directory if needed.
 The default deadline is ten seconds, with a maximum of fifteen. A fresh worker
 process performs serial probes. The parent kills and reaps an overdue worker.
 The Job adds a thirty-second active deadline, no retry, a 256 MiB memory limit
-and two-CPU ceiling. Node-wide scheduling quotas belong to the future admission
-service; administrators must not launch concurrent diagnostic campaigns on one
-node. The local Docker qualification also sets 64 PIDs, 64 descriptors and an
+and two-CPU ceiling. The separate admission service bounds its own node work; these standalone
+administrator Jobs do not participate in its quotas. Administrators must not
+launch concurrent diagnostic campaigns on one node. The local Docker qualification also sets 64 PIDs, 64 descriptors and an
 8 MiB memlock ceiling. Kubernetes inherits these node/runtime limits; it does
 not offer per-Pod fields for all of them.
 
