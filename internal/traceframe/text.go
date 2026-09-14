@@ -31,7 +31,10 @@ func DecodeText(value string, maxBytes uint64) (string, error) {
 				return "", ErrInvalid
 			}
 			code, err := strconv.ParseUint(value[i+3:i+3+end], 16, 32)
-			if err != nil || !utf8.ValidRune(rune(code)) {
+			if err != nil || code > utf8.MaxRune {
+				return "", ErrInvalid
+			}
+			if !utf8.ValidRune(rune(code)) {
 				return "", ErrInvalid
 			}
 			original.WriteRune(rune(code))
