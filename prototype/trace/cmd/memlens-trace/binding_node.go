@@ -18,7 +18,10 @@ import (
 	"golang.org/x/net/netutil"
 )
 
-func runBindingNode(ctx context.Context, args []string, errOut io.Writer) (runErr error) {
+func runBindingNode(ctx context.Context, args []string, errOut io.Writer) error {
+	return runBindingNodeRuntime(ctx, args, errOut, nil)
+}
+func runBindingNodeRuntime(ctx context.Context, args []string, errOut io.Writer, runtime nodebinding.Runtime) (runErr error) {
 	flags := flag.NewFlagSet("binding-node", flag.ContinueOnError)
 	flags.SetOutput(errOut)
 	address := flags.String("listen", ":9443", "private TLS listener")
@@ -64,7 +67,7 @@ func runBindingNode(ctx context.Context, args []string, errOut io.Writer) (runEr
 			return "", ctx.Err()
 		}
 		return tracepreflight.Baseline().Digest(), nil
-	}, func(reason string) { fmt.Fprintln(errOut, "binding_node", reason) })
+	}, func(reason string) { fmt.Fprintln(errOut, "binding_node", reason) }, runtime)
 	if err != nil {
 		return err
 	}

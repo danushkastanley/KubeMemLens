@@ -24,18 +24,27 @@ type stage uint8
 const (
 	pending stage = iota
 	admitted
+	active
+	closing
 )
 
 type entry struct {
-	id       string
-	owner    [32]byte
-	request  Request
-	nodeUID  string
-	expires  time.Time
-	stage    stage
-	workload Workload
-	binding  Binding
-	result   Admission
+	id              string
+	owner           [32]byte
+	request         Request
+	nodeUID         string
+	expires         time.Time
+	stage           stage
+	workload        Workload
+	binding         Binding
+	result          Admission
+	initializing    bool
+	cleanupDone     chan struct{}
+	cleanupRunning  bool
+	retryCleanup    time.Time
+	consumerDone    chan struct{}
+	consumerRunning bool
+	cancelActive    context.CancelCauseFunc
 }
 
 type Manager struct {
@@ -90,11 +99,7 @@ func (m *Manager) Admit(ctx context.Context, info user.Info, request Request) (r
 	if err != nil {
 		return result, err
 	}
-	defer func() {
-		if err != nil {
-			m.discard(reserved.id)
-		}
-	}()
+	defer func() { m.finishAdmission(reserved, err) }()
 	workload, err := m.deps.Resolver.Resolve(ctx, request)
 	if err != nil {
 		return result, safeDependencyError(err)
@@ -105,19 +110,17 @@ func (m *Manager) Admit(ctx context.Context, info user.Info, request Request) (r
 	if err = m.assignNode(reserved, workload.Target.NodeUID); err != nil {
 		return result, err
 	}
-	binding, err := m.deps.Binder.Bind(ctx, reserved.id, workload, reserved.expires)
+	binding, err := m.deps.Binder.Bind(ctx, reserved.id, workload, request, reserved.expires)
+	m.mu.Lock()
+	reserved.binding = binding
+	m.mu.Unlock()
 	if err != nil {
 		return result, safeDependencyError(err)
 	}
 	if binding == nil {
 		return result, ErrUnavailable
 	}
-	published := false
-	defer func() {
-		if !published {
-			m.closeBindings([]Binding{binding})
-		}
-	}()
+
 	target := binding.Target()
 	if !sameLifetime(target, workload.Target) || binding.ProfileDigest() != tracepreflight.Baseline().Digest() {
 		return result, ErrTargetChanged
@@ -138,14 +141,13 @@ func (m *Manager) Admit(ctx context.Context, info user.Info, request Request) (r
 	if ctx.Err() != nil {
 		return result, ErrUnavailable
 	}
-	result = Admission{id: reserved.id, specification: specification, engineDigest: tracepreflight.Baseline().EngineDigest, expiresAt: reserved.expires}
+	result = Admission{state: AdmittedState, id: reserved.id, specification: specification, engineDigest: tracepreflight.Baseline().EngineDigest, expiresAt: reserved.expires}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed || m.entries[reserved.id] != reserved || !time.Now().Before(reserved.expires) {
 		return Admission{}, ErrExpired
 	}
 	reserved.workload, reserved.binding, reserved.result, reserved.stage = workload, binding, result, admitted
-	published = true
 	return result, nil
 }
 
@@ -204,6 +206,9 @@ func newID() (string, error) {
 
 func (m *Manager) record(operation Operation, principalClass string, kind trace.Kind, err error) {
 	decision, reason := "accepted", "admitted"
+	if operation == Attach {
+		reason = "attached"
+	}
 	if operation == Read {
 		reason = "revalidated"
 	}

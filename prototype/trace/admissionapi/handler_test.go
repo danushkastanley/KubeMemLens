@@ -29,7 +29,7 @@ func (n noTarget) Revalidate(context.Context, admission.Workload) error {
 	n.t.Error("target work after denial")
 	return admission.ErrUnavailable
 }
-func (n noTarget) Bind(context.Context, string, admission.Workload, time.Time) (admission.Binding, error) {
+func (n noTarget) Bind(context.Context, string, admission.Workload, admission.Request, time.Time) (admission.Binding, error) {
 	n.t.Error("node work after denial")
 	return nil, admission.ErrUnavailable
 }

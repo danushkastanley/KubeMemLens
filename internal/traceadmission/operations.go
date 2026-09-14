@@ -35,19 +35,19 @@ func (m *Manager) Get(ctx context.Context, info user.Info, namespace, id string)
 	}
 	kind = e.request.kind
 	if err = m.deps.Authorizer.Pod(ctx, principal, e.request.namespace, e.request.pod); err != nil {
-		m.discard(id)
+		m.discardWithCause(id, safeDependencyError(err))
 		return result, safeDependencyError(err)
 	}
 	if err = m.deps.Resolver.Revalidate(ctx, e.workload); err != nil {
-		m.discard(id)
+		m.discardWithCause(id, safeDependencyError(err))
 		return result, safeDependencyError(err)
 	}
 	if err = e.binding.Revalidate(ctx); err != nil {
-		m.discard(id)
+		m.discardWithCause(id, safeDependencyError(err))
 		return result, safeDependencyError(err)
 	}
 	if err = m.access(ctx, principal, Read, e.request, id); err != nil {
-		m.discard(id)
+		m.discardWithCause(id, err)
 		return result, err
 	}
 	if ctx.Err() != nil {
@@ -55,10 +55,15 @@ func (m *Manager) Get(ctx context.Context, info user.Info, namespace, id string)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if m.entries[id] != e || !time.Now().Before(e.expires) {
+	if m.entries[id] != e || (e.stage != admitted && e.stage != active) || !time.Now().Before(e.expires) {
 		return result, ErrExpired
 	}
-	return e.result, nil
+	result = e.result
+	if e.stage == active {
+		result.state = ActiveState
+		result.expiresAt = e.expires
+	}
+	return result, nil
 }
 
 func (m *Manager) Cancel(ctx context.Context, info user.Info, namespace, id string) (err error) {
@@ -98,7 +103,7 @@ func (m *Manager) owned(owner [32]byte, namespace, id string) (*entry, error) {
 	defer m.mu.Unlock()
 	e := m.entries[id]
 	// Missing, other-owner and other-namespace admissions have the same result.
-	if e == nil || e.owner != owner || e.request.namespace != namespace || e.stage != admitted {
+	if e == nil || e.owner != owner || e.request.namespace != namespace || (e.stage != admitted && e.stage != active) {
 		return nil, ErrNotFound
 	}
 	if m.closed || !time.Now().Before(e.expires) {

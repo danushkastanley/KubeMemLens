@@ -14,12 +14,12 @@ from pathlib import Path
 
 
 class Session:
-    def __init__(self, kubeconfig):
+    def __init__(self, kubeconfig, context="kind-kml-r6-admission"):
         self.command = ["kubectl", "--kubeconfig", kubeconfig]
         config = json.loads(subprocess.check_output(
             self.command + ["config", "view", "--minify", "--raw", "-o", "json"]))
-        if config["current-context"] != "kind-kml-r6-admission":
-            raise ValueError("requires the owned kml-r6-admission fixture cluster")
+        if context not in ("kind-kml-r6-admission", "kind-kube-memlens-node-context-r6-stream") or config["current-context"] != context:
+            raise ValueError("requires the exact owned qualification fixture cluster")
         cluster = config["clusters"][0]["cluster"]
         self.endpoint = urllib.parse.urlsplit(cluster["server"])
         if self.endpoint.scheme != "https" or self.endpoint.hostname not in ("127.0.0.1", "localhost"):

@@ -65,21 +65,10 @@ type Specification struct {
 }
 
 func NewSpecification(kind Kind, target TargetIdentity, paths PathPolicy, bounds Bounds) (Specification, error) {
-	switch kind {
-	case Files, Cache, OOM:
-	default:
-		return Specification{}, errors.New("unsupported trace kind")
-	}
-	if paths != OmitPaths && paths != ConfirmedPaths {
-		return Specification{}, errors.New("invalid trace path policy")
-	}
-	if paths == ConfirmedPaths && kind != Files {
-		return Specification{}, errors.New("raw paths require a file trace")
-	}
-	if err := validateTarget(target); err != nil {
+	if err := ValidateIntent(kind, paths, bounds); err != nil {
 		return Specification{}, err
 	}
-	if err := bounds.Validate(); err != nil {
+	if err := validateTarget(target); err != nil {
 		return Specification{}, err
 	}
 	target.ContainerStartedAt = target.ContainerStartedAt.UTC()
@@ -151,4 +140,20 @@ func (b Bounds) Validate() error {
 		return errors.New("trace path limit exceeds policy")
 	}
 	return nil
+}
+
+// ValidateIntent validates immutable execution choices before cgroup resolution.
+func ValidateIntent(kind Kind, paths PathPolicy, bounds Bounds) error {
+	switch kind {
+	case Files, Cache, OOM:
+	default:
+		return errors.New("unsupported trace kind")
+	}
+	if paths != OmitPaths && paths != ConfirmedPaths {
+		return errors.New("invalid trace path policy")
+	}
+	if paths == ConfirmedPaths && kind != Files {
+		return errors.New("raw paths require a file trace")
+	}
+	return bounds.Validate()
 }

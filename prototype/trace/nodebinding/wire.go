@@ -19,26 +19,35 @@ const maxBody = 4096
 const maxLease = 15 * time.Second
 
 type bindRequest struct {
-	ID          string    `json:"id"`
-	Expires     time.Time `json:"expires"`
-	Namespace   string    `json:"namespace"`
-	Pod         string    `json:"pod"`
-	PodUID      string    `json:"podUID"`
-	Container   string    `json:"container"`
-	ContainerID string    `json:"containerID"`
-	Started     time.Time `json:"started"`
-	NodeUID     string    `json:"nodeUID"`
-	NodeName    string    `json:"nodeName"`
-	QoS         string    `json:"qos"`
+	controller    string
+	ID            string           `json:"id"`
+	Expires       time.Time        `json:"expires"`
+	Namespace     string           `json:"namespace"`
+	Pod           string           `json:"pod"`
+	PodUID        string           `json:"podUID"`
+	Container     string           `json:"container"`
+	ContainerID   string           `json:"containerID"`
+	Started       time.Time        `json:"started"`
+	NodeUID       string           `json:"nodeUID"`
+	NodeName      string           `json:"nodeName"`
+	QoS           string           `json:"qos"`
+	Kind          trace.Kind       `json:"kind"`
+	Paths         trace.PathPolicy `json:"paths"`
+	DurationNanos int64            `json:"durationNanos"`
+	Events        uint64           `json:"events"`
+	OutputBytes   uint64           `json:"outputBytes"`
+	MapBytes      uint64           `json:"mapBytes"`
+	PathBytes     uint64           `json:"pathBytes"`
 }
 
 func (bindRequest) Format(w fmt.State, _ rune) { _, _ = io.WriteString(w, "[private node request]") }
 func (r bindRequest) workload() admission.Workload {
 	return admission.Workload{Target: trace.TargetIdentity{Namespace: r.Namespace, PodName: r.Pod, PodUID: r.PodUID, ContainerName: r.Container, ContainerID: r.ContainerID, ContainerStartedAt: r.Started, NodeUID: r.NodeUID}, NodeName: r.NodeName, QoS: r.QoS}
 }
-func requestFor(id string, w admission.Workload, expires time.Time) bindRequest {
+func requestFor(id string, w admission.Workload, intent admission.Request, expires time.Time) bindRequest {
 	t := w.Target
-	return bindRequest{id, expires, t.Namespace, t.PodName, t.PodUID, t.ContainerName, t.ContainerID, t.ContainerStartedAt, t.NodeUID, w.NodeName, w.QoS}
+	b := intent.Bounds()
+	return bindRequest{"", id, expires, t.Namespace, t.PodName, t.PodUID, t.ContainerName, t.ContainerID, t.ContainerStartedAt, t.NodeUID, w.NodeName, w.QoS, intent.Kind(), intent.Paths(), int64(b.Duration), b.Events, b.OutputBytes, b.MapBytes, b.PathBytes}
 }
 
 type bindResponse struct {
@@ -85,4 +94,8 @@ func decode(r io.Reader, out any, fields string) error {
 		return admission.ErrUnavailable
 	}
 	return nil
+}
+
+func (r bindRequest) bounds() trace.Bounds {
+	return trace.Bounds{Duration: time.Duration(r.DurationNanos), Events: r.Events, OutputBytes: r.OutputBytes, MapBytes: r.MapBytes, PathBytes: r.PathBytes}
 }

@@ -11,7 +11,9 @@ import (
 	"crypto/x509/pkix"
 	"math/big"
 	"net"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -97,6 +99,15 @@ type fixture struct {
 }
 
 func setup(t *testing.T) *fixture {
+	return setupHandler(t, func(h http.Handler) http.Handler { return h })
+}
+func setupHandler(t *testing.T, wrap func(http.Handler) http.Handler) *fixture {
+	return setupConfigured(t, wrap, nil)
+}
+func setupRuntime(t *testing.T, runtime Runtime) *fixture {
+	return setupConfigured(t, func(h http.Handler) http.Handler { return h }, runtime)
+}
+func setupConfigured(t *testing.T, wrap func(http.Handler) http.Handler, runtime Runtime) *fixture {
 	t.Helper()
 	c := newCertificates(t)
 	control, controlPeer := c.issue(t)
@@ -109,7 +120,7 @@ func setup(t *testing.T) *fixture {
 		handles <- h
 		return h, nil
 	}
-	s, err := NewService(context.Background(), "node-uid", "node", controlPeer, resolve, func(context.Context) (string, error) { return tracepreflight.Baseline().Digest(), nil }, func(string) {})
+	s, err := NewService(context.Background(), "node-uid", "node", controlPeer, resolve, func(context.Context) (string, error) { return tracepreflight.Baseline().Digest(), nil }, func(string) {}, runtime)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +128,13 @@ func setup(t *testing.T) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewUnstartedServer(s)
+	server := httptest.NewUnstartedServer(wrap(s))
+	limits, err := NewHTTPServer("", config, s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	limits.Handler = wrap(s)
+	server.Config = limits
 	server.TLS = config
 	server.StartTLS()
 	client, err := NewClient(control, []Endpoint{{"node-uid", "node", server.URL, nodePeer}})
@@ -134,4 +151,12 @@ func setup(t *testing.T) *fixture {
 		}
 	})
 	return &fixture{s, client, server, handles, c, control, nodePeer}
+}
+
+func testIntent() admission.Request {
+	request, err := admission.DecodeRequest("tenant-a", strings.NewReader(`{"schemaVersion":1,"pod":"target","container":"worker","kind":"files"}`))
+	if err != nil {
+		panic(err)
+	}
+	return request
 }

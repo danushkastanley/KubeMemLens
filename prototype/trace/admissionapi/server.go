@@ -3,6 +3,9 @@ package admissionapi
 import (
 	"context"
 	"errors"
+	"golang.org/x/net/netutil"
+	apirequest "k8s.io/apiserver/pkg/endpoints/request"
+	"net/http"
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/kubeauth"
@@ -25,6 +28,7 @@ type ServerOptions struct {
 	CertificateFile, KeyFile string
 	Client                   kubernetes.Interface
 	Manager                  *admission.Manager
+	Stream                   *StreamProxy
 }
 
 func (o ServerOptions) Run(ctx context.Context) error {
@@ -41,6 +45,9 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	config.MaxRequestsInFlight = 8
 	config.MaxMutatingRequestsInFlight = 4
 	config.RequestTimeout = 10 * time.Second
+	config.LongRunningFunc = func(r *http.Request, info *apirequest.RequestInfo) bool {
+		return info != nil && r.Method == http.MethodGet && info.APIGroup == admission.APIGroup && info.APIVersion == admission.APIVersion && info.Resource == "traces" && info.Subresource == "stream" && info.Name != "" && info.Namespace != ""
+	}
 	config.ShutdownDelayDuration = time.Second
 	config.FeatureGate = utilfeature.DefaultFeatureGate
 	config.EffectiveVersion = basecompatibility.NewEffectiveVersionFromString("1.37", "", "")
@@ -53,6 +60,8 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	if err := secure.ApplyTo(&config.SecureServing, &config.LoopbackClientConfig); err != nil {
 		return errors.New("configure trace API TLS failed")
 	}
+	config.SecureServing.Listener = netutil.LimitListener(config.SecureServing.Listener, 64)
+	defer config.SecureServing.Listener.Close()
 	headers, err := kubeauth.ConfigureRequestHeader(ctx, o.Client, config)
 	if err != nil {
 		return errors.New("configure trace API authentication failed")
@@ -70,6 +79,7 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	server.AggregatedDiscoveryGroupManager.AddGroupVersion(admission.APIGroup, apidiscoveryv2.APIVersionDiscovery{Version: admission.APIVersion, Resources: discovery, Freshness: apidiscoveryv2.DiscoveryFreshnessCurrent})
 	server.AggregatedDiscoveryGroupManager.SetGroupVersionPriority(metav1.GroupVersion{Group: admission.APIGroup, Version: admission.APIVersion}, 1000, 15)
 	handler := NewHandler(o.Manager)
+	handler.stream = o.Stream
 	server.Handler.NonGoRestfulMux.Handle(prefix, handler)
 	server.Handler.NonGoRestfulMux.HandlePrefix(prefix+"/", handler)
 	return server.PrepareRun().RunWithContext(ctx)

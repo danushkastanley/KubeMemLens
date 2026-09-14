@@ -18,12 +18,14 @@ const groupVersion = admission.APIGroup + "/" + admission.APIVersion
 const prefix = "/apis/" + groupVersion
 
 type Handler struct {
-	manager *admission.Manager
-	rate    *rate.Limiter
+	manager     *admission.Manager
+	rate        *rate.Limiter
+	stream      *StreamProxy
+	streamSlots chan struct{}
 }
 
 func NewHandler(manager *admission.Manager) *Handler {
-	return &Handler{manager: manager, rate: rate.NewLimiter(20, 20)}
+	return &Handler{manager: manager, rate: rate.NewLimiter(20, 20), streamSlots: make(chan struct{}, 32)}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -50,11 +52,23 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, prefix+"/namespaces/"), "/")
-	if !strings.HasPrefix(r.URL.Path, prefix+"/namespaces/") || len(parts) < 2 || len(parts) > 3 || parts[1] != "traces" {
+	if !strings.HasPrefix(r.URL.Path, prefix+"/namespaces/") || len(parts) < 2 || len(parts) > 4 || parts[1] != "traces" {
 		writeError(w, admission.ErrNotFound)
 		return
 	}
 	namespace := parts[0]
+	if len(parts) == 4 {
+		if parts[3] != "stream" {
+			writeError(w, admission.ErrNotFound)
+			return
+		}
+		if len(parts[2]) != 32 || strings.Trim(parts[2], "0123456789abcdef") != "" {
+			writeError(w, admission.ErrInvalidRequest)
+			return
+		}
+		h.serveStream(w, r, principal, namespace, parts[2])
+		return
+	}
 	if len(parts) == 2 && r.Method == http.MethodPost {
 		if r.Header.Get("Content-Type") != "application/json" {
 			writeError(w, admission.ErrInvalidRequest)
@@ -110,10 +124,10 @@ type responseMetadata struct {
 }
 
 func writeAdmission(w http.ResponseWriter, code int, namespace string, a admission.Admission) {
-	writeJSON(w, code, response{groupVersion, "TraceAdmission", responseMetadata{a.ID(), namespace}, "admitted", a.ExpiresAt(), a.EngineDigest()})
+	writeJSON(w, code, response{groupVersion, "TraceAdmission", responseMetadata{a.ID(), namespace}, string(a.State()), a.ExpiresAt(), a.EngineDigest()})
 }
 func resources() []metav1.APIResource {
-	return []metav1.APIResource{{Name: "traces", SingularName: "trace", Namespaced: true, Kind: "TraceAdmission", Verbs: metav1.Verbs{"create", "get", "delete"}, Group: admission.APIGroup, Version: admission.APIVersion}}
+	return []metav1.APIResource{{Name: "traces", SingularName: "trace", Namespaced: true, Kind: "TraceAdmission", Verbs: metav1.Verbs{"create", "get", "delete"}, Group: admission.APIGroup, Version: admission.APIVersion}, {Name: "traces/stream", Namespaced: true, Kind: "TraceStream", Verbs: metav1.Verbs{"get"}, Group: admission.APIGroup, Version: admission.APIVersion}}
 }
 func writeJSON(w http.ResponseWriter, code int, value any) {
 	w.Header().Set("Content-Type", "application/json")

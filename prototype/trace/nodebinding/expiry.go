@@ -2,19 +2,20 @@ package nodebinding
 
 import (
 	"context"
+	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
 	"time"
 )
 
 // prune is called with mu held. Expiry never depends on a controller request.
 func (s *Service) prune(now time.Time) {
+
 	for id, l := range s.leases {
 		if !now.Before(l.expires) {
-			delete(s.leases, id)
-			s.closeHandle(l.handle)
+			_ = s.stopLease(id, l, admission.ErrExpired)
 		}
 	}
 	for id, expires := range s.seen {
-		if !now.Before(expires) {
+		if _, busy := s.leases[id]; !busy && !now.Before(expires) {
 			delete(s.seen, id)
 		}
 	}
@@ -32,12 +33,19 @@ func (s *Service) expire(ctx context.Context) {
 		case <-ctx.Done():
 			s.mu.Lock()
 			s.closed = true
+
+			var active []*execution
 			for id, l := range s.leases {
-				delete(s.leases, id)
-				s.closeHandle(l.handle)
+				_ = s.stopLease(id, l, context.Canceled)
+				if l.execution != nil {
+					active = append(active, l.execution)
+				}
 			}
 			clear(s.seen)
 			s.mu.Unlock()
+			for _, execution := range active {
+				<-execution.done
+			}
 			return
 		}
 	}
