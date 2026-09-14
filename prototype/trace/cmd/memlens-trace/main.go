@@ -25,6 +25,12 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, out, errOut io.Writer) error {
+	if len(args) > 0 && args[0] == "admission-api" {
+		return runAdmissionAPI(ctx, args[1:], errOut)
+	}
+	if len(args) > 0 && args[0] == "binding-node" {
+		return runBindingNode(ctx, args[1:], errOut)
+	}
 	if len(args) == 0 || args[0] != "doctor" && args[0] != "_probe" {
 		return errors.New("usage: memlens-trace doctor [--json] [--bundle DIRECTORY] [--timeout 10s]")
 	}

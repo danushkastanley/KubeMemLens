@@ -4,33 +4,27 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
 	"github.com/danushkastanley/kube-memlens/internal/kube"
+	"github.com/danushkastanley/kube-memlens/internal/kubeauth"
 	apidiscoveryv2 "k8s.io/api/apidiscovery/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	apiserverconfig "k8s.io/apiserver/pkg/apis/apiserver"
 	"k8s.io/apiserver/pkg/audit"
-	"k8s.io/apiserver/pkg/authentication/authenticatorfactory"
-	"k8s.io/apiserver/pkg/authentication/request/headerrequest"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 	apiendpoints "k8s.io/apiserver/pkg/endpoints"
 	genericapiserver "k8s.io/apiserver/pkg/server"
-	"k8s.io/apiserver/pkg/server/dynamiccertificates"
-	"k8s.io/apiserver/pkg/server/healthz"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/kubernetes"
-	certutil "k8s.io/client-go/util/cert"
 	basecompatibility "k8s.io/component-base/compatibility"
 )
 
@@ -107,7 +101,7 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	defer stopProbe()
 	go delegatedReadiness.Run(probeCtx)
 	go nodeCoverage.Run(probeCtx)
-	config.AddReadyzChecks(requestHeaderReady(requestHeaders), delegatedReadiness, nodeCoverage)
+	config.AddReadyzChecks(kubeauth.RequestHeaderReady(requestHeaders), delegatedReadiness, nodeCoverage)
 
 	authorization := genericoptions.NewDelegatingAuthorizationOptions()
 	authorization.RemoteKubeConfigFile = o.KubeconfigFile
@@ -267,89 +261,6 @@ func configureRequestHeaderAuthentication(ctx context.Context, kubeconfigFile st
 	if err != nil {
 		return nil, nil, fmt.Errorf("create Kubernetes authentication client: %w", err)
 	}
-	controller, err := configureRequestHeaderAuthenticationWithClient(ctx, client, config)
+	controller, err := kubeauth.ConfigureRequestHeader(ctx, client, config)
 	return controller, client, err
-}
-
-func configureRequestHeaderAuthenticationWithClient(ctx context.Context, client kubernetes.Interface, config *genericapiserver.Config) (*genericoptions.DynamicRequestHeaderController, error) {
-	if err := validateRequestHeaderConfigMap(ctx, client); err != nil {
-		return nil, err
-	}
-	ca, err := dynamiccertificates.NewDynamicCAFromConfigMapController(
-		"kube-memlens-request-header", metav1.NamespaceSystem, "extension-apiserver-authentication", "requestheader-client-ca-file", client)
-	if err != nil {
-		return nil, err
-	}
-	headers := headerrequest.NewRequestHeaderAuthRequestController(
-		"extension-apiserver-authentication", metav1.NamespaceSystem, client,
-		"requestheader-username-headers", "requestheader-uid-headers", "requestheader-group-headers",
-		"requestheader-extra-headers-prefix", "requestheader-allowed-names")
-	controller := &genericoptions.DynamicRequestHeaderController{
-		ConfigMapCAController: ca, RequestHeaderAuthRequestController: headers,
-	}
-	if err := controller.RunOnce(ctx); err != nil {
-		return nil, fmt.Errorf("load request-header authentication configuration: %w", err)
-	}
-	requestHeaderConfig := &authenticatorfactory.RequestHeaderConfig{
-		CAContentProvider:   controller,
-		UsernameHeaders:     headerrequest.StringSliceProviderFunc(controller.UsernameHeaders),
-		UIDHeaders:          headerrequest.StringSliceProviderFunc(controller.UIDHeaders),
-		GroupHeaders:        headerrequest.StringSliceProviderFunc(controller.GroupHeaders),
-		ExtraHeaderPrefixes: headerrequest.StringSliceProviderFunc(controller.ExtraHeaderPrefixes),
-		AllowedClientNames:  headerrequest.StringSliceProviderFunc(requiredAllowedNames(controller.AllowedClientNames)),
-	}
-	authenticator, _, err := (authenticatorfactory.DelegatingAuthenticatorConfig{
-		Anonymous: &apiserverconfig.AnonymousAuthConfig{Enabled: true, Conditions: []apiserverconfig.AnonymousAuthCondition{
-			{Path: "/healthz"}, {Path: "/livez"}, {Path: "/readyz"},
-		}},
-		RequestHeaderConfig: requestHeaderConfig,
-	}).New()
-	if err != nil {
-		return nil, err
-	}
-	config.Authentication.Authenticator = authenticator
-	config.Authentication.RequestHeaderConfig = requestHeaderConfig
-	if err := config.Authentication.ApplyClientCert(controller, config.SecureServing); err != nil {
-		return nil, err
-	}
-	return controller, nil
-}
-
-func validateRequestHeaderConfigMap(ctx context.Context, client kubernetes.Interface) error {
-	configMap, err := client.CoreV1().ConfigMaps(metav1.NamespaceSystem).Get(ctx, "extension-apiserver-authentication", metav1.GetOptions{})
-	if err != nil {
-		return fmt.Errorf("read extension authentication ConfigMap: %w", err)
-	}
-	if certs, err := certutil.ParseCertsPEM([]byte(configMap.Data["requestheader-client-ca-file"])); err != nil || len(certs) == 0 {
-		return fmt.Errorf("request-header client CA is missing or invalid")
-	}
-	for _, key := range []string{
-		"requestheader-username-headers", "requestheader-group-headers",
-		"requestheader-extra-headers-prefix", "requestheader-allowed-names",
-	} {
-		if strings.TrimSpace(configMap.Data[key]) == "" {
-			return fmt.Errorf("request-header configuration %s is missing", key)
-		}
-	}
-	return nil
-}
-
-func requiredAllowedNames(source func() []string) func() []string {
-	return func() []string {
-		names := source()
-		if len(names) == 0 {
-			return []string{"\x00invalid-empty-proxy-cn"}
-		}
-		return names
-	}
-}
-
-func requestHeaderReady(controller *genericoptions.DynamicRequestHeaderController) healthz.HealthChecker {
-	return healthz.NamedCheck("request-header-config", func(_ *http.Request) error {
-		if len(controller.CurrentCABundleContent()) == 0 || len(controller.UsernameHeaders()) == 0 ||
-			len(controller.GroupHeaders()) == 0 || len(controller.ExtraHeaderPrefixes()) == 0 || len(controller.AllowedClientNames()) == 0 {
-			return fmt.Errorf("request-header authentication configuration is unavailable")
-		}
-		return nil
-	})
 }
