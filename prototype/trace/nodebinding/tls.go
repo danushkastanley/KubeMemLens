@@ -49,3 +49,9 @@ func newHTTPClient(endpoint string, identity tls.Certificate, node Peer) (*http.
 	transport := &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: node.Roots.Clone(), Certificates: []tls.Certificate{identity}, VerifyConnection: node.verify}, TLSHandshakeTimeout: 2 * time.Second, ResponseHeaderTimeout: 3 * time.Second, MaxResponseHeaderBytes: 4096, MaxConnsPerHost: 2, MaxIdleConnsPerHost: 2, IdleConnTimeout: 5 * time.Second, DisableCompression: true, ForceAttemptHTTP2: false}
 	return &http.Client{Transport: transport, Timeout: 4 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, nil
 }
+
+func newStreamClient(control *http.Client) *http.Client {
+	transport := control.Transport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = 4 * time.Second
+	return &http.Client{Transport: transport, CheckRedirect: control.CheckRedirect}
+}

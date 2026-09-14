@@ -106,7 +106,11 @@ Duplicate, null, unknown and case-aliased fields are rejected within a 4096-byte
 body limit. The response contains an opaque admission name, namespace, expiry,
 engine digest and `admitted` state; it exposes no runtime identifiers.
 
-GET the individual admission to revalidate, or DELETE it to cancel. API errors
+GET the individual admission to revalidate, or DELETE it to cancel. The optional
+single-consumer `GET traces/ID/stream` route additionally requires exact
+`get traces/stream` permission and reports the `active` state and deadline after
+claim. Production has no approved incident runtime; see the
+[stream contract](STREAM.md) for the test-only qualification path. API errors
 use bounded Kubernetes Status responses. A lost create response must not be
 replayed: the node rejects reused request IDs and independently expires handles.
 Controller restart loses admissions. In-flight reservations count against quota:

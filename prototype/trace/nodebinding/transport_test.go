@@ -19,7 +19,7 @@ func TestMutualTLSLifecycleAndReplay(t *testing.T) {
 	w := workload()
 	expires := time.Now().Add(5 * time.Second)
 	id := strings.Repeat("a", 32)
-	b, err := f.client.Bind(ctx, id, w, expires)
+	b, err := f.client.Bind(ctx, id, w, testIntent(), expires)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestMutualTLSLifecycleAndReplay(t *testing.T) {
 	if err := b.Revalidate(ctx); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.client.Bind(ctx, id, w, expires); !errors.Is(err, admission.ErrExpired) {
+	if _, err := f.client.Bind(ctx, id, w, testIntent(), expires); !errors.Is(err, admission.ErrExpired) {
 		t.Fatalf("replay: %v", err)
 	}
 	if err := b.Close(ctx); err != nil {
@@ -47,7 +47,7 @@ func TestMutualTLSLifecycleAndReplay(t *testing.T) {
 	if err := b.Revalidate(ctx); !errors.Is(err, admission.ErrExpired) {
 		t.Fatalf("closed binding: %v", err)
 	}
-	if _, err := f.client.Bind(ctx, id, w, expires); !errors.Is(err, admission.ErrExpired) {
+	if _, err := f.client.Bind(ctx, id, w, testIntent(), expires); !errors.Is(err, admission.ErrExpired) {
 		t.Fatalf("cancelled nonce reused: %v", err)
 	}
 }
@@ -71,7 +71,7 @@ func TestUntrustedControlAndNodeCertificates(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer c.Close()
-			if _, err := c.Bind(context.Background(), strings.Repeat("b", 32), workload(), time.Now().Add(time.Second)); !errors.Is(err, admission.ErrUnavailable) {
+			if _, err := c.Bind(context.Background(), strings.Repeat("b", 32), workload(), testIntent(), time.Now().Add(time.Second)); !errors.Is(err, admission.ErrUnavailable) {
 				t.Fatalf("forged peer accepted: %v", err)
 			}
 		})
@@ -84,7 +84,7 @@ func TestUntrustedControlAndNodeCertificates(t *testing.T) {
 func TestServerRejectsNodeSubstitutionAndWireAliases(t *testing.T) {
 	f := setup(t)
 	n := f.client.nodes["node-uid"]
-	original := requestFor(strings.Repeat("c", 32), workload(), time.Now().Add(time.Second))
+	original := requestFor(strings.Repeat("c", 32), workload(), testIntent(), time.Now().Add(time.Second))
 	data, err := json.Marshal(original)
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestServerRejectsNodeSubstitutionAndWireAliases(t *testing.T) {
 		append([]byte(`{"gadget":"arbitrary",`), data[1:]...),
 	}
 	for _, data := range cases {
-		response, err := n.call(context.Background(), http.MethodPost, "/v1/bindings", data)
+		response, err := n.call(context.Background(), http.MethodPost, "/v1/bindings", data, f.service.instance)
 		if response != nil {
 			response.Body.Close()
 		}
@@ -112,11 +112,11 @@ func TestServerRejectsNodeSubstitutionAndWireAliases(t *testing.T) {
 func TestNodeQuotasPrecedeTargetWork(t *testing.T) {
 	f := setup(t)
 	for _, id := range []string{"a", "b"} {
-		if _, err := f.client.Bind(context.Background(), strings.Repeat(id, 32), workload(), time.Now().Add(time.Second)); err != nil {
+		if _, err := f.client.Bind(context.Background(), strings.Repeat(id, 32), workload(), testIntent(), time.Now().Add(time.Second)); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := f.client.Bind(context.Background(), strings.Repeat("c", 32), workload(), time.Now().Add(time.Second)); !errors.Is(err, admission.ErrCapacity) {
+	if _, err := f.client.Bind(context.Background(), strings.Repeat("c", 32), workload(), testIntent(), time.Now().Add(time.Second)); !errors.Is(err, admission.ErrCapacity) {
 		t.Fatalf("quota: %v", err)
 	}
 	if len(f.handles) != 2 {

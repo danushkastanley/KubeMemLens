@@ -3,6 +3,7 @@ package admissionapi
 import (
 	"context"
 	"errors"
+	"time"
 
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
 	authorizationv1 "k8s.io/api/authorization/v1"
@@ -28,6 +29,8 @@ func (a delegatedAuthorizer) Authorize(ctx context.Context, attrs authorizer.Att
 			return authorizer.DecisionAllow, "health", nil
 		}
 	}
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 	p := attrs.GetUser()
 	if p == nil || a.reviews == nil {
 		return authorizer.DecisionDeny, "unavailable", errors.New("authorisation unavailable")
@@ -38,10 +41,10 @@ func (a delegatedAuthorizer) Authorize(ctx context.Context, attrs authorizer.Att
 	}
 	if attrs.IsResourceRequest() {
 		// No optional route can accidentally expand this resource vocabulary.
-		if attrs.GetAPIGroup() != admission.APIGroup || attrs.GetAPIVersion() != admission.APIVersion || attrs.GetResource() != "traces" || attrs.GetSubresource() != "" || attrs.GetNamespace() == "" {
+		if attrs.GetAPIGroup() != admission.APIGroup || attrs.GetAPIVersion() != admission.APIVersion || attrs.GetResource() != "traces" || (attrs.GetSubresource() != "" && (attrs.GetSubresource() != "stream" || attrs.GetVerb() != "get" || attrs.GetName() == "")) || attrs.GetNamespace() == "" {
 			return authorizer.DecisionDeny, "denied", nil
 		}
-		spec.ResourceAttributes = &authorizationv1.ResourceAttributes{Group: attrs.GetAPIGroup(), Version: attrs.GetAPIVersion(), Resource: attrs.GetResource(), Namespace: attrs.GetNamespace(), Name: attrs.GetName(), Verb: attrs.GetVerb()}
+		spec.ResourceAttributes = &authorizationv1.ResourceAttributes{Group: attrs.GetAPIGroup(), Version: attrs.GetAPIVersion(), Resource: attrs.GetResource(), Namespace: attrs.GetNamespace(), Name: attrs.GetName(), Verb: attrs.GetVerb(), Subresource: attrs.GetSubresource()}
 	} else {
 		spec.NonResourceAttributes = &authorizationv1.NonResourceAttributes{Path: attrs.GetPath(), Verb: attrs.GetVerb()}
 	}

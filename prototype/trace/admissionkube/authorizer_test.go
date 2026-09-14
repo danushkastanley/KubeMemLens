@@ -96,3 +96,24 @@ func TestRevocationIsNotCachedAndIndeterminatePolicyFailsClosed(t *testing.T) {
 		})
 	}
 }
+
+func TestStreamAttachmentUsesExactGetSubresourceReview(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	calls := 0
+	client.PrependReactor("create", "subjectaccessreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
+		calls++
+		review := action.(ktesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		expected := &authorizationv1.ResourceAttributes{Namespace: "tenant-a", Verb: "get", Group: admission.APIGroup, Version: admission.APIVersion, Resource: "traces", Subresource: "stream", Name: "exact-admission"}
+		if !reflect.DeepEqual(review.Spec.ResourceAttributes, expected) {
+			t.Fatal("stream authorisation widened resource scope")
+		}
+		return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: true}}, nil
+	})
+	a := NewAuthorizer(client.AuthorizationV1().SubjectAccessReviews())
+	if err := a.Trace(context.Background(), &user.DefaultInfo{Name: "owner", Groups: []string{user.AllAuthenticated}}, admission.Attach, "tenant-a", "exact-admission"); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Fatal("stream policy was not evaluated")
+	}
+}

@@ -64,6 +64,7 @@ func testWorkload(r Request) Workload {
 }
 
 type testBinding struct {
+	closeMu  sync.Mutex
 	target   trace.TargetIdentity
 	profile  string
 	closed   atomic.Bool
@@ -84,6 +85,8 @@ func (b *testBinding) Revalidate(ctx context.Context) error {
 	return nil
 }
 func (b *testBinding) Close(context.Context) error {
+	b.closeMu.Lock()
+	defer b.closeMu.Unlock()
 	if b.closeErr != nil {
 		return b.closeErr
 	}
@@ -95,13 +98,13 @@ type testBinder struct {
 	calls    atomic.Int64
 	mu       sync.Mutex
 	bindings []*testBinding
-	bind     func(context.Context, string, Workload, time.Time) (Binding, error)
+	bind     func(context.Context, string, Workload, Request, time.Time) (Binding, error)
 }
 
-func (b *testBinder) Bind(ctx context.Context, id string, w Workload, expires time.Time) (Binding, error) {
+func (b *testBinder) Bind(ctx context.Context, id string, w Workload, intent Request, expires time.Time) (Binding, error) {
 	b.calls.Add(1)
 	if b.bind != nil {
-		return b.bind(ctx, id, w, expires)
+		return b.bind(ctx, id, w, intent, expires)
 	}
 	return b.makeBinding(w), nil
 }

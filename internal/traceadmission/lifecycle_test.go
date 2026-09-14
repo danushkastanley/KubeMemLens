@@ -67,7 +67,7 @@ func TestShutdownCancelsPendingResolutionBeforeReturning(t *testing.T) {
 func TestCancelledRequestClosesALateBinding(t *testing.T) {
 	h := newHarness(t, DefaultPolicy())
 	entered := make(chan struct{})
-	h.binder.bind = func(ctx context.Context, _ string, w Workload, _ time.Time) (Binding, error) {
+	h.binder.bind = func(ctx context.Context, _ string, w Workload, _ Request, _ time.Time) (Binding, error) {
 		b := h.binder.makeBinding(w)
 		close(entered)
 		<-ctx.Done()
@@ -100,7 +100,7 @@ func TestCancelledRequestClosesALateBinding(t *testing.T) {
 
 func TestCleanupFailureIsReportedWithoutBackendDetails(t *testing.T) {
 	h := newHarness(t, DefaultPolicy())
-	h.binder.bind = func(_ context.Context, _ string, w Workload, _ time.Time) (Binding, error) {
+	h.binder.bind = func(_ context.Context, _ string, w Workload, _ Request, _ time.Time) (Binding, error) {
 		b := h.binder.makeBinding(w)
 		b.closeErr = errors.New("private backend detail")
 		return b, nil
@@ -117,13 +117,24 @@ func TestCleanupFailureIsReportedWithoutBackendDetails(t *testing.T) {
 	if text := h.auditText(); !strings.Contains(text, "cleanup_unconfirmed") || strings.Contains(text, "private backend detail") {
 		t.Fatal("cleanup error was hidden or disclosed backend details")
 	}
+	if _, err := h.manager.Admit(context.Background(), p, requestFor(t, "tenant-a")); !errors.Is(err, ErrCapacity) {
+		t.Fatal("uncertain cleanup released quota")
+	}
+	b := h.binder.first()
+	b.closeMu.Lock()
+	b.closeErr = nil
+	b.closeMu.Unlock()
+	if err := h.manager.discard(a.ID()); err != nil {
+		t.Fatal("recovered cleanup did not complete")
+	}
+
 }
 
 func TestBindingSubstitutionAndVersionSkewAreRejected(t *testing.T) {
 	for _, scenario := range []string{"pod", "container", "node", "cgroup", "profile"} {
 		t.Run(scenario, func(t *testing.T) {
 			h := newHarness(t, DefaultPolicy())
-			h.binder.bind = func(_ context.Context, _ string, w Workload, _ time.Time) (Binding, error) {
+			h.binder.bind = func(_ context.Context, _ string, w Workload, _ Request, _ time.Time) (Binding, error) {
 				b := h.binder.makeBinding(w)
 				switch scenario {
 				case "pod":

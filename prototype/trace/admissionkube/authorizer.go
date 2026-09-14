@@ -21,12 +21,16 @@ func NewAuthorizer(reviews authclient.SubjectAccessReviewInterface) *Authorizer 
 }
 
 func (a *Authorizer) Trace(ctx context.Context, p user.Info, operation admission.Operation, namespace, name string) error {
+	resource := &authorizationv1.ResourceAttributes{Namespace: namespace, Verb: string(operation), Group: admission.APIGroup, Version: admission.APIVersion, Resource: "traces", Name: name}
 	switch operation {
 	case admission.Create, admission.Read, admission.Cancel:
+	case admission.Attach:
+		resource.Verb = "get"
+		resource.Subresource = "stream"
 	default:
 		return admission.ErrInvalidRequest
 	}
-	return a.authorize(ctx, p, &authorizationv1.ResourceAttributes{Namespace: namespace, Verb: string(operation), Group: admission.APIGroup, Version: admission.APIVersion, Resource: "traces", Name: name})
+	return a.authorize(ctx, p, resource)
 }
 func (a *Authorizer) Pod(ctx context.Context, p user.Info, namespace, name string) error {
 	return a.authorize(ctx, p, &authorizationv1.ResourceAttributes{Namespace: namespace, Verb: "get", Version: "v1", Resource: "pods", Name: name})

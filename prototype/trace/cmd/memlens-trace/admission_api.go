@@ -15,7 +15,10 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func runAdmissionAPI(ctx context.Context, args []string, errOut io.Writer) (runErr error) {
+func runAdmissionAPI(ctx context.Context, args []string, errOut io.Writer) error {
+	return runAdmissionAPIConfigured(ctx, args, errOut, nil, admission.DefaultPolicy())
+}
+func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Writer, proxy *admissionapi.StreamProxy, policy admission.Policy) (runErr error) {
 	flags := flag.NewFlagSet("admission-api", flag.ContinueOnError)
 	flags.SetOutput(errOut)
 	port := flags.Int("port", 8443, "aggregation TLS port")
@@ -53,7 +56,7 @@ func runAdmissionAPI(ctx context.Context, args []string, errOut io.Writer) (runE
 	defer binder.Close()
 	manager, err := admission.NewManager(ctx, admission.Dependencies{Authorizer: admissionkube.NewAuthorizer(client.AuthorizationV1().SubjectAccessReviews()), Resolver: admissionkube.NewResolver(client.CoreV1()), Binder: binder, Audit: func(event admission.AuditEvent) {
 		fmt.Fprintf(errOut, "trace_admission operation=%s decision=%s reason=%s principal=%s\n", event.Operation, event.Decision, event.Reason, event.Principal)
-	}}, admission.DefaultPolicy())
+	}}, policy)
 	if err != nil {
 		return err
 	}
@@ -65,5 +68,5 @@ func runAdmissionAPI(ctx context.Context, args []string, errOut io.Writer) (runE
 			runErr = errors.New("trace admission cleanup unconfirmed")
 		}
 	}()
-	return (admissionapi.ServerOptions{Port: *port, CertificateFile: *cert, KeyFile: *key, Client: client, Manager: manager}).Run(ctx)
+	return (admissionapi.ServerOptions{Port: *port, CertificateFile: *cert, KeyFile: *key, Client: client, Manager: manager, Stream: proxy}).Run(ctx)
 }

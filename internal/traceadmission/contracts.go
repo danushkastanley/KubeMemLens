@@ -19,6 +19,7 @@ const (
 	Create Operation = "create"
 	Read   Operation = "get"
 	Cancel Operation = "delete"
+	Attach Operation = "stream"
 )
 
 // Authorizer checks trace-resource permission and exact Pod read permission.
@@ -55,8 +56,12 @@ type Binding interface {
 	Revalidate(context.Context) error
 	Close(context.Context) error
 }
+
+// Binder returns a cleanup-only Binding with an error when node work might have
+// begun but its response was lost. Admission retains that handle and quota until
+// closure is confirmed; it must never treat a transport error as proof of absence.
 type Binder interface {
-	Bind(context.Context, string, Workload, time.Time) (Binding, error)
+	Bind(context.Context, string, Workload, Request, time.Time) (Binding, error)
 }
 
 type AuditEvent struct {
@@ -70,13 +75,22 @@ type AuditEvent struct {
 // Audit receives only fixed categories, never the request or authenticated name.
 type Audit func(AuditEvent)
 
+type AdmissionState string
+
+const (
+	AdmittedState AdmissionState = "admitted"
+	ActiveState   AdmissionState = "active"
+)
+
 type Admission struct {
+	state         AdmissionState
 	id            string
 	specification trace.Specification
 	engineDigest  string
 	expiresAt     time.Time
 }
 
+func (a Admission) State() AdmissionState              { return a.state }
 func (a Admission) ID() string                         { return a.id }
 func (a Admission) Specification() trace.Specification { return a.specification }
 func (a Admission) EngineDigest() string               { return a.engineDigest }
