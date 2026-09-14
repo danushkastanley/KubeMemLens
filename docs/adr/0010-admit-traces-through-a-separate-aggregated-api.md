@@ -69,7 +69,12 @@ Use mutually authenticated TLS between the control service and node component.
 Trusted installation configuration binds each endpoint and certificate to its
 Node UID. The node accepts only the control-service certificate, its own Node UID
 and a fresh bounded request identifier. Retain immutable copies and reject
-replay. Node-side expiry works independently of controller connectivity. Do not
+replay. Node-side expiry works independently of controller connectivity. Separate
+NetworkPolicies restrict the node listener to controller Pods in its namespace
+and deny initiated node egress. The API permits its aggregation TLS port, matching
+the standard collector policy for variable control-plane source ranges; proxy
+certificate verification remains mandatory. CNI enforcement qualification is
+separate from the default-kind authentication tests. Do not
 use an elevated helper, runtime socket, host PID namespace or open-by-handle
 privilege fallback to obtain cgroup identity.
 

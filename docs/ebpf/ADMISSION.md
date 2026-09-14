@@ -74,7 +74,12 @@ kubectl --context kind-kml-r6-admission apply -f /YOUR/PROTECTED/admission.json
 
 The namespace has an explicit Pod Security exception for the node's capabilities
 and host metadata mounts. Keep deployment, Secret, Pod/log and ConfigMap access
-within the administrator trust boundary. The renderer grants no tenant access.
+within the administrator trust boundary. The renderer grants no tenant access. Its NetworkPolicies permit the aggregation
+TLS port and restrict the node listener to controller Pods in the same namespace;
+the node has no initiated egress. As with the standard collector policy, proxy
+certificate verification protects against variable control-plane source ranges.
+NetworkPolicy enforcement requires a supporting CNI. The local default-kind run
+verified authentication and authorisation, not CNI policy enforcement.
 Do not scale it or change the security profile to obtain a passing preflight.
 
 ## Namespace user contract

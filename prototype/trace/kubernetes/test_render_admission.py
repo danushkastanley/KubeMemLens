@@ -2,6 +2,7 @@ import unittest
 
 from admission_resources import deployments, permissions
 from render_admission import render
+from admission_network import policies
 
 
 class AdmissionProfileTests(unittest.TestCase):
@@ -43,3 +44,13 @@ class AdmissionProfileTests(unittest.TestCase):
             args[index] = value
             with self.assertRaises(ValueError):
                 render(*args)
+
+    def test_node_network_is_limited_to_same_namespace_controller(self):
+        api, node = policies("admin")
+        self.assertEqual(api["spec"]["ingress"], [{"ports": [{"protocol": "TCP", "port": 8443}]}])
+        self.assertEqual(node["spec"]["policyTypes"], ["Ingress", "Egress"])
+        self.assertEqual(node["spec"]["egress"], [])
+        self.assertEqual(node["spec"]["ingress"], [{
+            "from": [{"podSelector": {"matchLabels": {"app": "admission-api"}}}],
+            "ports": [{"protocol": "TCP", "port": 9443}],
+        }])

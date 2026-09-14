@@ -8,6 +8,7 @@ import ssl
 from pathlib import Path
 
 from admission_resources import deployments, permissions, resource
+from admission_network import policies
 
 
 def render(image, node, uid, namespace, kubelet_root, certificate_directory):
@@ -49,6 +50,7 @@ def render(image, node, uid, namespace, kubelet_root, certificate_directory):
                  "caFile": "/tls/node-ca.crt", "certificateSHA256": npin}]
     items.append(resource("ConfigMap", "node-registry", ns, data={"nodes.json": json.dumps(registry)}))
     items += permissions(ns)
+    items += policies(ns)
     items += deployments(image, node, uid, ns, kubelet_root, cpin)
     items.append(resource("APIService", "v1alpha1.tracing.kubememlens.io", None,
                           "apiregistration.k8s.io/v1", spec={
