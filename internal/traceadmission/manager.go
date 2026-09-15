@@ -141,7 +141,7 @@ func (m *Manager) Admit(ctx context.Context, info user.Info, request Request) (r
 	if ctx.Err() != nil {
 		return result, ErrUnavailable
 	}
-	result = Admission{state: AdmittedState, id: reserved.id, specification: specification, engineDigest: tracepreflight.Baseline().EngineDigest, expiresAt: reserved.expires}
+	result = Admission{state: AdmittedState, id: reserved.id, specification: specification, engineDigest: m.policy.EngineDigest, expiresAt: reserved.expires}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.closed || m.entries[reserved.id] != reserved || !time.Now().Before(reserved.expires) {

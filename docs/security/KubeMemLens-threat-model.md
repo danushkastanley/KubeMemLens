@@ -1,7 +1,10 @@
 # KubeMemLens threat model
 
 Date: 26 August 2026
-Status: v1 authenticated API and local tenant-isolation gate validated; optional eBPF tracer not implemented
+Status: v1 authenticated API and local tenant-isolation gate validated; optional eBPF candidate implemented with kernel qualification pending
+
+The BPF-005 candidate's worker, signed installation and private process boundaries
+are detailed in the [file/cache threat model](../ebpf/FILE_CACHE_THREAT_MODEL.md).
 
 ## Executive summary
 

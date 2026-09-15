@@ -31,7 +31,11 @@ func SafeText(value string, maxBytes uint64) (string, error) {
 }
 
 func NewFile(event trace.FileActivity, spec trace.Specification) (Frame, error) {
-	if spec.Validate() != nil || spec.Kind() != trace.Files || event.ObservedAt.IsZero() {
+	return NewFileVersion(event, spec, Version)
+}
+
+func NewFileVersion(event trace.FileActivity, spec trace.Specification, version int) (Frame, error) {
+	if !SupportedVersion(version) || spec.Validate() != nil || spec.Kind() != trace.Files || event.ObservedAt.IsZero() || (version == AggregateVersion && spec.Paths() != trace.ConfirmedPaths) {
 		return Frame{}, ErrInvalid
 	}
 	switch event.Operation {
@@ -47,7 +51,11 @@ func NewFile(event trace.FileActivity, spec trace.Specification) (Frame, error) 
 		}
 		file.Path = &path
 	}
-	return makeFrame(envelope{Type: EventFrame, Event: &wireEvent{ObservedAt: event.ObservedAt.UTC(), File: &file}})
+	wire := wireEvent{ObservedAt: event.ObservedAt.UTC(), File: &file}
+	if version == AggregateVersion && validateAggregateEvent(wire) != nil {
+		return Frame{}, ErrInvalid
+	}
+	return makeFrame(envelope{Version: version, Type: EventFrame, Event: &wire})
 }
 func NewCache(event trace.CacheActivity, spec trace.Specification) (Frame, error) {
 	if spec.Validate() != nil || spec.Kind() != trace.Cache || event.ObservedAt.IsZero() || event.Pages == 0 {

@@ -11,15 +11,16 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
 	"github.com/danushkastanley/kube-memlens/internal/traceframe"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/targetfs"
 )
 
 const fixtureProgramme = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
 
 type memoryRuntime struct{}
 
-func (memoryRuntime) Prepare(context.Context, trace.Specification) (*trace.Engine, string, error) {
+func (memoryRuntime) Prepare(context.Context, trace.Specification, targetfs.Handle) (Prepared, error) {
 	engine, err := trace.NewEngine(memoryAdapter{})
-	return engine, fixtureProgramme, err
+	return Prepared{engine, tracepreflightDigest(), fixtureProgramme, traceframe.Version}, err
 }
 
 type memoryAdapter struct{}
@@ -44,7 +45,7 @@ func TestRealNodeTLSStreamAndControlConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 	deadline := time.Now().Add(300 * time.Millisecond)
-	source, err := binding.(StreamBinding).OpenStream(context.Background(), deadline)
+	source, err := binding.(StreamBinding).OpenStream(context.Background(), deadline, StreamIdentity{traceframe.Version, tracepreflightDigest(), fixtureProgramme})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +90,7 @@ func TestNodeStreamWithoutApprovedRuntimeIsUnavailable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stream, err := binding.(StreamBinding).OpenStream(context.Background(), time.Now().Add(time.Second)); !errors.Is(err, admission.ErrUnavailable) || stream != nil {
+	if stream, err := binding.(StreamBinding).OpenStream(context.Background(), time.Now().Add(time.Second), StreamIdentity{traceframe.Version, tracepreflightDigest(), fixtureProgramme}); !errors.Is(err, admission.ErrUnavailable) || stream != nil {
 		t.Fatal("unapproved runtime produced a stream")
 	}
 	if err := binding.Close(context.Background()); err != nil {
@@ -103,7 +104,7 @@ func TestNodeStreamDisconnectReleasesHandleAfterEngineExit(t *testing.T) {
 		t.Fatal(err)
 	}
 	handle := <-f.handles
-	source, err := binding.(StreamBinding).OpenStream(context.Background(), time.Now().Add(time.Second))
+	source, err := binding.(StreamBinding).OpenStream(context.Background(), time.Now().Add(time.Second), StreamIdentity{traceframe.Version, tracepreflightDigest(), fixtureProgramme})
 	if err != nil {
 		t.Fatal(err)
 	}

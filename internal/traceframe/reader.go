@@ -3,7 +3,9 @@ package traceframe
 import (
 	"bufio"
 	"encoding/json"
+	"github.com/danushkastanley/kube-memlens/internal/traceevidence"
 	"io"
+	"time"
 )
 
 // Reader validates frame order, immutable disclosure policy and cumulative
@@ -14,6 +16,7 @@ type Reader struct {
 	metadata      *wireMetadata
 	bytes, events uint64
 	ended, failed bool
+	version       int
 }
 
 func NewReader(input io.Reader) *Reader { return &Reader{input: bufio.NewReaderSize(input, MaxBytes)} }
@@ -52,18 +55,22 @@ func (r *Reader) Next() (Frame, error) {
 }
 func (r *Reader) accept(e envelope, size uint64) error {
 	if r.metadata == nil {
-		if e.Type != MetadataFrame || size+TerminalReserve > e.Metadata.Bounds.OutputBytes {
+		if e.Type != MetadataFrame || size+uint64(Reserve(e.Version)) > e.Metadata.Bounds.OutputBytes {
 			return ErrInvalid
 		}
 		r.metadata = e.Metadata
+		r.version = e.Version
 		return nil
 	}
-	if r.bytes+size > r.metadata.Bounds.OutputBytes {
+	if e.Version != r.version || r.bytes+size > r.metadata.Bounds.OutputBytes {
 		return ErrInvalid
 	}
 	switch e.Type {
 	case EventFrame:
-		if r.bytes+size+TerminalReserve > r.metadata.Bounds.OutputBytes || r.events >= r.metadata.Bounds.Events {
+		if r.version == AggregateVersion && (r.metadata.Kind != "files" || r.metadata.Paths != "confirmed") {
+			return ErrInvalid
+		}
+		if r.bytes+size+uint64(Reserve(r.version)) > r.metadata.Bounds.OutputBytes || r.events >= r.metadata.Bounds.Events {
 			return ErrInvalid
 		}
 		event := e.Event
@@ -101,11 +108,30 @@ func (r *Reader) accept(e envelope, size uint64) error {
 		if summary.Termination == "expired" && summary.SessionEndedAt.Before(r.metadata.Deadline) {
 			return ErrInvalid
 		}
-		if size > TerminalReserve || summary.WrittenEvents != r.events || summary.WrittenBytesBeforeSummary != r.bytes || summary.SessionEndedAt.Before(r.metadata.SessionStartedAt) {
+		if size > uint64(Reserve(r.version)) || summary.WrittenEvents != r.events || summary.WrittenBytesBeforeSummary != r.bytes || summary.SessionEndedAt.Before(r.metadata.SessionStartedAt) {
 			return ErrInvalid
 		}
 		if summary.ObservationStartedAt != nil && summary.ObservationStartedAt.Before(r.metadata.SessionStartedAt) {
 			return ErrInvalid
+		}
+		if r.version == AggregateVersion {
+			var start, end time.Time
+			if summary.ObservationStartedAt != nil && summary.ObservationEndedAt != nil {
+				start, end = *summary.ObservationStartedAt, *summary.ObservationEndedAt
+			}
+			correlation, err := traceevidence.Decode(summary.Correlation, start, end, r.metadata.bounds().Duration)
+			if err != nil || (correlation != nil && correlation.State == "overlapping" && correlation.EvidenceStart.Before(r.metadata.SessionStartedAt)) {
+				return ErrInvalid
+			}
+			if summary.ObservationEndedAt != nil && summary.ObservationEndedAt.After(r.metadata.Deadline) {
+				return ErrInvalid
+			}
+			if aggregateCount(*summary) > r.metadata.Bounds.Events || (summary.FileAggregates != nil && r.metadata.Kind != "files") || (summary.CacheAggregates != nil && r.metadata.Kind != "cache") {
+				return ErrInvalid
+			}
+			if r.metadata.Paths == "confirmed" && summary.FileAggregates != nil && aggregateCount(*summary) != r.events {
+				return ErrInvalid
+			}
 		}
 		r.ended = true
 	default:

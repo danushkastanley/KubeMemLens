@@ -3,6 +3,8 @@ package traceadmission
 import (
 	"errors"
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/internal/tracepreflight"
+	"strings"
 	"time"
 )
 
@@ -17,6 +19,8 @@ var (
 )
 
 type Policy struct {
+	// EngineDigest is installation-owned. Requests cannot choose or override it.
+	EngineDigest string
 	MaxBounds    trace.Bounds
 	Paths        trace.PathPolicy
 	PerPrincipal int
@@ -27,10 +31,13 @@ type Policy struct {
 }
 
 func DefaultPolicy() Policy {
-	return Policy{MaxBounds: trace.DefaultBounds(), Paths: trace.OmitPaths, PerPrincipal: 1, PerNamespace: 2, PerNode: 1, Global: 32, PendingTTL: 15 * time.Second}
+	return Policy{EngineDigest: tracepreflight.Baseline().EngineDigest, MaxBounds: trace.DefaultBounds(), Paths: trace.OmitPaths, PerPrincipal: 1, PerNamespace: 2, PerNode: 1, Global: 32, PendingTTL: 15 * time.Second}
 }
 
 func (p Policy) validate() error {
+	if len(p.EngineDigest) != 71 || !strings.HasPrefix(p.EngineDigest, "sha256:") || strings.Trim(p.EngineDigest[7:], "0123456789abcdef") != "" {
+		return ErrInvalidRequest
+	}
 	if p.MaxBounds.Validate() != nil || (p.Paths != trace.OmitPaths && p.Paths != trace.ConfirmedPaths) {
 		return ErrInvalidRequest
 	}

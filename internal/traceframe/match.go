@@ -11,14 +11,18 @@ import (
 // immutable claim and independently selected programme digest. The node may
 // choose its session start, but cannot replace identity, policy or deadline.
 func (f Frame) MatchAdmission(id, engineDigest, programmeDigest string, spec trace.Specification, deadline time.Time) error {
-	if f.kind != MetadataFrame {
+	return f.MatchAdmissionVersion(id, engineDigest, programmeDigest, spec, deadline, Version)
+}
+
+func (f Frame) MatchAdmissionVersion(id, engineDigest, programmeDigest string, spec trace.Specification, deadline time.Time, version int) error {
+	if !SupportedVersion(version) || f.kind != MetadataFrame || f.version != version {
 		return ErrInvalid
 	}
 	var received envelope
 	if json.Unmarshal([]byte(f.data), &received) != nil || received.Metadata == nil {
 		return ErrInvalid
 	}
-	expected, err := NewMetadata(Metadata{SessionID: id, EngineDigest: engineDigest, ProgrammeDigest: programmeDigest, Specification: spec, SessionStartedAt: received.Metadata.SessionStartedAt, Deadline: deadline})
+	expected, err := NewMetadataVersion(Metadata{SessionID: id, EngineDigest: engineDigest, ProgrammeDigest: programmeDigest, Specification: spec, SessionStartedAt: received.Metadata.SessionStartedAt, Deadline: deadline}, version)
 	if err != nil {
 		return err
 	}

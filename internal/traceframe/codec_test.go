@@ -60,7 +60,7 @@ func TestMetadataRoundTripAndPrivacy(t *testing.T) {
 func TestStrictDecodeRejectsAliasesDuplicatesUnknownNullAndVersions(t *testing.T) {
 	data := encoded(t, metadata(t))
 	cases := [][]byte{
-		bytes.Replace(data, []byte(`"version":1`), []byte(`"version":2`), 1),
+		bytes.Replace(data, []byte(`"version":1`), []byte(`"version":3`), 1),
 		bytes.Replace(data, []byte(`"version":1`), []byte(`"Version":1`), 1),
 		bytes.Replace(data, []byte(`"version":1`), []byte(`"version":1,"version":1`), 1),
 		bytes.Replace(data, []byte(`"version":1`), []byte(`"version":1,"extra":false`), 1),
@@ -132,6 +132,7 @@ func TestUnknownCountsRemainExplicitNull(t *testing.T) {
 	}
 }
 func FuzzDecode(f *testing.F) {
+	addAggregateSeeds(f)
 	f.Add([]byte("{}\n"))
 	f.Add([]byte(`{"version":1,"type":"event","event":{"observedAt":"2026-01-01T00:00:00Z","cache":{"operation":"add","pages":1}}}` + "\n"))
 	f.Fuzz(func(t *testing.T, data []byte) {

@@ -1,4 +1,4 @@
-.PHONY: check-trace-preflight test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract check-community-settings vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
+.PHONY: check-trace-preflight check-trace-worker test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract check-community-settings vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -28,10 +28,10 @@ run-sample-explain:
 	go run ./cmd/kubectl-memlens sample explain cache-heavy
 
 fmt:
-	gofmt -w .
+	python3 hack/format_go.py --write
 
 fmt-check:
-	@test -z "$$(gofmt -l .)" || (gofmt -l . && exit 1)
+	python3 hack/format_go.py
 
 vet:
 	go vet ./...
@@ -101,7 +101,15 @@ check-trace-preflight:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace build ./...
 	python3 -m unittest discover -s prototype/trace/kubernetes -p 'test_*.py'
 
-check: check-trace-preflight fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test coverage test-race vet vuln build
+check-trace-worker:
+	python3 prototype/trace/worker/prepare_sdk.py
+	go -C prototype/trace/worker mod verify
+	go -C prototype/trace/worker test -race ./...
+	go -C prototype/trace/worker vet ./...
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C prototype/trace/worker build ./...
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace/worker build ./...
+
+check: check-trace-preflight check-trace-worker fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test coverage test-race vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh

@@ -33,11 +33,31 @@ func runBindingNodeRuntime(ctx context.Context, args []string, errOut io.Writer,
 	name := flags.String("node-name", "", "installation-bound Node name")
 	root := flags.String("kubelet-cgroup-root", "", "explicit kubelet cgroup root")
 	bundle := flags.String("bundle", "/opt/memlens-trace/reference", "frozen preflight reference directory")
+	acceptance := flags.String("acceptance-policy", "", "independently accepted worker installation policy")
+	executable := flags.String("worker-executable", "/opt/memlens-trace/memlens-filecache-worker", "accepted worker executable")
+	programmes := flags.String("programme-bundle", "/opt/memlens-trace/programmes", "accepted programme bundle directory")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 || *uid == "" || *name == "" || *root == "" {
 		return errors.New("binding node requires exact installation identity and cgroup root")
+	}
+	if *acceptance != "" {
+		if runtime != nil {
+			return errors.New("worker installation cannot replace a configured runtime")
+		}
+		installed, err := configureWorker(ctx, *acceptance, *executable, *programmes)
+		if err != nil {
+			return err
+		}
+		runtime = installed
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+			defer cancel()
+			if installed.Close(closeCtx) != nil {
+				runErr = errors.New("worker runtime cleanup unconfirmed")
+			}
+		}()
 	}
 	identity, err := loadIdentity(*cert, *key)
 	if err != nil {

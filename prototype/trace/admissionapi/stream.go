@@ -17,12 +17,22 @@ import (
 
 // StreamProxy has an installation-owned digest allowlist. Empty means no
 // approved programme; it cannot be populated by request parameters.
-type StreamProxy struct{ programmes map[trace.Kind]string }
+type StreamProxy struct {
+	programmes map[trace.Kind]string
+	version    int
+}
 
 func NewStreamProxy(programmes map[trace.Kind]string) (*StreamProxy, error) {
-	p := &StreamProxy{programmes: map[trace.Kind]string{}}
+	return NewStreamProxyVersion(programmes, traceframe.Version)
+}
+
+func NewStreamProxyVersion(programmes map[trace.Kind]string, version int) (*StreamProxy, error) {
+	if !traceframe.SupportedVersion(version) {
+		return nil, admission.ErrUnavailable
+	}
+	p := &StreamProxy{programmes: map[trace.Kind]string{}, version: version}
 	for kind, digest := range programmes {
-		if (kind != trace.Files && kind != trace.Cache && kind != trace.OOM) || len(digest) != 71 || !strings.HasPrefix(digest, "sha256:") || strings.Trim(digest[7:], "0123456789abcdef") != "" {
+		if (version == traceframe.AggregateVersion && kind == trace.OOM) || (kind != trace.Files && kind != trace.Cache && kind != trace.OOM) || len(digest) != 71 || !strings.HasPrefix(digest, "sha256:") || strings.Trim(digest[7:], "0123456789abcdef") != "" {
 			return nil, admission.ErrUnavailable
 		}
 		p.programmes[kind] = digest
@@ -42,7 +52,7 @@ func (p *StreamProxy) serve(parent context.Context, w http.ResponseWriter, lease
 	}
 	ctx, cancel := context.WithDeadline(ctx, lease.Deadline().Add(2*time.Second))
 	defer cancel()
-	source, err := binding.OpenStream(ctx, lease.Deadline())
+	source, err := binding.OpenStream(ctx, lease.Deadline(), nodebinding.StreamIdentity{StreamVersion: p.version, EngineDigest: a.EngineDigest(), ProgrammeDigest: digest})
 	if err != nil {
 		return err
 	}
@@ -60,7 +70,7 @@ func (p *StreamProxy) serve(parent context.Context, w http.ResponseWriter, lease
 	if err != nil {
 		return admission.ErrUnavailable
 	}
-	if first.MatchAdmission(a.ID(), a.EngineDigest(), digest, a.Specification(), lease.Deadline()) != nil {
+	if first.MatchAdmissionVersion(a.ID(), a.EngineDigest(), digest, a.Specification(), lease.Deadline(), p.version) != nil {
 		return admission.ErrTargetChanged
 	}
 	if err := lease.RevalidateStream(ctx); err != nil {
@@ -95,7 +105,7 @@ func (p *StreamProxy) serve(parent context.Context, w http.ResponseWriter, lease
 		}
 	}()
 	defer func() { stopWatch(); <-done }()
-	relay := &relay{reader: reader, sink: sink, lease: lease}
+	relay := &relay{reader: reader, sink: sink, lease: lease, version: p.version}
 	if err := relay.run(ctx, first); err != nil {
 		stopWatch()
 		<-done

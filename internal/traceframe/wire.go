@@ -71,24 +71,32 @@ type wireCounts struct {
 	Rejected *uint64 `json:"rejected"`
 }
 type wireSummary struct {
-	SessionEndedAt            time.Time         `json:"sessionEndedAt"`
-	ObservationStartedAt      *time.Time        `json:"observationStartedAt"`
-	ObservationEndedAt        *time.Time        `json:"observationEndedAt"`
-	Termination               trace.Termination `json:"termination"`
-	EngineCounts              wireCounts        `json:"engineCounts"`
-	WrittenEvents             uint64            `json:"writtenEvents"`
-	RejectedEvents            uint64            `json:"rejectedEvents"`
-	WrittenBytesBeforeSummary uint64            `json:"writtenBytesBeforeSummary"`
-	Incomplete                bool              `json:"incomplete"`
+	SessionEndedAt            time.Time            `json:"sessionEndedAt"`
+	ObservationStartedAt      *time.Time           `json:"observationStartedAt"`
+	ObservationEndedAt        *time.Time           `json:"observationEndedAt"`
+	Termination               trace.Termination    `json:"termination"`
+	EngineCounts              wireCounts           `json:"engineCounts"`
+	WrittenEvents             uint64               `json:"writtenEvents"`
+	RejectedEvents            uint64               `json:"rejectedEvents"`
+	WrittenBytesBeforeSummary uint64               `json:"writtenBytesBeforeSummary"`
+	Incomplete                bool                 `json:"incomplete"`
+	FileAggregates            *wireFileAggregates  `json:"fileAggregates,omitempty"`
+	CacheAggregates           *wireCacheAggregates `json:"cacheAggregates,omitempty"`
+	Correlation               json.RawMessage      `json:"correlation,omitempty"`
 }
 
 func makeFrame(e envelope) (Frame, error) {
-	e.Version = Version
+	if e.Version == 0 {
+		e.Version = Version
+	}
+	if !SupportedVersion(e.Version) {
+		return Frame{}, ErrInvalid
+	}
 	data, err := json.Marshal(e)
 	if err != nil || len(data)+1 > MaxBytes {
 		return Frame{}, ErrInvalid
 	}
-	return Frame{kind: e.Type, data: string(append(data, '\n'))}, nil
+	return Frame{kind: e.Type, data: string(append(data, '\n')), version: e.Version}, nil
 }
 func validDigest(value string) bool {
 	return len(value) == 71 && strings.HasPrefix(value, "sha256:") && strings.Trim(value[7:], "0123456789abcdef") == ""

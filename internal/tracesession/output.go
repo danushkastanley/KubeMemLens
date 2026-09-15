@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/internal/traceaggregate"
 	"github.com/danushkastanley/kube-memlens/internal/traceframe"
 )
 
@@ -20,15 +21,30 @@ type output struct {
 	bytes, events, rejected uint64
 	transportFailed         bool
 	closed                  bool
+	aggregates              *traceaggregate.Accumulator
 }
 
 func (o *output) FileActivity(e trace.FileActivity) error {
+	if o.aggregates != nil {
+		return o.aggregateFile(e)
+	}
 	return o.event(e.ObservedAt, func() (traceframe.Frame, error) { return traceframe.NewFile(e, o.spec) })
 }
 func (o *output) CacheActivity(e trace.CacheActivity) error {
+	if o.aggregates != nil {
+		return o.aggregateCache(e)
+	}
 	return o.event(e.ObservedAt, func() (traceframe.Frame, error) { return traceframe.NewCache(e, o.spec) })
 }
 func (o *output) OOMDecision(e trace.OOMDecision) error {
+	if o.aggregates != nil {
+		o.mu.Lock()
+		defer o.mu.Unlock()
+		if err := o.aggregateWindow(e.ObservedAt); err != nil {
+			return err
+		}
+		return o.rejectAggregate(trace.EngineFailed)
+	}
 	return o.event(e.ObservedAt, func() (traceframe.Frame, error) { return traceframe.NewOOM(e, o.spec) })
 }
 func (o *output) event(observed time.Time, encode func() (traceframe.Frame, error)) error {
@@ -110,16 +126,37 @@ func (o *output) summary(result trace.Result, engineErr, cause error, ended time
 		termination = trace.EngineFailed
 	}
 	summary := traceframe.Summary{SessionEndedAt: ended, Termination: termination, EngineCounts: result.Counts, WrittenEvents: o.events, RejectedEvents: o.rejected, WrittenBytesBeforeSummary: o.bytes, Incomplete: incomplete}
-	if result.Version == trace.ContractVersion && !result.StartedAt.IsZero() && !result.StartedAt.Before(o.started) && !result.EndedAt.Before(result.StartedAt) && !result.EndedAt.After(ended) {
+	observations := o.events
+	if o.aggregates != nil {
+		aggregates := o.aggregates.Snapshot()
+		summary.Aggregates = &aggregates
+		observations = aggregates.Observations
+		if result.Correlation != nil {
+			summary.Correlation = &trace.Correlation{State: "unavailable"}
+			if result.Correlation.State != "overlapping" && result.Correlation.Validate(time.Time{}, time.Time{}, o.spec.Bounds().Duration) == nil {
+				copy := *result.Correlation
+				summary.Correlation = &copy
+			}
+		}
+		summary.Incomplete = true
+	}
+	if result.Version == trace.ContractVersion && !result.StartedAt.IsZero() && !result.StartedAt.Before(o.started) && !result.EndedAt.Before(result.StartedAt) && !result.EndedAt.After(ended) && (o.aggregates == nil || !result.EndedAt.After(o.deadline)) {
 		start, end := result.StartedAt.UTC(), result.EndedAt.UTC()
 		summary.ObservationStartedAt = &start
 		summary.ObservationEndedAt = &end
+		if o.aggregates != nil && result.Correlation != nil && result.Correlation.State == "overlapping" {
+			if result.Correlation.Validate(start, end, o.spec.Bounds().Duration) == nil && !result.Correlation.EvidenceStart.Before(o.started) && !result.Correlation.EvidenceEnd.After(ended) {
+				summary.Correlation = result.Correlation
+			} else {
+				summary.Correlation = &trace.Correlation{State: "unavailable"}
+			}
+		}
 	}
 	counts := result.Counts
 	unknown := counts.Produced == nil || counts.Sampled == nil || counts.Lost == nil || counts.Rejected == nil
 	summary.Incomplete = summary.Incomplete || summary.ObservationStartedAt == nil || unknown || o.rejected != 0 || termination != trace.Expired
 	if !unknown {
-		total, carry := bits.Add64(o.events, o.rejected, 0)
+		total, carry := bits.Add64(observations, o.rejected, 0)
 		overflow := carry != 0
 		for _, count := range []uint64{*counts.Sampled, *counts.Lost, *counts.Rejected} {
 			total, carry = bits.Add64(total, count, 0)
@@ -127,12 +164,17 @@ func (o *output) summary(result trace.Result, engineErr, cause error, ended time
 		}
 		summary.Incomplete = summary.Incomplete || overflow || total != *counts.Produced
 		summary.Incomplete = summary.Incomplete || *counts.Sampled != 0 || *counts.Lost != 0 || *counts.Rejected != 0
+		if o.aggregates != nil && (overflow || total != *counts.Produced) {
+			summary.EngineCounts = trace.Counts{}
+		}
 	}
 	if termination == trace.AuthorisationLost {
 		summary.EngineCounts = trace.Counts{}
 		summary.ObservationStartedAt = nil
 		summary.ObservationEndedAt = nil
 		summary.Incomplete = true
+		summary.Aggregates = nil
+		summary.Correlation = nil
 	}
 	return summary
 }
