@@ -72,7 +72,7 @@ func New(ctx context.Context, policy *workerinstall.Policy, executable, bundle s
 		return nil, ErrRuntime
 	}
 	accepted := 0
-	for _, kind := range []trace.Kind{trace.Files, trace.Cache} {
+	for _, kind := range []trace.Kind{trace.Files, trace.Cache, trace.OOM} {
 		id := filecache.ArtifactID{Kind: kind, Architecture: runtime.GOARCH}
 		if _, err := policy.ManifestSHA256(id); err != nil {
 			continue
@@ -118,7 +118,11 @@ func (r *Runtime) Prepare(ctx context.Context, spec trace.Specification, handle 
 	if err != nil {
 		return nodebinding.Prepared{}, ErrRuntime
 	}
-	return nodebinding.Prepared{StreamVersion: traceframe.AggregateVersion, Engine: engine, EngineDigest: r.configuration.EngineDigest(), ProgrammeDigest: r.configuration.ProgrammeDigest()}, nil
+	version := traceframe.AggregateVersion
+	if spec.Kind() == trace.OOM {
+		version = traceframe.OOMVersion
+	}
+	return nodebinding.Prepared{StreamVersion: version, Engine: engine, EngineDigest: r.configuration.EngineDigest(), ProgrammeDigest: r.configuration.ProgrammeDigest()}, nil
 }
 
 // Close prevents new work, cancels active workers and waits for confirmed exits.

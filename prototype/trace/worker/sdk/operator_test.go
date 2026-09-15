@@ -24,16 +24,25 @@ import (
 // Run in a Linux test container with all capabilities dropped and BPF denied by
 // Docker's default seccomp policy. This test never invokes SDK Start or loads BPF.
 func TestVerifiedObjectPreparationWithoutReaders(t *testing.T) {
-	root := os.Getenv("KML_FILECACHE_OBJECTS")
+	verifyObjectPreparation(t, trace.Files, "KML_FILECACHE_OBJECTS")
+}
+
+func TestVerifiedOOMPreparationWithoutReaders(t *testing.T) {
+	verifyObjectPreparation(t, trace.OOM, "KML_OOM_OBJECTS")
+}
+
+func verifyObjectPreparation(t *testing.T, kind trace.Kind, environment string) {
+	t.Helper()
+	root := os.Getenv(environment)
 	if root == "" {
 		t.Skip("requires offline candidate objects")
 	}
-	object, err := os.ReadFile(filepath.Join(root, "files-"+runtime.GOARCH+"-1", "program.bpf.o"))
+	object, err := os.ReadFile(filepath.Join(root, string(kind)+"-"+runtime.GOARCH+"-1", "program.bpf.o"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	sha := func(b []byte) string { sum := sha256.Sum256(b); return hex.EncodeToString(sum[:]) }
-	id := filecache.ArtifactID{Kind: trace.Files, Architecture: runtime.GOARCH}
+	id := filecache.ArtifactID{Kind: kind, Architecture: runtime.GOARCH}
 	oci, err := filecache.OCIManifest(id, object)
 	if err != nil {
 		t.Fatal(err)
@@ -58,7 +67,7 @@ func TestVerifiedObjectPreparationWithoutReaders(t *testing.T) {
 		t.Fatal(err)
 	}
 	target := trace.TargetIdentity{Namespace: "fixture", PodName: "target", PodUID: "uid", ContainerName: "worker", ContainerID: strings.Repeat("b", 64), ContainerStartedAt: time.Unix(1, 0), NodeUID: "node", CgroupID: 123}
-	spec, err := trace.NewSpecification(trace.Files, target, trace.OmitPaths, trace.DefaultBounds())
+	spec, err := trace.NewSpecification(kind, target, trace.OmitPaths, trace.DefaultBounds())
 	if err != nil {
 		t.Fatal(err)
 	}

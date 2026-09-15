@@ -17,6 +17,7 @@ type Reader struct {
 	bytes, events uint64
 	ended, failed bool
 	version       int
+	oom           wireOOMAggregates
 }
 
 func NewReader(input io.Reader) *Reader { return &Reader{input: bufio.NewReaderSize(input, MaxBytes)} }
@@ -101,6 +102,20 @@ func (r *Reader) accept(e envelope, size uint64) error {
 			if event.OOM == nil {
 				return ErrInvalid
 			}
+			if r.version == OOMVersion {
+				r.oom.Observations++
+				switch event.OOM.Scope {
+				case "cgroup":
+					r.oom.Cgroup++
+				case "global":
+					r.oom.Global++
+				case "unknown":
+					r.oom.Unknown++
+				}
+				if event.OOM.VictimPID == nil || event.OOM.Command == "" {
+					r.oom.MissingProcessContext++
+				}
+			}
 		}
 		r.events++
 	case SummaryFrame:
@@ -114,7 +129,7 @@ func (r *Reader) accept(e envelope, size uint64) error {
 		if summary.ObservationStartedAt != nil && summary.ObservationStartedAt.Before(r.metadata.SessionStartedAt) {
 			return ErrInvalid
 		}
-		if r.version == AggregateVersion {
+		if r.version != Version {
 			var start, end time.Time
 			if summary.ObservationStartedAt != nil && summary.ObservationEndedAt != nil {
 				start, end = *summary.ObservationStartedAt, *summary.ObservationEndedAt
@@ -123,13 +138,23 @@ func (r *Reader) accept(e envelope, size uint64) error {
 			if err != nil || (correlation != nil && correlation.State == "overlapping" && correlation.EvidenceStart.Before(r.metadata.SessionStartedAt)) {
 				return ErrInvalid
 			}
+			oom, err := traceevidence.OOMDecode(summary.OOMCorrelation, start, end, r.metadata.bounds().Duration)
+			if err != nil || (oom != nil && oom.Window.State == "overlapping" && oom.Window.EvidenceStart.Before(r.metadata.SessionStartedAt)) {
+				return ErrInvalid
+			}
+			if _, err := traceevidence.KubernetesOOMDecode(summary.KubernetesContext, r.metadata.bounds().Duration); err != nil {
+				return ErrInvalid
+			}
 			if summary.ObservationEndedAt != nil && summary.ObservationEndedAt.After(r.metadata.Deadline) {
 				return ErrInvalid
 			}
-			if aggregateCount(*summary) > r.metadata.Bounds.Events || (summary.FileAggregates != nil && r.metadata.Kind != "files") || (summary.CacheAggregates != nil && r.metadata.Kind != "cache") {
+			if aggregateCount(*summary) > r.metadata.Bounds.Events || (summary.FileAggregates != nil && r.metadata.Kind != "files") || (summary.CacheAggregates != nil && r.metadata.Kind != "cache") || (summary.OOMAggregates != nil && r.metadata.Kind != "oom") {
 				return ErrInvalid
 			}
 			if r.metadata.Paths == "confirmed" && summary.FileAggregates != nil && aggregateCount(*summary) != r.events {
+				return ErrInvalid
+			}
+			if summary.OOMAggregates != nil && *summary.OOMAggregates != r.oom {
 				return ErrInvalid
 			}
 		}

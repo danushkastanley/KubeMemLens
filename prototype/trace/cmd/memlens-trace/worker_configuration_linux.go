@@ -25,15 +25,19 @@ func configureStream(acceptance string, base admission.Policy) (*admissionapi.St
 	if err != nil {
 		return nil, base, err
 	}
-	programmes := make(map[trace.Kind]string)
-	for _, kind := range []trace.Kind{trace.Files, trace.Cache} {
+	programmes := make(map[trace.Kind]admissionapi.StreamProgramme)
+	for _, kind := range []trace.Kind{trace.Files, trace.Cache, trace.OOM} {
+		version := traceframe.AggregateVersion
+		if kind == trace.OOM {
+			version = traceframe.OOMVersion
+		}
 		for _, arch := range []string{"arm64", "amd64"} {
 			if _, err := policy.ManifestSHA256(filecache.ArtifactID{Kind: kind, Architecture: arch}); err == nil {
-				programmes[kind] = policy.ProgrammeDigest()
+				programmes[kind] = admissionapi.StreamProgramme{Digest: policy.ProgrammeDigest(), Version: version}
 			}
 		}
 	}
-	proxy, err := admissionapi.NewStreamProxyVersion(programmes, traceframe.AggregateVersion)
+	proxy, err := admissionapi.NewStreamProxyProgrammes(programmes)
 	if err != nil {
 		return nil, base, err
 	}

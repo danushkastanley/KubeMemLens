@@ -38,12 +38,7 @@ func (o *output) CacheActivity(e trace.CacheActivity) error {
 }
 func (o *output) OOMDecision(e trace.OOMDecision) error {
 	if o.aggregates != nil {
-		o.mu.Lock()
-		defer o.mu.Unlock()
-		if err := o.aggregateWindow(e.ObservedAt); err != nil {
-			return err
-		}
-		return o.rejectAggregate(trace.EngineFailed)
+		return o.aggregateOOM(e)
 	}
 	return o.event(e.ObservedAt, func() (traceframe.Frame, error) { return traceframe.NewOOM(e, o.spec) })
 }
@@ -138,6 +133,13 @@ func (o *output) summary(result trace.Result, engineErr, cause error, ended time
 				summary.Correlation = &copy
 			}
 		}
+		if result.OOMCorrelation != nil {
+			summary.OOMCorrelation = &trace.OOMCorrelation{Window: trace.CorrelationWindow{State: "unavailable"}}
+			if result.OOMCorrelation.Window.State != "overlapping" && result.OOMCorrelation.Validate(time.Time{}, time.Time{}, o.spec.Bounds().Duration) == nil {
+				copy := *result.OOMCorrelation
+				summary.OOMCorrelation = &copy
+			}
+		}
 		summary.Incomplete = true
 	}
 	if result.Version == trace.ContractVersion && !result.StartedAt.IsZero() && !result.StartedAt.Before(o.started) && !result.EndedAt.Before(result.StartedAt) && !result.EndedAt.After(ended) && (o.aggregates == nil || !result.EndedAt.After(o.deadline)) {
@@ -149,6 +151,12 @@ func (o *output) summary(result trace.Result, engineErr, cause error, ended time
 				summary.Correlation = result.Correlation
 			} else {
 				summary.Correlation = &trace.Correlation{State: "unavailable"}
+			}
+		}
+		if o.aggregates != nil && result.OOMCorrelation != nil && result.OOMCorrelation.Window.State == "overlapping" {
+			window := result.OOMCorrelation.Window
+			if result.OOMCorrelation.Validate(start, end, o.spec.Bounds().Duration) == nil && !window.EvidenceStart.Before(o.started) && !window.EvidenceEnd.After(ended) {
+				summary.OOMCorrelation = result.OOMCorrelation
 			}
 		}
 	}
@@ -175,6 +183,7 @@ func (o *output) summary(result trace.Result, engineErr, cause error, ended time
 		summary.Incomplete = true
 		summary.Aggregates = nil
 		summary.Correlation = nil
+		summary.OOMCorrelation = nil
 	}
 	return summary
 }

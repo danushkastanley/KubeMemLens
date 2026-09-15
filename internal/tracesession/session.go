@@ -53,11 +53,11 @@ func New(metadata traceframe.Metadata, engine *trace.Engine, sink Sink, validate
 }
 
 func NewVersion(metadata traceframe.Metadata, engine *trace.Engine, sink Sink, validate Validate, version int) (*Session, error) {
-	if !traceframe.SupportedVersion(version) || engine == nil || sink == nil || validate == nil || metadata.Specification.Validate() != nil {
+	if !traceframe.AllowsKind(version, metadata.Specification.Kind()) || engine == nil || sink == nil || validate == nil || metadata.Specification.Validate() != nil {
 		return nil, ErrConfiguration
 	}
 	var aggregate *traceaggregate.Accumulator
-	if version == traceframe.AggregateVersion {
+	if version != traceframe.Version {
 		var err error
 		aggregate, err = traceaggregate.New(metadata.Specification.Kind(), metadata.Specification.Bounds().Events)
 		if err != nil {

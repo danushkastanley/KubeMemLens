@@ -8,6 +8,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/oomtrace"
 )
 
 func ExportForWorker(context.Context, Handle) (*os.File, error) {
@@ -18,4 +19,8 @@ func VerifyWorkerDescriptor(context.Context, *os.File, trace.TargetIdentity) err
 }
 func ReadWorkerMemoryStat(context.Context, *os.File, trace.TargetIdentity) ([]byte, error) {
 	return nil, admission.ErrUnavailable
+}
+
+func ReadWorkerOOMSample(context.Context, *os.File, trace.TargetIdentity) (oomtrace.RawSample, error) {
+	return oomtrace.RawSample{}, admission.ErrUnavailable
 }

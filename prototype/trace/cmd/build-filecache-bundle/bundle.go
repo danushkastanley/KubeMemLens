@@ -56,9 +56,12 @@ func buildBundle(build, output, patch string, key ed25519.PrivateKey) error {
 		return errBuild
 	}
 	index := candidateIndex{Version: 1, Status: "unapproved", PublicKeySHA256: sha(key.Public().(ed25519.PublicKey))}
+	if containsKind(input.kinds, trace.OOM) {
+		index.Version = 2
+	}
 	oci := ociIndex{SchemaVersion: 2, MediaType: "application/vnd.oci.image.index.v1+json"}
 	for _, arch := range []string{"amd64", "arm64"} {
-		for _, kind := range []trace.Kind{trace.Files, trace.Cache} {
+		for _, kind := range input.kinds {
 			id := filecache.ArtifactID{Kind: kind, Architecture: arch}
 			candidate, err := filecache.BuildCandidate(id, input.objects[id], sha(input.record), key)
 			if err != nil {

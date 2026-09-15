@@ -75,7 +75,11 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 		return err
 	}
 	defer binder.Close()
-	manager, err := admission.NewManager(ctx, admission.Dependencies{Authorizer: admissionkube.NewAuthorizer(client.AuthorizationV1().SubjectAccessReviews()), Resolver: admissionkube.NewResolver(client.CoreV1()), Binder: binder, Audit: func(event admission.AuditEvent) {
+	resolver := admissionkube.NewResolver(client.CoreV1())
+	if proxy != nil {
+		proxy = proxy.WithOOMContext(resolver)
+	}
+	manager, err := admission.NewManager(ctx, admission.Dependencies{Authorizer: admissionkube.NewAuthorizer(client.AuthorizationV1().SubjectAccessReviews()), Resolver: resolver, Binder: binder, Audit: func(event admission.AuditEvent) {
 		fmt.Fprintf(errOut, "trace_admission operation=%s decision=%s reason=%s principal=%s\n", event.Operation, event.Decision, event.Reason, event.Principal)
 	}}, policy)
 	if err != nil {

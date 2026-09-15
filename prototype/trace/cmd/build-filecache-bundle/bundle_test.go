@@ -12,7 +12,16 @@ import (
 )
 
 func TestBundleReproducesAndVerifiesAllFourObjects(t *testing.T) {
-	build := os.Getenv("KML_FILECACHE_OBJECTS")
+	verifyBundleSet(t, "KML_FILECACHE_OBJECTS", 1, 4)
+}
+
+func TestBundleReproducesAndVerifiesAllSixObjects(t *testing.T) {
+	verifyBundleSet(t, "KML_OOM_OBJECTS", 2, 6)
+}
+
+func verifyBundleSet(t *testing.T, environment string, version, count int) {
+	t.Helper()
+	build := os.Getenv(environment)
 	if build == "" {
 		t.Skip("requires offline candidate objects")
 	}
@@ -69,7 +78,7 @@ func TestBundleReproducesAndVerifiesAllFourObjects(t *testing.T) {
 		t.Fatal(err)
 	}
 	var index candidateIndex
-	if json.Unmarshal(data, &index) != nil || index.Status != "unapproved" || len(index.Programmes) != 4 {
+	if json.Unmarshal(data, &index) != nil || index.Status != "unapproved" || index.Version != version || len(index.Programmes) != count {
 		t.Fatal("candidate index misstates approval")
 	}
 	public, err := os.ReadFile(filepath.Join(first, "signing-public-key.bin"))

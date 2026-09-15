@@ -35,7 +35,7 @@ func NewFile(event trace.FileActivity, spec trace.Specification) (Frame, error) 
 }
 
 func NewFileVersion(event trace.FileActivity, spec trace.Specification, version int) (Frame, error) {
-	if !SupportedVersion(version) || spec.Validate() != nil || spec.Kind() != trace.Files || event.ObservedAt.IsZero() || (version == AggregateVersion && spec.Paths() != trace.ConfirmedPaths) {
+	if !AllowsKind(version, trace.Files) || spec.Validate() != nil || spec.Kind() != trace.Files || event.ObservedAt.IsZero() || (version == AggregateVersion && spec.Paths() != trace.ConfirmedPaths) {
 		return Frame{}, ErrInvalid
 	}
 	switch event.Operation {
@@ -69,7 +69,14 @@ func NewCache(event trace.CacheActivity, spec trace.Specification) (Frame, error
 	return makeFrame(envelope{Type: EventFrame, Event: &wireEvent{ObservedAt: event.ObservedAt.UTC(), Cache: &wireCache{event.Operation, event.Pages}}})
 }
 func NewOOM(event trace.OOMDecision, spec trace.Specification) (Frame, error) {
-	if spec.Validate() != nil || spec.Kind() != trace.OOM || event.ObservedAt.IsZero() {
+	return NewOOMVersion(event, spec, Version)
+}
+
+func NewOOMVersion(event trace.OOMDecision, spec trace.Specification, version int) (Frame, error) {
+	if !AllowsKind(version, trace.OOM) || spec.Validate() != nil || spec.Kind() != trace.OOM || event.ObservedAt.IsZero() {
+		return Frame{}, ErrInvalid
+	}
+	if version == OOMVersion && event.ValidateContext() != nil {
 		return Frame{}, ErrInvalid
 	}
 	switch event.Scope {
@@ -84,5 +91,5 @@ func NewOOM(event trace.OOMDecision, spec trace.Specification) (Frame, error) {
 	if err != nil {
 		return Frame{}, err
 	}
-	return makeFrame(envelope{Type: EventFrame, Event: &wireEvent{ObservedAt: event.ObservedAt.UTC(), OOM: &wireOOM{event.Scope, event.VictimPID, command}}})
+	return makeFrame(envelope{Version: version, Type: EventFrame, Event: &wireEvent{ObservedAt: event.ObservedAt.UTC(), OOM: &wireOOM{event.Scope, event.VictimPID, command}}})
 }

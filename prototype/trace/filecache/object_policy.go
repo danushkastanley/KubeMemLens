@@ -29,6 +29,10 @@ func validatePolicy(kind trace.Kind, i ObjectInventory, spec *ebpf.CollectionSpe
 		hooks = map[string]string{"read_begin": "fentry/vfs_read", "write_begin": "fentry/vfs_write", "read_end": "fexit/vfs_read", "write_end": "fexit/vfs_write", "path_permission": "fexit/security_file_permission"}
 		eventSize, rodata, globals = 552, 568, 40
 	}
+	if kind == trace.OOM {
+		hooks = map[string]string{"decision_begin": "fentry/oom_kill_process", "decision_end": "fexit/oom_kill_process", "kill_begin": "fentry/__oom_kill_process", "kill_end": "fexit/__oom_kill_process", "victim_marked": "fentry/mark_oom_victim"}
+		eventSize = 40
+	}
 	if i.EventSize != eventSize || len(i.Hooks) != len(hooks) {
 		return ErrObject
 	}
@@ -36,7 +40,7 @@ func validatePolicy(kind trace.Kind, i ObjectInventory, spec *ebpf.CollectionSpe
 		if hooks[hook.Name] != hook.Section || hook.License != "Dual BSD/GPL" || hook.Instructions > 4096 {
 			return ErrObject
 		}
-		if (kind == trace.Files && hook.Type != "Tracing") || (kind == trace.Cache && hook.Type != "TracePoint") {
+		if (kind != trace.Cache && hook.Type != "Tracing") || (kind == trace.Cache && hook.Type != "TracePoint") {
 			return ErrObject
 		}
 		for _, helper := range hook.Helpers {
@@ -47,7 +51,7 @@ func validatePolicy(kind trace.Kind, i ObjectInventory, spec *ebpf.CollectionSpe
 					return ErrObject
 				}
 			case "FnGetCurrentPidTgid", "FnMapDeleteElem", "FnMapUpdateElem":
-				if kind != trace.Files {
+				if kind == trace.Cache {
 					return ErrObject
 				}
 			default:
@@ -65,6 +69,10 @@ func validatePolicy(kind trace.Kind, i ObjectInventory, spec *ebpf.CollectionSpe
 	}
 	if kind == trace.Files {
 		maps["paths"] = MapInventory{"paths", "Hash", 8, 536, 256, 0}
+	}
+	if kind == trace.OOM {
+		maps["decisions"] = MapInventory{"decisions", "Hash", 8, 16, 64, 0}
+		maps["kills"] = MapInventory{"kills", "Hash", 8, 16, 64, 0}
 	}
 	if len(i.Maps) != len(maps) {
 		return ErrObject

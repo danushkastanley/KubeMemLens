@@ -137,7 +137,7 @@ func TestConstructorEnforcesFixedKindAndCeiling(t *testing.T) {
 			t.Fatal("invalid ceiling accepted")
 		}
 	}
-	if _, err := New(trace.OOM, 1); err == nil {
+	if _, err := New(trace.Kind("arbitrary"), 1); err == nil {
 		t.Fatal("unsupported aggregate kind accepted")
 	}
 }

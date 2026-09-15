@@ -12,7 +12,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/traceevidence"
 )
 
-const fieldNames = "version|type|metadata|event|summary|sessionID|engineDigest|programmeDigest|kind|target|paths|bounds|sessionStartedAt|deadline|namespace|pod|podUID|container|containerStartedAt|bindingDigest|durationNanos|events|outputBytes|mapBytes|pathBytes|observedAt|file|cache|oom|operation|requestedBytes|completedBytes|path|pages|scope|victimPID|command|sessionEndedAt|observationStartedAt|observationEndedAt|termination|engineCounts|produced|sampled|lost|rejected|writtenEvents|rejectedEvents|writtenBytesBeforeSummary|incomplete|fileAggregates|cacheAggregates|observations|reads|writes|additions|removals|operations|totalRequested|totalCompleted|totalPages|value|unreported|overflow|correlation|state|evidenceStart|beforeEnd|afterStart|evidenceEnd|overlapStart|overlapEnd|uncertaintyNanos|fileBytes|dirtyBytes|writebackBytes|before|after|refault|scan|steal|delta"
+const fieldNames = "version|type|metadata|event|summary|sessionID|engineDigest|programmeDigest|kind|target|paths|bounds|sessionStartedAt|deadline|namespace|pod|podUID|container|containerStartedAt|bindingDigest|durationNanos|events|outputBytes|mapBytes|pathBytes|observedAt|file|cache|oom|operation|requestedBytes|completedBytes|path|pages|scope|victimPID|command|sessionEndedAt|observationStartedAt|observationEndedAt|termination|engineCounts|produced|sampled|lost|rejected|writtenEvents|rejectedEvents|writtenBytesBeforeSummary|incomplete|fileAggregates|cacheAggregates|observations|reads|writes|additions|removals|operations|totalRequested|totalCompleted|totalPages|value|unreported|overflow|correlation|state|evidenceStart|beforeEnd|afterStart|evidenceEnd|overlapStart|overlapEnd|uncertaintyNanos|fileBytes|dirtyBytes|writebackBytes|before|after|refault|scan|steal|delta|oomAggregates|cgroup|global|unknown|missingProcessContext|oomCorrelation|window|local|hierarchical|currentBytes|limitBefore|limitAfter|bytes|someStallMicros|fullStallMicros|low|high|max|oomEvents|oomKills|oomGroupKills|kubernetesContext|beforeStart|afterEnd|restarts|pressureBefore|pressureAfter"
 
 // Decode accepts exactly one bounded NDJSON frame. It rejects unknown versions,
 // fields, case aliases, duplicate keys, arrays and ambiguous unions. A Reader
@@ -45,7 +45,7 @@ func Decode(data []byte) (Frame, error) {
 	}
 	switch e.Type {
 	case MetadataFrame:
-		if e.Metadata == nil || validateMetadata(*e.Metadata) != nil || (e.Version == AggregateVersion && e.Metadata.Kind == trace.OOM) {
+		if e.Metadata == nil || validateMetadata(*e.Metadata) != nil || !AllowsKind(e.Version, e.Metadata.Kind) {
 			return Frame{}, ErrInvalid
 		}
 	case EventFrame:
@@ -53,6 +53,9 @@ func Decode(data []byte) (Frame, error) {
 			return Frame{}, ErrInvalid
 		}
 		if e.Version == AggregateVersion && validateAggregateEvent(*e.Event) != nil {
+			return Frame{}, ErrInvalid
+		}
+		if e.Version == OOMVersion && validateOOMVersionEvent(*e.Event) != nil {
 			return Frame{}, ErrInvalid
 		}
 	case SummaryFrame:
@@ -77,7 +80,7 @@ func uniqueValue(decoder *json.Decoder, depth int, field string) error {
 	}
 	delimiter, compound := token.(json.Delim)
 	if !compound {
-		if token == nil && !strings.Contains("|requestedBytes|completedBytes|victimPID|produced|sampled|lost|rejected|observationStartedAt|observationEndedAt|value|before|after|delta|", "|"+field+"|") {
+		if token == nil && !strings.Contains("|requestedBytes|completedBytes|victimPID|produced|sampled|lost|rejected|observationStartedAt|observationEndedAt|value|before|after|delta|bytes|", "|"+field+"|") {
 			return ErrInvalid
 		}
 		return nil
@@ -180,7 +183,7 @@ func validateEvent(e wireEvent) error {
 }
 func safeEncoded(value string) bool { _, err := DecodeText(value, 512); return err == nil }
 func validateSummary(s wireSummary, version int) error {
-	if s.FileAggregates != nil && s.CacheAggregates != nil {
+	if (s.FileAggregates != nil && s.CacheAggregates != nil) || validateOOMAggregates(s) != nil {
 		return ErrInvalid
 	}
 	var start, end time.Time
@@ -191,6 +194,14 @@ func validateSummary(s wireSummary, version int) error {
 	if err != nil {
 		return ErrInvalid
 	}
-	_, err = NewSummaryVersion(Summary{SessionEndedAt: s.SessionEndedAt, ObservationStartedAt: s.ObservationStartedAt, ObservationEndedAt: s.ObservationEndedAt, Termination: s.Termination, EngineCounts: trace.Counts{Produced: s.EngineCounts.Produced, Sampled: s.EngineCounts.Sampled, Lost: s.EngineCounts.Lost, Rejected: s.EngineCounts.Rejected}, WrittenEvents: s.WrittenEvents, RejectedEvents: s.RejectedEvents, WrittenBytesBeforeSummary: s.WrittenBytesBeforeSummary, Incomplete: s.Incomplete, Aggregates: domainAggregates(s), Correlation: correlation}, version)
+	oom, err := traceevidence.OOMDecode(s.OOMCorrelation, start, end, 5*time.Minute)
+	if err != nil {
+		return ErrInvalid
+	}
+	kubernetes, err := traceevidence.KubernetesOOMDecode(s.KubernetesContext, 5*time.Minute)
+	if err != nil {
+		return ErrInvalid
+	}
+	_, err = NewSummaryVersion(Summary{SessionEndedAt: s.SessionEndedAt, ObservationStartedAt: s.ObservationStartedAt, ObservationEndedAt: s.ObservationEndedAt, Termination: s.Termination, EngineCounts: trace.Counts{Produced: s.EngineCounts.Produced, Sampled: s.EngineCounts.Sampled, Lost: s.EngineCounts.Lost, Rejected: s.EngineCounts.Rejected}, WrittenEvents: s.WrittenEvents, RejectedEvents: s.RejectedEvents, WrittenBytesBeforeSummary: s.WrittenBytesBeforeSummary, Incomplete: s.Incomplete, Aggregates: domainAggregates(s), Correlation: correlation, OOMCorrelation: oom, KubernetesContext: kubernetes}, version)
 	return err
 }

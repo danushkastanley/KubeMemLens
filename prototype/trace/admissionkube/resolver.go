@@ -35,7 +35,18 @@ func (r *Resolver) Revalidate(ctx context.Context, previous admission.Workload) 
 }
 
 func (r *Resolver) resolve(ctx context.Context, namespace, name, container string) (admission.Workload, error) {
-	var result admission.Workload
+	snapshot, err := r.readWorkload(ctx, namespace, name, container)
+	return snapshot.workload, err
+}
+
+type workloadSnapshot struct {
+	workload     admission.Workload
+	restarts     int32
+	nodePressure string
+}
+
+func (r *Resolver) readWorkload(ctx context.Context, namespace, name, container string) (workloadSnapshot, error) {
+	var result workloadSnapshot
 	if r.core == nil || ctx.Err() != nil {
 		return result, admission.ErrUnavailable
 	}
@@ -74,7 +85,7 @@ func (r *Resolver) resolve(ctx context.Context, namespace, name, container strin
 	default:
 		return result, admission.ErrUnavailable
 	}
-	return admission.Workload{Target: target, NodeName: node.Name, QoS: string(pod.Status.QOSClass)}, nil
+	return workloadSnapshot{workload: admission.Workload{Target: target, NodeName: node.Name, QoS: string(pod.Status.QOSClass)}, restarts: status.RestartCount, nodePressure: oomNodePressure(node)}, nil
 }
 
 func runningContainer(pod *corev1.Pod, name string) (corev1.ContainerStatus, error) {

@@ -65,9 +65,12 @@ func TestAggregateNodeTLSStreamHasNoDefaultEventFrames(t *testing.T) {
 }
 
 func TestStreamIdentityRequiresExplicitSupportedVersion(t *testing.T) {
-	for _, version := range []int{0, 3, -1} {
+	for _, version := range []int{0, 4, -1} {
 		if (StreamIdentity{version, tracepreflightDigest(), fixtureProgramme}).valid() {
 			t.Fatal("unsupported stream version accepted")
 		}
+	}
+	if !(StreamIdentity{traceframe.OOMVersion, tracepreflightDigest(), fixtureProgramme}).valid() {
+		t.Fatal("explicit OOM stream version rejected")
 	}
 }
