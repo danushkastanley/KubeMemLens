@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/internal/traceaggregate"
 	"github.com/danushkastanley/kube-memlens/internal/traceframe"
 )
 
@@ -35,21 +36,35 @@ type Outcome struct {
 	Err               error
 }
 type Session struct {
-	mu       sync.Mutex
-	consumed bool
-	metadata traceframe.Metadata
-	engine   *trace.Engine
-	sink     Sink
-	validate Validate
+	mu         sync.Mutex
+	consumed   bool
+	metadata   traceframe.Metadata
+	engine     *trace.Engine
+	sink       Sink
+	validate   Validate
+	version    int
+	aggregates *traceaggregate.Accumulator
 }
 
 // New does not execute the engine. The trusted caller selects the approved
 // programme identity; digest syntax validation does not constitute approval.
 func New(metadata traceframe.Metadata, engine *trace.Engine, sink Sink, validate Validate) (*Session, error) {
-	if engine == nil || sink == nil || validate == nil || metadata.Specification.Validate() != nil {
+	return NewVersion(metadata, engine, sink, validate, traceframe.Version)
+}
+
+func NewVersion(metadata traceframe.Metadata, engine *trace.Engine, sink Sink, validate Validate, version int) (*Session, error) {
+	if !traceframe.SupportedVersion(version) || engine == nil || sink == nil || validate == nil || metadata.Specification.Validate() != nil {
 		return nil, ErrConfiguration
 	}
-	return &Session{metadata: metadata, engine: engine, sink: sink, validate: validate}, nil
+	var aggregate *traceaggregate.Accumulator
+	if version == traceframe.AggregateVersion {
+		var err error
+		aggregate, err = traceaggregate.New(metadata.Specification.Kind(), metadata.Specification.Bounds().Events)
+		if err != nil {
+			return nil, ErrConfiguration
+		}
+	}
+	return &Session{metadata: metadata, engine: engine, sink: sink, validate: validate, version: version, aggregates: aggregate}, nil
 }
 
 func (s *Session) Run(parent context.Context) Outcome {
@@ -70,12 +85,12 @@ func (s *Session) Run(parent context.Context) Outcome {
 	if deadline, ok := parent.Deadline(); ok && deadline.Before(s.metadata.Deadline) {
 		s.metadata.Deadline = deadline.UTC()
 	}
-	frame, err := traceframe.NewMetadata(s.metadata)
+	frame, err := traceframe.NewMetadataVersion(s.metadata, s.version)
 	if err != nil {
 		return Outcome{Err: ErrConfiguration}
 	}
 	data, err := traceframe.Encode(frame)
-	if err != nil || uint64(len(data)+traceframe.TerminalReserve) > bounds.OutputBytes {
+	if err != nil || uint64(len(data)+traceframe.Reserve(s.version)) > bounds.OutputBytes {
 		return Outcome{Err: Stop(trace.OutputLimit)}
 	}
 	ctx, deadlineCancel := context.WithDeadlineCause(parent, s.metadata.Deadline, Stop(trace.Expired))
@@ -85,7 +100,7 @@ func (s *Session) Run(parent context.Context) Outcome {
 	if err := s.check(ctx); err != nil {
 		return Outcome{Err: reason(err)}
 	}
-	output := &output{ctx: ctx, cancel: cancel, sink: s.sink, spec: s.metadata.Specification, started: started, deadline: s.metadata.Deadline}
+	output := &output{ctx: ctx, cancel: cancel, sink: s.sink, spec: s.metadata.Specification, started: started, deadline: s.metadata.Deadline, aggregates: s.aggregates}
 	if err := output.write(data); err != nil {
 		return Outcome{WrittenBytes: output.bytes, Err: Stop(trace.EngineFailed)}
 	}
@@ -105,7 +120,7 @@ func (s *Session) Run(parent context.Context) Outcome {
 		summary.Incomplete = true
 		return Outcome{Summary: summary, WrittenBytes: output.bytes, Err: Stop(trace.EngineFailed)}
 	}
-	terminal, err := traceframe.NewSummary(summary)
+	terminal, err := traceframe.NewSummaryVersion(summary, s.version)
 	if err != nil {
 		return Outcome{Summary: summary, WrittenBytes: output.bytes, Err: Stop(trace.EngineFailed)}
 	}

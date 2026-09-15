@@ -3,6 +3,10 @@ WORKDIR /src
 COPY go.mod go.sum LICENSE NOTICE ./
 COPY internal/tracepreflight ./internal/tracepreflight
 COPY internal/trace ./internal/trace
+COPY internal/traceaggregate ./internal/traceaggregate
+COPY internal/traceevidence ./internal/traceevidence
+COPY internal/cgroup ./internal/cgroup
+COPY internal/model ./internal/model
 COPY internal/traceframe ./internal/traceframe
 COPY internal/tracesession ./internal/tracesession
 COPY internal/traceadmission ./internal/traceadmission

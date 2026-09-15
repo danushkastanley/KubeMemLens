@@ -13,11 +13,15 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
+	"github.com/danushkastanley/kube-memlens/internal/traceframe"
+	"github.com/danushkastanley/kube-memlens/internal/tracepreflight"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/admissionapi"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/nodebinding"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/targetfs"
 )
 
-// Only this test binary contains the memory engine. The production entrypoints
-// always supply nil runtime/proxy and cannot enable it with flags/environment.
+// Only this test binary contains the memory engine. Production entrypoints can
+// select only an independently accepted worker; no flags select this fixture.
 func TestMain(m *testing.M) {
 	if len(os.Args) > 1 && os.Args[1] == "_probe" {
 		if run(context.Background(), os.Args[1:], os.Stdout, os.Stderr) != nil {
@@ -58,9 +62,9 @@ func qualificationDigest() string {
 
 type qualificationRuntime struct{}
 
-func (qualificationRuntime) Prepare(context.Context, trace.Specification) (*trace.Engine, string, error) {
+func (qualificationRuntime) Prepare(context.Context, trace.Specification, targetfs.Handle) (nodebinding.Prepared, error) {
 	engine, err := trace.NewEngine(qualificationAdapter{})
-	return engine, qualificationDigest(), err
+	return nodebinding.Prepared{StreamVersion: traceframe.Version, Engine: engine, EngineDigest: tracepreflight.Baseline().EngineDigest, ProgrammeDigest: qualificationDigest()}, err
 }
 
 type qualificationAdapter struct{}

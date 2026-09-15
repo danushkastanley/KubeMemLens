@@ -10,19 +10,29 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
 	"github.com/danushkastanley/kube-memlens/internal/traceframe"
-	"github.com/danushkastanley/kube-memlens/internal/tracepreflight"
 	"github.com/danushkastanley/kube-memlens/internal/tracesession"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/streamhttp"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/targetfs"
 )
 
 // Runtime is installation-owned programme selection. Prepare must verify its
-// approved artifact and return a fresh adapter without attaching/loading work.
+// approved artifacts and return a fresh adapter without attaching/loading work.
+// The handle is borrowed: Prepare must not close it or allocate a child target
+// descriptor. The adapter may duplicate it only during Run, after activation.
 // The production command currently supplies nil: no incident programme approved.
 type Runtime interface {
-	Prepare(context.Context, trace.Specification) (*trace.Engine, string, error)
+	Prepare(context.Context, trace.Specification, targetfs.Handle) (Prepared, error)
+}
+
+type Prepared struct {
+	Engine          *trace.Engine
+	EngineDigest    string
+	ProgrammeDigest string
+	StreamVersion   int
 }
 type streamRequest struct {
 	Deadline time.Time `json:"deadline"`
+	StreamIdentity
 }
 
 func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, id string) {
@@ -39,7 +49,7 @@ func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, id string)
 	}
 	initial, cancel := context.WithTimeout(r.Context(), 4*time.Second)
 	var request streamRequest
-	if r.Header.Get("Content-Type") != "application/json" || decode(http.MaxBytesReader(w, r.Body, maxBody), &request, "deadline") != nil {
+	if r.Header.Get("Content-Type") != "application/json" || decode(http.MaxBytesReader(w, r.Body, maxBody), &request, "deadline|engineDigest|programmeDigest|streamVersion") != nil || !request.StreamIdentity.valid() {
 		cancel()
 		http.Error(w, "invalid request", 400)
 		return
@@ -53,16 +63,22 @@ func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, id string)
 		return
 	}
 	spec := l.specification
+	handle := l.handle
 	s.mu.Unlock()
-	engine, digest, err := s.runtime.Prepare(initial, spec)
-	if err != nil || engine == nil {
+	prepared, err := s.runtime.Prepare(initial, spec, handle)
+	if err != nil || prepared.Engine == nil {
 		cancel()
 		writeError(w, admission.ErrUnavailable)
 		return
 	}
+	if prepared.EngineDigest != request.EngineDigest || prepared.ProgrammeDigest != request.ProgrammeDigest || prepared.StreamVersion != request.StreamVersion {
+		cancel()
+		writeError(w, admission.ErrTargetChanged)
+		return
+	}
 	// Validate before claiming the one-use execution or writing headers.
 	now := time.Now().UTC()
-	if _, err := traceframe.NewMetadata(traceframe.Metadata{SessionID: id, EngineDigest: tracepreflight.Baseline().EngineDigest, ProgrammeDigest: digest, Specification: spec, SessionStartedAt: now, Deadline: request.Deadline}); err != nil {
+	if _, err := traceframe.NewMetadataVersion(traceframe.Metadata{SessionID: id, EngineDigest: prepared.EngineDigest, ProgrammeDigest: prepared.ProgrammeDigest, Specification: spec, SessionStartedAt: now, Deadline: request.Deadline}, prepared.StreamVersion); err != nil {
 		cancel()
 		writeError(w, admission.ErrUnavailable)
 		return
@@ -84,12 +100,12 @@ func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, id string)
 		writeError(w, admission.ErrUnavailable)
 		return
 	}
-	session, err := tracesession.New(traceframe.Metadata{SessionID: id, EngineDigest: tracepreflight.Baseline().EngineDigest, ProgrammeDigest: digest, Specification: spec}, engine, sink, func(ctx context.Context) error {
+	session, err := tracesession.NewVersion(traceframe.Metadata{SessionID: id, EngineDigest: prepared.EngineDigest, ProgrammeDigest: prepared.ProgrammeDigest, Specification: spec}, prepared.Engine, sink, func(ctx context.Context) error {
 		if err := execution.handle.Check(ctx); err != nil {
 			return tracesession.Stop(trace.TargetChanged)
 		}
 		return nil
-	})
+	}, prepared.StreamVersion)
 	if err != nil {
 		_ = execution.finish()
 		writeError(w, admission.ErrUnavailable)
@@ -106,10 +122,8 @@ func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, id string)
 			s.audit("cleanup_unconfirmed")
 		}
 	}()
-	scope, stopDeadline := context.WithDeadlineCause(context.WithoutCancel(execution.ctx), request.Deadline, tracesession.Stop(trace.Expired))
-	scope, stopScope := context.WithCancelCause(scope)
-	stopExecution := context.AfterFunc(execution.ctx, func() { stopScope(streamStop(context.Cause(execution.ctx))) })
-	defer func() { stopExecution(); stopScope(tracesession.Stop(trace.Cancelled)); stopDeadline() }()
+	scope, stopScope := streamContext(execution.ctx, request.Deadline)
+	defer stopScope()
 	outcome := session.Run(scope)
 	if err := execution.finish(); err != nil {
 		s.audit("cleanup_unconfirmed")

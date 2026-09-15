@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/danushkastanley/kube-memlens/internal/trace"
 	"io"
 	"time"
 
@@ -27,11 +28,31 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 	controlCert := flags.String("node-client-cert", "", "private node client certificate file")
 	controlKey := flags.String("node-client-key", "", "private node client key file")
 	registry := flags.String("node-registry", "", "installation-owned node endpoint registry")
+	acceptance := flags.String("acceptance-policy", "", "independently accepted worker installation policy")
+	confirmedPaths := flags.Bool("allow-confirmed-paths", policy.Paths == trace.ConfirmedPaths, "permit explicitly confirmed bounded file paths")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return errors.New("admission API accepts no positional arguments")
+	}
+	if *acceptance != "" {
+		if proxy != nil {
+			return errors.New("worker installation cannot replace a configured stream")
+		}
+		var err error
+		proxy, policy, err = configureStream(*acceptance, policy)
+		if err != nil {
+			return err
+		}
+	}
+	if *confirmedPaths {
+		if proxy == nil {
+			return errors.New("confirmed paths require an accepted stream installation")
+		}
+		policy.Paths = trace.ConfirmedPaths
+	} else {
+		policy.Paths = trace.OmitPaths
 	}
 	config, err := rest.InClusterConfig()
 	if err != nil {

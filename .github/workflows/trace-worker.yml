@@ -1,0 +1,44 @@
+name: Trace worker checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trace-worker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  worker:
+    name: Non-loading SDK worker checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: prototype/trace/worker/go.mod
+          cache-dependency-path: |
+            go.sum
+            prototype/trace/go.sum
+            prototype/trace/worker/go.sum
+
+      - name: Prepare checksum-verified SDK source
+        run: python3 prototype/trace/worker/prepare_sdk.py
+
+      - name: Download isolated worker dependencies
+        run: |
+          source hack/lib/retry.sh
+          retry_capture 3 5 go -C prototype/trace/worker mod download >/dev/null
+
+      - name: Verify, test and cross-compile the worker
+        run: make check-trace-worker

@@ -4,6 +4,11 @@ Status: optional prototype contract. The stream runs
 through real local Kubernetes aggregation with a test-only memory engine.
 No incident programme is approved. See [ADR 0011](../adr/0011-stream-traces-through-owned-ephemeral-leases.md) for the transport and ownership decisions.
 
+The candidate file/cache worker uses version 2, described below and in
+[ADR 0012](../adr/0012-version-file-cache-aggregate-streams.md). Its codec,
+session and private transport have local tests; actual incident execution and
+cgroup correlation remain unqualified.
+
 ## Framing and limits
 
 The version 1 format is NDJSON: one metadata frame, zero or more event frames,
@@ -11,6 +16,81 @@ then one terminal summary. Each encoded frame, including its newline, is at most
 8 KiB. The session reserves 2 KiB for the terminal summary before accepting any
 event. A requested total output limit that cannot fit metadata plus that reserve
 is rejected before the engine starts or any bytes are written.
+
+Version 2 retains the metadata/terminal ordering and 8 KiB frame ceiling, with a
+4 KiB terminal reserve. Default file/cache sessions emit metadata and a terminal
+aggregate summary only. Explicitly confirmed file paths permit per-operation
+file frames as well. OOM remains a version 1 contract. Each stream uses exactly
+one version; the reader rejects mixed versions.
+
+The node runtime and controller independently select the stream version from
+their installed implementation. The private activation request carries that
+version with the selected engine/programme digests. The node compares all three
+before activation, and the controller checks the returned metadata before
+forwarding. There is no request-selected version or automatic downgrade. Upgrade
+the private node/controller pair together while idle. Existing version 1
+constructors and decoding remain available for the earlier contract.
+
+## Version 2 aggregates
+
+`fileAggregates` contains `observations`, `reads` and `writes`; each operation
+group reports `operations`, `totalRequested` and `totalCompleted` bytes.
+`cacheAggregates` contains `observations`, `additions` and `removals`; each group
+reports `operations` and `totalPages`. Pages are hook-reported pages, not bytes,
+unique pages or ownership measurements. Neither aggregate is added to memory
+composition or treated as complete filesystem/cache coverage.
+
+Each total has `value`, `unreported` and `overflow`. Missing inputs or arithmetic
+overflow make `value` null; the flags retain both reasons independently. Zero
+accepted observations have measured zero totals. A terminal summary does not
+turn a failed or incomplete observation window into evidence of no activity.
+All current file/cache summaries set `incomplete: true` because hook blind spots
+remain even when every reported counter is known.
+
+The accumulator retains fixed numeric state, with no paths, timestamps or event
+queue. Its observation count enforces the admitted event ceiling even when no
+public event frame is emitted. In v2, `writtenEvents` still means delivered event
+frames; it is zero under the default policy. Produced/outcome reconciliation uses
+aggregate observations plus rejected callbacks and the disjoint engine counts.
+For confirmed paths, an observation is accumulated only after its entire event
+frame is delivered successfully, keeping aggregates and delivered events aligned.
+
+Normal expiry requires aggregates. Failure summaries may omit them when the
+upstream result is unavailable. Authorisation loss suppresses aggregate values,
+engine counts and the observation window. A controller-generated terminal after
+an upstream failure uses the selected version and actual downstream byte/event
+counts.
+
+## Cgroup correlation in version 2
+
+The optional `correlation` object contains a state and, for `overlapping` evidence,
+the full sampling interval (`evidenceStart` through `evidenceEnd`), end of the
+first read (`beforeEnd`), start of the second (`afterStart`), guaranteed
+`overlapStart`/`overlapEnd` and `uncertaintyNanos`. Overlap excludes clock
+uncertainty and ambiguous time within either read. Each read spans at most one
+second; the full interval is bounded by admitted duration plus two seconds.
+The stream also rejects samples preceding session metadata or following the
+terminal timestamp. Unknown clock alignment is never reported as exact.
+
+`fileBytes`, `dirtyBytes` and `writebackBytes` contain nullable `before`/`after`
+gauges. `refault`, `scan` and `steal` contain a `state` and nullable `delta`:
+`reported` includes measured zero; `unreported` and `reset` have null deltas.
+Deltas describe the full sampling interval, not only the overlap. They are never
+scaled to trace duration or added to memory composition. Non-overlapping states
+(`disjoint`, `target_changed`, `clock_uncertain`, `unavailable`) carry no numbers
+or fabricated timestamps. Correlation uses a bounded canonical JSON object;
+ordinary formatting and JSON serialisation of its domain value are redacted or
+rejected. Version 1 rejects the field.
+
+The candidate SDK worker reads only the six selected `memory.stat` fields through
+its retained and revalidated target descriptor. It samples before activation and,
+on normal expiry, after detachment within the fixed one-second normal-exit grace
+proposed in [ADR 0013](../adr/0013-bound-normal-worker-exit-within-teardown-budget.md).
+The final read keeps an independent signal cancellation context. Cancellation
+before or during a read prevents retaining it; authorisation loss suppresses
+correlation at the session and controller boundaries. Failed reads remain
+unavailable. This path is implemented with local codec, lifecycle and transport
+tests; real incident/kernel correlation still requires acceptance and qualification.
 
 Every encoded byte counts against the admitted total, including metadata,
 newlines and the summary. `writtenBytesBeforeSummary` reports bytes accepted by

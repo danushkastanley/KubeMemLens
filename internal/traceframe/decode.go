@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/internal/traceevidence"
 )
 
-const fieldNames = "version|type|metadata|event|summary|sessionID|engineDigest|programmeDigest|kind|target|paths|bounds|sessionStartedAt|deadline|namespace|pod|podUID|container|containerStartedAt|bindingDigest|durationNanos|events|outputBytes|mapBytes|pathBytes|observedAt|file|cache|oom|operation|requestedBytes|completedBytes|path|pages|scope|victimPID|command|sessionEndedAt|observationStartedAt|observationEndedAt|termination|engineCounts|produced|sampled|lost|rejected|writtenEvents|rejectedEvents|writtenBytesBeforeSummary|incomplete"
+const fieldNames = "version|type|metadata|event|summary|sessionID|engineDigest|programmeDigest|kind|target|paths|bounds|sessionStartedAt|deadline|namespace|pod|podUID|container|containerStartedAt|bindingDigest|durationNanos|events|outputBytes|mapBytes|pathBytes|observedAt|file|cache|oom|operation|requestedBytes|completedBytes|path|pages|scope|victimPID|command|sessionEndedAt|observationStartedAt|observationEndedAt|termination|engineCounts|produced|sampled|lost|rejected|writtenEvents|rejectedEvents|writtenBytesBeforeSummary|incomplete|fileAggregates|cacheAggregates|observations|reads|writes|additions|removals|operations|totalRequested|totalCompleted|totalPages|value|unreported|overflow|correlation|state|evidenceStart|beforeEnd|afterStart|evidenceEnd|overlapStart|overlapEnd|uncertaintyNanos|fileBytes|dirtyBytes|writebackBytes|before|after|refault|scan|steal|delta"
 
 // Decode accepts exactly one bounded NDJSON frame. It rejects unknown versions,
 // fields, case aliases, duplicate keys, arrays and ambiguous unions. A Reader
@@ -29,7 +31,7 @@ func Decode(data []byte) (Frame, error) {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	var e envelope
-	if decoder.Decode(&e) != nil || e.Version != Version {
+	if decoder.Decode(&e) != nil || !SupportedVersion(e.Version) {
 		return Frame{}, ErrInvalid
 	}
 	payloads := 0
@@ -43,15 +45,18 @@ func Decode(data []byte) (Frame, error) {
 	}
 	switch e.Type {
 	case MetadataFrame:
-		if e.Metadata == nil || validateMetadata(*e.Metadata) != nil {
+		if e.Metadata == nil || validateMetadata(*e.Metadata) != nil || (e.Version == AggregateVersion && e.Metadata.Kind == trace.OOM) {
 			return Frame{}, ErrInvalid
 		}
 	case EventFrame:
 		if e.Event == nil || validateEvent(*e.Event) != nil {
 			return Frame{}, ErrInvalid
 		}
+		if e.Version == AggregateVersion && validateAggregateEvent(*e.Event) != nil {
+			return Frame{}, ErrInvalid
+		}
 	case SummaryFrame:
-		if e.Summary == nil || validateSummary(*e.Summary) != nil {
+		if e.Summary == nil || validateSummary(*e.Summary, e.Version) != nil {
 			return Frame{}, ErrInvalid
 		}
 	default:
@@ -59,11 +64,11 @@ func Decode(data []byte) (Frame, error) {
 	}
 	// Retain the received representation: forwarding must account for its actual
 	// bytes, including legal whitespace, rather than a shorter re-encoding.
-	return Frame{kind: e.Type, data: string(data)}, nil
+	return Frame{kind: e.Type, data: string(data), version: e.Version}, nil
 }
 
 func uniqueValue(decoder *json.Decoder, depth int, field string) error {
-	if depth > 3 {
+	if depth > 5 {
 		return ErrInvalid
 	}
 	token, err := decoder.Token()
@@ -72,7 +77,7 @@ func uniqueValue(decoder *json.Decoder, depth int, field string) error {
 	}
 	delimiter, compound := token.(json.Delim)
 	if !compound {
-		if token == nil && !strings.Contains("|requestedBytes|completedBytes|victimPID|produced|sampled|lost|rejected|observationStartedAt|observationEndedAt|", "|"+field+"|") {
+		if token == nil && !strings.Contains("|requestedBytes|completedBytes|victimPID|produced|sampled|lost|rejected|observationStartedAt|observationEndedAt|value|before|after|delta|", "|"+field+"|") {
 			return ErrInvalid
 		}
 		return nil
@@ -174,7 +179,18 @@ func validateEvent(e wireEvent) error {
 	return nil
 }
 func safeEncoded(value string) bool { _, err := DecodeText(value, 512); return err == nil }
-func validateSummary(s wireSummary) error {
-	_, err := NewSummary(Summary{s.SessionEndedAt, s.ObservationStartedAt, s.ObservationEndedAt, s.Termination, trace.Counts{Produced: s.EngineCounts.Produced, Sampled: s.EngineCounts.Sampled, Lost: s.EngineCounts.Lost, Rejected: s.EngineCounts.Rejected}, s.WrittenEvents, s.RejectedEvents, s.WrittenBytesBeforeSummary, s.Incomplete})
+func validateSummary(s wireSummary, version int) error {
+	if s.FileAggregates != nil && s.CacheAggregates != nil {
+		return ErrInvalid
+	}
+	var start, end time.Time
+	if s.ObservationStartedAt != nil && s.ObservationEndedAt != nil {
+		start, end = *s.ObservationStartedAt, *s.ObservationEndedAt
+	}
+	correlation, err := traceevidence.Decode(s.Correlation, start, end, 5*time.Minute)
+	if err != nil {
+		return ErrInvalid
+	}
+	_, err = NewSummaryVersion(Summary{SessionEndedAt: s.SessionEndedAt, ObservationStartedAt: s.ObservationStartedAt, ObservationEndedAt: s.ObservationEndedAt, Termination: s.Termination, EngineCounts: trace.Counts{Produced: s.EngineCounts.Produced, Sampled: s.EngineCounts.Sampled, Lost: s.EngineCounts.Lost, Rejected: s.EngineCounts.Rejected}, WrittenEvents: s.WrittenEvents, RejectedEvents: s.RejectedEvents, WrittenBytesBeforeSummary: s.WrittenBytesBeforeSummary, Incomplete: s.Incomplete, Aggregates: domainAggregates(s), Correlation: correlation}, version)
 	return err
 }

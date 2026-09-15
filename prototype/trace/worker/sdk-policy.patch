@@ -1,0 +1,113 @@
+--- a/pkg/operators/ebpf/ebpf.go
++++ b/pkg/operators/ebpf/ebpf.go
+@@ -789,6 +789,9 @@
+ 		},
+ 	}
+ 
++	// The constrained worker never allocates or retains verifier logs.
++	opts.Programs.LogDisabled = true
++
+ 	if seBtfSpecI, ok := gadgetCtx.GetVar("socketEnricherbtf"); ok {
+ 		gadgetCtx.Logger().Debugf("using socket enricher BTF spec from context")
+ 		// Load the programs with the spec from the socket enricher and the
+@@ -1001,8 +1004,17 @@
+ 		}
+ 	}
+ 
+-	// Attach programs
+-	for progName, p := range i.collectionSpec.Programs {
++	// Validate owned resources while all programmes remain unattached.
++	if err := constrainedBeforeAttach(gadgetCtx, i.collection.Maps); err != nil {
++		return err
++	}
++
++	// Attach in a stable order and honour cancellation between attachments.
++	for _, progName := range constrainedProgrammeNames(i.collectionSpec.Programs) {
++		p := i.collectionSpec.Programs[progName]
++		if err := gadgetCtx.Context().Err(); err != nil {
++			return err
++		}
+ 		l, err := i.attachProgram(gadgetCtx, p, i.collection.Programs[progName])
+ 		if err != nil {
+ 			return fmt.Errorf("attaching eBPF program %q: %w", progName, err)
+@@ -1071,6 +1083,7 @@
+ }
+ 
+ func (i *ebpfInstance) Stop(gadgetCtx operators.GadgetContext) error {
++	var failures []error
+ 	for _, t := range i.tracers {
+ 		t.close()
+ 	}
+@@ -1079,7 +1092,9 @@
+ 	i.detachRawPrograms()
+ 
+ 	for _, l := range i.links {
+-		gadgets.CloseLink(l)
++		if err := l.Close(); err != nil {
++			failures = append(failures, err)
++		}
+ 	}
+ 	i.links = nil
+ 
+@@ -1087,17 +1102,18 @@
+ 		// Disable perf event.
+ 		err := unix.IoctlSetInt(fd, unix.PERF_EVENT_IOC_DISABLE, 0)
+ 		if err != nil {
+-			i.logger.Errorf("disabling perf fd: %v", err)
++			failures = append(failures, err)
+ 		}
+ 
+ 		err = unix.Close(fd)
+ 		if err != nil {
+-			i.logger.Errorf("closing perf fd: %v", err)
+-		}
+-	}
+-
++			failures = append(failures, err)
++		}
++	}
++
++	i.perfFds = nil
+ 	i.wg.Wait()
+-	return nil
++	return errors.Join(failures...)
+ }
+ 
+ func (i *ebpfInstance) Close(gadgetCtx operators.GadgetContext) error {
+--- /dev/null
++++ b/pkg/operators/ebpf/constrained.go
+@@ -0,0 +1,34 @@
++// SPDX-License-Identifier: Apache-2.0
++// KubeMemLens worker policy additions to the pinned SDK.
++package ebpfoperator
++
++import (
++	"errors"
++	"maps"
++	"slices"
++
++	"github.com/cilium/ebpf"
++	"github.com/inspektor-gadget/inspektor-gadget/pkg/operators"
++)
++
++// ConstrainedWorkerPolicyVersion identifies the mandatory worker-only policy.
++const ConstrainedWorkerPolicyVersion = 1
++
++type constrainedAttachValidator interface {
++	BeforeAttach(map[string]*ebpf.Map) error
++}
++
++func constrainedBeforeAttach(ctx operators.GadgetContext, owned map[string]*ebpf.Map) error {
++	if err := ctx.Context().Err(); err != nil {
++		return err
++	}
++	validator, ok := ctx.(constrainedAttachValidator)
++	if !ok {
++		return errors.New("constrained worker requires pre-attach validation")
++	}
++	return validator.BeforeAttach(maps.Clone(owned))
++}
++
++func constrainedProgrammeNames(programmes map[string]*ebpf.ProgramSpec) []string {
++	return slices.Sorted(maps.Keys(programmes))
++}

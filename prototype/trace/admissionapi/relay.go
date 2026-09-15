@@ -13,6 +13,7 @@ import (
 )
 
 type relay struct {
+	version         int
 	reader          *traceframe.Reader
 	sink            *streamhttp.Sink
 	lease           *admission.Lease
@@ -70,7 +71,7 @@ func (r *relay) terminate(parent context.Context, reason trace.Termination) erro
 	if r.transportFailed || parent.Err() != nil {
 		return admission.ErrUnavailable
 	}
-	summary, err := traceframe.NewSummary(traceframe.Summary{SessionEndedAt: time.Now().UTC(), Termination: reason, WrittenEvents: r.events, WrittenBytesBeforeSummary: r.written, Incomplete: true})
+	summary, err := traceframe.NewSummaryVersion(traceframe.Summary{SessionEndedAt: time.Now().UTC(), Termination: reason, WrittenEvents: r.events, WrittenBytesBeforeSummary: r.written, Incomplete: true}, r.version)
 	if err != nil {
 		return admission.ErrUnavailable
 	}

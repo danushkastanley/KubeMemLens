@@ -24,6 +24,22 @@ func requiredFields(object string) string {
 		return "sessionEndedAt|observationStartedAt|observationEndedAt|termination|engineCounts|writtenEvents|rejectedEvents|writtenBytesBeforeSummary|incomplete"
 	case "engineCounts":
 		return "produced|sampled|lost|rejected"
+	case "fileAggregates":
+		return "observations|reads|writes"
+	case "cacheAggregates":
+		return "observations|additions|removals"
+	case "reads", "writes":
+		return "operations|totalRequested|totalCompleted"
+	case "additions", "removals":
+		return "operations|totalPages"
+	case "totalRequested", "totalCompleted", "totalPages":
+		return "value|unreported|overflow"
+	case "correlation":
+		return "state"
+	case "fileBytes", "dirtyBytes", "writebackBytes":
+		return "before|after"
+	case "refault", "scan", "steal":
+		return "state|delta"
 	default:
 		return "" // Unknown object placement is rejected by the typed decoder.
 	}

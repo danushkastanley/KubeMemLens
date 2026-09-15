@@ -146,4 +146,5 @@ type Result struct {
 	Termination Termination
 	Counts      Counts
 	Incomplete  bool
+	Correlation *Correlation
 }

@@ -9,11 +9,22 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/internal/traceaggregate"
 )
 
 const Version = 1
+const AggregateVersion = 2
 const MaxBytes = 8 << 10
 const TerminalReserve = 2 << 10
+const AggregateTerminalReserve = 4 << 10
+
+func Reserve(version int) int {
+	if version == AggregateVersion {
+		return AggregateTerminalReserve
+	}
+	return TerminalReserve
+}
+func SupportedVersion(version int) bool { return version == Version || version == AggregateVersion }
 
 var ErrInvalid = errors.New("invalid trace frame")
 
@@ -46,15 +57,20 @@ type Summary struct {
 	// The reader adds the summary's actual byte length for the full stream total.
 	WrittenBytesBeforeSummary uint64
 	Incomplete                bool
+	Aggregates                *traceaggregate.Summary
+	Correlation               *trace.Correlation
 }
 
 // Frame has immutable encoded storage; Encode is the only disclosure operation.
 // Constructors validate before allocating a frame. No collector serializer may
 // accidentally persist it through json.Marshal or fmt.
 type Frame struct {
-	kind Type
-	data string
+	kind    Type
+	data    string
+	version int
 }
+
+func (f Frame) Version() int { return f.version }
 
 func (f Frame) Type() Type                    { return f.kind }
 func (Frame) Format(w fmt.State, _ rune)      { _, _ = io.WriteString(w, "[ephemeral trace frame]") }

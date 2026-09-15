@@ -8,10 +8,15 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/internal/traceevidence"
 )
 
 func NewMetadata(m Metadata) (Frame, error) {
-	if m.Specification.Validate() != nil {
+	return NewMetadataVersion(m, Version)
+}
+
+func NewMetadataVersion(m Metadata, version int) (Frame, error) {
+	if !SupportedVersion(version) || m.Specification.Validate() != nil || (version == AggregateVersion && m.Specification.Kind() == trace.OOM) {
 		return Frame{}, ErrInvalid
 	}
 	s, t, b := m.Specification, m.Specification.Target(), m.Specification.Bounds()
@@ -35,10 +40,17 @@ func NewMetadata(m Metadata) (Frame, error) {
 	if err := validateMetadata(metadata); err != nil {
 		return Frame{}, err
 	}
-	return makeFrame(envelope{Type: MetadataFrame, Metadata: &metadata})
+	return makeFrame(envelope{Version: version, Type: MetadataFrame, Metadata: &metadata})
 }
 
 func NewSummary(s Summary) (Frame, error) {
+	return NewSummaryVersion(s, Version)
+}
+
+func NewSummaryVersion(s Summary, version int) (Frame, error) {
+	if !SupportedVersion(version) || (version == Version && (s.Aggregates != nil || s.Correlation != nil)) || (version == AggregateVersion && !s.Incomplete) {
+		return Frame{}, ErrInvalid
+	}
 	if s.SessionEndedAt.IsZero() || !validTermination(s.Termination) || s.WrittenEvents > 100000 || s.WrittenBytesBeforeSummary > 32<<20 {
 		return Frame{}, ErrInvalid
 	}
@@ -63,9 +75,23 @@ func NewSummary(s Summary) (Frame, error) {
 			return Frame{}, ErrInvalid
 		}
 	}
-	wire := wireSummary{s.SessionEndedAt.UTC(), s.ObservationStartedAt, s.ObservationEndedAt, s.Termination, wireCounts{counts.Produced, counts.Sampled, counts.Lost, counts.Rejected}, s.WrittenEvents, s.RejectedEvents, s.WrittenBytesBeforeSummary, s.Incomplete}
-	frame, err := makeFrame(envelope{Type: SummaryFrame, Summary: &wire})
-	if len(frame.data) > TerminalReserve {
+	wire := wireSummary{SessionEndedAt: s.SessionEndedAt.UTC(), ObservationStartedAt: s.ObservationStartedAt, ObservationEndedAt: s.ObservationEndedAt, Termination: s.Termination, EngineCounts: wireCounts{counts.Produced, counts.Sampled, counts.Lost, counts.Rejected}, WrittenEvents: s.WrittenEvents, RejectedEvents: s.RejectedEvents, WrittenBytesBeforeSummary: s.WrittenBytesBeforeSummary, Incomplete: s.Incomplete}
+	if version == AggregateVersion {
+		var start, end time.Time
+		if s.ObservationStartedAt != nil {
+			start, end = *s.ObservationStartedAt, *s.ObservationEndedAt
+		}
+		correlation, err := traceevidence.Encode(s.Correlation, start, end, 5*time.Minute)
+		if err != nil || (s.Correlation != nil && s.Correlation.EvidenceEnd.After(s.SessionEndedAt)) {
+			return Frame{}, ErrInvalid
+		}
+		wire.Correlation = correlation
+		if err := setAggregates(&wire, s.Aggregates); err != nil {
+			return Frame{}, err
+		}
+	}
+	frame, err := makeFrame(envelope{Version: version, Type: SummaryFrame, Summary: &wire})
+	if len(frame.data) > Reserve(version) {
 		return Frame{}, ErrInvalid
 	}
 	return frame, err

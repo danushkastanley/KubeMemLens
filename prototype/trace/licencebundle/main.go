@@ -23,17 +23,25 @@ type dependency struct{ Module *module }
 
 func main() {
 	output := flag.String("output", "", "new licence output directory")
+	entrypoint := flag.String("package", "./cmd/memlens-trace", "optional binary package to inventory")
 	flag.Parse()
-	if err := run(*output); err != nil {
+	if err := runPackage(*output, *entrypoint); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 func run(output string) error {
+	return runPackage(output, "./cmd/memlens-trace")
+}
+
+func runPackage(output, entrypoint string) error {
 	if output == "" {
 		return errors.New("licence output directory required")
 	}
-	command := exec.Command("go", "list", "-mod=readonly", "-deps", "-json", "./cmd/memlens-trace")
+	if entrypoint != "./cmd/memlens-trace" && entrypoint != "./cmd/memlens-filecache-worker" {
+		return errors.New("unsupported optional binary package")
+	}
+	command := exec.Command("go", "list", "-mod=readonly", "-deps", "-json", entrypoint)
 	command.Stderr = os.Stderr
 	stream, err := command.StdoutPipe()
 	if err != nil {
