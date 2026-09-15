@@ -140,11 +140,12 @@ type Counts struct {
 }
 
 type Result struct {
-	Version     int
-	StartedAt   time.Time
-	EndedAt     time.Time
-	Termination Termination
-	Counts      Counts
-	Incomplete  bool
-	Correlation *Correlation
+	Version        int
+	StartedAt      time.Time
+	EndedAt        time.Time
+	Termination    Termination
+	Counts         Counts
+	Incomplete     bool
+	Correlation    *Correlation
+	OOMCorrelation *OOMCorrelation
 }

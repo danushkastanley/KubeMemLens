@@ -28,18 +28,26 @@ func requiredFields(object string) string {
 		return "observations|reads|writes"
 	case "cacheAggregates":
 		return "observations|additions|removals"
+	case "oomAggregates":
+		return "observations|cgroup|global|unknown|missingProcessContext"
 	case "reads", "writes":
 		return "operations|totalRequested|totalCompleted"
 	case "additions", "removals":
 		return "operations|totalPages"
 	case "totalRequested", "totalCompleted", "totalPages":
 		return "value|unreported|overflow"
-	case "correlation":
+	case "correlation", "oomCorrelation", "kubernetesContext":
 		return "state"
-	case "fileBytes", "dirtyBytes", "writebackBytes":
+	case "fileBytes", "dirtyBytes", "writebackBytes", "currentBytes":
 		return "before|after"
-	case "refault", "scan", "steal":
+	case "refault", "scan", "steal", "restarts", "low", "high", "max", "oomEvents", "oomKills", "oomGroupKills", "someStallMicros", "fullStallMicros":
 		return "state|delta"
+	case "window":
+		return "evidenceStart|beforeEnd|afterStart|evidenceEnd|overlapStart|overlapEnd|uncertaintyNanos"
+	case "local", "hierarchical":
+		return "low|high|max|oomEvents|oomKills|oomGroupKills"
+	case "limitBefore", "limitAfter":
+		return "state|bytes"
 	default:
 		return "" // Unknown object placement is rejected by the typed decoder.
 	}

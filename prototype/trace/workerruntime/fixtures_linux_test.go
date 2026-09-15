@@ -73,7 +73,12 @@ func fixtureWorker() int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM)
 	defer stop()
-	if writer.CacheActivity(trace.CacheActivity{ObservedAt: time.Now().UTC(), Operation: trace.CacheAdd, Pages: 1}) != nil {
+	if request.Specification.Kind() == trace.OOM {
+		err = writer.OOMDecision(trace.OOMDecision{ObservedAt: time.Now().UTC(), Scope: trace.OOMScopeCgroup})
+	} else {
+		err = writer.CacheActivity(trace.CacheActivity{ObservedAt: time.Now().UTC(), Operation: trace.CacheAdd, Pages: 1})
+	}
+	if err != nil {
 		return 28
 	}
 	if request.Specification.Target().PodName == "wait-for-close" {

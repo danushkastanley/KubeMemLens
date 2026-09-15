@@ -27,7 +27,7 @@ type Decoder struct {
 }
 
 func NewDecoder(spec trace.Specification, clock Alignment) (*Decoder, error) {
-	if spec.Validate() != nil || (spec.Kind() != trace.Files && spec.Kind() != trace.Cache) ||
+	if spec.Validate() != nil || !validProgrammeKind(spec.Kind()) ||
 		clock.MonotonicNS == 0 || clock.WallTime.IsZero() || clock.Duration <= 0 ||
 		clock.Duration > spec.Bounds().Duration || clock.Uncertainty < 0 || clock.Uncertainty > 5*time.Millisecond {
 		return nil, ErrRecord

@@ -7,7 +7,8 @@ vet, and cross-compiles for Linux amd64 and arm64. The dedicated
 permissions. Parent-module `go test ./...` does not cross the nested module boundary.
 
 This job does not sign or load programmes. Offline candidate-object preparation
-tests require `KML_FILECACHE_OBJECTS` and remain part of local candidate verification,
+tests require `KML_FILECACHE_OBJECTS` (four-object file/cache build) and
+`KML_OOM_OBJECTS` (six-object build for OOM tests) and remain part of local candidate verification,
 along with native C regression tests, signed reproduction, dependency/security
 review and the explicitly accepted kernel-test matrix. A green worker job is not
 runtime, supply-chain acceptance or provider qualification.
@@ -54,3 +55,10 @@ signing keys were not mounted.
 These checks exercise protocol/installation/launcher fixtures and OS restrictions.
 They do not load incident BPF, qualify another architecture, complete the SDK's
 incident profile, or replace the programme acceptance and independent review gates.
+
+The OOM candidate additionally tests victim-first hook semantics, five fixed cgroup
+reads, scope/missing-context accounting, v3 framing and rich-summary size, exact
+per-kind launcher selection, and control-service-only Kubernetes context. Positive
+OOM launcher fixtures require `KML_REVIEW_BUNDLE` to name the six-object signed
+public bundle. SDK preparation tests inspect and prepare accepted ELF data with
+BPF denied and without starting readers; they are not load or attachment evidence.

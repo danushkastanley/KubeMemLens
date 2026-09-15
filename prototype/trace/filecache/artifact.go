@@ -47,7 +47,7 @@ type Verifier struct {
 // NewVerifier is installation configuration, never an admission request field.
 // Callers must obtain explicit acceptance of these manifest digests first.
 func NewVerifier(key ed25519.PublicKey, accepted map[ArtifactID]string) (*Verifier, error) {
-	if len(key) != ed25519.PublicKeySize || len(accepted) == 0 || len(accepted) > 4 {
+	if len(key) != ed25519.PublicKeySize || len(accepted) == 0 || len(accepted) > 6 {
 		return nil, ErrArtifact
 	}
 	v := &Verifier{key: append(ed25519.PublicKey(nil), key...), accepted: make(map[ArtifactID]string, len(accepted))}
@@ -117,7 +117,11 @@ func verifyContent(id ArtifactID, m Manifest, object, ociManifest []byte) (*Prog
 }
 
 func validArtifactID(id ArtifactID) bool {
-	return (id.Kind == trace.Files || id.Kind == trace.Cache) && (id.Architecture == "amd64" || id.Architecture == "arm64")
+	return validProgrammeKind(id.Kind) && (id.Architecture == "amd64" || id.Architecture == "arm64")
+}
+
+func validProgrammeKind(kind trace.Kind) bool {
+	return kind == trace.Files || kind == trace.Cache || kind == trace.OOM
 }
 func validSHA(value string) bool {
 	if len(value) != 64 {

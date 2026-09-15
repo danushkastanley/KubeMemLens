@@ -59,6 +59,14 @@ func readEvents(ctx context.Context, owned *resources, decoder *filecache.Decode
 }
 
 func forwardRecord(data []byte, kind trace.Kind, decoder *filecache.Decoder, output trace.Output, counts *readCounts) error {
+	if kind == trace.OOM {
+		event, err := decoder.OOM(data)
+		if err != nil {
+			return ErrWorker
+		}
+		counts.forwarded++
+		return output.OOMDecision(event)
+	}
 	if kind == trace.Files {
 		event, err := decoder.File(data)
 		if err != nil {

@@ -16,7 +16,7 @@ func NewMetadata(m Metadata) (Frame, error) {
 }
 
 func NewMetadataVersion(m Metadata, version int) (Frame, error) {
-	if !SupportedVersion(version) || m.Specification.Validate() != nil || (version == AggregateVersion && m.Specification.Kind() == trace.OOM) {
+	if !AllowsKind(version, m.Specification.Kind()) || m.Specification.Validate() != nil {
 		return Frame{}, ErrInvalid
 	}
 	s, t, b := m.Specification, m.Specification.Target(), m.Specification.Bounds()
@@ -48,7 +48,8 @@ func NewSummary(s Summary) (Frame, error) {
 }
 
 func NewSummaryVersion(s Summary, version int) (Frame, error) {
-	if !SupportedVersion(version) || (version == Version && (s.Aggregates != nil || s.Correlation != nil)) || (version == AggregateVersion && !s.Incomplete) {
+	if !SupportedVersion(version) || (version == Version && (s.Aggregates != nil || s.Correlation != nil || s.OOMCorrelation != nil)) || (version != Version && !s.Incomplete) ||
+		(version != OOMVersion && (s.OOMCorrelation != nil || s.KubernetesContext != nil)) || (version == OOMVersion && s.Correlation != nil) || (s.Aggregates != nil && !AllowsKind(version, s.Aggregates.Kind)) {
 		return Frame{}, ErrInvalid
 	}
 	if s.SessionEndedAt.IsZero() || !validTermination(s.Termination) || s.WrittenEvents > 100000 || s.WrittenBytesBeforeSummary > 32<<20 {
@@ -76,7 +77,7 @@ func NewSummaryVersion(s Summary, version int) (Frame, error) {
 		}
 	}
 	wire := wireSummary{SessionEndedAt: s.SessionEndedAt.UTC(), ObservationStartedAt: s.ObservationStartedAt, ObservationEndedAt: s.ObservationEndedAt, Termination: s.Termination, EngineCounts: wireCounts{counts.Produced, counts.Sampled, counts.Lost, counts.Rejected}, WrittenEvents: s.WrittenEvents, RejectedEvents: s.RejectedEvents, WrittenBytesBeforeSummary: s.WrittenBytesBeforeSummary, Incomplete: s.Incomplete}
-	if version == AggregateVersion {
+	if version != Version {
 		var start, end time.Time
 		if s.ObservationStartedAt != nil {
 			start, end = *s.ObservationStartedAt, *s.ObservationEndedAt
@@ -86,6 +87,16 @@ func NewSummaryVersion(s Summary, version int) (Frame, error) {
 			return Frame{}, ErrInvalid
 		}
 		wire.Correlation = correlation
+		oom, err := traceevidence.OOMEncode(s.OOMCorrelation, start, end, 5*time.Minute)
+		if err != nil || (s.OOMCorrelation != nil && s.OOMCorrelation.Window.EvidenceEnd.After(s.SessionEndedAt)) {
+			return Frame{}, ErrInvalid
+		}
+		wire.OOMCorrelation = oom
+		kubernetes, err := traceevidence.KubernetesOOMEncode(s.KubernetesContext, 5*time.Minute)
+		if err != nil || (s.KubernetesContext != nil && s.KubernetesContext.AfterEnd.After(s.SessionEndedAt)) {
+			return Frame{}, ErrInvalid
+		}
+		wire.KubernetesContext = kubernetes
 		if err := setAggregates(&wire, s.Aggregates); err != nil {
 			return Frame{}, err
 		}

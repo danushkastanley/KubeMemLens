@@ -19,6 +19,7 @@ type relay struct {
 	lease           *admission.Lease
 	written, events uint64
 	transportFailed bool
+	oomContext      *oomSessionContext
 }
 
 func (r *relay) forward(ctx context.Context, frame traceframe.Frame) error {
@@ -48,6 +49,13 @@ func (r *relay) run(ctx context.Context, first traceframe.Frame) error {
 			}
 			if err := r.lease.RevalidateStream(ctx); err != nil {
 				return err
+			}
+			if r.oomContext != nil {
+				var err error
+				frame, err = r.oomContext.finish(ctx, frame)
+				if err != nil {
+					return err
+				}
 			}
 		}
 		if err := r.forward(ctx, frame); err != nil {

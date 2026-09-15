@@ -49,7 +49,7 @@ type requestWire struct {
 }
 
 func (r Request) Validate() error {
-	if r.Specification.Validate() != nil || (r.Specification.Kind() != trace.Files && r.Specification.Kind() != trace.Cache) ||
+	if r.Specification.Validate() != nil ||
 		r.IssuedAt.IsZero() || !r.Deadline.After(r.IssuedAt) || r.Deadline.Sub(r.IssuedAt) > r.Specification.Bounds().Duration ||
 		r.IssuedAt.Before(r.Specification.Target().ContainerStartedAt) ||
 		len(r.ManifestSHA256) != 64 || strings.Trim(r.ManifestSHA256, "0123456789abcdef") != "" {

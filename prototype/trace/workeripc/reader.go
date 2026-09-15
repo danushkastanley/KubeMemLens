@@ -56,6 +56,14 @@ func forward(message responseWire, spec trace.Specification, output trace.Output
 		}
 		return output.FileActivity(trace.FileActivity{ObservedAt: f.ObservedAt, Operation: f.Operation, RequestedBytes: &f.Requested, CompletedBytes: &f.Completed, Path: path})
 	}
+	if message.OOM != nil {
+		o := message.OOM
+		command, err := trace.NewSensitiveText(o.Command, 16)
+		if err != nil {
+			return ErrProtocol
+		}
+		return output.OOMDecision(trace.OOMDecision{ObservedAt: o.ObservedAt, Scope: o.Scope, VictimPID: o.VictimPID, Command: command})
+	}
 	c := message.Cache
 	return output.CacheActivity(trace.CacheActivity{ObservedAt: c.ObservedAt, Operation: c.Operation, Pages: c.Pages})
 }

@@ -1,7 +1,8 @@
-# Private file/cache worker protocol
+# Private incident worker protocol
 
 Status: accepted for bounded local file/cache tests through the optional launcher.
 See [local qualification](FILE_CACHE_LOCAL_QUALIFICATION.md) for results and limits.
+OOM support has separate [bounded local qualification](OOM_LOCAL_QUALIFICATION.md).
 
 The dedicated `worker/cmd/memlens-filecache-worker` executable now builds for
 Linux arm64 and amd64. Its fixed inherited descriptor contract is:
@@ -39,7 +40,7 @@ authorisation decision: the worker must match the digest against independently
 installed acceptance policy and revalidate inherited descriptor 3 against the
 target's exact cgroup identity. The supervisor retains its own cgroup reference.
 
-The worker sends readiness before observations, then typed file/cache records,
+The worker sends readiness before observations, then typed file/cache/OOM records,
 then exactly one result followed by EOF. Startup failure may send an engine-failed
 result without readiness. File requested/completed byte counts remain separate;
 cache records report additions/removals in base pages. These messages describe
@@ -52,6 +53,14 @@ descriptor before activation and after detachment on normal expiry. Private
 validation binds evidence to the request issue time and fixed one-second normal-exit
 grace, its observation window and admitted duration. Invalid, stale or oversized
 correlation fails the protocol. Authorisation-loss results carry no correlation.
+
+OOM messages preserve private protocol version 1 and its 4,096-byte ceiling.
+Their kind-specific event carries only bounded victim context; wrong-kind events,
+invalid process context and out-of-window timestamps fail. The optional terminal
+`oomCorrelation` replaces file/cache correlation for OOM requests and is capped at
+2,560 bytes. Mixed-kind correlation is rejected. Kubernetes context is assembled
+by the control service, never by this worker. Public OOM streams use version 3;
+private and public versions are deliberately independent.
 
 Writer and reader independently enforce event and private event-byte budgets.
 Readiness and the result each have one additional 4,096-byte message reserve.

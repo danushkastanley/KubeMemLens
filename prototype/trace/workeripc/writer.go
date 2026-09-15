@@ -49,7 +49,7 @@ func (w *Writer) write(message responseWire) error {
 		w.failed = true
 		return err
 	}
-	if message.Type == "file" || message.Type == "cache" {
+	if message.Type == "file" || message.Type == "cache" || message.Type == "oom" {
 		bounds := w.request.Specification.Bounds()
 		if !w.ready {
 			w.failed = true
@@ -99,11 +99,10 @@ func (w *Writer) CacheActivity(event trace.CacheActivity) error {
 	return w.write(responseWire{Version: Version, Type: "cache", Cache: &cacheWire{event.ObservedAt.UTC(), event.Operation, event.Pages}})
 }
 
-func (w *Writer) OOMDecision(trace.OOMDecision) error {
+func (w *Writer) OOMDecision(event trace.OOMDecision) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.failed = true
-	return ErrProtocol
+	return w.write(responseWire{Version: Version, Type: "oom", OOM: &oomWire{event.ObservedAt.UTC(), event.Scope, event.VictimPID, event.Command.Reveal()}})
 }
 
 // Finish must be called after adapter teardown. A message alone is not process
@@ -120,8 +119,13 @@ func (w *Writer) Finish(result trace.Result) error {
 		w.failed = true
 		return ErrProtocol
 	}
+	oom, err := traceevidence.OOMEncode(result.OOMCorrelation, result.StartedAt, result.EndedAt, w.request.Specification.Bounds().Duration)
+	if err != nil {
+		w.failed = true
+		return ErrProtocol
+	}
 	c := result.Counts
-	message := responseWire{Version: Version, Type: "result", Result: &resultWire{result.StartedAt.UTC(), result.EndedAt.UTC(), result.Termination, c.Produced, c.Sampled, c.Lost, c.Rejected, result.Incomplete, correlation}}
+	message := responseWire{Version: Version, Type: "result", Result: &resultWire{StartedAt: result.StartedAt.UTC(), EndedAt: result.EndedAt.UTC(), Termination: result.Termination, Produced: c.Produced, Sampled: c.Sampled, Lost: c.Lost, Rejected: c.Rejected, Incomplete: result.Incomplete, Correlation: correlation, OOMCorrelation: oom}}
 	if err := w.write(message); err != nil {
 		return err
 	}

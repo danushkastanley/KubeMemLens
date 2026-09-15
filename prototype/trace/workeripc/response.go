@@ -15,6 +15,7 @@ type responseWire struct {
 	Type    string      `json:"type"`
 	File    *fileWire   `json:"file,omitempty"`
 	Cache   *cacheWire  `json:"cache,omitempty"`
+	OOM     *oomWire    `json:"oom,omitempty"`
 	Result  *resultWire `json:"result,omitempty"`
 }
 type fileWire struct {
@@ -29,16 +30,23 @@ type cacheWire struct {
 	Operation  trace.CacheOperation `json:"operation"`
 	Pages      uint64               `json:"pages"`
 }
+type oomWire struct {
+	ObservedAt time.Time      `json:"observedAt"`
+	Scope      trace.OOMScope `json:"scope"`
+	VictimPID  *uint32        `json:"victimPID"`
+	Command    string         `json:"command"`
+}
 type resultWire struct {
-	StartedAt   time.Time         `json:"startedAt"`
-	EndedAt     time.Time         `json:"endedAt"`
-	Termination trace.Termination `json:"termination"`
-	Produced    *uint64           `json:"produced"`
-	Sampled     *uint64           `json:"sampled"`
-	Lost        *uint64           `json:"lost"`
-	Rejected    *uint64           `json:"rejected"`
-	Incomplete  bool              `json:"incomplete"`
-	Correlation json.RawMessage   `json:"correlation,omitempty"`
+	StartedAt      time.Time         `json:"startedAt"`
+	EndedAt        time.Time         `json:"endedAt"`
+	Termination    trace.Termination `json:"termination"`
+	Produced       *uint64           `json:"produced"`
+	Sampled        *uint64           `json:"sampled"`
+	Lost           *uint64           `json:"lost"`
+	Rejected       *uint64           `json:"rejected"`
+	Incomplete     bool              `json:"incomplete"`
+	Correlation    json.RawMessage   `json:"correlation,omitempty"`
+	OOMCorrelation json.RawMessage   `json:"oomCorrelation,omitempty"`
 }
 
 func observed(at time.Time, r Request) bool {
@@ -51,11 +59,11 @@ func (w responseWire) validate(r Request) error {
 	}
 	switch w.Type {
 	case "ready":
-		if w.File != nil || w.Cache != nil || w.Result != nil {
+		if w.File != nil || w.Cache != nil || w.OOM != nil || w.Result != nil {
 			return ErrProtocol
 		}
 	case "file":
-		if w.File == nil || w.Cache != nil || w.Result != nil || r.Specification.Kind() != trace.Files {
+		if w.File == nil || w.Cache != nil || w.OOM != nil || w.Result != nil || r.Specification.Kind() != trace.Files {
 			return ErrProtocol
 		}
 		f := w.File
@@ -72,15 +80,29 @@ func (w responseWire) validate(r Request) error {
 			return ErrProtocol
 		}
 	case "cache":
-		if w.Cache == nil || w.File != nil || w.Result != nil || r.Specification.Kind() != trace.Cache {
+		if w.Cache == nil || w.File != nil || w.OOM != nil || w.Result != nil || r.Specification.Kind() != trace.Cache {
 			return ErrProtocol
 		}
 		c := w.Cache
 		if !observed(c.ObservedAt, r) || (c.Operation != trace.CacheAdd && c.Operation != trace.CacheRemove) || c.Pages == 0 || c.Pages > 1<<62 || c.Pages&(c.Pages-1) != 0 {
 			return ErrProtocol
 		}
+	case "oom":
+		if w.OOM == nil || w.File != nil || w.Cache != nil || w.Result != nil || r.Specification.Kind() != trace.OOM {
+			return ErrProtocol
+		}
+		o := w.OOM
+		if !observed(o.ObservedAt, r) || (o.Scope != trace.OOMScopeUnknown && o.Scope != trace.OOMScopeCgroup && o.Scope != trace.OOMScopeGlobal) ||
+			(o.VictimPID != nil && (*o.VictimPID == 0 || *o.VictimPID > 1<<31-1)) || len(o.Command) > 16 || !utf8.ValidString(o.Command) {
+			return ErrProtocol
+		}
+		for _, c := range o.Command {
+			if c == 0 {
+				return ErrProtocol
+			}
+		}
 	case "result":
-		if w.Result == nil || w.File != nil || w.Cache != nil {
+		if w.Result == nil || w.File != nil || w.Cache != nil || w.OOM != nil {
 			return ErrProtocol
 		}
 		return w.Result.validate(r)
@@ -106,11 +128,18 @@ func (w resultWire) validate(r Request) error {
 	if !w.StartedAt.IsZero() && (!observed(w.StartedAt, r) || !observed(w.EndedAt, r) || w.EndedAt.Before(w.StartedAt)) {
 		return ErrProtocol
 	}
-	if w.Termination == trace.AuthorisationLost && len(w.Correlation) != 0 {
+	if w.Termination == trace.AuthorisationLost && (len(w.Correlation) != 0 || len(w.OOMCorrelation) != 0) {
+		return ErrProtocol
+	}
+	if (r.Specification.Kind() == trace.OOM && len(w.Correlation) != 0) || (r.Specification.Kind() != trace.OOM && len(w.OOMCorrelation) != 0) {
 		return ErrProtocol
 	}
 	correlation, err := traceevidence.Decode(w.Correlation, w.StartedAt, w.EndedAt, r.Specification.Bounds().Duration)
 	if err != nil || (correlation != nil && correlation.State == "overlapping" && (correlation.EvidenceStart.Before(r.IssuedAt) || correlation.EvidenceEnd.After(r.Deadline.Add(NormalExitGrace)))) {
+		return ErrProtocol
+	}
+	oom, err := traceevidence.OOMDecode(w.OOMCorrelation, w.StartedAt, w.EndedAt, r.Specification.Bounds().Duration)
+	if err != nil || (oom != nil && oom.Window.State == "overlapping" && (oom.Window.EvidenceStart.Before(r.IssuedAt) || oom.Window.EvidenceEnd.After(r.Deadline.Add(NormalExitGrace)))) {
 		return ErrProtocol
 	}
 	counts := []*uint64{w.Produced, w.Sampled, w.Lost, w.Rejected}
@@ -138,8 +167,12 @@ func (w resultWire) result(r Request) (trace.Result, error) {
 	if err != nil {
 		return trace.Result{}, ErrProtocol
 	}
+	oom, err := traceevidence.OOMDecode(w.OOMCorrelation, w.StartedAt, w.EndedAt, r.Specification.Bounds().Duration)
+	if err != nil {
+		return trace.Result{}, ErrProtocol
+	}
 	return trace.Result{Version: trace.ContractVersion, StartedAt: w.StartedAt, EndedAt: w.EndedAt, Termination: w.Termination,
-		Counts: trace.Counts{Produced: w.Produced, Sampled: w.Sampled, Lost: w.Lost, Rejected: w.Rejected}, Incomplete: w.Incomplete, Correlation: correlation}, nil
+		Counts: trace.Counts{Produced: w.Produced, Sampled: w.Sampled, Lost: w.Lost, Rejected: w.Rejected}, Incomplete: w.Incomplete, Correlation: correlation, OOMCorrelation: oom}, nil
 }
 
 // A valid cumulative result cannot account for fewer successful pipe events

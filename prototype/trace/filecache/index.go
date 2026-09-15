@@ -33,13 +33,17 @@ func (v *Verifier) CheckIndex(data []byte, expectedSHA256 string) error {
 		return ErrArtifact
 	}
 	canonical, err := json.Marshal(index)
-	if err != nil || !bytes.Equal(canonical, data) || index.Version != 1 || index.Status != "unapproved" || index.PublicKeySHA256 != sumSHA(v.key) || len(index.Programmes) != 4 {
+	expected := 4
+	if index.Version == 2 {
+		expected = 6
+	}
+	if err != nil || !bytes.Equal(canonical, data) || (index.Version != 1 && index.Version != 2) || index.Status != "unapproved" || index.PublicKeySHA256 != sumSHA(v.key) || len(index.Programmes) != expected {
 		return ErrArtifact
 	}
-	entries := make(map[ArtifactID]string, 4)
+	entries := make(map[ArtifactID]string, expected)
 	for _, entry := range index.Programmes {
 		id := ArtifactID{entry.Kind, entry.Architecture}
-		if !validArtifactID(id) || !validSHA(entry.ManifestSHA256) || entries[id] != "" {
+		if !validArtifactID(id) || (index.Version == 1 && id.Kind == trace.OOM) || !validSHA(entry.ManifestSHA256) || entries[id] != "" {
 			return ErrArtifact
 		}
 		entries[id] = entry.ManifestSHA256

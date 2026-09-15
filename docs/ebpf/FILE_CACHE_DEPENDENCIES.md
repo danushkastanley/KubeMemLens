@@ -1,4 +1,4 @@
-# File/cache worker dependency inventory
+# Incident worker dependency inventory
 
 Date: 15 September 2026. Scope: the candidate
 `prototype/trace/worker/cmd/memlens-filecache-worker` entrypoint, with Go 1.27.1,
@@ -7,8 +7,12 @@ maintainer acceptance, an independent security review or a distribution approval
 
 ## Actual import graph
 
-Linux arm64 resolves 1,306 packages; Linux amd64 resolves 1,308. Both resolve 163
-modules, including local replacements. The retained inventory separately names
+The BPF-006 candidate resolves 1,307 Linux arm64 packages and 1,309 Linux amd64
+packages. The only additional import over BPF-005 is the local `oomtrace` package.
+The external import graph and all 75/87 non-Go and embedded input hashes are
+unchanged. Fresh scans preserve the four advisory IDs below. Both resolve 163
+imported modules, including local replacements (552 entries in the full module
+graph, which also includes unused dependencies). The retained inventory separately names
 75 arm64 and 87 amd64 non-Go/embedded inputs. Assembly, generated embedded objects
 and headers need source-level licence/provenance review in addition to the Go
 scanner; a module count alone does not close that obligation.

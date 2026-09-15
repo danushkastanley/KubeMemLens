@@ -14,17 +14,37 @@ import (
 
 const Version = 1
 const AggregateVersion = 2
+const OOMVersion = 3
 const MaxBytes = 8 << 10
 const TerminalReserve = 2 << 10
 const AggregateTerminalReserve = 4 << 10
+const OOMTerminalReserve = 6 << 10
 
 func Reserve(version int) int {
 	if version == AggregateVersion {
 		return AggregateTerminalReserve
 	}
+	if version == OOMVersion {
+		return OOMTerminalReserve
+	}
 	return TerminalReserve
 }
-func SupportedVersion(version int) bool { return version == Version || version == AggregateVersion }
+func SupportedVersion(version int) bool {
+	return version == Version || version == AggregateVersion || version == OOMVersion
+}
+
+func AllowsKind(version int, kind trace.Kind) bool {
+	switch version {
+	case Version:
+		return kind == trace.Files || kind == trace.Cache || kind == trace.OOM
+	case AggregateVersion:
+		return kind == trace.Files || kind == trace.Cache
+	case OOMVersion:
+		return kind == trace.OOM
+	default:
+		return false
+	}
+}
 
 var ErrInvalid = errors.New("invalid trace frame")
 
@@ -59,6 +79,8 @@ type Summary struct {
 	Incomplete                bool
 	Aggregates                *traceaggregate.Summary
 	Correlation               *trace.Correlation
+	OOMCorrelation            *trace.OOMCorrelation
+	KubernetesContext         *trace.KubernetesOOMContext
 }
 
 // Frame has immutable encoded storage; Encode is the only disclosure operation.

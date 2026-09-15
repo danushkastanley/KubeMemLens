@@ -15,6 +15,7 @@ import subprocess
 BUILDER = "ghcr.io/inspektor-gadget/gadget-builder@sha256:d55d33bfd2583e721ac78972a8039fb4b207d157e06f0c623c5f8a55cee597b4"
 UPSTREAM = "e5a2855f270ca6557f4bd7e4fabaddf6760d8f50"
 SOURCE = Path(__file__).resolve().parent / "filecache"
+PROGRAMME_SETS = {"file-cache": ("files", "cache"), "all": ("files", "cache", "oom")}
 
 
 def digest(path):
@@ -28,10 +29,13 @@ def clean_upstream(path):
         raise ValueError("requires the clean accepted upstream source revision")
 
 
-def build(upstream, output):
+def build(upstream, output, programme_set="file-cache"):
+    names = PROGRAMME_SETS[programme_set]
     clean_upstream(upstream)
     output.mkdir(mode=0o700)
-    shutil.copytree(SOURCE, output / "source")
+    (output / "source").mkdir(mode=0o700)
+    for name in ("LICENSE", "common.h", *(kind + ".bpf.c" for kind in names)):
+        shutil.copyfile(SOURCE / name, output / "source" / name)
     inputs = {p.name: digest(p) for p in sorted((output / "source").iterdir()) if p.is_file()}
     headers = {str(p.relative_to(upstream)): digest(p) for p in sorted((upstream / "include").rglob("*.h"))}
     prefix = ["docker", "run", "--rm", "--platform", "linux/arm64", "--network=none",
@@ -41,7 +45,7 @@ def build(upstream, output):
               "-v", f"{upstream}:/upstream:ro", "-v", f"{output / 'source'}:/src:ro"]
     objects = []
     for arch, target in (("amd64", "x86"), ("arm64", "arm64")):
-        for name in ("files", "cache"):
+        for name in names:
             hashes = []
             for repeat in (1, 2):
                 directory = output / f"{name}-{arch}-{repeat}"
@@ -69,12 +73,13 @@ def build(upstream, output):
         "headerSHA256": headers, "objects": objects, "loaded": False,
         "approval": "not granted by this build", "isa": "bpfel v3",
     }, indent=2) + "\n")
-    print("Four candidate objects reproduced without loading BPF.")
+    print(f"{len(objects)} candidate objects reproduced without loading BPF.")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--upstream", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--set", choices=PROGRAMME_SETS, default="file-cache", dest="programme_set")
     args = parser.parse_args()
-    build(args.upstream.resolve(), args.output.resolve())
+    build(args.upstream.resolve(), args.output.resolve(), args.programme_set)

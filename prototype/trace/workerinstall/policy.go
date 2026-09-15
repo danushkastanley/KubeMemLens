@@ -67,7 +67,7 @@ func Parse(data []byte) (*Policy, error) {
 		config.Engine.SourceCommit != filecache.EngineSourceCommit || config.Engine.PatchSHA256 != filecache.EnginePatchSHA256 ||
 		len(config.Engine.Workers) == 0 || len(config.Engine.Workers) > 2 || !validSHA(config.ProgrammeIndexSHA256) ||
 		len(config.EnginePublicKey) != ed25519.PublicKeySize || len(config.EngineSignature) != ed25519.SignatureSize ||
-		len(config.ProgrammePublicKey) != ed25519.PublicKeySize || len(config.Programmes) == 0 || len(config.Programmes) > 4 {
+		len(config.ProgrammePublicKey) != ed25519.PublicKeySize || len(config.Programmes) == 0 || len(config.Programmes) > 6 {
 		return nil, ErrInstallation
 	}
 	for arch, digest := range config.Engine.Workers {

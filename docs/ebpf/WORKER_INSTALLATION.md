@@ -3,6 +3,7 @@
 Status: the normal-exit and path-copy candidate is accepted for bounded local
 testing and installed with its matched immutable public policy. See
 [local qualification](FILE_CACHE_LOCAL_QUALIFICATION.md) for workload evidence.
+The OOM candidate has separate [local qualification](OOM_LOCAL_QUALIFICATION.md).
 Full failure/lifecycle, independent review and provider gates remain incomplete.
 
 `prototype/trace/workerinstall` parses bounded canonical installation policy,
@@ -21,10 +22,12 @@ must verify. Engine and programme trust keys are explicit and may be independent
 | --- | --- |
 | Engine digest | SHA-256 of canonical signed engine-release payload, common across supported architectures |
 | Worker hash | Exact static Linux executable for one accepted architecture |
-| Programme digest | SHA-256 of the candidate index containing all four file/cache review manifests |
+| Programme digest | SHA-256 of the candidate index containing four file/cache or six file/cache/OOM review manifests |
 | Accepted manifest hash | Independently permitted signed manifest for the requested kind and architecture |
 
 The index must match the programme key and every independently accepted manifest.
+Index version 1 requires four file/cache objects; version 2 requires all six
+kind/architecture combinations. Policy may accept a subset, up to six entries.
 Reading an index does not accept its other entries. A common stream identity binds
 both architectures while the node verifies its specific executable and programme.
 A changed worker requires a new engine signature and changes the engine digest.
@@ -74,7 +77,8 @@ The private stream request now carries the controller's expected engine and
 programme digests. The node checks them before activation. Missing/old request
 fields fail closed, so controller and node must be upgraded together for this
 private contract change. The installed file/cache runtime selects public NDJSON
-version 2 for default aggregate output. The private stream request also carries
+version 2 for default aggregate output; an independently accepted OOM kind selects
+version 3. Omission of OOM from policy keeps it disabled. The private stream request also carries
 the independently selected stream version; a mismatch is rejected before
 activation. The controller pins the metadata version and uses the same version
 for failure summaries. See [STREAM.md](STREAM.md) for the versioned contract.

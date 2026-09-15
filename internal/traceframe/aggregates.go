@@ -41,7 +41,7 @@ func cacheWire(c traceaggregate.CacheOperations) wireCacheOperations {
 
 func setAggregates(w *wireSummary, s *traceaggregate.Summary) error {
 	if w.Termination == trace.AuthorisationLost {
-		if s != nil || len(w.Correlation) != 0 || w.ObservationStartedAt != nil || w.ObservationEndedAt != nil || w.EngineCounts.Produced != nil || w.EngineCounts.Sampled != nil || w.EngineCounts.Lost != nil || w.EngineCounts.Rejected != nil {
+		if s != nil || len(w.Correlation) != 0 || len(w.OOMCorrelation) != 0 || len(w.KubernetesContext) != 0 || w.ObservationStartedAt != nil || w.ObservationEndedAt != nil || w.EngineCounts.Produced != nil || w.EngineCounts.Sampled != nil || w.EngineCounts.Lost != nil || w.EngineCounts.Rejected != nil {
 			return ErrInvalid
 		}
 		return nil
@@ -57,6 +57,8 @@ func setAggregates(w *wireSummary, s *traceaggregate.Summary) error {
 		w.FileAggregates = &wireFileAggregates{s.Observations, filesWire(s.Reads), filesWire(s.Writes)}
 	case trace.Cache:
 		w.CacheAggregates = &wireCacheAggregates{s.Observations, cacheWire(s.Additions), cacheWire(s.Removals)}
+	case trace.OOM:
+		w.OOMAggregates = &wireOOMAggregates{s.Observations, s.OOM.Cgroup, s.OOM.Global, s.OOM.Unknown, s.OOM.MissingProcessContext}
 	default:
 		return ErrInvalid
 	}
@@ -77,14 +79,17 @@ func aggregateCount(s wireSummary) uint64 {
 	if s.CacheAggregates != nil {
 		return s.CacheAggregates.Observations
 	}
+	if s.OOMAggregates != nil {
+		return s.OOMAggregates.Observations
+	}
 	return 0
 }
 
 func validateAggregates(s wireSummary) error {
-	if s.FileAggregates != nil && s.CacheAggregates != nil {
+	if (s.FileAggregates != nil && s.CacheAggregates != nil) || validateOOMAggregates(s) != nil {
 		return ErrInvalid
 	}
-	if s.FileAggregates == nil && s.CacheAggregates == nil {
+	if s.FileAggregates == nil && s.CacheAggregates == nil && s.OOMAggregates == nil {
 		if s.Termination == trace.Expired {
 			return ErrInvalid
 		}
@@ -154,6 +159,9 @@ func cacheDomain(c wireCacheOperations) traceaggregate.CacheOperations {
 	return traceaggregate.CacheOperations{Operations: c.Operations, Pages: totalDomain(c.Pages)}
 }
 func domainAggregates(s wireSummary) *traceaggregate.Summary {
+	if s.OOMAggregates != nil {
+		return oomDomain(s.OOMAggregates)
+	}
 	if f := s.FileAggregates; f != nil {
 		return &traceaggregate.Summary{Kind: trace.Files, Observations: f.Observations, Reads: fileDomain(f.Reads), Writes: fileDomain(f.Writes)}
 	}

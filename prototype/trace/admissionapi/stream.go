@@ -18,8 +18,13 @@ import (
 // StreamProxy has an installation-owned digest allowlist. Empty means no
 // approved programme; it cannot be populated by request parameters.
 type StreamProxy struct {
-	programmes map[trace.Kind]string
-	version    int
+	programmes map[trace.Kind]StreamProgramme
+	oomContext OOMContextSource
+}
+
+type StreamProgramme struct {
+	Digest  string
+	Version int
 }
 
 func NewStreamProxy(programmes map[trace.Kind]string) (*StreamProxy, error) {
@@ -27,32 +32,55 @@ func NewStreamProxy(programmes map[trace.Kind]string) (*StreamProxy, error) {
 }
 
 func NewStreamProxyVersion(programmes map[trace.Kind]string, version int) (*StreamProxy, error) {
-	if !traceframe.SupportedVersion(version) {
+	if !traceframe.SupportedVersion(version) || len(programmes) > 3 {
 		return nil, admission.ErrUnavailable
 	}
-	p := &StreamProxy{programmes: map[trace.Kind]string{}, version: version}
+	configured := make(map[trace.Kind]StreamProgramme, len(programmes))
 	for kind, digest := range programmes {
-		if (version == traceframe.AggregateVersion && kind == trace.OOM) || (kind != trace.Files && kind != trace.Cache && kind != trace.OOM) || len(digest) != 71 || !strings.HasPrefix(digest, "sha256:") || strings.Trim(digest[7:], "0123456789abcdef") != "" {
+		configured[kind] = StreamProgramme{Digest: digest, Version: version}
+	}
+	return NewStreamProxyProgrammes(configured)
+}
+
+// NewStreamProxyProgrammes binds each accepted kind to one installation-owned
+// format. Neither node metadata nor a public request can choose this mapping.
+func NewStreamProxyProgrammes(programmes map[trace.Kind]StreamProgramme) (*StreamProxy, error) {
+	if len(programmes) > 3 {
+		return nil, admission.ErrUnavailable
+	}
+	p := &StreamProxy{programmes: make(map[trace.Kind]StreamProgramme, len(programmes))}
+	for kind, programme := range programmes {
+		digest := programme.Digest
+		if !traceframe.AllowsKind(programme.Version, kind) || len(digest) != 71 || !strings.HasPrefix(digest, "sha256:") || strings.Trim(digest[7:], "0123456789abcdef") != "" {
 			return nil, admission.ErrUnavailable
 		}
-		p.programmes[kind] = digest
+		p.programmes[kind] = programme
 	}
 	return p, nil
 }
 func (p *StreamProxy) serve(parent context.Context, w http.ResponseWriter, lease *admission.Lease) error {
 	ctx := parent
 	a := lease.Admission()
-	digest, approved := p.programmes[a.Specification().Kind()]
+	programme, approved := p.programmes[a.Specification().Kind()]
 	if !approved {
 		return admission.ErrUnavailable
 	}
+	digest, version := programme.Digest, programme.Version
 	binding, ok := lease.Binding().(nodebinding.StreamBinding)
 	if !ok {
 		return admission.ErrUnavailable
 	}
 	ctx, cancel := context.WithDeadline(ctx, lease.Deadline().Add(2*time.Second))
 	defer cancel()
-	source, err := binding.OpenStream(ctx, lease.Deadline(), nodebinding.StreamIdentity{StreamVersion: p.version, EngineDigest: a.EngineDigest(), ProgrammeDigest: digest})
+	var oomContext *oomSessionContext
+	if version == traceframe.OOMVersion {
+		var err error
+		oomContext, err = beginOOMContext(ctx, p.oomContext, a.Specification())
+		if err != nil {
+			return err
+		}
+	}
+	source, err := binding.OpenStream(ctx, lease.Deadline(), nodebinding.StreamIdentity{StreamVersion: version, EngineDigest: a.EngineDigest(), ProgrammeDigest: digest})
 	if err != nil {
 		return err
 	}
@@ -70,7 +98,7 @@ func (p *StreamProxy) serve(parent context.Context, w http.ResponseWriter, lease
 	if err != nil {
 		return admission.ErrUnavailable
 	}
-	if first.MatchAdmissionVersion(a.ID(), a.EngineDigest(), digest, a.Specification(), lease.Deadline(), p.version) != nil {
+	if first.MatchAdmissionVersion(a.ID(), a.EngineDigest(), digest, a.Specification(), lease.Deadline(), version) != nil {
 		return admission.ErrTargetChanged
 	}
 	if err := lease.RevalidateStream(ctx); err != nil {
@@ -105,7 +133,7 @@ func (p *StreamProxy) serve(parent context.Context, w http.ResponseWriter, lease
 		}
 	}()
 	defer func() { stopWatch(); <-done }()
-	relay := &relay{reader: reader, sink: sink, lease: lease, version: p.version}
+	relay := &relay{reader: reader, sink: sink, lease: lease, version: version, oomContext: oomContext}
 	if err := relay.run(ctx, first); err != nil {
 		stopWatch()
 		<-done

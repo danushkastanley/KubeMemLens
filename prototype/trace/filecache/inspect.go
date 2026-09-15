@@ -1,4 +1,4 @@
-// Package filecache implements the fixed file/cache programme boundary.
+// Package filecache implements the fixed incident programme boundary.
 package filecache
 
 import (
@@ -46,7 +46,7 @@ type ObjectInventory struct {
 // Inspect parses ELF/BTF in userspace only. It does not create kernel maps,
 // load programmes, establish approval, or prove verifier/runtime compatibility.
 func Inspect(kind trace.Kind, object []byte) (ObjectInventory, error) {
-	if len(object) == 0 || len(object) > MaxObjectBytes || (kind != trace.Files && kind != trace.Cache) {
+	if len(object) == 0 || len(object) > MaxObjectBytes || !validProgrammeKind(kind) {
 		return ObjectInventory{}, ErrObject
 	}
 	spec, err := ebpf.LoadCollectionSpecFromReader(bytes.NewReader(object))
@@ -57,6 +57,9 @@ func Inspect(kind trace.Kind, object []byte) (ObjectInventory, error) {
 	name := "file_event"
 	if kind == trace.Cache {
 		name = "cache_event"
+	}
+	if kind == trace.OOM {
+		name = "oom_event"
 	}
 	if err := spec.Types.TypeByName(name, &event); err != nil {
 		return ObjectInventory{}, ErrObject

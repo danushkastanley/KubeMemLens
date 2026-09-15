@@ -1,13 +1,12 @@
 # Ephemeral stream contract
 
-Status: optional prototype contract. The stream runs
-through real local Kubernetes aggregation with a test-only memory engine.
-No incident programme is approved. See [ADR 0011](../adr/0011-stream-traces-through-owned-ephemeral-leases.md) for the transport and ownership decisions.
+Status: optional prototype contract. File/cache execution has bounded
+[local qualification](FILE_CACHE_LOCAL_QUALIFICATION.md). The OOM version 3
+[local matrix](OOM_LOCAL_QUALIFICATION.md) verifies the bounded arm64 profile. See [ADR 0011](../adr/0011-stream-traces-through-owned-ephemeral-leases.md) for the transport and ownership decisions.
 
 The candidate file/cache worker uses version 2, described below and in
-[ADR 0012](../adr/0012-version-file-cache-aggregate-streams.md). Its codec,
-session and private transport have local tests; actual incident execution and
-cgroup correlation remain unqualified.
+[ADR 0012](../adr/0012-version-file-cache-aggregate-streams.md). The OOM candidate uses version 3 as specified in
+[ADR 0014](../adr/0014-version-oom-evidence-streams.md).
 
 ## Framing and limits
 
@@ -20,8 +19,9 @@ is rejected before the engine starts or any bytes are written.
 Version 2 retains the metadata/terminal ordering and 8 KiB frame ceiling, with a
 4 KiB terminal reserve. Default file/cache sessions emit metadata and a terminal
 aggregate summary only. Explicitly confirmed file paths permit per-operation
-file frames as well. OOM remains a version 1 contract. Each stream uses exactly
-one version; the reader rejects mixed versions.
+file frames as well. Version 3 is OOM-only, with ephemeral victim events,
+numeric OOM aggregates and a 6 KiB terminal reserve. Version 1 OOM decoding is
+preserved. Each stream uses exactly one version; the reader rejects mixed versions.
 
 The node runtime and controller independently select the stream version from
 their installed implementation. The private activation request carries that
@@ -90,7 +90,40 @@ The final read keeps an independent signal cancellation context. Cancellation
 before or during a read prevents retaining it; authorisation loss suppresses
 correlation at the session and controller boundaries. Failed reads remain
 unavailable. This path is implemented with local codec, lifecycle and transport
-tests; real incident/kernel correlation still requires acceptance and qualification.
+tests and the bounded file/cache kernel matrix linked above. The OOM local matrix verifies normal-expiry evidence; non-zero post-kill
+correlation under a surviving target remains unqualified on the group-OOM profile.
+
+## Version 3 OOM evidence
+
+`oomAggregates` contains observations and separate cgroup, global, unknown and
+missing-process-context counts. These fixed numeric values retain no PID or
+command. Scope counts must exactly match delivered ephemeral events; process
+context is missing when PID or command is absent. All summaries remain incomplete
+because the reviewed hooks have explicit coverage limits. See
+[OOM programme semantics](OOM_PROGRAMMES.md).
+
+`oomCorrelation` records the same bounded sampling/overlap guarantees in a nested
+`window`. Separate `local` and `hierarchical` objects contain low, high, max,
+`oomEvents`, `oomKills` and `oomGroupKills` deltas. `currentBytes` is a gauge pair;
+`limitBefore` and `limitAfter` distinguish finite, unlimited and unreported limits.
+`someStallMicros` and `fullStallMicros` are PSI stall-total deltas, not kill counts.
+Reported zero, unreported and counter reset remain distinct. The worker reads only
+`memory.events.local`, `memory.events`, `memory.current`, `memory.max` and
+`memory.pressure`, each bounded to 16 KiB, through the retained target descriptor.
+Target loss or cancellation discards that read attempt; replacement is never sampled.
+
+The authenticated control service adds separate `kubernetesContext` using fresh
+Pod and Node reads before node execution and after EOF. It records read intervals,
+a restart-count delta and the API-reported MemoryPressure condition (true, false,
+unknown or unreported). A fresh GET does not make the Node's condition measurement
+instantaneous. These samples causally bracket execution; they do not establish
+cross-node clock alignment or classify kernel OOM scope. No new RBAC is required.
+Node-supplied Kubernetes context is rejected, even an unavailable claim. Authority
+loss suppresses both correlation objects and numeric observation evidence.
+
+Version 3 leaves ordinary captures, incident schemas and collector history unchanged.
+Raw victim PID/command values are available only in the authorised ephemeral stream;
+logs and retained qualification records must contain numeric/fixture-match results.
 
 Every encoded byte counts against the admitted total, including metadata,
 newlines and the summary. `writtenBytesBeforeSummary` reports bytes accepted by

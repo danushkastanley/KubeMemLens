@@ -36,6 +36,7 @@ type Summary struct {
 	Observations        uint64
 	Reads, Writes       FileOperations
 	Additions, Removals CacheOperations
+	OOM                 OOMCounts
 }
 
 func (Summary) Format(w fmt.State, _ rune)   { _, _ = io.WriteString(w, "[ephemeral trace aggregates]") }
@@ -82,12 +83,13 @@ type Accumulator struct {
 	limit, observations uint64
 	reads, writes       files
 	additions, removals cache
+	oom                 OOMCounts
 }
 
 func (a *Accumulator) Observations() uint64 { return a.observations }
 
 func New(kind trace.Kind, limit uint64) (*Accumulator, error) {
-	if (kind != trace.Files && kind != trace.Cache) || limit == 0 || limit > 100000 {
+	if (kind != trace.Files && kind != trace.Cache && kind != trace.OOM) || limit == 0 || limit > 100000 {
 		return nil, ErrObservation
 	}
 	return &Accumulator{kind: kind, limit: limit}, nil
@@ -132,6 +134,7 @@ func (a *Accumulator) Cache(event trace.CacheActivity) error {
 // Snapshot returns owned numeric values, never aliases to mutable counters.
 func (a *Accumulator) Snapshot() Summary {
 	return Summary{Kind: a.kind, Observations: a.observations,
+		OOM:       a.oom,
 		Reads:     FileOperations{a.reads.operations, a.reads.requested.snapshot(), a.reads.completed.snapshot()},
 		Writes:    FileOperations{a.writes.operations, a.writes.requested.snapshot(), a.writes.completed.snapshot()},
 		Additions: CacheOperations{a.additions.operations, a.additions.pages.snapshot()},

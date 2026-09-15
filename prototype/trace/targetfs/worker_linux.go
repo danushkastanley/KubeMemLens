@@ -55,17 +55,22 @@ func VerifyWorkerDescriptor(ctx context.Context, file *os.File, target trace.Tar
 // ReadWorkerMemoryStat reads a single fixed file through the verified handle.
 // It neither resolves another cgroup nor substitutes zero for unavailable data.
 func ReadWorkerMemoryStat(ctx context.Context, file *os.File, target trace.TargetIdentity) ([]byte, error) {
+	return readWorkerFile(ctx, file, target, "memory.stat")
+}
+
+// Names are fixed by this package's typed readers, never accepted from a request.
+func readWorkerFile(ctx context.Context, file *os.File, target trace.TargetIdentity, name string) ([]byte, error) {
 	if err := VerifyWorkerDescriptor(ctx, file, target); err != nil {
 		return nil, err
 	}
-	fd, err := unix.Openat2(int(file.Fd()), "memory.stat", &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_NONBLOCK | unix.O_CLOEXEC, Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_XDEV})
+	fd, err := unix.Openat2(int(file.Fd()), name, &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_NONBLOCK | unix.O_CLOEXEC, Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_XDEV})
 	if err != nil {
 		return nil, admission.ErrUnavailable
 	}
-	stat := os.NewFile(uintptr(fd), "memory.stat")
-	defer stat.Close()
+	stat := os.NewFile(uintptr(fd), name)
 	data, err := io.ReadAll(io.LimitReader(stat, 16385))
-	if err != nil || len(data) > 16384 {
+	closeErr := stat.Close()
+	if err != nil || closeErr != nil || len(data) > 16384 {
 		return nil, admission.ErrUnavailable
 	}
 	if err := VerifyWorkerDescriptor(ctx, file, target); err != nil {

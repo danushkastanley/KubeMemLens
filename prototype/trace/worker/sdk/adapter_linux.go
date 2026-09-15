@@ -46,6 +46,10 @@ func (a *Adapter) Run(parent context.Context, spec trace.Specification, output t
 		}
 	}()
 	result = trace.Result{Version: trace.ContractVersion, Termination: trace.EngineFailed, Incomplete: true, Correlation: &trace.Correlation{State: "unavailable"}}
+	if spec.Kind() == trace.OOM {
+		result.Correlation = nil
+		result.OOMCorrelation = &trace.OOMCorrelation{Window: trace.CorrelationWindow{State: "unavailable"}}
+	}
 	if parent.Err() != nil || spec != a.spec || output == nil || validateProfile(spec) != nil || targetfs.VerifyWorkerDescriptor(parent, a.target, spec.Target()) != nil {
 		return result, ErrWorker
 	}
@@ -97,7 +101,7 @@ func (a *Adapter) Run(parent context.Context, spec trace.Specification, output t
 	if err != nil || a.ready() != nil || ctx.Err() != nil {
 		return result, ErrWorker
 	}
-	before, beforeErr := sampleCgroup(ctx, a.target, spec.Target())
+	before := sampleEvidence(ctx, a.target, spec)
 	started, err := monotonicNS()
 	if err != nil || owned.enable(ctx) != nil {
 		return result, ErrWorker
@@ -130,7 +134,7 @@ func (a *Adapter) Run(parent context.Context, spec trace.Specification, output t
 	// The independent signal lifetime is never detached from cancellation.
 	if result.Termination == trace.Expired && readErr == nil && countErr == nil && a.lifetime.Err() == nil {
 		sampleCtx, stop := terminalSampleContext(a.lifetime, deadline)
-		after, afterErr := sampleCgroup(sampleCtx, a.target, spec.Target())
+		after := sampleEvidence(sampleCtx, a.target, spec)
 		stop()
 		uncertainty, clockErr := alignmentUncertainty(clock)
 		var known *time.Duration
@@ -139,12 +143,13 @@ func (a *Adapter) Run(parent context.Context, spec trace.Specification, output t
 		} else {
 			result.StartedAt, result.EndedAt = time.Time{}, time.Time{}
 		}
-		result.Correlation = sampledCorrelation(spec, filecache.ObservationWindow{Start: result.StartedAt, End: result.EndedAt, Uncertainty: known}, before, after, beforeErr, afterErr)
+		correlateEvidence(spec, filecache.ObservationWindow{Start: result.StartedAt, End: result.EndedAt, Uncertainty: known}, before, after, &result)
 	} else if _, clockErr := alignmentUncertainty(clock); clockErr != nil {
 		result.StartedAt, result.EndedAt = time.Time{}, time.Time{}
 	}
 	if a.lifetime.Err() != nil {
 		result.Correlation = nil
+		result.OOMCorrelation = nil
 	}
 	if countErr != nil || readErr != nil {
 		result.Counts = trace.Counts{}

@@ -34,6 +34,7 @@ type buildInputs struct {
 	objects map[filecache.ArtifactID][]byte
 	sources map[string][]byte
 	patch   []byte
+	kinds   []trace.Kind
 }
 
 func sha(data []byte) string { value := sha256.Sum256(data); return hex.EncodeToString(value[:]) }
@@ -50,17 +51,23 @@ func readInputs(root, patchPath string) (buildInputs, error) {
 	if d.Decode(&record) != nil {
 		return input, errBuild
 	}
+	input.kinds = []trace.Kind{trace.Files, trace.Cache}
+	sources := []string{"LICENSE", "files.bpf.c", "cache.bpf.c", "common.h"}
+	if len(record.Objects) == 6 {
+		input.kinds = append(input.kinds, trace.OOM)
+		sources = append(sources, "oom.bpf.c")
+	}
 	canonical, err := json.Marshal(record)
 	var compact bytes.Buffer
 	if err != nil || json.Compact(&compact, data) != nil || !bytes.Equal(canonical, compact.Bytes()) ||
 		record.Builder != "ghcr.io/inspektor-gadget/gadget-builder@"+filecache.BuilderDigest || record.UpstreamCommit != filecache.EngineSourceCommit ||
 		record.Loaded || record.Approval != "not granted by this build" || record.ISA != "bpfel v3" ||
-		len(record.SourceSHA256) != 4 || len(record.HeaderSHA256) == 0 || len(record.Objects) != 4 {
+		len(record.SourceSHA256) != len(sources) || len(record.HeaderSHA256) == 0 || len(record.Objects) != 2*len(input.kinds) {
 		return input, errBuild
 	}
 	input.record = data
 	input.sources = make(map[string][]byte)
-	for _, name := range []string{"LICENSE", "files.bpf.c", "cache.bpf.c", "common.h"} {
+	for _, name := range sources {
 		data, err := readBounded(filepath.Join(root, "source", name), 65536)
 		if err != nil || sha(data) != record.SourceSHA256[name] {
 			return input, errBuild
@@ -70,7 +77,7 @@ func readInputs(root, patchPath string) (buildInputs, error) {
 	input.objects = make(map[filecache.ArtifactID][]byte)
 	for _, object := range record.Objects {
 		id := filecache.ArtifactID{Kind: object.Kind, Architecture: object.Architecture}
-		if (id.Kind != trace.Files && id.Kind != trace.Cache) || (id.Architecture != "arm64" && id.Architecture != "amd64") || input.objects[id] != nil || !object.Reproduced {
+		if !containsKind(input.kinds, id.Kind) || (id.Architecture != "arm64" && id.Architecture != "amd64") || input.objects[id] != nil || !object.Reproduced {
 			return input, errBuild
 		}
 		name := string(id.Kind) + "-" + id.Architecture
@@ -92,4 +99,13 @@ func readInputs(root, patchPath string) (buildInputs, error) {
 		return input, errBuild
 	}
 	return input, nil
+}
+
+func containsKind(kinds []trace.Kind, kind trace.Kind) bool {
+	for _, candidate := range kinds {
+		if candidate == kind {
+			return true
+		}
+	}
+	return false
 }

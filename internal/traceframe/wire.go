@@ -82,7 +82,10 @@ type wireSummary struct {
 	Incomplete                bool                 `json:"incomplete"`
 	FileAggregates            *wireFileAggregates  `json:"fileAggregates,omitempty"`
 	CacheAggregates           *wireCacheAggregates `json:"cacheAggregates,omitempty"`
+	OOMAggregates             *wireOOMAggregates   `json:"oomAggregates,omitempty"`
 	Correlation               json.RawMessage      `json:"correlation,omitempty"`
+	OOMCorrelation            json.RawMessage      `json:"oomCorrelation,omitempty"`
+	KubernetesContext         json.RawMessage      `json:"kubernetesContext,omitempty"`
 }
 
 func makeFrame(e envelope) (Frame, error) {
