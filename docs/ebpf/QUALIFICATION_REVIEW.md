@@ -66,6 +66,13 @@ assessment needs independent resolution. Root/launcher module/package findings
 GO-2026-6094 and GO-2026-6107 remain recorded. No suppression or waiver is granted
 by this packet.
 
+The inventory also records unresolved medium advisory GHSA-7jxh-36q5-gcqv
+(CVE-2026-53495), reported by GitHub but absent from the final Go scan. Both the
+worker module version and the former test-node runtime version fall within its
+listed ranges. The worker excludes the CRI service implementation; runtime
+exposure was not exploit-tested. Maintainer follow-up is required before future
+qualification; cluster removal and candidate rejection do not waive the finding.
+
 The final licence/source reconciliation must cover embedded/non-Go inputs,
 modified SDK source, programme source/build material and package-specific terms.
 The current inventory does not grant image publication approval.
