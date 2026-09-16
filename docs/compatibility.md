@@ -87,7 +87,7 @@ Neither an unrun profile nor a local result adds a managed-provider support clai
 | Provider modes without an enforcing CNI | Unsupported for v1 deep mode | The standard profile requires NetworkPolicy enforcement, although NetworkPolicy is not tenant authorisation. |
 | High-availability collector or durable history | Deferred | v1 deliberately uses one in-memory collector. |
 | Restricted or agentless mode | Development preview with local validation; managed-provider qualification pending | [Working-set workflows](restricted-mode.md) have a separate source and completeness contract. |
-| eBPF tracing, process inspection and path telemetry | Deferred | These capabilities require separate packaging, admission, privacy, benchmark and security gates. |
+| eBPF tracing, process inspection and path telemetry | Deferred | The [R6 candidate failed the local idle budget](ebpf/IDLE_LOCAL_QUALIFICATION.md). No trace profile is supported; packaging, independent review and other qualification gates remain open. |
 | Automatic remediation or workload mutation | Unsupported | KubeMemLens is read-only. |
 
 The provider restrictions above are sourced and exercised by the [qualification runbook](qualification.md). They describe the current deep-mode candidate, not an irreversible promise about future architectures. The project will not add a privileged or weaker-authentication workaround merely to turn a restricted profile into deep mode.

@@ -101,3 +101,9 @@ The unchanged worker retained GO-2026-5064, GO-2026-5338 and GO-2026-5622 with
 containerd call traces, plus module-only GO-2026-5932. No dependency was upgraded
 or finding waived during lifecycle work. The independent review and publication
 conditions above remain in force.
+
+The final BPF-008 source scans refreshed the database through
+15 September 2026 18:39:25 UTC and retained these same root/launcher and worker
+findings. No finding was waived or dependency upgraded. The candidate was
+[rejected on its measured idle cost](IDLE_LOCAL_QUALIFICATION.md); this does not
+resolve the independent review or redistribution obligations.

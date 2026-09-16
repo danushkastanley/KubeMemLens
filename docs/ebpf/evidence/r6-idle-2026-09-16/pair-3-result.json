@@ -1,0 +1,22 @@
+{
+  "idleBudgetPassed": false,
+  "nodeBudgetPassed": false,
+  "node": {
+    "meanCPUMilli": 2.100012361848185,
+    "p95CPUMilli": 2.604117724325181,
+    "p99CPUMilli": 5.514471442958539,
+    "peakWorkingSetBytes": 93241344,
+    "peakRSSBytes": 58658816
+  },
+  "api": {
+    "meanCPUMilli": 4.570467689658945,
+    "p95CPUMilli": 8.519339724064395,
+    "p99CPUMilli": 12.615789744960297,
+    "peakWorkingSetBytes": 19832832,
+    "peakRSSBytes": 63332352
+  },
+  "installationMeanCPUMilli": 6.6704800515071305,
+  "installationPeakWorkingSetBytes": 112812032,
+  "qualification": "idle-pair-only",
+  "pair": 3
+}
