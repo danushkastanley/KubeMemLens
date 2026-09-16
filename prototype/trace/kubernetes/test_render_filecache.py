@@ -1,3 +1,4 @@
+import copy
 import unittest
 
 from admission_resources import deployments
@@ -41,6 +42,24 @@ class FileCacheDeploymentTests(unittest.TestCase):
                 configure([], name)
         with self.assertRaises(ValueError):
             configure([], "accepted-filecache")
+
+    def test_two_trace_limit_is_installation_owned_and_preserves_resources(self):
+        for maximum in (1, 2):
+            items = deployments("example.invalid/image@sha256:" + "a" * 64,
+                                "node", "uid", "admin", "/kubelet", "b" * 64)
+            resources = {item["metadata"]["name"]: copy.deepcopy(item["spec"]["template"]["spec"]["containers"][0]["resources"])
+                         for item in items if item["kind"] == "Deployment"}
+            for item in configure(items, "accepted", max_node_traces=maximum):
+                if item["kind"] != "Deployment":
+                    continue
+                container = item["spec"]["template"]["spec"]["containers"][0]
+                name = item["metadata"]["name"]
+                self.assertEqual(container["resources"], resources[name])
+                self.assertEqual("--max-node-traces" in container["args"],
+                                 maximum == 2 and name == "admission-api")
+        for invalid in (0, 3, True, 2.0):
+            with self.assertRaises(ValueError):
+                configure([], "accepted", max_node_traces=invalid)
 
 
 if __name__ == "__main__":

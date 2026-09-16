@@ -87,3 +87,17 @@ from the verified module licence. It remains in the unfiltered inventory and
 findings. The module-root bundle contains 196 files. These are retained local
 review artefacts; final reconciliation with non-Go inputs and image contents is
 still required.
+
+## Lifecycle qualification scan — 16 September 2026
+
+The BPF-007 Linux/arm64 source scans used Go 1.27.1 and govulncheck 1.7.0.
+The root and optional launcher had no called-symbol findings. The scan retained
+GO-2026-6094 in `github.com/google/cel-go` and GO-2026-6107 in
+`go.etcd.io/etcd/client/pkg/v3` at module/package level, alongside the existing
+module-only OpenPGP finding GO-2026-5932. Absence of a reported call trace is not
+a waiver or a claim that a dependency is vulnerability-free.
+
+The unchanged worker retained GO-2026-5064, GO-2026-5338 and GO-2026-5622 with
+containerd call traces, plus module-only GO-2026-5932. No dependency was upgraded
+or finding waived during lifecycle work. The independent review and publication
+conditions above remain in force.

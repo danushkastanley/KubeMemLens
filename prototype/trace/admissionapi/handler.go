@@ -43,6 +43,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, admission.ErrCapacity)
 		return
 	}
+	// Namespace deletion probes list/deletecollection even for resources added
+	// after the controller's discovery cache was populated. These admissions
+	// are ephemeral and have no collection API. Report that truthfully rather
+	// than returning a bad request that blocks namespace finalisation.
+	collection := strings.Split(strings.TrimPrefix(r.URL.Path, prefix+"/namespaces/"), "/")
+	if r.URL.RawPath == "" && strings.HasPrefix(r.URL.Path, prefix+"/namespaces/") && len(collection) == 2 && collection[0] != "" && collection[1] == "traces" && (r.Method == http.MethodGet || r.Method == http.MethodDelete) {
+		w.Header().Set("Allow", http.MethodPost)
+		writeJSON(w, http.StatusMethodNotAllowed, metav1.Status{TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Status"}, Status: metav1.StatusFailure, Code: http.StatusMethodNotAllowed, Reason: metav1.StatusReasonMethodNotAllowed, Message: http.StatusText(http.StatusMethodNotAllowed)})
+		return
+	}
 	if r.URL.RawQuery != "" || r.URL.RawPath != "" {
 		writeError(w, admission.ErrInvalidRequest)
 		return
