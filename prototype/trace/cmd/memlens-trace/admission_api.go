@@ -30,12 +30,17 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 	registry := flags.String("node-registry", "", "installation-owned node endpoint registry")
 	acceptance := flags.String("acceptance-policy", "", "independently accepted worker installation policy")
 	confirmedPaths := flags.Bool("allow-confirmed-paths", policy.Paths == trace.ConfirmedPaths, "permit explicitly confirmed bounded file paths")
+	nodeTraces := flags.Int("max-node-traces", policy.PerNode, "installation-owned concurrent traces per node (1 or 2)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() != 0 {
 		return errors.New("admission API accepts no positional arguments")
 	}
+	if *nodeTraces < 1 || *nodeTraces > 2 {
+		return errors.New("node trace concurrency must be 1 or 2")
+	}
+	policy.PerNode = *nodeTraces
 	if *acceptance != "" {
 		if proxy != nil {
 			return errors.New("worker installation cannot replace a configured stream")

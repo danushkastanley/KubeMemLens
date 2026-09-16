@@ -114,10 +114,23 @@ claim. Production has no approved incident runtime; see the
 use bounded Kubernetes Status responses. A lost create response must not be
 replayed: the node rejects reused request IDs and independently expires handles.
 Controller restart loses admissions. In-flight reservations count against quota:
-one per principal, two per namespace, one per node and 32 globally. The node has
+one per principal, two per namespace, one per node by default and 32 globally.
+The optional API installation flag `--max-node-traces` accepts one or two;
+requests cannot change it or exceed that hard ceiling. The node has
 an independent hard ceiling of two handles and 256 unexpired replay records;
 full replay storage refuses work. Node expiry runs every 100 ms, independently of
 controller connectivity. Cleanup failures are reported and block new node work.
+
+A replacement node process cannot confirm that its predecessor cleaned up.
+The API therefore retains the old reservation, including its quota, even if the
+replacement is healthy. Administrative recovery must first verify disappearance
+of the captured owned kernel objects and absence of incident workers, then restart
+the optional API. A new process or an elapsed deadline alone is not cleanup proof.
+
+Admissions have no collection-list or collection-delete operation. Those routes
+return Kubernetes `MethodNotAllowed` responses, including namespace-controller
+probes with list options. This lets normal namespace deletion recognise the
+unsupported operation without granting collection access or removing finalizers.
 
 The controller bounds inflight requests and applies an additional 20-request/s
 admission limiter. Node connections, concurrent handlers, message sizes, timeouts
@@ -126,6 +139,9 @@ operation, decision, reason and principal-category values, with no usernames,
 Pod/container identities, cgroup IDs, request bodies or paths.
 
 ## Verification and rollback
+
+See [local lifecycle qualification](LIFECYCLE_LOCAL_QUALIFICATION.md) for the
+observed profile, termination matrix, cleanup and remaining release gates.
 
 `make check` covers strict request decoding, policy and quota races, current
 Kubernetes resolution, owner isolation, TLS peer forgery, replay, independent
