@@ -1,0 +1,12 @@
+{
+  "startedAt": "2026-09-16T08:51:42.503551+00:00",
+  "completedAt": "2026-09-16T09:06:42.636559+00:00",
+  "phase": "control",
+  "pair": 2,
+  "samplesSHA256": "f67d9224f7e2b2a690efe38f64eee3828df4365e2ee72711136bc5f78af693fe",
+  "image": "docker.io/library/kml-trace-bpf007@sha256:4a957b8fa80324e9ce8a66d6876766eb4d1ea13ea85a83973b245e4238b741a3",
+  "sourceSHA256": "4bca6c839a0b23f5b9c3d61a0f4f4681d65ebb6db89ffb418ffb1f69caafdcfd",
+  "before": {},
+  "after": {},
+  "optionalServicesAbsent": true
+}

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "local-idle-v1",
+  "repetitions": 5,
+  "windowSeconds": 900,
+  "warmupSeconds": 60,
+  "sampleIntervalNanos": 1000000000,
+  "intervalToleranceNanos": 100000000,
+  "maximumReadNanos": 100000000,
+  "idleMeanCPUMilli": 5,
+  "idlePeakWorkingSetBytes": 41943040,
+  "percentileMethod": "nearest-rank",
+  "cpuDenominator": "one-core",
+  "workingSetMethod": "current-minus-inactive-file-clamped-zero"
+}

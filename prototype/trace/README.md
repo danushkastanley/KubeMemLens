@@ -1,5 +1,13 @@
 # Optional trace admission prototype
 
+Status: archived R6 candidate; no-go on idle resource cost. Five complete local
+pairs exceeded the 40 MiB node working-set limit. No trace profile is supported,
+and the local installation/cluster have been removed. See the
+[qualification report](../../docs/ebpf/IDLE_LOCAL_QUALIFICATION.md) and
+[decision](../../docs/adr/0015-reject-current-ebpf-candidate-on-idle-cost.md).
+The source and commands below remain for inspection and reproducibility; they
+do not authorise reinstalling or publishing the rejected incident candidate.
+
 This separate module provides `memlens-trace doctor`. It runs bounded,
 non-attaching Linux feature probes for the accepted engine baseline. A supported
 result does **not** approve incident tracing or custom programmes. See the
@@ -11,7 +19,9 @@ these commands, their dependencies or their privileges. The optional image also
 provides `admission-api` and `binding-node` for short-lived, immutable target
 admission. They open separate authenticated listeners only when explicitly
 invoked. See [admission installation and verification](../../docs/ebpf/ADMISSION.md).
-There is no runtime socket, host PID namespace or incident programme.
+There is no runtime socket or host PID namespace. The separately built incident
+worker and custom file/cache/OOM programmes were evaluated through the accepted
+local profile; they remain excluded from the standard distribution.
 
 ## Local build and checks
 
@@ -26,8 +36,9 @@ docker build -f prototype/trace/Dockerfile -t kube-memlens-preflight:local .
 
 Use `amd64` when that is the native Linux node architecture. A cross-build is
 not runtime qualification. The separate module uses cilium/ebpf v0.22.0 and
-x/sys v0.47.0; it does not yet import the Inspektor Gadget SDK. These libraries
-encode fixed probes and parse kernel metadata. No gadget is executed.
+x/sys v0.47.0; the launcher module does not import the Inspektor Gadget SDK.
+That dependency is isolated in the nested worker module. The preflight command
+encodes fixed probes and parses kernel metadata; it does not execute an incident gadget.
 
 The scratch image runs as UID 65532 by default. Invoking it without the explicit
 administrator profile reports unavailable permissions; it cannot elevate itself.

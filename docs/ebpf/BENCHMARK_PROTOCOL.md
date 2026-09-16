@@ -1,7 +1,12 @@
 # Optional eBPF Benchmark Protocol
 
-Status: protocol approved for a future prototype; no eBPF measurements exist
+Status: protocol retained; the evaluated R6 candidate failed the local idle gate
 Date: 18 July 2026
+
+The [16 September 2026 idle report](IDLE_LOCAL_QUALIFICATION.md) and
+[no-go decision](../adr/0015-reject-current-ebpf-candidate-on-idle-cost.md) retain
+five complete paired repetitions. Other performance cases remain unrun. This
+negative result changes no threshold below and grants no support or R7 readiness.
 
 ## Purpose
 

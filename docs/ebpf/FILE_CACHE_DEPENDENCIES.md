@@ -101,3 +101,30 @@ The unchanged worker retained GO-2026-5064, GO-2026-5338 and GO-2026-5622 with
 containerd call traces, plus module-only GO-2026-5932. No dependency was upgraded
 or finding waived during lifecycle work. The independent review and publication
 conditions above remain in force.
+
+The final BPF-008 source scans refreshed the database through
+15 September 2026 18:39:25 UTC and retained these same root/launcher and worker
+findings. No finding was waived or dependency upgraded. The candidate was
+[rejected on its measured idle cost](IDLE_LOCAL_QUALIFICATION.md); this does not
+resolve the independent review or redistribution obligations.
+
+## Additional GitHub advisory — 16 September 2026
+
+Dependabot alert #3 remains open for worker dependency containerd v1.7.33:
+[GHSA-7jxh-36q5-gcqv / CVE-2026-53495](https://github.com/containerd/containerd/security/advisories/GHSA-7jxh-36q5-gcqv),
+medium severity. The upstream advisory describes CRI ExecSync I/O draining that
+can exhaust daemon resources. It affects v1 releases before 1.7.35 and v2.3
+before 2.3.5. This advisory was absent from the final Go scan's finding list;
+scanner disagreement does not clear the alert.
+
+The retained worker import graphs include CRI constants, not the CRI service
+implementation. This narrows the linked-worker exposure; it does not establish
+runtime safety. The test nodes ran containerd 2.3.4 with CRI enabled, within the
+affected range. No exploit test was performed. The disposable cluster has been
+removed; that does not resolve the dependency alert.
+
+Disposition: unresolved, no waiver or publication approval. The repository
+maintainer owns follow-up before any future candidate is qualified. Reconcile
+scanner coverage, review linked-code applicability and update/requalify affected
+dependencies and runtime versions before another positive decision. The archived
+candidate and recorded measurements remain unchanged.

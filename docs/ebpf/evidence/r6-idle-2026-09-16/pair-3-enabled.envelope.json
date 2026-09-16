@@ -1,0 +1,94 @@
+{
+  "startedAt": "2026-09-16T09:39:56.712705+00:00",
+  "completedAt": "2026-09-16T09:54:56.820039+00:00",
+  "phase": "enabled",
+  "pair": 3,
+  "samplesSHA256": "5551c145a5f8e013fc4c6a666ef009cfff7ee1222b524ff653bd12252af7212f",
+  "image": "docker.io/library/kml-trace-bpf007@sha256:4a957b8fa80324e9ce8a66d6876766eb4d1ea13ea85a83973b245e4238b741a3",
+  "sourceSHA256": "4bca6c839a0b23f5b9c3d61a0f4f4681d65ebb6db89ffb418ffb1f69caafdcfd",
+  "before": {
+    "node": {
+      "identity": "b0461b34946304cd3ede649b7f9a128917ec1d437cefc565acb01718b2db469e",
+      "snapshot": {
+        "workers": 0,
+        "excludedWorkers": 0,
+        "activeControls": 0,
+        "objects": {
+          "link": [],
+          "map": [],
+          "prog": []
+        },
+        "kernelMapBytes": 0,
+        "userMapBytes": 0,
+        "clock": {
+          "monotonicNanos": 129533309710508,
+          "wallNanos": 1789551596309391921,
+          "uncertaintyNanos": 416
+        }
+      }
+    },
+    "api": {
+      "identity": "0f1d3976245fbbd7055ec7f8cd772f8c646170cf878274c1ac9c27d87b33edf5",
+      "snapshot": {
+        "workers": 0,
+        "excludedWorkers": 0,
+        "activeControls": 0,
+        "objects": {
+          "link": [],
+          "map": [],
+          "prog": []
+        },
+        "kernelMapBytes": 0,
+        "userMapBytes": 0,
+        "clock": {
+          "monotonicNanos": 129533669737612,
+          "wallNanos": 1789551596669418962,
+          "uncertaintyNanos": 458
+        }
+      }
+    }
+  },
+  "after": {
+    "node": {
+      "identity": "b0461b34946304cd3ede649b7f9a128917ec1d437cefc565acb01718b2db469e",
+      "snapshot": {
+        "workers": 0,
+        "excludedWorkers": 0,
+        "activeControls": 0,
+        "objects": {
+          "link": [],
+          "map": [],
+          "prog": []
+        },
+        "kernelMapBytes": 0,
+        "userMapBytes": 0,
+        "clock": {
+          "monotonicNanos": 130434436334169,
+          "wallNanos": 1789552497439416296,
+          "uncertaintyNanos": 333
+        }
+      }
+    },
+    "api": {
+      "identity": "0f1d3976245fbbd7055ec7f8cd772f8c646170cf878274c1ac9c27d87b33edf5",
+      "snapshot": {
+        "workers": 0,
+        "excludedWorkers": 0,
+        "activeControls": 0,
+        "objects": {
+          "link": [],
+          "map": [],
+          "prog": []
+        },
+        "kernelMapBytes": 0,
+        "userMapBytes": 0,
+        "clock": {
+          "monotonicNanos": 130434796706961,
+          "wallNanos": 1789552497799789088,
+          "uncertaintyNanos": 416
+        }
+      }
+    }
+  },
+  "optionalServicesAbsent": false
+}
