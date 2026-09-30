@@ -7,7 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func verifyHostPreflight(job batchv1.Job) {
+func verifyHostPreflight(job batchv1.Job, expectedImage string) {
 	if job.Annotations["helm.sh/hook"] != "pre-install,pre-upgrade" || job.Annotations["helm.sh/hook-weight"] != "10" || job.Annotations["helm.sh/hook-delete-policy"] != "before-hook-creation,hook-succeeded,hook-failed" || job.Spec.BackoffLimit == nil || *job.Spec.BackoffLimit != 0 || job.Spec.ActiveDeadlineSeconds == nil || *job.Spec.ActiveDeadlineSeconds != 30 {
 		fail("host preflight order or lifetime is not bounded")
 	}
@@ -15,6 +15,7 @@ func verifyHostPreflight(job batchv1.Job) {
 	if p.NodeName == "" || p.NodeSelector["kubernetes.io/os"] != "linux" || p.RestartPolicy != corev1.RestartPolicyNever || len(p.Containers) != 1 || len(p.InitContainers) != 0 || p.HostNetwork || p.HostPID || p.HostIPC || p.AutomountServiceAccountToken == nil || *p.AutomountServiceAccountToken || p.SecurityContext == nil || p.SecurityContext.SeccompProfile == nil || p.SecurityContext.SeccompProfile.Type != corev1.SeccompProfileTypeLocalhost || p.SecurityContext.SeccompProfile.LocalhostProfile == nil || *p.SecurityContext.SeccompProfile.LocalhostProfile != "kube-memlens-trace/binding-node.json" {
 		fail("host preflight identity or seccomp scope changed")
 	}
+	verifyImage(p, expectedImage)
 	c := p.Containers[0]
 	s := c.SecurityContext
 	if s == nil || s.AllowPrivilegeEscalation == nil || *s.AllowPrivilegeEscalation || s.ReadOnlyRootFilesystem == nil || !*s.ReadOnlyRootFilesystem || s.Privileged != nil && *s.Privileged || s.Capabilities == nil || !reflect.DeepEqual(s.Capabilities.Drop, []corev1.Capability{"ALL"}) || !reflect.DeepEqual(s.Capabilities.Add, []corev1.Capability{"BPF", "PERFMON"}) || !reflect.DeepEqual(c.Args, []string{"doctor", "--json", "--timeout=10s"}) || len(c.Resources.Limits) != 2 {

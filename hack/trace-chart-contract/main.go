@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,18 +20,16 @@ import (
 
 func main() {
 	if len(os.Args) != 5 {
-		fail("expected disabled, enabled, standard chart renders and namespace")
+		fail("expected disabled and enabled chart renders, namespace and exact image")
 	}
 	if len(read(os.Args[1])) != 0 {
 		fail("disabled trace chart created resources")
 	}
-	for _, data := range read(os.Args[3]) {
-		if strings.Contains(string(data), "tracing.kubememlens.io") {
-			fail("standard chart contains trace resources")
-		}
-	}
 	api, nodes, bindings, preflight, hostPreflight, registries := 0, 0, 0, 0, 0, 0
-	for _, data := range read(os.Args[2]) {
+	documents := read(os.Args[2])
+	verifyResourceInventory(documents, os.Args[3])
+	apiRole := declaredAPIRole(documents)
+	for _, data := range documents {
 		var kind struct{ Kind string }
 		decode(data, &kind)
 		switch kind.Kind {
@@ -47,17 +46,17 @@ func main() {
 				}
 			}
 			if raw, ok := config.Data["nodes.json"]; ok {
-				verifyRegistry(raw, os.Args[4])
+				verifyRegistry(raw, os.Args[3])
 				registries++
 			}
 		case "Job":
 			var job batchv1.Job
 			decode(data, &job)
 			if job.Spec.Template.Labels["app.kubernetes.io/component"] == "trace-host-preflight" {
-				verifyHostPreflight(job)
+				verifyHostPreflight(job, os.Args[4])
 				hostPreflight++
 			} else {
-				verifyPreflight(job)
+				verifyPreflight(job, os.Args[4])
 				preflight++
 			}
 		case "Secret", "Namespace", "DaemonSet", "PersistentVolumeClaim", "CustomResourceDefinition":
@@ -65,7 +64,7 @@ func main() {
 		case "Deployment":
 			var deployment appsv1.Deployment
 			decode(data, &deployment)
-			verifyPod(deployment)
+			verifyPod(deployment, os.Args[4])
 			if deployment.Spec.Template.Labels["app.kubernetes.io/component"] == "trace-api" {
 				api++
 			} else {
@@ -78,9 +77,7 @@ func main() {
 		case "RoleBinding", "ClusterRoleBinding":
 			var binding rbacv1.ClusterRoleBinding
 			decode(data, &binding)
-			if len(binding.Subjects) != 1 || binding.Subjects[0].Kind != "ServiceAccount" || !strings.HasSuffix(binding.Subjects[0].Name, "-api") || binding.Subjects[0].Namespace != os.Args[4] || strings.HasSuffix(binding.RoleRef.Name, "-operator") {
-				fail("unexpected trace binding or tenant grant")
-			}
+			verifyBinding(binding, kind.Kind, os.Args[3], apiRole)
 			bindings++
 		}
 	}
@@ -90,11 +87,12 @@ func main() {
 	fmt.Println("disabled default, separate identities, bounded node scope and unchanged process privileges verified")
 }
 
-func verifyPod(d appsv1.Deployment) {
+func verifyPod(d appsv1.Deployment, expectedImage string) {
 	p := d.Spec.Template.Spec
 	if d.Spec.Replicas == nil || *d.Spec.Replicas != 1 || d.Spec.Strategy.Type != appsv1.RecreateDeploymentStrategyType || len(p.Containers) != 1 || len(p.InitContainers) != 0 || p.HostNetwork || p.HostPID || p.HostIPC {
 		fail("unexpected deployment lifetime or host namespace")
 	}
+	verifyImage(p, expectedImage)
 	c := p.Containers[0]
 	policyFlags := 0
 	for _, argument := range c.Args {
@@ -109,7 +107,7 @@ func verifyPod(d appsv1.Deployment) {
 	if s == nil || s.AllowPrivilegeEscalation == nil || *s.AllowPrivilegeEscalation || s.ReadOnlyRootFilesystem == nil || !*s.ReadOnlyRootFilesystem || s.Privileged != nil && *s.Privileged || s.Capabilities == nil || !reflect.DeepEqual(s.Capabilities.Drop, []corev1.Capability{"ALL"}) {
 		fail("unexpected container privilege")
 	}
-	if !strings.Contains(c.Image, "@sha256:") || len(c.Resources.Limits) != 2 || c.ReadinessProbe == nil {
+	if len(c.Resources.Limits) != 2 || c.ReadinessProbe == nil {
 		fail("image, resource or readiness bound missing")
 	}
 	for _, m := range c.VolumeMounts {
@@ -173,7 +171,7 @@ func verifyRole(role rbacv1.ClusterRole) {
 	default:
 		fail("unexpected trace role")
 	}
-	if !reflect.DeepEqual(role.Rules, expected) {
+	if role.AggregationRule != nil || !reflect.DeepEqual(role.Rules, expected) {
 		fail("trace role does not match reviewed permissions")
 	}
 }
@@ -184,7 +182,11 @@ func read(path string) []json.RawMessage {
 		fail("cannot read render")
 	}
 	defer f.Close()
-	decoder := yaml.NewYAMLToJSONDecoder(f)
+	raw, err := io.ReadAll(io.LimitReader(f, (4<<20)+1))
+	if err != nil || len(raw) > 4<<20 {
+		fail("render exceeds byte bound")
+	}
+	decoder := yaml.NewYAMLToJSONDecoder(bytes.NewReader(raw))
 	var result []json.RawMessage
 	for {
 		var data json.RawMessage
@@ -196,6 +198,9 @@ func read(path string) []json.RawMessage {
 			fail("invalid rendered YAML")
 		}
 		if len(data) != 0 && string(data) != "null" {
+			if len(result) >= 64 {
+				fail("render exceeds resource bound")
+			}
 			result = append(result, data)
 		}
 	}
