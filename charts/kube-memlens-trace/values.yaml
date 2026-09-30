@@ -1,0 +1,29 @@
+# Development packaging only. No resource-qualified trace profile exists yet.
+# The standard kube-memlens chart does not depend on this chart.
+enabled: false
+profile: ""
+acknowledgeUnqualifiedDevelopment: false
+
+image:
+  repository: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+
+# Administrator-created immutable policy and TLS Secrets are never generated
+# from values, copied into Helm release state, or owned by this chart.
+acceptancePolicyConfigMap: ""
+acceptancePolicySHA256: ""
+apiTLSSecret: ""
+apiCABundle: ""
+controlCertificateSHA256: ""
+# Existing administrator-owned account with get on the exact configured Nodes.
+# Keeping this outside hooks avoids leaving cluster grants after a failed install.
+preflightServiceAccount: ""
+
+# One exact node identity and separately pinned server certificate per entry.
+# id, name, uid, architecture, kernelVersion, runtimeVersion, tlsSecret,
+# certificateSHA256 and kubeletCgroupRoot are required.
+nodes: []
+
+allowConfirmedPaths: false
+maxNodeTraces: 1

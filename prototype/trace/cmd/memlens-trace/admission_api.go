@@ -28,7 +28,9 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 	controlCert := flags.String("node-client-cert", "", "private node client certificate file")
 	controlKey := flags.String("node-client-key", "", "private node client key file")
 	registry := flags.String("node-registry", "", "installation-owned node endpoint registry")
+	profileMode := flags.String("node-profile-mode", "baseline", "node eligibility policy: baseline or pinned")
 	acceptance := flags.String("acceptance-policy", "", "independently accepted worker installation policy")
+	policySHA256 := flags.String("acceptance-policy-sha256", "", "exact installation policy digest")
 	confirmedPaths := flags.Bool("allow-confirmed-paths", policy.Paths == trace.ConfirmedPaths, "permit explicitly confirmed bounded file paths")
 	nodeTraces := flags.Int("max-node-traces", policy.PerNode, "installation-owned concurrent traces per node (1 or 2)")
 	if err := flags.Parse(args); err != nil {
@@ -36,6 +38,9 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 	}
 	if flags.NArg() != 0 {
 		return errors.New("admission API accepts no positional arguments")
+	}
+	if err := validatePolicyArguments(*acceptance, *policySHA256); err != nil {
+		return err
 	}
 	if *nodeTraces < 1 || *nodeTraces > 2 {
 		return errors.New("node trace concurrency must be 1 or 2")
@@ -46,7 +51,7 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 			return errors.New("worker installation cannot replace a configured stream")
 		}
 		var err error
-		proxy, policy, err = configureStream(*acceptance, policy)
+		proxy, policy, err = configureStream(*acceptance, *policySHA256, policy)
 		if err != nil {
 			return err
 		}
@@ -71,16 +76,19 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 	if err != nil {
 		return err
 	}
-	endpoints, err := loadEndpoints(*registry)
+	registered, err := loadRegistry(*registry)
 	if err != nil {
 		return err
 	}
-	binder, err := nodebinding.NewClient(identity, endpoints)
+	binder, err := nodebinding.NewClient(identity, registered.endpoints)
 	if err != nil {
 		return err
 	}
 	defer binder.Close()
-	resolver := admissionkube.NewResolver(client.CoreV1())
+	resolver, err := registered.resolver(client.CoreV1(), *profileMode)
+	if err != nil {
+		return err
+	}
 	if proxy != nil {
 		proxy = proxy.WithOOMContext(resolver)
 	}

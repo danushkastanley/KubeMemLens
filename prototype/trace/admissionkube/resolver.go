@@ -6,6 +6,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/nodeprofile"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,7 +15,10 @@ import (
 
 const maxContainers = 128
 
-type Resolver struct{ core coreclient.CoreV1Interface }
+type Resolver struct {
+	core     coreclient.CoreV1Interface
+	profiles map[string]nodeprofile.Profile
+}
 
 func NewResolver(core coreclient.CoreV1Interface) *Resolver { return &Resolver{core: core} }
 
@@ -75,6 +79,12 @@ func (r *Resolver) readWorkload(ctx context.Context, namespace, name, container 
 	}
 	if node.Name != pod.Spec.NodeName || node.UID == "" || node.DeletionTimestamp != nil {
 		return result, admission.ErrTargetChanged
+	}
+	if r.profiles != nil {
+		profile, found := r.profiles[string(node.UID)]
+		if !found || !profile.Matches(node) {
+			return result, admission.ErrTargetChanged
+		}
 	}
 	target := trace.TargetIdentity{Namespace: namespace, PodName: name, PodUID: string(pod.UID), ContainerName: container, ContainerID: strings.TrimPrefix(status.ContainerID, "containerd://"), ContainerStartedAt: status.State.Running.StartedAt.Time.UTC(), NodeUID: string(node.UID)}
 	if target.ValidateLifetime() != nil {

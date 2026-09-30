@@ -113,7 +113,7 @@ check-trace-worker:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C prototype/trace/worker build ./...
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace/worker build ./...
 
-check: check-recommendation-evaluation check-trace-preflight check-trace-worker fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test coverage test-race vet vuln build
+check: check-trace-chart-contract check-recommendation-evaluation check-trace-preflight check-trace-worker fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test coverage test-race vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh
@@ -138,6 +138,10 @@ qualify-cluster:
 
 soak-live-density:
 	hack/soak-live-density.sh
+
+.PHONY: check-trace-chart-contract
+check-trace-chart-contract:
+	hack/test-trace-chart-contract.sh
 
 check-memory-history-contract:
 	hack/test-memory-history-contract.sh
