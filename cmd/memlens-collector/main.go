@@ -33,6 +33,7 @@ type serverResult struct {
 func main() {
 	remoteHistoryFlags := registerMemoryHistoryFlags(flag.CommandLine)
 	replicaFlags := registerReplicaFlags(flag.CommandLine)
+	incidentFlags := registerIncidentSessionFlags(flag.CommandLine)
 	listenAddr := flag.String("listen", ":8080", "HTTP listen address for collector reads, metrics, and health checks")
 	ingestListenAddr := flag.String("ingest-listen", ":8081", "HTTP listen address for agent snapshot ingestion")
 	ingestionMode := flag.String("ingestion-mode", ingestionLegacy, "snapshot ingestion mode: legacy or authenticated")
@@ -128,6 +129,11 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
+	sessions, err := incidentFlags.resolve(*ingestionMode)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
 	accounting, err := extension.LoadNodeAccounting(*nodeAccountingFile)
 	if err != nil || (*nodeAccountingFile != "" && *nodeContextUsername == "") {
 		fmt.Fprintln(os.Stderr, "Node accounting requires valid operator configuration and the optional producer")
@@ -174,6 +180,7 @@ func main() {
 		}
 		handler, err := extension.NewHandler(coordinator, extension.HandlerOptions{
 			MemoryHistory:    remoteHistory,
+			IncidentSessions: sessions,
 			Replicas:         replicas,
 			VolumeNamespaces: volumeNamespaces, VolumeStatsEnabled: *volumeStatsEnabled, VolumeHealthEnabled: *volumeHealthEnabled, VolumeWorkloadsEnabled: *volumeWorkloadsEnabled,
 			NodeAccounting: accounting, AgentUsername: *agentUsername, NodeContextUsername: *nodeContextUsername, TopologyEnabled: *topologyEnabled, MaxSnapshotBytes: handlerOpts.MaxSnapshotBytes,

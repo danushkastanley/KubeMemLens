@@ -17,6 +17,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/incidentsessionapi"
 	"github.com/danushkastanley/kube-memlens/internal/memorytopology"
 	"github.com/danushkastanley/kube-memlens/internal/nodeanalysis"
 	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
@@ -34,6 +35,7 @@ const (
 )
 
 type HandlerOptions struct {
+	IncidentSessions       *IncidentSessionOptions
 	MemoryHistory          *MemoryHistoryOptions
 	Replicas               *ReplicaOptions
 	NodeAccounting         map[string]nodeanalysis.Qualification
@@ -54,12 +56,13 @@ type HandlerOptions struct {
 }
 
 type Handler struct {
-	coordinator *Coordinator
-	reads       *ReadHandler
-	opts        HandlerOptions
-	concurrent  chan struct{}
-	limiterMu   sync.Mutex
-	limiters    map[string]identityLimiter
+	incidentSessions *incidentsessionapi.Handler
+	coordinator      *Coordinator
+	reads            *ReadHandler
+	opts             HandlerOptions
+	concurrent       chan struct{}
+	limiterMu        sync.Mutex
+	limiters         map[string]identityLimiter
 }
 
 type identityLimiter struct {
@@ -68,6 +71,9 @@ type identityLimiter struct {
 }
 
 func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error) {
+	if err := opts.IncidentSessions.Validate(); err != nil {
+		return nil, err
+	}
 	if err := opts.MemoryHistory.Validate(); err != nil {
 		return nil, err
 	}
@@ -148,7 +154,7 @@ func (h *Handler) Register(mux routeMux) {
 	mux.HandleFunc(groupVersion, h.discovery)
 	mux.HandleFunc(groupVersion+"/ingestionepochs/current", h.epoch)
 	mux.HandleFunc(groupVersion+"/nodesnapshots", h.snapshot)
-	mux.HandlePrefix(groupVersion+"/", h.reads)
+	mux.HandlePrefix(groupVersion+"/", http.HandlerFunc(h.serveResource))
 }
 
 func (h *Handler) discovery(w http.ResponseWriter, r *http.Request) {

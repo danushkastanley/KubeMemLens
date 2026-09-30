@@ -53,6 +53,11 @@ memoryHistory:
   caKey: ""
   tokenKey: ""
 
+# Optional owner-only incident records. Retained in collector memory only.
+incidentSessions:
+  enabled: false
+  namespaces: []
+
 # Optional local comparison of authorised workload replicas. No remote provider.
 replicaBaselines:
   enabled: false

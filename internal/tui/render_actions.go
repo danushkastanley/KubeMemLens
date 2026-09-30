@@ -16,14 +16,17 @@ func (m appModel) renderAction(width int) string {
 			"x  Mark/compare two live Pods",
 			"c  Capture selected Pod to a redacted incident file",
 			"y  Copy a safe follow-up command with OSC 52",
+			"i  Manage a bounded incident session",
 			"",
-			"No action mutates Kubernetes resources.",
+			"Session actions write explicitly created incident records.",
 			"Esc closes this menu.",
 		}
 		if m.restricted() {
 			lines[0] = "Restricted actions"
 			lines[3] = "x  Mark/compare working-set observations"
 			lines[4] = "c  Capture selected Pod (restricted schema 3)"
+			lines[6] = "Sessions require the authenticated deep API."
+			lines[8] = "Restricted evidence remains read-only."
 		} else if ref, ok := m.currentActionRef(); ok && ref.kind == entityNode {
 			lines[0] = "Node incident actions"
 			lines[2] = "Node evidence is read-only; inspect signals in detail."

@@ -38,6 +38,8 @@ func (m appModel) viewString() string {
 	b.WriteString("\n")
 	if m.tracePanel.open {
 		b.WriteString(m.renderTracePanel(width))
+	} else if m.sessionPanel.open {
+		b.WriteString(m.renderSessionPanel(width))
 	} else if m.replicaPanel.open {
 		b.WriteString(m.renderReplicaPanel(width))
 	} else if m.historyPanel.open {
@@ -239,7 +241,7 @@ func (m appModel) renderHelp(width int) string {
 		"Enter        drill into Node/namespace Pods or Pod detail",
 		"e            explain selected entity, including Node context",
 		"v / H        volume context / source-labelled memory history",
-		"B            compare authorised Pod or workload replicas",
+		"B / I        replica comparisons / incident sessions",
 		"h / Backspace go back",
 		"k/j or arrows move selection",
 		"PgUp/PgDown  move faster",

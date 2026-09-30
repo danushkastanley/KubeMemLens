@@ -67,6 +67,7 @@ func nodeContextResource(record api.NodeContextRecord) api.NodeContextResource {
 func (h *Handler) discoveryResources() []metav1.APIResource {
 	resources := append(discoveryResources(), h.historyResources()...)
 	resources = append(resources, h.replicaResources()...)
+	resources = append(resources, h.incidentSessionResources()...)
 	if h.opts.TopologyEnabled {
 		resources = append(resources, metav1.APIResource{Name: "nodecontexts/topology", Namespaced: false, Kind: "NodeMemoryTopology", Verbs: metav1.Verbs{"get"}})
 	}

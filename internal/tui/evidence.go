@@ -27,6 +27,7 @@ func (m appModel) receiveDiscovery(msg discoveryMsg) (tea.Model, tea.Cmd) {
 	if msg.generation != m.fetchGeneration {
 		return m, nil
 	}
+	m.clearSessionPanel()
 	m.opts.EvidencePlan = &msg.session.Plan
 	m.connectionDescription = msg.session.Description
 	if msg.err != nil {
