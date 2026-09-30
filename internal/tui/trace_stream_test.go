@@ -68,6 +68,7 @@ func TestTracePanelConsumesMaximumStreamWhileNavigating(t *testing.T) {
 	if updates > 105 {
 		t.Fatal("unbounded UI update queue", updates)
 	}
+	assertFrameBounds(t, m.viewString(), 80, 24)
 	if fixture.creates.Load() != 1 || fixture.streams.Load() != 1 || fixture.deletes.Load() != 1 {
 		t.Fatal("UI repeated activation")
 	}

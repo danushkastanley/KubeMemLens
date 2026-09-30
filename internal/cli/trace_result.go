@@ -9,6 +9,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/incident"
 	"github.com/danushkastanley/kube-memlens/internal/traceclient"
 	"github.com/danushkastanley/kube-memlens/internal/tracereport"
+	"github.com/danushkastanley/kube-memlens/internal/traceview"
 	"github.com/spf13/cobra"
 )
 
@@ -120,7 +121,11 @@ func executeTraceSession(cmd *cobra.Command, ctx context.Context, session *trace
 				return err
 			}
 			if summary, known := value.Result.Summary(); known {
-				_, err = fmt.Fprintf(out, "termination: %s\nincomplete evidence: %t\nengine produced: %s; sampled: %s; lost: %s; rejected: %s\n", summary.Termination, summary.Incomplete, traceCount(summary.EngineCounts.Produced), traceCount(summary.EngineCounts.Sampled), traceCount(summary.EngineCounts.Lost), traceCount(summary.EngineCounts.Rejected))
+				for _, line := range traceview.SummaryLines(summary) {
+					if _, err = fmt.Fprintln(out, line); err != nil {
+						return err
+					}
+				}
 			} else {
 				_, err = fmt.Fprintln(out, "terminal summary: unavailable; engine counts and observation windows are unknown")
 			}
@@ -145,10 +150,4 @@ func executeTraceSession(cmd *cobra.Command, ctx context.Context, session *trace
 			return nil
 		}
 	}
-}
-func traceCount(value *uint64) string {
-	if value == nil {
-		return "unreported"
-	}
-	return fmt.Sprint(*value)
 }

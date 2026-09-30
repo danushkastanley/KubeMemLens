@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/danushkastanley/kube-memlens/internal/traceclient"
+	"github.com/danushkastanley/kube-memlens/internal/traceview"
 )
 
 func (m appModel) tracePanelLines() []string {
@@ -29,10 +30,7 @@ func (m appModel) tracePanelLines() []string {
 	if p.session != nil {
 		lines = append(lines, fmt.Sprintf("Cleanup: %s · transport complete: %t", p.snapshot.Cleanup, p.snapshot.Result.TransportComplete), fmt.Sprintf("Validated event frames: %d", p.snapshot.Result.DeliveredEvents))
 		if summary, ok := p.snapshot.Result.Summary(); ok {
-			lines = append(lines, fmt.Sprintf("Termination: %s · incomplete evidence: %t", summary.Termination, summary.Incomplete), fmt.Sprintf("Engine produced: %s · sampled: %s", tracePanelCount(summary.EngineCounts.Produced), tracePanelCount(summary.EngineCounts.Sampled)), fmt.Sprintf("Lost: %s · rejected: %s", tracePanelCount(summary.EngineCounts.Lost), tracePanelCount(summary.EngineCounts.Rejected)))
-			if summary.Aggregates != nil {
-				lines = append(lines, fmt.Sprintf("Aggregated observations: %d", summary.Aggregates.Observations))
-			}
+			lines = append(lines, traceview.SummaryLines(summary)...)
 		} else {
 			lines = append(lines, "Engine counts and observation windows remain unreported.")
 		}
@@ -68,10 +66,4 @@ func (m appModel) renderTracePanel(width int) string {
 	v.resize(max(1, m.bodyRows()-1))
 	v.reconcile(len(lines))
 	return truncateLines(viewportWindow(v, lines), width)
-}
-func tracePanelCount(v *uint64) string {
-	if v == nil {
-		return "unreported"
-	}
-	return fmt.Sprint(*v)
 }
