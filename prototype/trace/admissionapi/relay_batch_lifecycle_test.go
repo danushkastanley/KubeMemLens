@@ -78,7 +78,7 @@ func (*revocableAuthorizer) Pod(context.Context, user.Info, string, string) erro
 func TestRelayRevalidatesPermissionBeforeBufferedTerminal(t *testing.T) {
 	f := &streamFixture{target: trace.TargetIdentity{Namespace: "tenant", PodName: "pod", PodUID: "uid", ContainerName: "worker", ContainerID: strings.Repeat("a", 64), ContainerStartedAt: time.Unix(100, 0).UTC(), NodeUID: "node", CgroupID: 42}}
 	auth := &revocableAuthorizer{}
-	manager, err := admission.NewManager(t.Context(), admission.Dependencies{Authorizer: auth, Resolver: f, Binder: f, Audit: func(admission.AuditEvent) {}}, admission.DefaultPolicy())
+	manager, err := admission.NewManager(t.Context(), admission.Dependencies{Authorizer: auth, Resolver: f, Binder: f, AuditReferences: testAuditReferences(t), Audit: func(context.Context, admission.AuditEvent) error { return nil }}, admission.DefaultPolicy())
 	if err != nil {
 		t.Fatal(err)
 	}

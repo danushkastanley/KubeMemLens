@@ -16,6 +16,7 @@ func verifyPreflight(job batchv1.Job) {
 	if p.ServiceAccountName != "trace-installer" || p.RestartPolicy != corev1.RestartPolicyNever || len(p.Containers) != 1 || len(p.InitContainers) != 0 || p.HostNetwork || p.HostPID || p.HostIPC || p.SecurityContext == nil || p.SecurityContext.RunAsNonRoot == nil || !*p.SecurityContext.RunAsNonRoot || p.SecurityContext.SeccompProfile == nil || p.SecurityContext.SeccompProfile.Type != corev1.SeccompProfileTypeRuntimeDefault {
 		fail("unexpected preflight identity or host access")
 	}
+	verifyAuditKey(p)
 	c := p.Containers[0]
 	s := c.SecurityContext
 	if s == nil || s.Capabilities == nil || len(s.Capabilities.Add) != 0 || !reflect.DeepEqual(s.Capabilities.Drop, []corev1.Capability{"ALL"}) || s.AllowPrivilegeEscalation == nil || *s.AllowPrivilegeEscalation || s.ReadOnlyRootFilesystem == nil || !*s.ReadOnlyRootFilesystem || !reflect.DeepEqual(c.Args, []string{"_install-check"}) || len(c.Resources.Limits) != 2 {

@@ -15,7 +15,9 @@
     "allowConfirmedPaths",
     "maxNodeTraces",
     "acceptancePolicySHA256",
-    "preflightServiceAccount"
+    "preflightServiceAccount",
+    "auditReferenceKeySecret",
+    "auditReferenceKeySHA256"
   ],
   "properties": {
     "enabled": {
@@ -149,6 +151,13 @@
     },
     "preflightServiceAccount": {
       "type": "string"
+    },
+    "auditReferenceKeySecret": {
+      "type": "string"
+    },
+    "auditReferenceKeySHA256": {
+      "type": "string",
+      "pattern": "^$|^[a-f0-9]{64}$"
     }
   },
   "allOf": [
@@ -209,6 +218,14 @@
             "type": "string",
             "maxLength": 63,
             "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "auditReferenceKeySecret": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "auditReferenceKeySHA256": {
+            "minLength": 64
           }
         }
       }

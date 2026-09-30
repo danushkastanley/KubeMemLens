@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/internal/traceaudit"
 	"io"
 	"time"
 
@@ -27,6 +27,8 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 	key := flags.String("tls-key", "", "aggregation private key file")
 	controlCert := flags.String("node-client-cert", "", "private node client certificate file")
 	controlKey := flags.String("node-client-key", "", "private node client key file")
+	auditKeySHA := flags.String("audit-reference-key-sha256", "", "exact audit reference key digest")
+	auditKey := flags.String("audit-reference-key", "", "administrator-owned 32-byte audit reference key file")
 	registry := flags.String("node-registry", "", "installation-owned node endpoint registry")
 	profileMode := flags.String("node-profile-mode", "baseline", "node eligibility policy: baseline or pinned")
 	acceptance := flags.String("acceptance-policy", "", "independently accepted worker installation policy")
@@ -64,6 +66,21 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 	} else {
 		policy.Paths = trace.OmitPaths
 	}
+	refs, err := loadAuditReferences(*auditKey, *auditKeySHA)
+	if err != nil {
+		return errors.New("trace audit reference key is missing or invalid")
+	}
+	auditWriter, err := traceaudit.NewWriter(errOut)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		defer cancel()
+		if auditWriter.Close(ctx) != nil {
+			runErr = traceaudit.ErrUnavailable
+		}
+	}()
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return errors.New("admission API requires in-cluster Kubernetes credentials")
@@ -92,9 +109,7 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 	if proxy != nil {
 		proxy = proxy.WithOOMContext(resolver)
 	}
-	manager, err := admission.NewManager(ctx, admission.Dependencies{Authorizer: admissionkube.NewAuthorizer(client.AuthorizationV1().SubjectAccessReviews()), Resolver: resolver, Binder: binder, Audit: func(event admission.AuditEvent) {
-		fmt.Fprintf(errOut, "trace_admission operation=%s decision=%s reason=%s principal=%s\n", event.Operation, event.Decision, event.Reason, event.Principal)
-	}}, policy)
+	manager, err := admission.NewManager(ctx, admission.Dependencies{Authorizer: admissionkube.NewAuthorizer(client.AuthorizationV1().SubjectAccessReviews()), Resolver: resolver, Binder: binder, AuditReferences: refs, Audit: auditWriter.Write}, policy)
 	if err != nil {
 		return err
 	}
@@ -102,7 +117,6 @@ func runAdmissionAPIConfigured(ctx context.Context, args []string, errOut io.Wri
 		closeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		if manager.Close(closeCtx) != nil {
-			fmt.Fprintln(errOut, "trace_admission cleanup_unconfirmed")
 			runErr = errors.New("trace admission cleanup unconfirmed")
 		}
 	}()

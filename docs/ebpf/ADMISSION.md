@@ -54,6 +54,9 @@ Before deployment:
    Private keys and rendered Secret manifests must not enter source control.
    Kubernetes aggregation proxy trust is loaded separately from its ConfigMap.
 
+Provision the separate immutable [audit reference key](AUDIT_AND_RETENTION.md)
+before rendering; the renderer references that Secret and never generates its key.
+
 The private node connection requires TLS 1.3, normal CA/hostname verification and
 an exact administrator-pinned leaf certificate SHA-256 digest in both directions.
 The registry is keyed by Node UID. Certificate or registry changes require a
@@ -68,6 +71,8 @@ python3 prototype/trace/kubernetes/render_admission.py \
   --image YOUR_LOADED_IMAGE@sha256:YOUR_VERIFIED_DIGEST \
   --node YOUR_NODE --node-uid YOUR_NODE_UID \
   --namespace kube-memlens-trace-admission --kubelet-cgroup-root /kubelet \
+  --audit-reference-secret YOUR_AUDIT_SECRET \
+  --audit-reference-key-sha256 YOUR_AUDIT_KEY_SHA256 \
   --certificate-directory /YOUR/PROTECTED/CERTIFICATES > /YOUR/PROTECTED/admission.json
 kubectl --context kind-kml-r6-admission apply -f /YOUR/PROTECTED/admission.json
 ```

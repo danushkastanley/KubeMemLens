@@ -6,18 +6,21 @@ import (
 	"encoding/hex"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/internal/traceaudit"
 	"github.com/danushkastanley/kube-memlens/internal/tracepreflight"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
 type Dependencies struct {
-	Authorizer Authorizer
-	Resolver   Resolver
-	Binder     Binder
-	Audit      Audit
+	Authorizer      Authorizer
+	Resolver        Resolver
+	Binder          Binder
+	Audit           Audit
+	AuditReferences *traceaudit.References
 }
 type stage uint8
 
@@ -29,6 +32,8 @@ const (
 )
 
 type entry struct {
+	audit           *auditLifecycle
+	closeCause      error
 	id              string
 	owner           [32]byte
 	request         Request
@@ -48,6 +53,8 @@ type entry struct {
 }
 
 type Manager struct {
+	policyRef   string
+	auditFailed atomic.Bool
 	inflight    sync.WaitGroup
 	shutdownErr error
 	mu          sync.Mutex
@@ -64,7 +71,7 @@ type Manager struct {
 // NewManager starts one bounded expiry worker. Close terminates it and releases
 // reservations. The controller owns this manager for its entire process lifetime.
 func NewManager(ctx context.Context, deps Dependencies, policy Policy) (*Manager, error) {
-	if ctx == nil || ctx.Err() != nil || deps.Authorizer == nil || deps.Resolver == nil || deps.Binder == nil || deps.Audit == nil {
+	if ctx == nil || ctx.Err() != nil || deps.Authorizer == nil || deps.Resolver == nil || deps.Binder == nil || deps.Audit == nil || deps.AuditReferences.KeyID() == "" {
 		return nil, ErrUnavailable
 	}
 	if err := policy.validate(); err != nil {
@@ -72,6 +79,19 @@ func NewManager(ctx context.Context, deps Dependencies, policy Policy) (*Manager
 	}
 	lifetime, cancel := context.WithCancel(ctx)
 	m := &Manager{entries: map[string]*entry{}, deps: deps, policy: policy, ctx: lifetime, cancel: cancel, wake: make(chan struct{}, 1), done: make(chan struct{})}
+	policyRef, err := policyFingerprint(policy)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	m.policyRef = policyRef
+	event := m.auditEvent("", Request{})
+	event.ActorClass, event.Operation, event.Decision, event.Reason = "system", traceaudit.Configure, traceaudit.Observed, traceaudit.Configured
+	event.Limits = m.auditLimits(policy.MaxBounds)
+	if m.emitAudit(event) != nil {
+		cancel()
+		return nil, ErrUnavailable
+	}
 	go m.expiryLoop()
 	return m, nil
 }
@@ -81,13 +101,29 @@ func (m *Manager) Admit(ctx context.Context, info user.Info, request Request) (r
 		return result, ErrUnavailable
 	}
 	defer m.inflight.Done()
-	principalClass := "unauthenticated"
-	defer func() { m.record(Create, principalClass, request.kind, err) }()
+	event := m.auditEvent(Create, request)
+	var reserved *entry
+	defer func() {
+		if m.record(event, err) != nil {
+			result, err = Admission{}, ErrUnavailable
+		}
+		if reserved != nil {
+			err = m.finishAdmission(reserved, err)
+			if err != nil {
+				result = Admission{}
+			}
+		}
+	}()
+	if m.AuditHealthy() != nil {
+		return result, ErrUnavailable
+	}
 	principal, owner, err := snapshotPrincipal(info)
 	if err != nil {
 		return result, err
 	}
-	principalClass = principalCategory(principal)
+	if err = m.identifyAudit(&event, principal, request.namespace, ""); err != nil {
+		return result, err
+	}
 	ctx, stop := m.operationContext(ctx)
 	defer stop()
 	if err = m.policy.permits(request); err != nil {
@@ -96,11 +132,14 @@ func (m *Manager) Admit(ctx context.Context, info user.Info, request Request) (r
 	if err = m.access(ctx, principal, Create, request, ""); err != nil {
 		return result, err
 	}
-	reserved, err := m.reserve(owner, request)
+	reserved, err = m.reserve(owner, request)
 	if err != nil {
 		return result, err
 	}
-	defer func() { m.finishAdmission(reserved, err) }()
+	event.SessionRef, _ = m.deps.AuditReferences.Session(reserved.id)
+	m.mu.Lock()
+	reserved.audit = &auditLifecycle{event: event}
+	m.mu.Unlock()
 	workload, err := m.deps.Resolver.Resolve(ctx, request)
 	if err != nil {
 		return result, safeDependencyError(err)
@@ -130,6 +169,13 @@ func (m *Manager) Admit(ctx context.Context, info user.Info, request Request) (r
 	if err != nil {
 		return result, ErrTargetChanged
 	}
+	event.TargetRef, err = m.deps.AuditReferences.Target(target)
+	if err != nil {
+		return result, ErrUnavailable
+	}
+	m.mu.Lock()
+	reserved.audit.event = event
+	m.mu.Unlock()
 	if err = m.deps.Resolver.Revalidate(ctx, workload); err != nil {
 		return result, safeDependencyError(err)
 	}
@@ -203,41 +249,6 @@ func newID() (string, error) {
 		return "", ErrUnavailable
 	}
 	return hex.EncodeToString(value[:]), nil
-}
-
-func (m *Manager) record(operation Operation, principalClass string, kind trace.Kind, err error) {
-	decision, reason := "accepted", "admitted"
-	if operation == Attach {
-		reason = "attached"
-	}
-	if operation == Read {
-		reason = "revalidated"
-	}
-	if operation == Cancel {
-		reason = "cancelled"
-	}
-	if err != nil {
-		decision = "rejected"
-		switch {
-		case errors.Is(err, ErrUnauthenticated):
-			reason = "unauthenticated"
-		case errors.Is(err, ErrDenied):
-			reason = "denied"
-		case errors.Is(err, ErrCapacity):
-			reason = "capacity"
-		case errors.Is(err, ErrExpired):
-			reason = "expired"
-		case errors.Is(err, ErrTargetChanged):
-			reason = "target_changed"
-		case errors.Is(err, ErrNotFound):
-			reason = "not_found"
-		case errors.Is(err, ErrInvalidRequest):
-			reason = "invalid_request"
-		default:
-			reason = "unavailable"
-		}
-	}
-	m.deps.Audit(AuditEvent{Operation: operation, Decision: decision, Reason: reason, Principal: principalClass, Kind: kind})
 }
 
 func (m *Manager) beginOperation() bool {

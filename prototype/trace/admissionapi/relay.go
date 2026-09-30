@@ -9,6 +9,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
+	"github.com/danushkastanley/kube-memlens/internal/traceaudit"
 	"github.com/danushkastanley/kube-memlens/internal/traceframe"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/streamhttp"
 )
@@ -78,6 +79,15 @@ func (r *relay) run(ctx context.Context, first traceframe.Frame) error {
 				}
 			}
 		}
+		if frame.Type() == traceframe.SummaryFrame {
+			summary, err := frame.ClientSummary()
+			if err != nil {
+				return admission.ErrUnavailable
+			}
+			if err := r.lease.RecordTerminal(summary.Termination, traceaudit.StreamOutcome); err != nil {
+				return err
+			}
+		}
 		if err := r.forward(ctx, frame); err != nil {
 			return err
 		}
@@ -115,5 +125,8 @@ func validationTermination(err error) trace.Termination {
 	if errors.Is(err, admission.ErrTargetChanged) {
 		return trace.TargetChanged
 	}
-	return trace.AuthorisationLost
+	if errors.Is(err, admission.ErrDenied) {
+		return trace.AuthorisationLost
+	}
+	return trace.EngineFailed
 }

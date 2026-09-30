@@ -8,6 +8,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 - Report a container once when it creates its own sub-cgroups (systemd, Docker-in-Docker). Nested cgroups were listed as extra entries with the same container ID and their memory was counted twice.
 
+### Optional trace audit and retention
+
+- Add bounded, versioned audit records with keyed actor, tenant, session and immutable target references, frozen quotas and separate terminal/cleanup outcomes. Trace payloads remain outside routine audit logs.
+- Require an administrator-owned audit key and exact digest for optional trace installations. Fail closed on uncertain audit delivery while preserving physical cleanup.
+- Document zero server result retention and verify local quota rejection, expiry, cancellation, path redaction and kernel cleanup. Resource and provider qualification remain incomplete.
+
 ### Optional trace development packaging
 
 - Add a separate, disabled-by-default trace chart with pinned images, policy bytes, TLS peers and node profiles. Keep standard installations unchanged and require explicit acknowledgement of unqualified development use.

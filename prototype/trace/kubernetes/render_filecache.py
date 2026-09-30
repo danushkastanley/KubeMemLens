@@ -42,14 +42,14 @@ def configure(items, policy_configmap, confirmed_paths=False, max_node_traces=1)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("image", "node", "node-uid", "namespace", "kubelet-cgroup-root", "certificate-directory", "policy-configmap"):
+    for name in ("image", "node", "node-uid", "namespace", "kubelet-cgroup-root", "certificate-directory", "policy-configmap", "audit-reference-secret", "audit-reference-key-sha256"):
         parser.add_argument("--" + name, required=True)
     parser.add_argument("--allow-confirmed-paths", action="store_true")
     parser.add_argument("--max-node-traces", type=int, choices=(1, 2), default=1)
     args = parser.parse_args()
     try:
         output = render(args.image, args.node, args.node_uid, args.namespace,
-                        args.kubelet_cgroup_root, args.certificate_directory)
+                        args.kubelet_cgroup_root, args.certificate_directory, args.audit_reference_secret, args.audit_reference_key_sha256)
         output["items"] = configure(output["items"], args.policy_configmap, args.allow_confirmed_paths, args.max_node_traces)
     except (ValueError, OSError) as error:
         parser.error(str(error))

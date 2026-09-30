@@ -12,7 +12,7 @@ import (
 )
 
 func specFixture() Spec {
-	return Spec{SchemaVersion: 1, Namespace: "trace-admin", APIServiceName: "trial-api", NodeServicePrefix: "trial-node", PolicySHA256: strings.Repeat("a", 64), ControlCertificateSHA256: strings.Repeat("b", 64), APICABundle: []byte("fixture CA"), Nodes: []Node{{ID: "one", Name: "node-one", UID: "node-one-uid", Architecture: "amd64", KernelVersion: "6.12.0", RuntimeVersion: "containerd://2.2.0", TLSSecret: "node-one-tls", CertificateSHA256: strings.Repeat("c", 64), KubeletCgroupRoot: "/kubelet"}}}
+	return Spec{AuditReferenceKeySHA256: strings.Repeat("e", 64), SchemaVersion: 1, Namespace: "trace-admin", APIServiceName: "trial-api", NodeServicePrefix: "trial-node", PolicySHA256: strings.Repeat("a", 64), ControlCertificateSHA256: strings.Repeat("b", 64), APICABundle: []byte("fixture CA"), Nodes: []Node{{ID: "one", Name: "node-one", UID: "node-one-uid", Architecture: "amd64", KernelVersion: "6.12.0", RuntimeVersion: "containerd://2.2.0", TLSSecret: "node-one-tls", CertificateSHA256: strings.Repeat("c", 64), KubeletCgroupRoot: "/kubelet"}}}
 }
 
 type nodeReaderFunc func(context.Context, string, metav1.GetOptions) (*corev1.Node, error)

@@ -22,6 +22,11 @@ Supply these prerequisites outside Helm ownership:
 - An immutable, provenance-verified image digest containing the launcher, signed
   worker, accepted programme bundle and retained dependency notices. The chart
   does not publish or approve images.
+- A separate immutable audit reference key Secret, its name in
+  `auditReferenceKeySecret` and its exact digest in `auditReferenceKeySHA256`.
+  Provision 32 random bytes as `reference.key`; the installation hook and API
+  receive this read-only key, and node workloads do not. See
+  [audit, key rotation and retention](AUDIT_AND_RETENTION.md).
 - An immutable ConfigMap containing `policy.json`, accepted independently of the
   image. Set `acceptancePolicySHA256` to the SHA-256 of those exact file bytes.
   Both services hash the same bounded bytes they parse, including on restart.
@@ -78,7 +83,7 @@ Pre-install and pre-upgrade hooks run in order:
 
 1. The bounded installation specification and host-probe network policy are
    created.
-2. An unprivileged Job validates policy, certificate trust and fresh Node metadata,
+2. An unprivileged Job validates policy, the audit key pin, certificate trust and fresh Node metadata,
    including UID, Linux architecture, exact kernel/runtime versions and readiness.
 3. One bounded host Job per node runs `doctor --json --timeout=10s` with the
    baseline seccomp profile, no service-account token and no network. It creates
