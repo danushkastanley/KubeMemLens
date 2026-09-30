@@ -71,7 +71,7 @@ require_text "${work_dir}/networkpolicy.yaml" "- Ingress"
 require_text "${work_dir}/networkpolicy.yaml" "port: http"
 require_text "${work_dir}/networkpolicy.yaml" "port: extension"
 require_text "${work_dir}/service.yaml" "port: 443"
-require_text "${work_dir}/service.yaml" "name: https-extension"
+require_text "${work_dir}/service.yaml" 'name: "https-extension"'
 require_text "${work_dir}/service.yaml" "targetPort: extension"
 if grep -Eq 'port: (8080|8081)' "${work_dir}/service.yaml"; then
   fail "collector Service exposes a plaintext port"
@@ -89,7 +89,7 @@ for mapping in eks custom; do
   for template in service.yaml deployment.yaml extension-tls.yaml tests/test-connection.yaml; do
     render_template "${template}" "${work_dir}/${mapping}-${template##*/}" "${options[@]}"
   done
-  require_text "${work_dir}/${mapping}-service.yaml" "name: extension"
+  require_text "${work_dir}/${mapping}-service.yaml" 'name: "extension"'
   require_text "${work_dir}/${mapping}-service.yaml" "port: ${port}"
   require_text "${work_dir}/${mapping}-service.yaml" "targetPort: extension"
   require_text "${work_dir}/${mapping}-deployment.yaml" "--extension-port=${port}"
@@ -97,6 +97,10 @@ for mapping in eks custom; do
   require_text "${work_dir}/${mapping}-extension-tls.yaml" "port: ${port}"
   require_text "${work_dir}/${mapping}-test-connection.yaml" ".svc ${port}; do"
 done
+
+# A valid port name that YAML also recognises as a boolean must remain a string.
+render_template service.yaml "${work_dir}/string-port-name.yaml" --set-string collector.service.extensionPortName=true
+require_text "${work_dir}/string-port-name.yaml" 'name: "true"'
 
 for setting in collector.service.extensionPort=0 collector.service.extensionPort=65536 \
   collector.service.extensionPortName=bad.name collector.service.extensionPortName=; do
