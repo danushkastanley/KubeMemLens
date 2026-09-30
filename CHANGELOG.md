@@ -4,6 +4,10 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Fixes
+
+- Report a container once when it creates its own sub-cgroups (systemd, Docker-in-Docker). Nested cgroups were listed as extra entries with the same container ID and their memory was counted twice.
+
 ### Optional worker attachment scope
 
 - Restrict the constrained SDK to the tracepoint and fentry/fexit classes already permitted by signed file/cache/OOM objects, rejecting other classes before map loading.

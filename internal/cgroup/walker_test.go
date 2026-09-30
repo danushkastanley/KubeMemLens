@@ -102,6 +102,28 @@ func TestWalkerSkipsParentPodCgroup(t *testing.T) {
 	}
 }
 
+func TestWalkerReportsNestedContainerCgroupOnce(t *testing.T) {
+	root := t.TempDir()
+	podDir := filepath.Join(root, "kubepods.slice", "kubepods-pod"+testPodUIDSystemd+".slice")
+	containerDir := filepath.Join(podDir, "cri-containerd-"+testContainerID+".scope")
+	writeCgroupFiles(t, containerDir, 300, 200)
+	// A container that manages its own cgroups (systemd, Docker-in-Docker)
+	// creates children whose usage is already included in the parent.
+	writeCgroupFiles(t, filepath.Join(containerDir, "init.scope"), 50, 40)
+	writeCgroupFiles(t, filepath.Join(containerDir, "system.slice", "app.service"), 200, 150)
+
+	entries, err := (Walker{Root: root}).Walk()
+	if err != nil {
+		t.Fatalf("Walk returned error: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("entries = %d, want 1", len(entries))
+	}
+	if entries[0].Memory.TotalBytes != 300 {
+		t.Fatalf("TotalBytes = %d, want 300", entries[0].Memory.TotalBytes)
+	}
+}
+
 func TestWalkerHonoursCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
