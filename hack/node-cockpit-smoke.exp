@@ -22,6 +22,9 @@ stty columns $columns rows $rows < $child_tty
 require_pattern {A/F/S/O} "initial Pod view"
 send -- "N"
 require_pattern {CHARGE} "Node table"
+select_node_cockpit $node
+send -- "h"
+require_pattern {CHARGE} "qualified Node table"
 if {$columns >= 150} {
   require_pattern {Node usage:} "wide Node memory pane"
   require_pattern {Observed Pod charge:} "separate observed Pod charge"
