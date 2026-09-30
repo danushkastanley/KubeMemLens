@@ -98,6 +98,8 @@ while True:
             # A command before the title terminator proves premature selection.
             if select.select([0],[],[],0.1)[0]:sys.exit(3)
             emit(node[len(partial):])
+        elif scenario=='coalesced':emit('\x1b[3;2Hode cockpit: '+node)
+        elif scenario=='wrong-column':emit('\x1b[3;3Hode cockpit: '+node)
         else:emit('Node cockpit: '+node)
     elif key=='h':emit('CHARGE')
     elif key=='j':selected+=1
@@ -107,7 +109,7 @@ while True:
 
 class NodeSelectionPTYTest(unittest.TestCase):
     def test_filter_selects_requested_node_including_prefix_collision(self):
-        for scenario in ("direct", "prefix", "split", "split-prefix"):
+        for scenario in ("direct", "prefix", "split", "split-prefix", "coalesced"):
             with self.subTest(scenario=scenario):
                 result = self.run_selection(scenario)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -117,6 +119,11 @@ class NodeSelectionPTYTest(unittest.TestCase):
         result = self.run_selection("missing")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("did not select the requested Node", result.stderr)
+
+    def test_title_suffix_at_another_cursor_position_does_not_pass(self):
+        result = self.run_selection("wrong-column")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("target detail did not open", result.stderr)
 
     def run_selection(self, scenario):
         with tempfile.TemporaryDirectory(prefix="node-selection-pty-") as folder:

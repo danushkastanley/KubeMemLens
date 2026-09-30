@@ -30,12 +30,14 @@ if {$columns >= 150} {
   require_pattern {Observed Pod charge:} "separate observed Pod charge"
 }
 send -- "e"
-require_pattern {Node cockpit:} "Node detail"
+require_pattern $node_cockpit_title_pattern "Node detail"
 require_pattern {Source completeness:} "source completeness"
 send -- "G"
 require_pattern {node-incident.json} "last detail section reachable"
 send -- "g"
-require_pattern {Node cockpit:} "detail returned to first section"
+# "Node history: <name>" at the end can leave most of the title unchanged.
+# The first section's action row is the observable return-to-top marker.
+require_pattern {s rank contributors; Enter drill into Pods; C capture; Space pause} "detail returned to first section"
 send -- " "
 require_pattern {polling stopped} "Node polling paused"
 send -- " "
