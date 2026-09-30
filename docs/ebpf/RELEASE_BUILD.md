@@ -1,11 +1,12 @@
 # Optional trace release build contract
 
-Status: BPFB-002 implementation in progress. A local consumer invocation verifies
+Status: BPFB-002 implementation merged in PR161. A local consumer invocation verifies
 real signatures, metadata, file inventories, all four payloads and packaged Helm
 rendering. Fresh local workers, launchers, BPF objects and the two-platform image
 also reproduce and pass the consumer. Local active upgrade, guarded rollback, disable and uninstall also pass, including
-standard-product coexistence and restoration. The read-only CI workflow is authored
-and linted; hosted execution and merge remain outstanding. This document does not qualify or publish a trace release.
+standard-product coexistence and restoration. The read-only hosted ARM build and
+separate amd64 clean consumer passed on the tested PR merge revision. This document
+does not qualify or publish a trace release.
 
 See [ADR 0022](../adr/0022-verify-optional-trace-release-as-one-bundle.md) for the
 trust boundary and lifecycle decision.
@@ -335,4 +336,6 @@ consumer receives expected key/manifest hashes through job outputs, rebuilds its
 verifiers from the exact source commit, authenticates the bundle and checks it
 before any installation. Its result remains `local-development`, not GitHub release
 provenance. Signature receipts also retain the selected external trust-root hash.
-The workflow has passed local actionlint; a hosted run remains required.
+The workflow passed local actionlint and hosted run
+[36757090991](https://github.com/danushkastanley/KubeMemLens/actions/runs/36757090991).
+The consumer verifies the supplied build; it does not independently reproduce it.

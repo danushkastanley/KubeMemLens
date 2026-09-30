@@ -4,6 +4,10 @@ Status: unqualified development packaging. Resource qualification remains open;
 there is no supported or release-qualified node profile. Use only an explicitly
 authorised development cluster. The standard chart remains independent.
 
+The [operations walkthrough](OPERATIONS.md) joins these prerequisites to the
+public CLI, cancellation, explicit export and removal. Use the
+[incident playbooks](INCIDENTS.md) for containment and recovery.
+
 After installation, use the [bounded CLI and TUI workflows](CLIENT_WORKFLOWS.md).
 Their preflight and trace permissions are separate from ordinary memory reads.
 

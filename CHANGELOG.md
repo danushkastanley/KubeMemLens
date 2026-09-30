@@ -8,6 +8,11 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 - Report a container once when it creates its own sub-cgroups (systemd, Docker-in-Docker). Nested cgroups were listed as extra entries with the same container ID and their memory was counted twice.
 
+### Optional trace operations
+
+- Add an operator walkthrough, incident playbooks and diagnostic-sharing guidance for the separate development extension. Document expiry and cancellation outcomes without equating a missing admission with confirmed cleanup.
+- Exercise the documented CLI, bounded redacted reports, metadata-only audit policy and installation removal locally. Resource and managed-provider qualification remain open.
+
 ### Optional trace compatibility
 
 - Negotiate an explicit trace contract before admission and guard activation against extension downgrades. Previous development clients retain their existing response shapes and server-enforced limits; incompatible current clients fail before tracing starts.
