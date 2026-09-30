@@ -47,5 +47,5 @@ spec:
   service:
     name: kube-memlens-collector
     namespace: {{ .Values.namespace.name | quote }}
-    port: 443
+    port: {{ .Values.collector.service.extensionPort }}
 {{- end }}
