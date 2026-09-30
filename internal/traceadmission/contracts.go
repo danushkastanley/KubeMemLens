@@ -16,10 +16,11 @@ const APIVersion = "v1alpha1"
 type Operation string
 
 const (
-	Create Operation = "create"
-	Read   Operation = "get"
-	Cancel Operation = "delete"
-	Attach Operation = "stream"
+	Create  Operation = "create"
+	Read    Operation = "get"
+	Cancel  Operation = "delete"
+	Attach  Operation = "stream"
+	Inspect Operation = "preflight"
 )
 
 // Authorizer checks trace-resource permission and exact Pod read permission.

@@ -12,6 +12,7 @@ import (
 )
 
 type appModel struct {
+	tracePanel            tracePanel
 	historyPanel          historyPanel
 	replicaPanel          replicaPanel
 	ctx                   context.Context
@@ -98,11 +99,29 @@ func newModel(ctx context.Context, opts Options, reader client.SnapshotReader, d
 }
 
 func (m appModel) Init() tea.Cmd {
-	return tea.Batch(m.fetchCmd(), m.tickCmd())
+	return tea.Batch(m.fetchCmd(), m.tickCmd(), m.discoverTraceCmd())
 }
 
 func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case traceDiscoveryMsg:
+		m.tracePanel.client, m.tracePanel.available = msg.client, msg.err == nil && msg.client != nil
+		return m, nil
+	case tracePreparedMsg:
+		command := m.receiveTracePrepared(msg)
+		return m, command
+	case traceUpdateMsg:
+		command := m.receiveTraceUpdate(msg)
+		return m, command
+	case traceExportMsg:
+		if msg.generation == m.tracePanel.generation {
+			m.tracePanel.err = msg.err
+			m.tracePanel.exportMode = "saved"
+			if msg.err != nil {
+				m.tracePanel.exportMode = "path"
+			}
+		}
+		return m, nil
 	case discoveryMsg:
 		return m.receiveDiscovery(msg)
 	case tea.WindowSizeMsg:
@@ -211,6 +230,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *appModel) clearRevokedData() {
+	m.revokeTraceEvidence()
 	m.closeReplicaPanel()
 	m.closeHistoryPanel()
 	m.clearVolumeTarget()
@@ -252,6 +272,9 @@ func (m *appModel) updatePodTrends(next []api.PodSnapshot) {
 }
 
 func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	if m.tracePanel.open {
+		return m.tracePanelKey(msg)
+	}
 	if m.replicaPanel.open {
 		return m.replicaPanelKey(msg)
 	}
@@ -285,6 +308,9 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg.String() {
+	case "T":
+		m.openTracePanel()
+		return m, nil
 	case "q", "ctrl+c":
 		m.cancelHistoryRequest()
 		m.cancelNodeRequest()

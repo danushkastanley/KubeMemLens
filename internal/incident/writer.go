@@ -27,6 +27,17 @@ func (w *boundedWriter) Write(data []byte) (int, error) {
 // Stage even stdout output so an oversized document is never partly exported.
 // Files are published with no-replace semantics unless overwrite was explicit.
 func writeDocument(stdout io.Writer, output string, overwrite bool, document any) error {
+	return writeIncidentFile(stdout, output, overwrite, func(w io.Writer) error {
+		encoder := json.NewEncoder(&boundedWriter{destination: w, remaining: MaxBytes})
+		encoder.SetIndent("", "  ")
+		if err := encoder.Encode(document); err != nil {
+			return fmt.Errorf("encode incident file: %w", err)
+		}
+		return nil
+	})
+}
+
+func writeIncidentFile(stdout io.Writer, output string, overwrite bool, encode func(io.Writer) error) error {
 	directory := filepath.Dir(output)
 	if output == "-" {
 		directory = ""
@@ -41,10 +52,8 @@ func writeDocument(stdout io.Writer, output string, overwrite bool, document any
 	if err := temporary.Chmod(0o600); err != nil {
 		return fmt.Errorf("protect incident file: %w", err)
 	}
-	encoder := json.NewEncoder(&boundedWriter{destination: temporary, remaining: MaxBytes})
-	encoder.SetIndent("", "  ")
-	if err := encoder.Encode(document); err != nil {
-		return fmt.Errorf("encode incident file: %w", err)
+	if err := encode(temporary); err != nil {
+		return err
 	}
 	if err := temporary.Sync(); err != nil {
 		return fmt.Errorf("sync incident file: %w", err)

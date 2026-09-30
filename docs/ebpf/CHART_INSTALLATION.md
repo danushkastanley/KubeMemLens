@@ -4,6 +4,9 @@ Status: unqualified development packaging. Resource qualification remains open;
 there is no supported or release-qualified node profile. Use only an explicitly
 authorised development cluster. The standard chart remains independent.
 
+After installation, use the [bounded CLI and TUI workflows](CLIENT_WORKFLOWS.md).
+Their preflight and trace permissions are separate from ordinary memory reads.
+
 ## Administrator-owned prerequisites
 
 Use a dedicated namespace with tightly restricted write access. The node process
@@ -111,6 +114,9 @@ in `kube-system`. Node processes receive no Kubernetes token or API permissions.
 No tenant or operator binding is created. Bind the generated operator ClusterRole
 only to named operators using namespace-scoped RoleBindings where appropriate;
 verify both allowed and denied identities through the real aggregated API.
+The role includes `create tracepreflights` for the explicit inspection workflow.
+Preflight also requires trace creation and the exact Pod read; it creates no
+session and does not replace authorisation at admission or streaming time.
 
 API ingress permits port 8443 so the aggregation layer can reach it across CNI
 topologies. Its egress is not restricted by this chart: it needs the Kubernetes

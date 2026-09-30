@@ -53,9 +53,13 @@ func (s *Service) expire(ctx context.Context) {
 				}
 			}
 			clear(s.seen)
+			preview := s.previewDone
 			s.mu.Unlock()
 			for _, execution := range active {
 				<-execution.done
+			}
+			if preview != nil {
+				<-preview
 			}
 			return
 		}

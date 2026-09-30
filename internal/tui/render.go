@@ -36,7 +36,9 @@ func (m appModel) viewString() string {
 	b.WriteString("\n")
 	b.WriteString(truncate(m.sourceLabel(), width))
 	b.WriteString("\n")
-	if m.replicaPanel.open {
+	if m.tracePanel.open {
+		b.WriteString(m.renderTracePanel(width))
+	} else if m.replicaPanel.open {
 		b.WriteString(m.renderReplicaPanel(width))
 	} else if m.historyPanel.open {
 		b.WriteString(m.renderHistoryPanel(width))
@@ -190,6 +192,12 @@ func (m appModel) renderFooter(width int) string {
 	}
 	if m.action.mode != actionClosed {
 		footer = "Esc close · action keys shown above"
+	}
+	if m.tracePanel.available && !m.searching {
+		footer = "T trace · " + footer
+	}
+	if m.tracePanel.open {
+		footer = "Esc navigate · s cancel trace · j/k scroll · q quit"
 	}
 	return styleHelp(truncate(footer, width))
 }

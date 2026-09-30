@@ -62,6 +62,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, prefix+"/namespaces/"), "/")
+	if strings.HasPrefix(r.URL.Path, prefix+"/namespaces/") && len(parts) == 2 && parts[0] != "" && parts[1] == "tracepreflights" {
+		h.servePreflight(w, r, principal, parts[0])
+		return
+	}
 	if !strings.HasPrefix(r.URL.Path, prefix+"/namespaces/") || len(parts) < 2 || len(parts) > 4 || parts[1] != "traces" {
 		writeError(w, admission.ErrNotFound)
 		return
@@ -137,7 +141,11 @@ func writeAdmission(w http.ResponseWriter, code int, namespace string, a admissi
 	writeJSON(w, code, response{groupVersion, "TraceAdmission", responseMetadata{a.ID(), namespace}, string(a.State()), a.ExpiresAt(), a.EngineDigest()})
 }
 func resources() []metav1.APIResource {
-	return []metav1.APIResource{{Name: "traces", SingularName: "trace", Namespaced: true, Kind: "TraceAdmission", Verbs: metav1.Verbs{"create", "get", "delete"}, Group: admission.APIGroup, Version: admission.APIVersion}, {Name: "traces/stream", Namespaced: true, Kind: "TraceStream", Verbs: metav1.Verbs{"get"}, Group: admission.APIGroup, Version: admission.APIVersion}}
+	return []metav1.APIResource{
+		{Name: "traces", SingularName: "trace", Namespaced: true, Kind: "TraceAdmission", Verbs: metav1.Verbs{"create", "get", "delete"}, Group: admission.APIGroup, Version: admission.APIVersion},
+		{Name: "traces/stream", Namespaced: true, Kind: "TraceStream", Verbs: metav1.Verbs{"get"}, Group: admission.APIGroup, Version: admission.APIVersion},
+		{Name: "tracepreflights", SingularName: "tracepreflight", Namespaced: true, Kind: "TracePreflight", Verbs: metav1.Verbs{"create"}, Group: admission.APIGroup, Version: admission.APIVersion},
+	}
 }
 func writeJSON(w http.ResponseWriter, code int, value any) {
 	w.Header().Set("Content-Type", "application/json")

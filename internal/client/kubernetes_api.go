@@ -22,9 +22,10 @@ const (
 )
 
 type KubernetesAPIClient struct {
-	baseURL    string
-	httpClient *http.Client
-	scope      ReadScope
+	baseURL     string
+	httpClient  *http.Client
+	scope       ReadScope
+	traceConfig *rest.Config
 }
 
 var _ SnapshotReader = (*KubernetesAPIClient)(nil)
@@ -53,7 +54,7 @@ func NewKubernetesAPIClient(config *rest.Config, scope ReadScope, timeout time.D
 		return nil, fmt.Errorf("create Kubernetes API transport: %w", err)
 	}
 	baseURL := strings.TrimRight(copied.Host, "/") + "/apis/" + api.MemoryAPIGroup + "/" + api.MemoryAPIVersion
-	return &KubernetesAPIClient{baseURL: baseURL, httpClient: httpClient, scope: scope}, nil
+	return &KubernetesAPIClient{baseURL: baseURL, httpClient: httpClient, scope: scope, traceConfig: freezeTraceConfig(copied)}, nil
 }
 
 func (c *KubernetesAPIClient) Health(ctx context.Context) error {

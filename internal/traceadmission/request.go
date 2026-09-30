@@ -1,5 +1,5 @@
 // Package traceadmission owns exact-target trace requests and admission policy.
-// It never loads a programme or accepts a caller-supplied runtime identity.
+// It never loads a programme or treats caller preconditions as runtime authority.
 package traceadmission
 
 import (
@@ -19,8 +19,8 @@ const MaxRequestBytes = 4096
 
 var ErrInvalidRequest = errors.New("invalid trace request")
 
-// Request contains only user-selectable intent. Namespace comes from the
-// authenticated API route; runtime identity is resolved separately by admission.
+// Request contains intent and optional comparison preconditions. Namespace comes
+// from the authenticated route; runtime identity is resolved separately by admission.
 type Request struct {
 	namespace string
 	pod       string
@@ -28,6 +28,7 @@ type Request struct {
 	kind      trace.Kind
 	paths     trace.PathPolicy
 	bounds    trace.Bounds
+	selection *selectedLifetime
 }
 
 func (r Request) Namespace() string       { return r.namespace }
@@ -43,16 +44,20 @@ func (Request) MarshalJSON() ([]byte, error) {
 }
 
 type requestBody struct {
-	SchemaVersion   int        `json:"schemaVersion"`
-	Pod             string     `json:"pod"`
-	Container       string     `json:"container"`
-	Kind            trace.Kind `json:"kind"`
-	RawPaths        bool       `json:"rawPaths"`
-	DurationSeconds *uint64    `json:"durationSeconds"`
-	MaxEvents       *uint64    `json:"maxEvents"`
-	MaxOutputBytes  *uint64    `json:"maxOutputBytes"`
-	MaxMapBytes     *uint64    `json:"maxMapBytes"`
-	MaxPathBytes    *uint64    `json:"maxPathBytes"`
+	SchemaVersion              int        `json:"schemaVersion"`
+	Pod                        string     `json:"pod"`
+	Container                  string     `json:"container"`
+	Kind                       trace.Kind `json:"kind"`
+	RawPaths                   bool       `json:"rawPaths"`
+	DurationSeconds            *uint64    `json:"durationSeconds"`
+	MaxEvents                  *uint64    `json:"maxEvents"`
+	MaxOutputBytes             *uint64    `json:"maxOutputBytes"`
+	MaxMapBytes                *uint64    `json:"maxMapBytes"`
+	MaxPathBytes               *uint64    `json:"maxPathBytes"`
+	ExpectedPodUID             *string    `json:"expectedPodUID"`
+	ExpectedContainerID        *string    `json:"expectedContainerID"`
+	ExpectedContainerStartedAt *time.Time `json:"expectedContainerStartedAt"`
+	ExpectedNodeName           *string    `json:"expectedNodeName"`
 }
 
 // DecodeRequest accepts one flat, bounded, versioned object. In addition to
@@ -75,8 +80,12 @@ func DecodeRequest(namespace string, reader io.Reader) (Request, error) {
 	if err := decoder.Decode(&body); err != nil {
 		return Request{}, ErrInvalidRequest
 	}
-	if body.SchemaVersion != 1 || len(validation.IsDNS1123Subdomain(body.Pod)) != 0 || len(validation.IsDNS1123Label(body.Container)) != 0 {
+	if len(validation.IsDNS1123Subdomain(body.Pod)) != 0 || len(validation.IsDNS1123Label(body.Container)) != 0 {
 		return Request{}, ErrInvalidRequest
+	}
+	selection, err := decodeSelection(body)
+	if err != nil {
+		return Request{}, err
 	}
 	switch body.Kind {
 	case trace.Files, trace.Cache, trace.OOM:
@@ -105,7 +114,7 @@ func DecodeRequest(namespace string, reader io.Reader) (Request, error) {
 	if err := bounds.Validate(); err != nil {
 		return Request{}, ErrInvalidRequest
 	}
-	return Request{namespace: namespace, pod: body.Pod, container: body.Container, kind: body.Kind, paths: paths, bounds: bounds}, nil
+	return Request{namespace: namespace, pod: body.Pod, container: body.Container, kind: body.Kind, paths: paths, bounds: bounds, selection: selection}, nil
 }
 
 func setBound(target *uint64, value *uint64) {
@@ -131,7 +140,8 @@ func uniqueObject(data []byte) error {
 			return ErrInvalidRequest
 		}
 		switch name {
-		case "schemaVersion", "pod", "container", "kind", "rawPaths", "durationSeconds", "maxEvents", "maxOutputBytes", "maxMapBytes", "maxPathBytes":
+		case "schemaVersion", "pod", "container", "kind", "rawPaths", "durationSeconds", "maxEvents", "maxOutputBytes", "maxMapBytes", "maxPathBytes",
+			"expectedPodUID", "expectedContainerID", "expectedContainerStartedAt", "expectedNodeName":
 		default:
 			return ErrInvalidRequest
 		}

@@ -104,6 +104,9 @@ func runBindingNodeRuntime(ctx context.Context, args []string, errOut io.Writer,
 			runErr = errors.New("binding node cleanup unconfirmed")
 		}
 	}()
+	if err := service.SetStartupReport(report); err != nil {
+		return errors.New("binding node startup report unavailable")
+	}
 	server, err := nodebinding.NewHTTPServer(*address, tlsConfig, service)
 	if err != nil {
 		return err
