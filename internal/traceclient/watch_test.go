@@ -91,12 +91,14 @@ func TestWatchCoalescesMaximumBoundedStreamWithoutRetainingPaths(t *testing.T) {
 	}))
 	updates := 0
 	start := time.Now()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	// Use the admitted duration and terminal drain budget. This verifies maximum
+	// stream capacity and notification cadence, not race-instrumented throughput.
+	ctx, cancel := context.WithTimeout(t.Context(), intent.Bounds.Duration+2*time.Second)
 	defer cancel()
 	result, err := c.Watch(ctx, watchAdmission(t, c, intent), func(Result) { updates++ })
 	maximumUpdates := int(time.Since(start)/(100*time.Millisecond)) + 3
 	if err != nil || !result.TransportComplete || result.DeliveredEvents != 100000 || updates > maximumUpdates || calls.Load() != 1 {
-		t.Fatal("bounded stream or update cadence failed", err, updates, maximumUpdates)
+		t.Fatal("bounded stream or update cadence failed", err, context.Cause(ctx), updates, maximumUpdates)
 	}
 	s, ok := result.Summary()
 	if !ok || s.Aggregates.Observations != 100000 {
