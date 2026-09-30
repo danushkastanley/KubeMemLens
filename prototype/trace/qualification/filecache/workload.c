@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <poll.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,8 +63,23 @@ static unsigned int resident(int fd, size_t page) {
     return count;
 }
 
+static void wait_command(char command) {
+    struct pollfd input = {STDIN_FILENO, POLLIN, 0};
+    char value;
+    if (poll(&input, 1, 30000) != 1 || !(input.revents & POLLIN)
+        || read(STDIN_FILENO, &value, 1) != 1 || value != command)
+        fail("bounded command");
+}
+
 int main(int argc, char **argv) {
-    if (argc != 2) fail("mode");
+    int gated = argc == 3 && strcmp(argv[2], "--gated") == 0;
+    if (argc != 2 && !gated) fail("mode");
+    if (gated && strcmp(argv[1], "cached") != 0 && strcmp(argv[1], "uncached") != 0)
+        fail("mode");
+    if (strcmp(argv[1], "idle") == 0) {
+        sleep(1800);
+        return 0;
+    }
     int prepare = strcmp(argv[1], "prepare") == 0;
     int cached = strcmp(argv[1], "cached") == 0;
     int uncached = strcmp(argv[1], "uncached") == 0;
@@ -82,6 +98,12 @@ int main(int argc, char **argv) {
     if (fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) || info.st_uid != getuid()
         || info.st_nlink != 1 || info.st_size != (prepare ? 0 : FILE_BYTES))
         fail("fixture identity");
+    // Start the process before attaching: CRI exec itself performs container I/O.
+    // Keep it alive after its receipt so runtime teardown is outside the window.
+    if (gated) {
+        if (puts("{\"ready\":true}") < 0 || fflush(stdout) != 0) fail("ready output");
+        wait_command('R');
+    }
     unsigned int before = 0;
     uint64_t read_bytes = 0, write_bytes = 0;
     if (uncached) {
@@ -113,5 +135,9 @@ int main(int argc, char **argv) {
            "\"residentPagesBefore\":%u,\"residentPagesAfter\":%u,"
            "\"readBytes\":%" PRIu64 ",\"writeBytes\":%" PRIu64 "}\n",
            argv[1], FILE_BYTES, page, before, after, read_bytes, write_bytes);
+    if (gated) {
+        if (fflush(stdout) != 0) fail("receipt output");
+        wait_command('Q');
+    }
     return 0;
 }

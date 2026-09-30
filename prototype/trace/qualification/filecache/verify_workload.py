@@ -6,6 +6,8 @@ import re
 import subprocess
 import uuid
 
+from gated import GatedWorkload
+
 
 FILE_BYTES = 8 * 1024 * 1024
 
@@ -36,6 +38,23 @@ def verify(image):
 
     results = []
     try:
+        idle = subprocess.run(common + ["--detach", "--entrypoint", "/usr/local/bin/kml-io-workload", image, "idle"],
+                              capture_output=True, text=True, check=True, timeout=15).stdout.strip()
+        if not re.fullmatch(r"[a-f0-9]{64}", idle):
+            raise RuntimeError("idle fixture identity unavailable")
+        try:
+            state = json.loads(subprocess.check_output(["docker", "inspect", idle], text=True, timeout=15))[0]
+            if state["Id"] != idle or not state["State"]["Running"]:
+                raise RuntimeError("idle fixture did not remain running")
+            subprocess.run(["docker", "exec", idle, "/bin/sh", "-ec", "test ! -e /work/fixed-seed.bin"],
+                           capture_output=True, check=True, timeout=15)
+            logs = subprocess.run(["docker", "logs", idle], capture_output=True, check=True, timeout=15)
+            if logs.stdout or logs.stderr:
+                raise RuntimeError("idle fixture emitted unexpected output")
+            results.append({"mode": "idle", "running": True, "fixtureFileAbsent": True, "outputEmpty": True})
+        finally:
+            subprocess.run(["docker", "rm", "-f", idle], check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
         for mode in ("prepare", "cached", "uncached", "cached", "write", "noise"):
             result = workload(mode)
             if result.returncode != 0 or result.stderr:
@@ -56,6 +75,32 @@ def verify(image):
             if data != expected:
                 raise RuntimeError(f"fixture mode {mode} did not establish its I/O/cache contract")
             results.append(data)
+
+        for mode in ("cached", "uncached"):
+            gated = GatedWorkload(common + ["--interactive", "--entrypoint",
+                                  "/usr/local/bin/kml-io-workload", image, mode, "--gated"])
+            try:
+                if gated.process.poll() is not None:
+                    raise RuntimeError("gated fixture exited before its command")
+                receipt = gated.run()
+                expected = {"mode": mode, "fileBytes": FILE_BYTES, "pageBytes": page,
+                            "residentPagesBefore": 0 if mode == "uncached" else FILE_BYTES // page,
+                            "residentPagesAfter": FILE_BYTES // page,
+                            "readBytes": FILE_BYTES, "writeBytes": 0}
+                if receipt != expected or gated.process.poll() is not None:
+                    raise RuntimeError("gated fixture contract or lifetime failed")
+                gated.finish()
+                results.append({"gated": True, "receipt": receipt, "retainedUntilCompletion": True})
+            finally:
+                gated.close()
+
+        rejected = subprocess.run(common + ["--interactive", "--entrypoint",
+                                  "/usr/local/bin/kml-io-workload", image, "cached", "--gated"],
+                                  input="X", capture_output=True, text=True, timeout=15)
+        if (rejected.returncode != 2 or rejected.stdout != '{"ready":true}\n' or
+                rejected.stderr != "workload failed: bounded command\n"):
+            raise RuntimeError("invalid gated command was not rejected")
+        results.append({"negativeCase": "invalid gated command", "passed": True})
 
         result = workload("prepare")
         if (result.returncode != 2 or result.stdout or

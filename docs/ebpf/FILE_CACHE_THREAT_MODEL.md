@@ -64,6 +64,16 @@ verify without preparing a target or loading incident BPF. These tests do not
 prove kernel semantics. The amd64 worker is reproduced but has no native kernel
 qualification. Source/licence and vulnerability records accompany the candidate.
 
+The later [local isolation campaign](ISOLATION_LOCAL_VERIFICATION.md) exercised ten
+non-selected Pods across two tenant namespaces. Idle targets reported known zero
+events despite verified file and cold-cache peer I/O; selected byte/base-page
+totals matched the independent reference with and without that activity. The
+fixture starts its process before attachment so CRI setup I/O cannot contaminate
+the exact workload comparison. Pod replacement, movement to a second reviewed
+node and stale lifetime replays did not retarget the original session. These
+bounded arm64 observations do not establish universal workload coverage or remove
+shared-node contention and timing channels.
+
 First incident loading requires fresh maintainer source/digest/signature/SDK-patch
 acceptance. Independent security review and later R6 gates remain separate.
 Disable new admissions and cancel affected sessions on revocation. Retain quotas

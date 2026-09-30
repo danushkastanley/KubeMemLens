@@ -19,6 +19,9 @@ its signed programmes, worker limits, trace permissions or public stream contrac
 | API credential misuse | Separate account with Pod gets, exact Node gets, delegated SubjectAccessReviews and the aggregation authentication reader. Operator role is unbound. Tenant create/read/delete access remains denied unless explicitly assigned. |
 | Preflight leaks target information or delays cancellation | Explicit preflight, trace-create and Pod-read permissions are checked before and after inspection. Compare-only selection preconditions reject replacement. One temporary node inspection verifies and closes its cgroup handle without activation, lease or replay state; it runs outside the lease lock, and shutdown joins it. Reports omit target identifiers and label the baseline as a startup observation. |
 | Removal appears complete while kernel state survives | Check captured, ownership-bound BPF IDs independently after active teardown, plus original process termination and chart resource inventory. Helm success and Pod absence alone are insufficient. No global BPF enumeration, unpinning or additional runtime capability is introduced. |
+| Non-owner adopts a handle or exports its results | Real tenant, colleague, administrator and unbound-account probes reject read/watch/cancel/export while preserving the owner's state and deadline. An administrator's namespace grant permits a new admission, not ownership of an existing handle. |
+| Restart silently frees uncertain capacity | A fresh node instance cannot attest predecessor cleanup. The API retains the reservation; administrative recovery first verifies captured objects absent and the replacement idle. Local restart tests exercised this boundary. |
+| NetworkPolicy change is mistaken for established-stream revocation | Test fresh and established connections separately. On this local profile, removing the allow rule denied fresh connections but did not prove established-stream interruption. A separate owned-Pod namespace packet-drop fault exercised original-deadline cleanup with unknown result counters. |
 
 The chart leaves API egress unrestricted for Kubernetes API access, DNS and node
 services. It permits API ingress on its TLS port for the aggregation layer. These
@@ -30,3 +33,6 @@ values and preflight; rollback must not reinstate stale identities or trust.
 Verification combines chart render contracts, strict parser/trust and profile-drift
 tests, real aggregation/RBAC checks and bounded local lifecycle tests. Independent
 review, resource budgets and provider qualification remain separate and incomplete.
+The [local isolation record](ISOLATION_LOCAL_VERIFICATION.md) distinguishes observed
+access, lifetime, restart and network results from untested provider behaviour.
+Error-body comparisons do not eliminate scheduling or shared-resource timing channels.
