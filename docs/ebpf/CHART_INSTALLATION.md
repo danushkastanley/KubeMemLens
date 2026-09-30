@@ -16,6 +16,9 @@ Use a CNI that enforces Kubernetes NetworkPolicy and verify enforcement locally.
 
 Supply these prerequisites outside Helm ownership:
 
+- A metadata-only Kubernetes audit rule for `tracepreflights`, `traces` and
+  `traces/stream`, placed ahead of broader request/response rules. Preflight
+  bodies include selected workload identities. See the [audit rule](STREAM.md).
 - An immutable, provenance-verified image digest containing the launcher, signed
   worker, accepted programme bundle and retained dependency notices. The chart
   does not publish or approve images.
