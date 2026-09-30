@@ -234,6 +234,12 @@ isolation and rollback checks. It does not change existing history retention or
 install Prometheus; managed-provider qualification remains separate.
 Opt-in [workload change markers](docs/memory-change-markers.md) add bounded
 rollout, restart and resize context, with redacted capture and offline comparison.
+Development builds also offer opt-in [incident sessions](docs/incident-sessions.md)
+for bounded, owner-scoped records of evidence and decisions. Sessions remain in
+collector memory; export required records before an upgrade or restart. Deployed
+qualification remains separate. Trace references keep report bytes local and
+identify their source as operator-supplied.
+
 Optional [replica comparisons](docs/replica-baselines.md) use current local cgroup
 evidence and bounded history. Use `replicas pod` / `replicas workload` or press `B`
 in the TUI; enable explicit namespaces and bind the separate replica viewer role.

@@ -13,6 +13,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Add an operator walkthrough, incident playbooks and diagnostic-sharing guidance for the separate development extension. Document expiry and cancellation outcomes without equating a missing admission with confirmed cleanup.
 - Exercise the documented CLI, bounded redacted reports, metadata-only audit policy and installation removal locally. Resource and managed-provider qualification remain open.
 
+### Optional incident timelines
+
+- Add explicitly created, owner-only incident sessions with bounded in-memory retention, Pod captures, comparisons, change markers, private annotations and visible evidence gaps through the CLI and TUI.
+- Reference local trace reports by exact-byte digest and typed outcomes without uploading report text. Keep operator-supplied references distinct from verified measurements; offline verification proves file agreement only.
+- Separate sanitised and authorised exports, preserve schema-1 timelines and use schema 2 for trace references. Enforce current namespace and operation permissions; sessions expire after one hour and disappear on collector restart.
+
 ### Optional trace compatibility
 
 - Negotiate an explicit trace contract before admission and guard activation against extension downgrades. Previous development clients retain their existing response shapes and server-enforced limits; incompatible current clients fail before tracing starts.

@@ -56,6 +56,9 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 			return m, m.startCompare()
 		case "c":
 			m.beginCapture()
+		case "i":
+			command := m.openSessionPanel()
+			return m, command
 		case "y":
 			return m.copyCurrentCommand()
 		}

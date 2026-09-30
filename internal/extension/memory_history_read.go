@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"slices"
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/changemarkers"
@@ -101,51 +100,16 @@ func (h *ReadHandler) serveMemoryHistory(w http.ResponseWriter, r *http.Request,
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), timeout)
 	defer cancel()
-	selected, err := resolver.Resolve(ctx, request)
-	if err != nil {
-		writeMemoryHistoryError(w, err)
-		return
-	}
-	if selected.Request != request || selected.Validate() != nil {
-		writeMemoryHistoryError(w, memoryhistory.ErrInvalid)
-		return
-	}
-	provider := s.local
-	if query.Source == memoryhistory.Prometheus {
-		provider = s.remote
-	}
-	report, err := provider.Query(ctx, selected, query)
-	if err != nil {
-		writeMemoryHistoryError(w, err)
-		return
-	}
-	var changes changemarkers.Report
+	var markerReader changemarkers.Provider
 	if withChanges {
-		changes, err = s.markers.Query(ctx, selected, query)
-		if err != nil {
-			writeMemoryHistoryError(w, err)
-			return
-		}
+		markerReader = s.markers
 	}
-	current, err := resolver.Resolve(ctx, request)
+	acquired, err := s.acquire(ctx, request, query, resolver, markerReader)
 	if err != nil {
 		writeMemoryHistoryError(w, err)
 		return
 	}
-	if current.Request != selected.Request || current.UID != selected.UID || current.Revision != selected.Revision || !slices.Equal(current.Targets, selected.Targets) {
-		writeMemoryHistoryError(w, memoryhistory.ErrChanged)
-		return
-	}
-	if withChanges {
-		if err := s.markers.Revalidate(ctx, changes); err != nil {
-			writeMemoryHistoryError(w, err)
-			return
-		}
-	}
-	if ctx.Err() != nil {
-		writeMemoryHistoryError(w, ctx.Err())
-		return
-	}
+	selected, report, changes := acquired.Selection, acquired.History, acquired.Changes
 	if withChanges {
 		h.writeHistoryContext(w, report, changes)
 		return
