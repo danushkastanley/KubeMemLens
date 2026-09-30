@@ -381,7 +381,7 @@ jobs:
           grep -q '^  name: v1alpha1.memory.kubememlens.io$' /tmp/kube-memlens.yaml
           grep -Eq '^  caBundle: "[A-Za-z0-9+/]' /tmp/kube-memlens.yaml
           grep -q '^  insecureSkipTLSVerify: false$' /tmp/kube-memlens.yaml
-          grep -q '^    - name: https-extension$' /tmp/kube-memlens.yaml
+          grep -q '^    - name: "https-extension"$' /tmp/kube-memlens.yaml
           grep -q '^      port: 443$' /tmp/kube-memlens.yaml
           test "$(grep -c 'automountServiceAccountToken: false' /tmp/kube-memlens.yaml)" -ge 4
           test "$(grep -c 'serviceAccountToken:' /tmp/kube-memlens.yaml)" -eq 3
