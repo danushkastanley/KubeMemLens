@@ -29,6 +29,23 @@ def policy_spec(spec):
     return {"ingress": [], "egress": [], **spec}
 
 
+def controlled_pod(parent, candidates, node):
+    live = [p for p in candidates if not p["metadata"].get("deletionTimestamp")]
+    require(len(live) <= 1, "network probe has multiple live Pods")
+    if not live:
+        return None
+    pod = live[0]
+    controller = {"apiVersion": "batch/v1", "kind": "Job", "controller": True,
+                  "name": parent["metadata"]["name"], "uid": parent["metadata"]["uid"]}
+    owners = [r for r in pod["metadata"].get("ownerReferences", []) if r.get("controller") is True]
+    require(len(owners) == 1 and controller.items() <= owners[0].items()
+            and pod["metadata"]["namespace"] == parent["metadata"]["namespace"],
+            "probe Pod has a different controller")
+    require(pod["spec"]["nodeName"] == node and pod["spec"].get("hostNetwork", False) is False,
+            "probe Pod moved outside the bound network")
+    return pod
+
+
 class NetworkChecks:
     def __init__(self, execution):
         require(set(execution.windows) == {"baseline", "enabled"}, "network probes must follow fixed measurements")
@@ -60,21 +77,15 @@ class NetworkChecks:
         for slot, node in enumerate(self.nodes):
             for role in ("ingress", "egress", "control"):
                 name = f"{PREFIX}-{role}-{slot}"
-                resource = Resource("v1" if role == "control" else "batch/v1", "Pod" if role == "control" else "Job", name, self.namespace)
+                resource = Resource("batch/v1", "Job", name, self.namespace)
 
                 def ready():
                     parent = self.owner.verify(resource)
-                    candidates = [parent] if role == "control" else json.loads(self.k(
+                    candidates = json.loads(self.k(
                         "get", "pods", "-n", self.namespace, "-l", "job-name=" + name, "-o", "json"))["items"]
-                    live = [p for p in candidates if not p["metadata"].get("deletionTimestamp")]
-                    if len(live) != 1:
+                    pod = controlled_pod(parent, candidates, node)
+                    if pod is None:
                         return False
-                    pod = live[0]
-                    if role != "control":
-                        require(any(r.get("controller") is True and r.get("uid") == parent["metadata"]["uid"]
-                                    for r in pod["metadata"].get("ownerReferences", [])), "probe Pod has a different controller")
-                    require(pod["spec"]["nodeName"] == node and pod["spec"].get("hostNetwork", False) is False,
-                            "probe Pod moved outside the bound network")
                     if not any(c["name"] == "probe" and c.get("ready") for c in pod.get("status", {}).get("containerStatuses", [])):
                         return False
                     url(pod["status"]["podIP"])
@@ -85,7 +96,9 @@ class NetworkChecks:
 
     def verify_pod(self, role, slot):
         saved = self.pods[(role, slot)]
+        parent = self.owner.verify(Resource("batch/v1", "Job", f"{PREFIX}-{role}-{slot}", self.namespace))
         current = json.loads(self.k("get", "pod", saved["metadata"]["name"], "-n", self.namespace, "-o", "json"))
+        require(controlled_pod(parent, [current], self.nodes[slot]) is not None, "network probe is terminating")
         require(current["metadata"]["uid"] == saved["metadata"]["uid"] and not current["metadata"].get("deletionTimestamp")
                 and current["spec"]["nodeName"] == self.nodes[slot] and current["status"]["podIP"] == saved["status"]["podIP"],
                 "network probe identity or address changed")

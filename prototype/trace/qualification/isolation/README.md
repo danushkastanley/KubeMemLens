@@ -18,6 +18,14 @@ Execute workload operations against the frozen full CRI container ID after check
 the Pod UID, container lifetime, node and executable hash. A name alone cannot select
 a fixture after recreation. Prepare files before starting a measured trace.
 
+For provider campaigns, `fixtures.job` puts the same bounded workload in a
+single-child Job with no retries. Kubernetes creates the child and its controller
+reference; do not fabricate an owner reference on a standalone Pod. Resolve the
+actual child against the created Job UID, then retain its original Pod UID and
+container identity for every operation. Provider images remain digest-pinned and
+may be pulled when absent. Node names accept DNS subdomains, including the dotted
+hostnames used by EKS. This fixture preparation does not qualify a provider.
+
 `session.py` owns one hash-pinned native `isolationclient` process and private evidence
 files. The client uses production target selection, preflight, session validation and
 redacted reporting. It accepts only local, inline-CA ServiceAccount credentials; exec
