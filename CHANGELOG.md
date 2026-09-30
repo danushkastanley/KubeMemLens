@@ -8,6 +8,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 - Report a container once when it creates its own sub-cgroups (systemd, Docker-in-Docker). Nested cgroups were listed as extra entries with the same container ID and their memory was counted twice.
 
+### Optional trace development packaging
+
+- Add a separate, disabled-by-default trace chart with pinned images, policy bytes, TLS peers and node profiles. Keep standard installations unchanged and require explicit acknowledgement of unqualified development use.
+- Validate installation trust and host prerequisites before workloads start. Reject node profile drift during admission and active revalidation; document administrator-owned prerequisites and verified removal.
+- Exercise local Helm installation, upgrade, rollback, tenant/network isolation and active kernel teardown. Resource and provider qualification remain incomplete; no supported trace profile is declared.
+
 ### Optional worker attachment scope
 
 - Restrict the constrained SDK to the tracepoint and fentry/fexit classes already permitted by signed file/cache/OOM objects, rejecting other classes before map loading.
