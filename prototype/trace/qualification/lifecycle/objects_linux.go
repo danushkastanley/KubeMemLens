@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"sort"
@@ -48,6 +49,10 @@ func ownedChildrenWithOpen(parent *process, targets map[uint64]bool, openChild f
 			}
 		}
 	}()
+	parentCgroup, err := readBounded(procPath(parent.pid, "cgroup"), 4096)
+	if err != nil {
+		return nil, 0, errOwnership
+	}
 	ids, err := children(parent)
 	if err != nil {
 		return nil, 0, err
@@ -67,6 +72,10 @@ func ownedChildrenWithOpen(parent *process, targets map[uint64]bool, openChild f
 			return owned, excluded, err
 		}
 		owned = append(owned, child)
+		childCgroup, groupErr := readBounded(procPath(pid, "cgroup"), 4096)
+		if groupErr != nil || !bytes.Equal(parentCgroup, childCgroup) {
+			return owned, excluded, errOwnership
+		}
 		status, err := readBounded(procPath(pid, "status"), 16384)
 		if err != nil || field(status, "PPid") != strconv.Itoa(parent.pid) || !selectedTarget(pid, targets) || child.check() != nil || len(owned) > 2 {
 			return owned, excluded, errOwnership
