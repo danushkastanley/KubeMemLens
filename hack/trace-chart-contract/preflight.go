@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func verifyPreflight(job batchv1.Job) {
+func verifyPreflight(job batchv1.Job, expectedImage string) {
 	if job.Annotations["helm.sh/hook"] != "pre-install,pre-upgrade" || job.Annotations["helm.sh/hook-delete-policy"] != "before-hook-creation,hook-succeeded,hook-failed" || job.Spec.BackoffLimit == nil || *job.Spec.BackoffLimit != 0 || job.Spec.ActiveDeadlineSeconds == nil || *job.Spec.ActiveDeadlineSeconds != 60 {
 		fail("preflight lifecycle is not bounded")
 	}
@@ -17,6 +17,7 @@ func verifyPreflight(job batchv1.Job) {
 		fail("unexpected preflight identity or host access")
 	}
 	verifyAuditKey(p)
+	verifyImage(p, expectedImage)
 	c := p.Containers[0]
 	s := c.SecurityContext
 	if s == nil || s.Capabilities == nil || len(s.Capabilities.Add) != 0 || !reflect.DeepEqual(s.Capabilities.Drop, []corev1.Capability{"ALL"}) || s.AllowPrivilegeEscalation == nil || *s.AllowPrivilegeEscalation || s.ReadOnlyRootFilesystem == nil || !*s.ReadOnlyRootFilesystem || !reflect.DeepEqual(c.Args, []string{"_install-check"}) || len(c.Resources.Limits) != 2 {
