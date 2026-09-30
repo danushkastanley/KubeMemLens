@@ -66,6 +66,12 @@ The supported rollback procedure for this window is a preflight-checked
 `helm rollback` is not claimed because the older chart has no pre-rollback hooks.
 No published beta predecessor is invented from these development sets.
 
-Hosted CI execution, resource qualification and final EKS execution remain separate
-gates. These local results grant no supported provider profile, publication approval
-or public-beta readiness. See [the lifecycle procedure](RELEASE_LIFECYCLE.md).
+Hosted [run 36757090991](https://github.com/danushkastanley/KubeMemLens/actions/runs/36757090991)
+subsequently passed ARM reproduction and separate amd64 clean-consumer verification
+on PR161's synthetic merge revision `0f76e52bf14bbe74c3e4f5f8c525f34ec9e7d7dc`.
+Its parents were base `9258b581ada2b6921e6d76d02a12fd8321df8800` and tested head
+`c9924cecc9458104977d0e7a899ccd12e60d5551`. PR161 merged after all 13 checks passed.
+The hosted consumer performed no installation and retained development signing
+authority. Resource qualification and final EKS execution remain separate gates.
+These results grant no supported provider profile, publication approval or
+public-beta readiness. See [the lifecycle procedure](RELEASE_LIFECYCLE.md).

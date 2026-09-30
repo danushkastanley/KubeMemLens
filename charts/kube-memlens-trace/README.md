@@ -14,6 +14,11 @@ before enabling this chart. Administrators supply the accepted image digest,
 installation policy, TLS material, exact node profiles and preflight account.
 Private keys must not be put in Helm values.
 
+Follow the [operator walkthrough](../../docs/ebpf/OPERATIONS.md) for the complete
+install-to-removal workflow and [trace support](../../docs/ebpf/SUPPORT.md) before
+sharing diagnostics. [Incident playbooks](../../docs/ebpf/INCIDENTS.md) cover
+overhead, uncertain cleanup, missing evidence, outages and isolation failures.
+
 Validate the disabled default:
 
 ```sh
