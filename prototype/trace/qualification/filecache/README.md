@@ -12,11 +12,20 @@ The workload emits numerical totals and fixed mode names, never file contents.
 
 | Mode | Operation | Required cache state |
 | --- | --- | --- |
+| `idle` | Wait at most 30 minutes without opening the fixture or emitting output | None |
 | `prepare` | Create, write and sync the fixed file | All pages resident afterwards |
 | `cached` | Read and verify 8 MiB | All pages resident before and afterwards |
 | `uncached` | Sync, advise DONTNEED on this file, then read and verify 8 MiB | Zero pages resident after advice; all resident after reading |
 | `write` | Rewrite and sync 8 MiB | All pages resident afterwards |
 | `noise` | Four complete write/read rounds, then sync | 32 MiB written and 32 MiB read |
+
+`cached --gated` and `uncached --gated` open and validate the file, emit
+`{"ready":true}`, then wait up to 30 seconds for the single stdin byte `R`.
+They perform the operation, emit its usual numerical receipt, and wait up to
+30 seconds for `Q` before exiting. EOF, another byte or a timeout fails explicitly.
+`gated.py` controls this handshake with bounded reads. Starting the process before
+attachment and keeping it alive through teardown excludes CRI runtime setup and
+exit I/O from an exact selected-workload measurement; no events are subtracted.
 
 Residency is measured with `mincore` over a temporary, non-faulting mapping of
 the owned file. Advice that leaves any page resident is an explicit failure.
@@ -60,7 +69,9 @@ Pass the printed immutable image ID to `verify_workload.py --image IMAGE_ID
 --output NEW_EVIDENCE_FILE`. The verifier creates a uniquely named Docker volume
 and runs every mode with no capabilities or network, a read-only root, UID 65532,
 one CPU, 64 MiB memory and at most 16 processes. Each invocation has a 15-second
-timeout. It also checks rejection of replacement and corrupted bytes. It removes
+timeout. It also checks idle startup without file creation or output, gated
+read/residency receipts and process retention, plus rejection of invalid commands,
+replacement and corrupted bytes. It removes
 its own container and volume, including on failure, and never overwrites evidence.
 No trace or kernel programme is loaded by this verifier.
 
@@ -69,13 +80,18 @@ No trace or kernel programme is loaded by this verifier.
 Run `prepare` once in each disposable target/noise Pod before observation starts.
 Use a Pod `emptyDir` for `/work`, UID/GID/fsGroup 65532, dropped capabilities,
 RuntimeDefault seccomp, a read-only root and explicit CPU/memory/volume ceilings.
-The image's idle command exits after one hour; remove the owned Pods after tests.
-Execute modes through bounded administrative `kubectl exec`, keeping the admitted
-target container identity unchanged throughout each trace.
+The image's idle command exits after 30 minutes; remove the owned Pods after tests.
+Freeze and verify the Pod UID, full CRI container ID, process lifetime, node and
+workload executable hash. Run bounded administrative CRI exec against that exact
+container ID, keeping the admitted identity unchanged throughout each trace.
+For exact selected byte/page totals, start the gated process and receive readiness
+before attaching, send `R` after the kernel witness, and send `Q` after cleanup.
 
 Start the selected operation only after the owned worker's attachments are
-observed. For isolation, run `noise` concurrently in ten non-selected Pods across
-two namespaces while the selected target is idle, then repeat with selected I/O.
+observed. For file isolation, run `noise` concurrently in ten non-selected Pods
+across two namespaces while the selected target is idle, then repeat with selected
+I/O. For cache isolation, repeat `uncached` on those peers and verify residency;
+warm file I/O cannot prove isolation from page-add/remove events.
 Retain aggregate reference results and verify each captured owned BPF identity is
 gone after the stream ends. A warm-read result does not imply a cache hit counter;
 file-operation and page-add/remove observations remain different measurements.
