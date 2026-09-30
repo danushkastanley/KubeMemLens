@@ -9,6 +9,12 @@ Keep it outside the standard agent, chart and release images.
 Preparation refuses to replace an existing file; all other operations require a
 regular, singly linked file owned by the current UID with exactly the fixed size.
 The workload emits numerical totals and fixed mode names, never file contents.
+Timed series also record monotonic start/end times and elapsed nanoseconds for the complete
+operation after opening the verified fixture: cache advice/residency checks,
+transfers, required sync and close. It excludes process startup, seed generation,
+opening and JSON output. Compare only identical modes against their paired control;
+this elapsed time is not event-delivery latency. Ordinary modes have a ten-second
+process alarm; inconsistent or missing series timing evidence fails verification.
 
 | Mode | Operation | Required cache state |
 | --- | --- | --- |
@@ -18,11 +24,13 @@ The workload emits numerical totals and fixed mode names, never file contents.
 | `uncached` | Sync, advise DONTNEED on this file, then read and verify 8 MiB | Zero pages resident after advice; all resident after reading |
 | `write` | Rewrite and sync 8 MiB | All pages resident afterwards |
 | `noise` | Four complete write/read rounds, then sync | 32 MiB written and 32 MiB read |
+| `paired-idle` | Hold a paired benchmark fixture for at most one hour | No fixture I/O |
 
 `cached --gated` and `uncached --gated` open and validate the file, emit
 `{"ready":true}`, then wait up to 30 seconds for the single stdin byte `R`.
 They perform the operation, emit its usual numerical receipt, and wait up to
 30 seconds for `Q` before exiting. EOF, another byte or a timeout fails explicitly.
+An overall 70-second alarm bounds both waits and the operation.
 `gated.py` controls this handshake with bounded reads. Starting the process before
 attachment and keeping it alive through teardown excludes CRI runtime setup and
 exit I/O from an exact selected-workload measurement; no events are subtracted.
@@ -80,7 +88,10 @@ No trace or kernel programme is loaded by this verifier.
 Run `prepare` once in each disposable target/noise Pod before observation starts.
 Use a Pod `emptyDir` for `/work`, UID/GID/fsGroup 65532, dropped capabilities,
 RuntimeDefault seccomp, a read-only root and explicit CPU/memory/volume ceilings.
-The image's idle command exits after 30 minutes; remove the owned Pods after tests.
+The image's `idle` command exits after 30 minutes; remove the owned Pods after tests.
+The active benchmark uses the separate `paired-idle` command, bounded to one hour,
+because its control and enabled windows share the same fixture lifetime. This
+does not extend the ordinary isolation fixture or any trace admission deadline.
 Freeze and verify the Pod UID, full CRI container ID, process lifetime, node and
 workload executable hash. Run bounded administrative CRI exec against that exact
 container ID, keeping the admitted identity unchanged throughout each trace.
@@ -99,6 +110,38 @@ file-operation and page-add/remove observations remain different measurements.
 Passing this fixture's verifier establishes the workload, not incident semantics,
 privacy, isolation, resource ceilings, cancellation or teardown qualification.
 Only an independently accepted incident worker may be loaded for those checks.
+
+## Persistent operation series
+
+`series MODE COUNT PERIOD_MS` runs one process with absolute monotonic deadlines.
+Only `cached`, `uncached`, `write` and `noise` are accepted. Counts are bounded to
+1–1,800, periods to 100–10,000 ms and total scheduled time to 30 minutes. Prepare
+the owned fixture first. The first operation is due five seconds after a bounded
+wall/monotonic clock alignment reading. The initial record exposes that alignment
+and schedule; later records contain the operation index, deadline, I/O evidence
+and three monotonic timing fields. Ordinary and gated operations retain their
+exact seven-field I/O receipt; timing fields belong only to series records.
+
+Operations must finish before their next deadline. A late operation fails the
+series rather than shifting the remaining schedule or omitting evidence. A process
+alarm bounds the series plus reporting time. Records are buffered in a fixed-size
+array until the schedule ends, avoiding traced reporting I/O during operations.
+The complete result is required; a start record alone cannot establish success.
+
+`verify_series.py` rejects missing, reordered, duplicate, late or malformed
+observations, mismatched schedules and unexpected fields. `verify_workload.py`
+exercises all four short series and argument ceilings in the same restricted
+container profile, then removes its owned resources. Run the parser regressions:
+
+```sh
+python3 -m unittest discover -s . -p 'test_*observation.py'
+python3 -m unittest discover -s . -p test_series.py
+```
+
+The scheduled byte rate is controlled by the test. Report achieved operations and
+latencies against the identical paired schedule; do not describe a paced series as
+maximum storage throughput. Startup, deadlines and every failed run remain part of
+the qualification record. This fixture does not extend admitted trace durations.
 
 ## Path-copy regression
 

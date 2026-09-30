@@ -12,6 +12,40 @@ from gated import GatedWorkload
 FILE_BYTES = 8 * 1024 * 1024
 
 
+def expected_observation(data, mode):
+    read = {"prepare": 0, "cached": 1, "uncached": 1, "write": 0, "noise": 4}[mode]
+    write = {"prepare": 1, "cached": 0, "uncached": 0, "write": 1, "noise": 4}[mode]
+    page = data.get("pageBytes")
+    if type(page) is not int or page not in (4096, 65536):
+        raise ValueError("unsupported fixture page size")
+    before = 0 if mode in ("prepare", "uncached") else FILE_BYTES // page
+    return {"mode": mode, "fileBytes": FILE_BYTES, "pageBytes": page,
+            "residentPagesBefore": before, "residentPagesAfter": FILE_BYTES // page,
+            "readBytes": read * FILE_BYTES, "writeBytes": write * FILE_BYTES}
+
+
+def require_observation(data, expected):
+    if (any(type(data.get(key)) is not int for key in expected if key != "mode")
+            or data != expected):
+        raise ValueError("fixture did not establish its I/O/cache contract")
+
+
+def validate_observation(data, mode):
+    require_observation(data, expected_observation(data, mode))
+
+
+def validate_timed_observation(data, mode):
+    expected = expected_observation(data, mode)
+    start, end, elapsed = (data.get(key) for key in (
+        "operationStartedMonotonicNanos", "operationEndedMonotonicNanos", "operationNanos"))
+    if (any(type(value) is not int or not 0 < value < 2**64 for value in (start, end, elapsed))
+            or end - start != elapsed or elapsed >= 10_000_000_000):
+        raise ValueError("invalid operation clock evidence")
+    expected.update(operationStartedMonotonicNanos=start,
+                    operationEndedMonotonicNanos=end, operationNanos=elapsed)
+    require_observation(data, expected)
+
+
 def verify(image):
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", image):
         raise ValueError("an immutable local image ID is required")
@@ -33,49 +67,60 @@ def verify(image):
         return subprocess.run(common + ["--entrypoint", entrypoint, image, *args],
                               capture_output=True, text=True, timeout=15)
 
-    def workload(mode):
-        return run("/usr/local/bin/kml-io-workload", mode)
+    def workload(*args):
+        return run("/usr/local/bin/kml-io-workload", *args)
 
     results = []
     try:
-        idle = subprocess.run(common + ["--detach", "--entrypoint", "/usr/local/bin/kml-io-workload", image, "idle"],
-                              capture_output=True, text=True, check=True, timeout=15).stdout.strip()
-        if not re.fullmatch(r"[a-f0-9]{64}", idle):
-            raise RuntimeError("idle fixture identity unavailable")
-        try:
-            state = json.loads(subprocess.check_output(["docker", "inspect", idle], text=True, timeout=15))[0]
-            if state["Id"] != idle or not state["State"]["Running"]:
-                raise RuntimeError("idle fixture did not remain running")
-            subprocess.run(["docker", "exec", idle, "/bin/sh", "-ec", "test ! -e /work/fixed-seed.bin"],
-                           capture_output=True, check=True, timeout=15)
-            logs = subprocess.run(["docker", "logs", idle], capture_output=True, check=True, timeout=15)
-            if logs.stdout or logs.stderr:
-                raise RuntimeError("idle fixture emitted unexpected output")
-            results.append({"mode": "idle", "running": True, "fixtureFileAbsent": True, "outputEmpty": True})
-        finally:
-            subprocess.run(["docker", "rm", "-f", idle], check=True,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
+        for idle_mode in ("idle", "paired-idle"):
+            idle = subprocess.run(common + ["--detach", "--entrypoint", "/usr/local/bin/kml-io-workload", image, idle_mode],
+                                  capture_output=True, text=True, check=True, timeout=15).stdout.strip()
+            if not re.fullmatch(r"[a-f0-9]{64}", idle):
+                raise RuntimeError("idle fixture identity unavailable")
+            try:
+                state = json.loads(subprocess.check_output(["docker", "inspect", idle], text=True, timeout=15))[0]
+                if state["Id"] != idle or not state["State"]["Running"]:
+                    raise RuntimeError("idle fixture did not remain running")
+                subprocess.run(["docker", "exec", idle, "/bin/sh", "-ec", "test ! -e /work/fixed-seed.bin"],
+                               capture_output=True, check=True, timeout=15)
+                logs = subprocess.run(["docker", "logs", idle], capture_output=True, check=True, timeout=15)
+                if logs.stdout or logs.stderr:
+                    raise RuntimeError("idle fixture emitted unexpected output")
+                results.append({"mode": idle_mode, "running": True, "fixtureFileAbsent": True, "outputEmpty": True})
+            finally:
+                subprocess.run(["docker", "rm", "-f", idle], check=True,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
         for mode in ("prepare", "cached", "uncached", "cached", "write", "noise"):
             result = workload(mode)
             if result.returncode != 0 or result.stderr:
                 raise RuntimeError(f"fixture mode {mode} failed")
             data = json.loads(result.stdout)
-            read = {"prepare": 0, "cached": 1, "uncached": 1, "write": 0, "noise": 4}[mode]
-            write = {"prepare": 1, "cached": 0, "uncached": 0, "write": 1, "noise": 4}[mode]
+            validate_observation(data, mode)
             page = data["pageBytes"]
-            if page not in (4096, 65536):
-                raise RuntimeError("unsupported fixture page size")
-            before = FILE_BYTES // page
-            if mode in ("prepare", "uncached"):
-                before = 0
-            expected = {"mode": mode, "fileBytes": FILE_BYTES, "pageBytes": page,
-                        "residentPagesBefore": before,
-                        "residentPagesAfter": FILE_BYTES // page,
-                        "readBytes": read * FILE_BYTES, "writeBytes": write * FILE_BYTES}
-            if data != expected:
-                raise RuntimeError(f"fixture mode {mode} did not establish its I/O/cache contract")
             results.append(data)
 
+        # Persistent process, deterministic absolute deadlines, buffered reports.
+        from verify_series import validate_series
+        for mode in ("cached", "uncached", "write", "noise"):
+            result = workload("series", mode, "3", "500")
+            if result.returncode != 0 or result.stderr:
+                raise RuntimeError(f"fixture series {mode} failed")
+            rows = validate_series(result.stdout, mode, 3, 500)
+            results.append({"series": mode, "records": rows})
+        for args in (("series",), ("series", "prepare", "1", "100"),
+                     ("series", "cached", "0", "100"),
+                     ("series", "cached", "1801", "100"),
+                     ("series", "cached", "1", "99"),
+                     ("series", "cached", "1", "10001"),
+                     ("series", "cached", "1800", "1001"),
+                     ("series", "cached", "-1", "100"),
+                     ("series", "cached", "99999999999999999999", "100")):
+            result = workload(*args)
+            if (result.returncode != 2 or result.stdout or result.stderr not in (
+                    "workload failed: series arguments\n", "workload failed: series mode\n",
+                    "workload failed: series schedule bound\n")):
+                raise RuntimeError("unbounded or invalid series was not rejected")
+        results.append({"negativeCase": "series arguments and schedule ceilings", "passed": True})
         for mode in ("cached", "uncached"):
             gated = GatedWorkload(common + ["--interactive", "--entrypoint",
                                   "/usr/local/bin/kml-io-workload", image, mode, "--gated"])
