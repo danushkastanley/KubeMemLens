@@ -10,6 +10,28 @@ import uuid
 FILE_BYTES = 8 * 1024 * 1024
 
 
+def validate_observation(data, mode):
+    read = {"prepare": 0, "cached": 1, "uncached": 1, "write": 0, "noise": 4}[mode]
+    write = {"prepare": 1, "cached": 0, "uncached": 0, "write": 1, "noise": 4}[mode]
+    page = data.get("pageBytes")
+    if type(page) is not int or page not in (4096, 65536):
+        raise ValueError("unsupported fixture page size")
+    before = 0 if mode in ("prepare", "uncached") else FILE_BYTES // page
+    expected = {"mode": mode, "fileBytes": FILE_BYTES, "pageBytes": page,
+                "residentPagesBefore": before, "residentPagesAfter": FILE_BYTES // page,
+                "readBytes": read * FILE_BYTES, "writeBytes": write * FILE_BYTES}
+    start, end, elapsed = (data.get(key) for key in (
+        "operationStartedMonotonicNanos", "operationEndedMonotonicNanos", "operationNanos"))
+    if (any(type(value) is not int or not 0 < value < 2**64 for value in (start, end, elapsed))
+            or end - start != elapsed or elapsed >= 10_000_000_000):
+        raise ValueError("invalid operation clock evidence")
+    expected.update(operationStartedMonotonicNanos=start,
+                    operationEndedMonotonicNanos=end, operationNanos=elapsed)
+    if (any(type(data.get(key)) is not int for key in expected if key != "mode")
+            or data != expected):
+        raise ValueError("fixture did not establish its I/O/cache contract")
+
+
 def verify(image):
     if not re.fullmatch(r"sha256:[0-9a-f]{64}", image):
         raise ValueError("an immutable local image ID is required")
@@ -31,8 +53,8 @@ def verify(image):
         return subprocess.run(common + ["--entrypoint", entrypoint, image, *args],
                               capture_output=True, text=True, timeout=15)
 
-    def workload(mode):
-        return run("/usr/local/bin/kml-io-workload", mode)
+    def workload(*args):
+        return run("/usr/local/bin/kml-io-workload", *args)
 
     results = []
     try:
@@ -41,21 +63,31 @@ def verify(image):
             if result.returncode != 0 or result.stderr:
                 raise RuntimeError(f"fixture mode {mode} failed")
             data = json.loads(result.stdout)
-            read = {"prepare": 0, "cached": 1, "uncached": 1, "write": 0, "noise": 4}[mode]
-            write = {"prepare": 1, "cached": 0, "uncached": 0, "write": 1, "noise": 4}[mode]
-            page = data["pageBytes"]
-            if page not in (4096, 65536):
-                raise RuntimeError("unsupported fixture page size")
-            before = FILE_BYTES // page
-            if mode in ("prepare", "uncached"):
-                before = 0
-            expected = {"mode": mode, "fileBytes": FILE_BYTES, "pageBytes": page,
-                        "residentPagesBefore": before,
-                        "residentPagesAfter": FILE_BYTES // page,
-                        "readBytes": read * FILE_BYTES, "writeBytes": write * FILE_BYTES}
-            if data != expected:
-                raise RuntimeError(f"fixture mode {mode} did not establish its I/O/cache contract")
+            validate_observation(data, mode)
             results.append(data)
+
+        # Persistent process, deterministic absolute deadlines, buffered reports.
+        from verify_series import validate_series
+        for mode in ("cached", "uncached", "write", "noise"):
+            result = workload("series", mode, "3", "500")
+            if result.returncode != 0 or result.stderr:
+                raise RuntimeError(f"fixture series {mode} failed")
+            rows = validate_series(result.stdout, mode, 3, 500)
+            results.append({"series": mode, "records": rows})
+        for args in (("series",), ("series", "prepare", "1", "100"),
+                     ("series", "cached", "0", "100"),
+                     ("series", "cached", "1801", "100"),
+                     ("series", "cached", "1", "99"),
+                     ("series", "cached", "1", "10001"),
+                     ("series", "cached", "1800", "1001"),
+                     ("series", "cached", "-1", "100"),
+                     ("series", "cached", "99999999999999999999", "100")):
+            result = workload(*args)
+            if (result.returncode != 2 or result.stdout or result.stderr not in (
+                    "workload failed: series arguments\n", "workload failed: series mode\n",
+                    "workload failed: series schedule bound\n")):
+                raise RuntimeError("unbounded or invalid series was not rejected")
+        results.append({"negativeCase": "series arguments and schedule ceilings", "passed": True})
 
         result = workload("prepare")
         if (result.returncode != 2 or result.stdout or

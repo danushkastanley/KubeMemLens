@@ -102,6 +102,9 @@ check-trace-preflight:
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace build ./...
 	python3 -m unittest discover -s prototype/trace/kubernetes -p 'test_*.py'
 	python3 -m unittest discover -s hack/ebpf-qualification -p 'test_*.py'
+	python3 -m unittest discover -s hack/ebpf-active-qualification -p 'test_*.py'
+	python3 -m unittest discover -s prototype/trace/qualification/filecache -p 'test_*observation.py'
+	python3 -m unittest discover -s prototype/trace/qualification/filecache -p 'test_series.py'
 
 check-trace-worker:
 	python3 -m unittest discover -s prototype/trace/worker -p 'test_*.py'

@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>
 
 #define BLOCK_BYTES 65536
@@ -22,6 +23,17 @@ static void fail(const char *stage) {
     fprintf(stderr, "workload failed: %s\n", stage);
     exit(2);
 }
+
+static uint64_t clock_nanos(clockid_t clock) {
+    struct timespec value;
+    if (clock_gettime(clock, &value) != 0 || value.tv_sec < 0 ||
+        (uint64_t)value.tv_sec > (UINT64_MAX - 999999999) / 1000000000 ||
+        value.tv_nsec < 0 || value.tv_nsec >= 1000000000)
+        fail("operation clock");
+    return (uint64_t)value.tv_sec * UINT64_C(1000000000) + (uint64_t)value.tv_nsec;
+}
+
+static uint64_t monotonic_nanos(void) { return clock_nanos(CLOCK_MONOTONIC); }
 
 static void seed_block(void) {
     uint32_t state = UINT32_C(0x5eed1234);
@@ -62,13 +74,18 @@ static unsigned int resident(int fd, size_t page) {
     return count;
 }
 
-int main(int argc, char **argv) {
-    if (argc != 2) fail("mode");
-    int prepare = strcmp(argv[1], "prepare") == 0;
-    int cached = strcmp(argv[1], "cached") == 0;
-    int uncached = strcmp(argv[1], "uncached") == 0;
-    int writing = strcmp(argv[1], "write") == 0;
-    int noise = strcmp(argv[1], "noise") == 0;
+struct observation {
+    size_t page;
+    unsigned int before, after;
+    uint64_t read_bytes, write_bytes, started, ended;
+};
+
+static struct observation run_one(const char *mode) {
+    int prepare = strcmp(mode, "prepare") == 0;
+    int cached = strcmp(mode, "cached") == 0;
+    int uncached = strcmp(mode, "uncached") == 0;
+    int writing = strcmp(mode, "write") == 0;
+    int noise = strcmp(mode, "noise") == 0;
     if (!prepare && !cached && !uncached && !writing && !noise) fail("mode");
     long native_page = sysconf(_SC_PAGESIZE);
     if (native_page != 4096 && native_page != 65536) fail("page size");
@@ -84,6 +101,7 @@ int main(int argc, char **argv) {
         fail("fixture identity");
     unsigned int before = 0;
     uint64_t read_bytes = 0, write_bytes = 0;
+    uint64_t started = monotonic_nanos();
     if (uncached) {
         if (fdatasync(fd) != 0 || posix_fadvise(fd, 0, FILE_BYTES, POSIX_FADV_DONTNEED) != 0)
             fail("discard owned cache");
@@ -109,9 +127,88 @@ int main(int argc, char **argv) {
     unsigned int after = resident(fd, page);
     if (after != FILE_BYTES / page) fail("cache residency after I/O");
     if (close(fd) != 0) fail("close");
+    uint64_t ended = monotonic_nanos();
+    if (ended <= started) fail("operation clock");
+    return (struct observation){page, before, after, read_bytes, write_bytes, started, ended};
+}
+
+static void emit(const char *mode, struct observation value) {
     printf("{\"mode\":\"%s\",\"fileBytes\":%d,\"pageBytes\":%zu,"
            "\"residentPagesBefore\":%u,\"residentPagesAfter\":%u,"
-           "\"readBytes\":%" PRIu64 ",\"writeBytes\":%" PRIu64 "}\n",
-           argv[1], FILE_BYTES, page, before, after, read_bytes, write_bytes);
+           "\"readBytes\":%" PRIu64 ",\"writeBytes\":%" PRIu64 ","
+           "\"operationStartedMonotonicNanos\":%" PRIu64 ","
+           "\"operationEndedMonotonicNanos\":%" PRIu64 ","
+           "\"operationNanos\":%" PRIu64 "}",
+           mode, FILE_BYTES, value.page, value.before, value.after, value.read_bytes, value.write_bytes,
+           value.started, value.ended, value.ended - value.started);
+}
+
+#define MAX_SERIES 1800
+static struct observation observations[MAX_SERIES];
+
+static unsigned int number(const char *text, unsigned int maximum) {
+    unsigned int value = 0;
+    if (*text == 0) fail("series arguments");
+    for (const char *p = text; *p; p++) {
+        if (*p < '0' || *p > '9' || value > (maximum - (unsigned int)(*p - '0')) / 10)
+            fail("series arguments");
+        value = value * 10 + (unsigned int)(*p - '0');
+    }
+    if (value == 0 || value > maximum) fail("series arguments");
+    return value;
+}
+
+static void wait_until(uint64_t due) {
+    struct timespec target = {(time_t)(due / UINT64_C(1000000000)), (long)(due % UINT64_C(1000000000))};
+    int result;
+    do { result = clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &target, NULL); }
+    while (result == EINTR);
+    if (result != 0) fail("series scheduling");
+}
+
+static int series(int argc, char **argv) {
+    if (argc != 5) fail("series arguments");
+    const char *mode = argv[2];
+    if (strcmp(mode, "cached") && strcmp(mode, "uncached") && strcmp(mode, "write") && strcmp(mode, "noise"))
+        fail("series mode");
+    unsigned int count = number(argv[3], MAX_SERIES);
+    unsigned int period_ms = number(argv[4], 10000);
+    if (period_ms < 100 || (uint64_t)count * period_ms > UINT64_C(1800000))
+        fail("series schedule bound");
+    uint64_t period = (uint64_t)period_ms * UINT64_C(1000000);
+    uint64_t before = monotonic_nanos(), wall = clock_nanos(CLOCK_REALTIME), after = monotonic_nanos();
+    if (after < before || after - before > UINT64_C(1000000)) fail("series clock alignment");
+    uint64_t first = after + UINT64_C(5000000000);
+    alarm(16 + (count * period_ms + 999) / 1000);
+    printf("{\"type\":\"series-start\",\"schemaVersion\":1,\"count\":%u,\"periodNanos\":%" PRIu64
+           ",\"monotonicBeforeNanos\":%" PRIu64 ",\"wallNanos\":%" PRIu64
+           ",\"monotonicAfterNanos\":%" PRIu64 ",\"firstDueNanos\":%" PRIu64 "}\n",
+           count, period, before, wall, after, first);
+    if (fflush(stdout) != 0) fail("series output");
+    for (unsigned int i = 0; i < count; i++) {
+        uint64_t due = first + (uint64_t)i * period;
+        wait_until(due);
+        observations[i] = run_one(mode);
+        if (observations[i].started < due || observations[i].ended >= due + period)
+            fail("series deadline missed");
+    }
+    // Avoid turning measurement reports into traced I/O during the workload.
+    wait_until(first + (uint64_t)count * period);
+    for (unsigned int i = 0; i < count; i++) {
+        printf("{\"sequence\":%u,\"dueMonotonicNanos\":%" PRIu64 ",\"observation\":", i, first + (uint64_t)i * period);
+        emit(mode, observations[i]);
+        puts("}");
+    }
+    if (fflush(stdout) != 0) fail("series output");
+    return 0;
+}
+
+int main(int argc, char **argv) {
+    if (argc >= 2 && strcmp(argv[1], "series") == 0) return series(argc, argv);
+    if (argc != 2) fail("mode");
+    if (strcmp(argv[1], "idle") == 0) { sleep(3600); return 0; }
+    alarm(10);
+    emit(argv[1], run_one(argv[1]));
+    puts("");
     return 0;
 }

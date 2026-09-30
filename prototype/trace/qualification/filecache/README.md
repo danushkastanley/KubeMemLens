@@ -9,6 +9,12 @@ Keep it outside the standard agent, chart and release images.
 Preparation refuses to replace an existing file; all other operations require a
 regular, singly linked file owned by the current UID with exactly the fixed size.
 The workload emits numerical totals and fixed mode names, never file contents.
+It also records monotonic start/end times and elapsed nanoseconds for the complete
+operation after opening the verified fixture: cache advice/residency checks,
+transfers, required sync and close. It excludes process startup, seed generation,
+opening and JSON output. Compare only identical modes against their paired control;
+this elapsed time is not event-delivery latency. Ordinary modes have a ten-second
+process alarm, and inconsistent or missing timing evidence fails verification.
 
 | Mode | Operation | Required cache state |
 | --- | --- | --- |
@@ -17,6 +23,7 @@ The workload emits numerical totals and fixed mode names, never file contents.
 | `uncached` | Sync, advise DONTNEED on this file, then read and verify 8 MiB | Zero pages resident after advice; all resident after reading |
 | `write` | Rewrite and sync 8 MiB | All pages resident afterwards |
 | `noise` | Four complete write/read rounds, then sync | 32 MiB written and 32 MiB read |
+| `idle` | Sleep for at most one hour | No fixture I/O |
 
 Residency is measured with `mincore` over a temporary, non-faulting mapping of
 the owned file. Advice that leaves any page resident is an explicit failure.
@@ -83,6 +90,37 @@ file-operation and page-add/remove observations remain different measurements.
 Passing this fixture's verifier establishes the workload, not incident semantics,
 privacy, isolation, resource ceilings, cancellation or teardown qualification.
 Only an independently accepted incident worker may be loaded for those checks.
+
+## Persistent operation series
+
+`series MODE COUNT PERIOD_MS` runs one process with absolute monotonic deadlines.
+Only `cached`, `uncached`, `write` and `noise` are accepted. Counts are bounded to
+1–1,800, periods to 100–10,000 ms and total scheduled time to 30 minutes. Prepare
+the owned fixture first. The first operation is due five seconds after a bounded
+wall/monotonic clock alignment reading. The initial record exposes that alignment
+and schedule; later records contain the operation index, deadline and the same I/O
+and timing evidence as an ordinary operation.
+
+Operations must finish before their next deadline. A late operation fails the
+series rather than shifting the remaining schedule or omitting evidence. A process
+alarm bounds the series plus reporting time. Records are buffered in a fixed-size
+array until the schedule ends, avoiding traced reporting I/O during operations.
+The complete result is required; a start record alone cannot establish success.
+
+`verify_series.py` rejects missing, reordered, duplicate, late or malformed
+observations, mismatched schedules and unexpected fields. `verify_workload.py`
+exercises all four short series and argument ceilings in the same restricted
+container profile, then removes its owned resources. Run the parser regressions:
+
+```sh
+python3 -m unittest discover -s . -p 'test_*observation.py'
+python3 -m unittest discover -s . -p test_series.py
+```
+
+The scheduled byte rate is controlled by the test. Report achieved operations and
+latencies against the identical paired schedule; do not describe a paced series as
+maximum storage throughput. Startup, deadlines and every failed run remain part of
+the qualification record. This fixture does not extend admitted trace durations.
 
 ## Path-copy regression
 

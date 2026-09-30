@@ -4,13 +4,16 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	ossignal "os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -63,7 +66,8 @@ func main() {
 func run(args []string) (resultErr error) {
 	flags := flag.NewFlagSet("lifecycle", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	mode := flags.String("mode", "", "identify, snapshot, check, clock, signal or partial-attach")
+	mode := flags.String("mode", "", "identify, snapshot, watch, check, clock, signal or partial-attach")
+	watchSeconds := flags.Int("watch-seconds", 0, "watch duration, 1 to 1800 seconds")
 	partialLinks := flags.Int("partial-links", 0, "accepted per-worker link inventory: 2 or 5")
 	pid := flags.Int("parent-pid", 0, "fresh CRI-resolved node service PID")
 	start := flags.Uint64("parent-start", 0, "previously verified node process start ticks")
@@ -73,7 +77,7 @@ func run(args []string) (resultErr error) {
 	targetsText := flags.String("target-cgroups", "", "one or two verified fixture cgroup IDs")
 	signal := flags.String("signal", "", "TERM or KILL")
 	recipient := flags.String("recipient", "workers", "workers or parent")
-	if flags.Parse(args) != nil || flags.NArg() != 0 {
+	if flags.Parse(args) != nil || flags.NArg() != 0 || (*mode != "watch" && *watchSeconds != 0) {
 		return errOwnership
 	}
 	encoder := json.NewEncoder(os.Stdout)
@@ -106,7 +110,7 @@ func run(args []string) (resultErr error) {
 			Clock     clockPair      `json:"clock"`
 		}{left, clock})
 	}
-	if *mode != "identify" && (*start == 0 || (*mode != "snapshot" && *mode != "signal" && *mode != "partial-attach")) {
+	if *mode != "identify" && (*start == 0 || (*mode != "snapshot" && *mode != "watch" && *mode != "signal" && *mode != "partial-attach")) {
 		return errOwnership
 	}
 	parent, err := openProcess(*pid, *parentHash, *start)
@@ -129,6 +133,11 @@ func run(args []string) (resultErr error) {
 	targets, err := targetIDs(*targetsText)
 	if err != nil {
 		return err
+	}
+	if *mode == "watch" {
+		ctx, stop := ossignal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+		defer stop()
+		return watchOwned(ctx, os.Stdout, parent, *parentHash, *container, *workerHash, targets, *watchSeconds)
 	}
 	if *mode == "partial-attach" {
 		value, err := interruptAtSyscall(parent, *workerHash, targets, *partialLinks, func() error {

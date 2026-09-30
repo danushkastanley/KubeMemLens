@@ -1,0 +1,108 @@
+package delivery
+
+import (
+	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"regexp"
+	"strings"
+	"time"
+)
+
+type Connection struct{ Server, Token, CAPEM string }
+
+func (Connection) Format(w fmt.State, _ rune) {
+	_, _ = io.WriteString(w, "[private delivery connection]")
+}
+func (Connection) MarshalJSON() ([]byte, error) { return nil, ErrObservation }
+
+var kindHost = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,100}-control-plane$`)
+
+// Connect attaches to an existing admission. GET /stream activates its worker;
+// the controller must cancel that owned admission on any failure and verify cleanup.
+func Connect(ctx context.Context, connection Connection, expected Expectation) (Result, error) {
+	if !validExpectation(expected) {
+		return Result{}, ErrObservation
+	}
+	endpoint, err := url.Parse(connection.Server)
+	if err != nil || endpoint.Scheme != "https" || endpoint.User != nil || endpoint.Path != "" || endpoint.RawQuery != "" || endpoint.ForceQuery || endpoint.Fragment != "" || endpoint.String() != connection.Server || endpoint.Port() == "" {
+		return Result{}, ErrObservation
+	}
+	host := endpoint.Hostname()
+	ip := net.ParseIP(host)
+	if !(ip != nil && ip.IsLoopback()) && !kindHost.MatchString(host) && !(host == "kubernetes.default.svc" && endpoint.Port() == "443") {
+		return Result{}, ErrObservation
+	}
+	if connection.Token == "" || len(connection.Token) > 8192 || strings.ContainsAny(connection.Token, " \t\r\n") || len(connection.CAPEM) > 16384 {
+		return Result{}, ErrObservation
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM([]byte(connection.CAPEM)) {
+		return Result{}, ErrObservation
+	}
+	transport := &http.Transport{Proxy: nil, TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS13}, DialContext: (&net.Dialer{Timeout: 5 * time.Second}).DialContext, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: 5 * time.Second, MaxResponseHeaderBytes: 16384, MaxConnsPerHost: 2, DisableCompression: true}
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport, Timeout: 40 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	lifetime, cancel := context.WithTimeout(ctx, 40*time.Second)
+	defer cancel()
+	return readWithClient(lifetime, client, connection.Server, connection.Token, expected, time.Now)
+}
+
+func readWithClient(ctx context.Context, client *http.Client, server, token string, expected Expectation, now func() time.Time) (Result, error) {
+	target := expected.Specification.Target()
+	path := "/apis/tracing.kubememlens.io/v1alpha1/namespaces/" + url.PathEscape(target.Namespace) + "/traces/" + url.PathEscape(expected.SessionID)
+	get := func(suffix string) (*http.Response, error) {
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, server+path+suffix, nil)
+		if err != nil {
+			return nil, ErrObservation
+		}
+		request.Header.Set("Authorization", "Bearer "+token)
+		response, err := client.Do(request)
+		if err != nil {
+			return nil, ErrObservation
+		}
+		if response.StatusCode != http.StatusOK {
+			response.Body.Close()
+			return nil, ErrObservation
+		}
+		return response, nil
+	}
+	response, err := get("/stream")
+	if err != nil {
+		return Result{}, ErrObservation
+	}
+	defer response.Body.Close()
+	active := func() (time.Time, error) {
+		state, err := get("")
+		if err != nil {
+			return time.Time{}, ErrObservation
+		}
+		defer state.Body.Close()
+		data, err := io.ReadAll(io.LimitReader(state.Body, 65537))
+		if err != nil || len(data) > 65536 {
+			return time.Time{}, ErrObservation
+		}
+		var admission struct {
+			APIVersion string `json:"apiVersion"`
+			Kind       string `json:"kind"`
+			Metadata   struct {
+				Name      string `json:"name"`
+				Namespace string `json:"namespace"`
+			} `json:"metadata"`
+			State        string    `json:"state"`
+			ExpiresAt    time.Time `json:"expiresAt"`
+			EngineDigest string    `json:"engineDigest"`
+		}
+		if json.Unmarshal(data, &admission) != nil || admission.APIVersion != "tracing.kubememlens.io/v1alpha1" || admission.Kind != "TraceAdmission" || admission.Metadata.Name != expected.SessionID || admission.Metadata.Namespace != target.Namespace || admission.State != "active" || admission.EngineDigest != expected.EngineDigest || admission.ExpiresAt.IsZero() {
+			return time.Time{}, ErrObservation
+		}
+		return admission.ExpiresAt, nil
+	}
+	return Observe(response.Body, expected, now, active)
+}
