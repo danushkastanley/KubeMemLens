@@ -6,6 +6,7 @@ import (
 	"time"
 
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -57,8 +58,11 @@ func (c *Client) Preflight(ctx context.Context, selection Selection, intent Inte
 		return Plan{}, err
 	}
 	var doc admission.PreflightDocument
-	if decode(data, &doc) != nil || doc.SchemaVersion != 1 || doc.Kind != "TracePreflight" || doc.RequestSchemaVersion != 2 || doc.CheckedAt.IsZero() || doc.ResourceQualified || doc.TraceKind != intent.Kind || doc.Paths != intent.Paths || doc.Node.Validate(intent.Kind) != nil {
+	if decode(data, &doc) != nil || doc.SchemaVersion != 1 || doc.Kind != "TracePreflight" || doc.RequestSchemaVersion != tracecompat.RequestSchema || doc.CheckedAt.IsZero() || doc.ResourceQualified || doc.TraceKind != intent.Kind || doc.Paths != intent.Paths || doc.Node.Validate(intent.Kind) != nil {
 		return Plan{}, failure(Protocol)
+	}
+	if !tracecompat.StreamCompatible(intent.Kind, doc.Node.StreamVersion) {
+		return Plan{}, failure(Incompatible)
 	}
 	b := doc.Bounds
 	if time.Duration(b.DurationNanos) != intent.Bounds.Duration || b.Events != intent.Bounds.Events || b.OutputBytes != intent.Bounds.OutputBytes || b.MapBytes != intent.Bounds.MapBytes || b.PathBytes != intent.Bounds.PathBytes {

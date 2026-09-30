@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
+
 	utilnet "k8s.io/apimachinery/pkg/util/net"
 	"k8s.io/client-go/rest"
 )
@@ -64,7 +66,7 @@ func (c *Client) Close() {
 	}
 }
 
-func (c *Client) open(ctx context.Context, method, path string, data []byte) (*http.Response, error) {
+func (c *Client) open(ctx context.Context, method, path string, data []byte, contract tracecompat.Version) (*http.Response, error) {
 	if c == nil || c.http == nil {
 		return nil, failure(Invalid)
 	}
@@ -78,6 +80,9 @@ func (c *Client) open(ctx context.Context, method, path string, data []byte) (*h
 	}
 	r.Header.Set("Accept", "application/json")
 	r.Header.Set("Cache-Control", "no-store")
+	if contract == tracecompat.Current {
+		r.Header.Set(tracecompat.Header, tracecompat.Offer)
+	}
 	if data != nil {
 		r.Header.Set("Content-Type", "application/json")
 	}
@@ -107,7 +112,11 @@ func (c *Client) control(ctx context.Context, method, path string, data []byte, 
 	}
 	ctx, cancel := context.WithTimeout(ctx, controlTimeout)
 	defer cancel()
-	r, err := c.open(ctx, method, path, data)
+	contract := tracecompat.Legacy
+	if method != http.MethodDelete && strings.HasPrefix(path, apiPrefix) {
+		contract = tracecompat.Current
+	}
+	r, err := c.open(ctx, method, path, data, contract)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -117,7 +126,13 @@ func (c *Client) control(ctx context.Context, method, path string, data []byte, 
 	}
 	if r.StatusCode != expected {
 		_, _ = io.Copy(io.Discard, io.LimitReader(r.Body, 4096))
+		if contract == tracecompat.Current {
+			return nil, r.StatusCode, contractStatusError(r.StatusCode, r.Header)
+		}
 		return nil, r.StatusCode, statusError(r.StatusCode)
+	}
+	if contract == tracecompat.Current && tracecompat.AcceptResponse(r.Header.Values(tracecompat.Header)) != nil {
+		return nil, r.StatusCode, failure(Incompatible)
 	}
 	if r.ContentLength > int64(maximum) {
 		return nil, r.StatusCode, failure(Protocol)
@@ -151,6 +166,8 @@ func statusError(status int) error {
 		return failure(Gone)
 	case 409:
 		return failure(TargetChanged)
+	case 406:
+		return failure(Incompatible)
 	case 429:
 		return failure(Capacity)
 	case 502, 503, 504:
@@ -158,6 +175,16 @@ func statusError(status int) error {
 	default:
 		return failure(Protocol)
 	}
+}
+
+func contractStatusError(status int, headers http.Header) error {
+	// Previous handlers reject the new admission schema and activation marker
+	// with 400 before binding/loading. Do not misreport a rollout mismatch as
+	// an invalid user selection. Current handlers acknowledge parsed offers.
+	if status == http.StatusBadRequest && tracecompat.AcceptResponse(headers.Values(tracecompat.Header)) != nil {
+		return failure(Incompatible)
+	}
+	return statusError(status)
 }
 func decode(data []byte, out any) error {
 	if json.Unmarshal(data, out, json.RejectUnknownMembers(true)) != nil {

@@ -4,6 +4,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
+
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
@@ -16,11 +18,18 @@ type selectedLifetime struct {
 }
 
 func decodeSelection(b requestBody) (*selectedLifetime, error) {
+	if b.SchemaVersion == tracecompat.RequestSchema {
+		if b.ContractVersion == nil || *b.ContractVersion != uint16(tracecompat.Current) {
+			return nil, ErrInvalidRequest
+		}
+	} else if b.ContractVersion != nil {
+		return nil, ErrInvalidRequest
+	}
 	hasSelection := b.ExpectedPodUID != nil || b.ExpectedContainerID != nil || b.ExpectedContainerStartedAt != nil || b.ExpectedNodeName != nil
 	if b.SchemaVersion == 1 && !hasSelection {
 		return nil, nil
 	}
-	if b.SchemaVersion != 2 || b.ExpectedPodUID == nil || b.ExpectedContainerID == nil || b.ExpectedContainerStartedAt == nil || b.ExpectedNodeName == nil {
+	if (b.SchemaVersion != 2 && b.SchemaVersion != tracecompat.RequestSchema) || b.ExpectedPodUID == nil || b.ExpectedContainerID == nil || b.ExpectedContainerStartedAt == nil || b.ExpectedNodeName == nil {
 		return nil, ErrInvalidRequest
 	}
 	s := selectedLifetime{podUID: *b.ExpectedPodUID, containerID: *b.ExpectedContainerID,

@@ -5,10 +5,11 @@ import (
 	"time"
 
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
 
-func (h *Handler) servePreflight(w http.ResponseWriter, r *http.Request, principal user.Info, namespace string) {
+func (h *Handler) servePreflight(w http.ResponseWriter, r *http.Request, principal user.Info, namespace string, contract tracecompat.Version) {
 	if r.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -20,6 +21,10 @@ func (h *Handler) servePreflight(w http.ResponseWriter, r *http.Request, princip
 	}
 	intent, err := admission.DecodeRequest(namespace, http.MaxBytesReader(w, r.Body, admission.MaxRequestBytes))
 	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if err := contractRequest(contract, intent); err != nil {
 		writeError(w, err)
 		return
 	}

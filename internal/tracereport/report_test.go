@@ -3,6 +3,7 @@ package tracereport
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +28,9 @@ func TestReportOmitsPrivateIdentityAndUntrustedErrors(t *testing.T) {
 	doc, err := New(s, "test", time.Now())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if strings.Contains(fmt.Sprintf("%+v", doc), "schemaVersion") {
+		t.Fatal("implicit formatting exposed a report")
 	}
 	data, err := doc.Bytes()
 	if err != nil || len(data) > MaxBytes || strings.Contains(string(data), private) {

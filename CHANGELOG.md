@@ -8,6 +8,12 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 - Report a container once when it creates its own sub-cgroups (systemd, Docker-in-Docker). Nested cgroups were listed as extra entries with the same container ID and their memory was counted twice.
 
+### Optional trace compatibility
+
+- Negotiate an explicit trace contract before admission and guard activation against extension downgrades. Previous development clients retain their existing response shapes and server-enforced limits; incompatible current clients fail before tracing starts.
+- Read bounded trace exports in schemas 1 and 2 without rewriting retained files. New schema-2 exports distinguish acknowledged and unknown contract versions; imported evidence remains untrusted.
+- Verify previous/current development binaries locally and document upgrade order and deprecation windows. Resource, provider and release qualification remain incomplete.
+
 ### Optional trace audit and retention
 
 - Add bounded, versioned audit records with keyed actor, tenant, session and immutable target references, frozen quotas and separate terminal/cleanup outcomes. Trace payloads remain outside routine audit logs.

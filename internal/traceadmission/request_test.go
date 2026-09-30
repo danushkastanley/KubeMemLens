@@ -108,6 +108,18 @@ func TestInputReadStopsAtTheByteCeiling(t *testing.T) {
 
 func FuzzDecodeRequest(f *testing.F) {
 	f.Add(validRequest)
+	for _, version := range []int{2, 3} {
+		body := selectedRequestBody()
+		body["schemaVersion"] = version
+		if version == 3 {
+			body["contractVersion"] = 1
+		}
+		data, err := json.Marshal(body)
+		if err != nil {
+			f.Fatal(err)
+		}
+		f.Add(string(data))
+	}
 	f.Add(`{"pod":"one","pod":"two"}`)
 	f.Add(`{"schemaVersion":1,"durationSeconds":18446744073709551615}`)
 	f.Fuzz(func(t *testing.T, data string) {
@@ -120,6 +132,9 @@ func FuzzDecodeRequest(f *testing.F) {
 		}
 		if request.Namespace() != "tenant-a" {
 			t.Fatal("body retargeted namespace")
+		}
+		if request.SchemaVersion() < 1 || request.SchemaVersion() > 3 || (request.SchemaVersion() >= 2 && request.selection == nil) {
+			t.Fatal("accepted an unversioned or unbound selection")
 		}
 		if request.Paths() == trace.ConfirmedPaths && request.Kind() != trace.Files {
 			t.Fatal("invalid consent accepted")

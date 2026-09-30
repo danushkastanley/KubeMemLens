@@ -9,6 +9,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/validation"
 )
@@ -71,7 +72,7 @@ func requestData(s Selection, intent Intent) ([]byte, error) {
 	if !targetNames(s.Namespace, s.Pod, s.Container) || trace.ValidateIntent(intent.Kind, intent.Paths, intent.Bounds) != nil || intent.Bounds.Duration%time.Second != 0 {
 		return nil, failure(Invalid)
 	}
-	body := map[string]any{"schemaVersion": 2, "pod": s.Pod, "container": s.Container, "kind": intent.Kind, "rawPaths": intent.Paths == trace.ConfirmedPaths,
+	body := map[string]any{"schemaVersion": tracecompat.RequestSchema, "contractVersion": tracecompat.Current, "pod": s.Pod, "container": s.Container, "kind": intent.Kind, "rawPaths": intent.Paths == trace.ConfirmedPaths,
 		"durationSeconds": uint64(intent.Bounds.Duration / time.Second), "maxEvents": intent.Bounds.Events, "maxOutputBytes": intent.Bounds.OutputBytes, "maxMapBytes": intent.Bounds.MapBytes, "maxPathBytes": intent.Bounds.PathBytes,
 		"expectedPodUID": s.PodUID, "expectedContainerID": s.ContainerID, "expectedContainerStartedAt": s.ContainerStartedAt.UTC(), "expectedNodeName": s.NodeName}
 	data, err := json.Marshal(body)

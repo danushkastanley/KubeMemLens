@@ -15,6 +15,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/traceadmission"
 	"github.com/danushkastanley/kube-memlens/internal/traceaggregate"
 	"github.com/danushkastanley/kube-memlens/internal/traceclient"
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
 	"github.com/danushkastanley/kube-memlens/internal/traceframe"
 	"github.com/danushkastanley/kube-memlens/internal/tracepreflight"
 
@@ -88,6 +89,15 @@ func traceTUIFixture(t *testing.T) *tuiTraceFixture {
 		t.Fatal(err)
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/apis/tracing.kubememlens.io/") && r.Method != http.MethodDelete {
+			if r.Header.Get(tracecompat.Header) != tracecompat.Offer || (strings.HasSuffix(r.URL.Path, "/stream") && r.URL.RawQuery != tracecompat.StreamQuery) {
+				t.Error("trace UI request omitted negotiated contract")
+				w.WriteHeader(406)
+				return
+			}
+			w.Header().Set(tracecompat.Header, tracecompat.Selected)
+		}
+
 		switch {
 		case r.URL.Path == traceTUITestAPI:
 			_ = json.NewEncoder(w).Encode(metav1.APIResourceList{TypeMeta: metav1.TypeMeta{Kind: "APIResourceList", APIVersion: "v1"}, GroupVersion: "tracing.kubememlens.io/v1alpha1", APIResources: []metav1.APIResource{

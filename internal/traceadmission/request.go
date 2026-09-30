@@ -22,13 +22,14 @@ var ErrInvalidRequest = errors.New("invalid trace request")
 // Request contains intent and optional comparison preconditions. Namespace comes
 // from the authenticated route; runtime identity is resolved separately by admission.
 type Request struct {
-	namespace string
-	pod       string
-	container string
-	kind      trace.Kind
-	paths     trace.PathPolicy
-	bounds    trace.Bounds
-	selection *selectedLifetime
+	schemaVersion int
+	namespace     string
+	pod           string
+	container     string
+	kind          trace.Kind
+	paths         trace.PathPolicy
+	bounds        trace.Bounds
+	selection     *selectedLifetime
 }
 
 func (r Request) Namespace() string       { return r.namespace }
@@ -37,6 +38,7 @@ func (r Request) Container() string       { return r.container }
 func (r Request) Kind() trace.Kind        { return r.kind }
 func (r Request) Paths() trace.PathPolicy { return r.paths }
 func (r Request) Bounds() trace.Bounds    { return r.bounds }
+func (r Request) SchemaVersion() int      { return r.schemaVersion }
 
 func (Request) Format(w fmt.State, _ rune) { _, _ = io.WriteString(w, "[trace request]") }
 func (Request) MarshalJSON() ([]byte, error) {
@@ -45,6 +47,7 @@ func (Request) MarshalJSON() ([]byte, error) {
 
 type requestBody struct {
 	SchemaVersion              int        `json:"schemaVersion"`
+	ContractVersion            *uint16    `json:"contractVersion"`
 	Pod                        string     `json:"pod"`
 	Container                  string     `json:"container"`
 	Kind                       trace.Kind `json:"kind"`
@@ -114,7 +117,7 @@ func DecodeRequest(namespace string, reader io.Reader) (Request, error) {
 	if err := bounds.Validate(); err != nil {
 		return Request{}, ErrInvalidRequest
 	}
-	return Request{namespace: namespace, pod: body.Pod, container: body.Container, kind: body.Kind, paths: paths, bounds: bounds, selection: selection}, nil
+	return Request{schemaVersion: body.SchemaVersion, namespace: namespace, pod: body.Pod, container: body.Container, kind: body.Kind, paths: paths, bounds: bounds, selection: selection}, nil
 }
 
 func setBound(target *uint64, value *uint64) {
@@ -140,7 +143,7 @@ func uniqueObject(data []byte) error {
 			return ErrInvalidRequest
 		}
 		switch name {
-		case "schemaVersion", "pod", "container", "kind", "rawPaths", "durationSeconds", "maxEvents", "maxOutputBytes", "maxMapBytes", "maxPathBytes",
+		case "schemaVersion", "contractVersion", "pod", "container", "kind", "rawPaths", "durationSeconds", "maxEvents", "maxOutputBytes", "maxMapBytes", "maxPathBytes",
 			"expectedPodUID", "expectedContainerID", "expectedContainerStartedAt", "expectedNodeName":
 		default:
 			return ErrInvalidRequest

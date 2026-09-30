@@ -16,6 +16,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/traceadmission"
 	"github.com/danushkastanley/kube-memlens/internal/traceaggregate"
 	"github.com/danushkastanley/kube-memlens/internal/traceclient"
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
 	"github.com/danushkastanley/kube-memlens/internal/traceframe"
 	"github.com/danushkastanley/kube-memlens/internal/tracepreflight"
 	"github.com/spf13/cobra"
@@ -71,6 +72,15 @@ func traceCommandFixture(t *testing.T, mode string) *cliTraceFixture {
 		t.Fatal(err)
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/apis/tracing.kubememlens.io/") && r.Method != http.MethodDelete {
+			if r.Header.Get(tracecompat.Header) != tracecompat.Offer || (strings.HasSuffix(r.URL.Path, "/stream") && r.URL.RawQuery != tracecompat.StreamQuery) {
+				t.Error("trace UI request omitted negotiated contract")
+				w.WriteHeader(406)
+				return
+			}
+			w.Header().Set(tracecompat.Header, tracecompat.Selected)
+		}
+
 		switch {
 		case r.URL.Path == traceTestAPI:
 			if mode == "absent" {

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 )
@@ -17,6 +19,10 @@ func TestTraceUsesFrozenMemoryEndpointAndCredentials(t *testing.T) {
 	requests := make(chan string, 1)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests <- r.Header.Get("Authorization")
+		if r.Header.Get(tracecompat.Header) != tracecompat.Offer {
+			t.Error("trace contract offer missing")
+		}
+		w.Header().Set(tracecompat.Header, tracecompat.Selected)
 		_ = json.NewEncoder(w).Encode(metav1.APIResourceList{TypeMeta: metav1.TypeMeta{Kind: "APIResourceList", APIVersion: "v1"}, GroupVersion: "tracing.kubememlens.io/v1alpha1", APIResources: []metav1.APIResource{
 			{Name: "traces", Namespaced: true, Verbs: metav1.Verbs{"create", "get", "delete"}}, {Name: "traces/stream", Namespaced: true, Verbs: metav1.Verbs{"get"}}, {Name: "tracepreflights", Namespaced: true, Verbs: metav1.Verbs{"create"}},
 		}})

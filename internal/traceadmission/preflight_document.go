@@ -33,7 +33,7 @@ func NewPreflightDocument(r Request, node NodePreflight, checkedAt time.Time) (P
 		return PreflightDocument{}, ErrUnavailable
 	}
 	b := r.Bounds()
-	return PreflightDocument{SchemaVersion: 1, Kind: "TracePreflight", RequestSchemaVersion: 2,
+	return PreflightDocument{SchemaVersion: 1, Kind: "TracePreflight", RequestSchemaVersion: r.SchemaVersion(),
 		CheckedAt: checkedAt.UTC(), TraceKind: r.Kind(), Paths: r.Paths(),
 		Bounds: PreflightBounds{int64(b.Duration), b.Events, b.OutputBytes, b.MapBytes, b.PathBytes},
 		Node:   node, ResourceQualified: false}, nil
