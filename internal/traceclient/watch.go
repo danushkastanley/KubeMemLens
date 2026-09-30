@@ -9,10 +9,12 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
 	"github.com/danushkastanley/kube-memlens/internal/traceframe"
 )
 
 type Result struct {
+	ContractVersion        tracecompat.Version
 	StreamVersion          int
 	Metadata               traceframe.ClientMetadata
 	Bytes, DeliveredEvents uint64
@@ -49,12 +51,13 @@ func (c *Client) Watch(ctx context.Context, a Admission, observe func(Result)) (
 	defer cancel()
 	timer := time.AfterFunc(controlTimeout, cancel)
 	defer timer.Stop()
-	r, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+path+"/stream", nil)
+	r, err := http.NewRequestWithContext(ctx, http.MethodGet, c.base+path+"/stream?"+tracecompat.StreamQuery, nil)
 	if err != nil {
 		return result, failure(Invalid)
 	}
 	r.Header.Set("Accept", "application/x-ndjson")
 	r.Header.Set("Cache-Control", "no-store")
+	r.Header.Set(tracecompat.Header, tracecompat.Offer)
 	// This dedicated HTTP/1 transport serves streams only. Closing every
 	// connection prevents a later activation GET from using a stale connection
 	// that net/http could transparently replay. Native TLS rotation is retained.
@@ -69,8 +72,12 @@ func (c *Client) Watch(ctx context.Context, a Admission, observe func(Result)) (
 	}
 	if response.StatusCode != 200 {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
-		return result, statusError(response.StatusCode)
+		return result, contractStatusError(response.StatusCode, response.Header)
 	}
+	if tracecompat.AcceptResponse(response.Header.Values(tracecompat.Header)) != nil {
+		return result, failure(Incompatible)
+	}
+	result.ContractVersion = tracecompat.Current
 	media, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
 	if err != nil || media != "application/x-ndjson" {
 		return result, failure(Protocol)

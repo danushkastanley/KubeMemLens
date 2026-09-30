@@ -32,7 +32,7 @@ func TestPreflightAndCreateRetainReviewedSelection(t *testing.T) {
 			data, _ := io.ReadAll(r.Body)
 			var body map[string]any
 			_ = json.Unmarshal(data, &body)
-			if body["schemaVersion"] != float64(2) || body["expectedPodUID"] != "selected-uid" || body["expectedContainerID"] != strings.Repeat("a", 64) {
+			if body["schemaVersion"] != float64(3) || body["contractVersion"] != float64(1) || body["expectedPodUID"] != "selected-uid" || body["expectedContainerID"] != strings.Repeat("a", 64) {
 				t.Error("selection precondition lost")
 			}
 			w.WriteHeader(201)

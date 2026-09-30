@@ -125,6 +125,11 @@ not a secure-erasure claim about process memory.
   those files or the operator's external logs. Their access, retention and removal
   follow the operator's incident-data policy.
 
+The [compatibility contract](TRACE_COMPATIBILITY.md) keeps retained export schemas
+1 and 2 readable without rewriting files. Current writers emit schema 2; its
+contract acknowledgement is explicitly unknown when it was not observed. Archive
+validation is not provenance verification or an instruction to retain or delete data.
+
 The API provides no completed-result retrieval or replay after expiry. Removal
 and rollback disable new sessions and preserve bounded cleanup of active ones;
 uncertain cleanup must be resolved before replacing controller/node identities.

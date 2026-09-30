@@ -24,6 +24,7 @@ const (
 	Protocol      ErrorKind = "invalid_response"
 	Uncertain     ErrorKind = "outcome_unknown"
 	Incomplete    ErrorKind = "incomplete"
+	Incompatible  ErrorKind = "incompatible"
 )
 
 type Error struct{ Kind ErrorKind }
@@ -48,6 +49,8 @@ func (e *Error) Error() string {
 		return "the trace request outcome is unknown; it was not retried automatically"
 	case Incomplete:
 		return "the trace stream ended without a complete terminal result; partial evidence remains incomplete"
+	case Incompatible:
+		return "the CLI and trace extension have no compatible trace contract; use a supported version pair"
 	default:
 		return "the optional trace service is unavailable; ask an administrator to check its installation and node preflight"
 	}

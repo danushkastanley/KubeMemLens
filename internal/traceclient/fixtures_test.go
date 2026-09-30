@@ -12,12 +12,22 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
 	"github.com/danushkastanley/kube-memlens/internal/tracepreflight"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 )
 
 func fixtureClient(t *testing.T, handler http.Handler) (*Client, *httptest.Server) {
+	t.Helper()
+	return unversionedFixtureClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(tracecompat.Header) == tracecompat.Offer {
+			w.Header().Set(tracecompat.Header, tracecompat.Selected)
+		}
+		handler.ServeHTTP(w, r)
+	}))
+}
+func unversionedFixtureClient(t *testing.T, handler http.Handler) (*Client, *httptest.Server) {
 	t.Helper()
 	s := httptest.NewUnstartedServer(handler)
 	s.EnableHTTP2 = true

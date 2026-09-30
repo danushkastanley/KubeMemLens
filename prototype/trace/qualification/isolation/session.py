@@ -77,8 +77,15 @@ class RunningTrace:
             raise QualificationError('qualification client deadline exceeded') from None
         data = bounded_file(self.directory/'report.json', 32768)
         value = strict_object(data)
-        if value.get('schemaVersion') != 1 or value.get('kind') != 'TraceReport' or value.get('redacted') is not True:
+        version = value.get('schemaVersion')
+        if (type(version) is not int or version not in (1, 2) or
+                value.get('kind') != 'TraceReport' or value.get('redacted') is not True):
             raise QualificationError('invalid redacted qualification report')
+        if version == 2:
+            contract = value.get('contractVersion')
+            if ('contractVersion' not in value or
+                    contract is not None and (type(contract) is not int or contract != 1)):
+                raise QualificationError('unsupported report trace contract')
         # Nonzero remains visible: expiry can have valid evidence but an already
         # absent API handle, while an external census separately proves cleanup.
         return {'exitCode': code, 'forcedTermination': self.forced, 'report': value}

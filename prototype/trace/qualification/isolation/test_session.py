@@ -54,8 +54,26 @@ class RunningTraceTests(unittest.TestCase):
                 RunningTrace(binary, '0'*64, {}, root/'case')
             self.assertFalse((root/'case').exists())
 
+    def test_version_two_requires_explicit_known_or_unknown_contract(self):
+        for contract in (None, 1, True, 2, '1'):
+            with self.subTest(contract=contract), tempfile.TemporaryDirectory() as name:
+                root = Path(name)
+                report = {'schemaVersion': 2, 'kind': 'TraceReport', 'redacted': True,
+                          'contractVersion': contract}
+                binary, digest = self.helper(root, report)
+                running = RunningTrace(binary, digest, {}, root/'case')
+                self.addCleanup(running.close)
+                if contract is None or type(contract) is int and contract == 1:
+                    self.assertEqual(running.finish()['report'], report)
+                else:
+                    with self.assertRaises(QualificationError):
+                        running.finish()
+
     def test_unredacted_or_oversized_output_is_not_evidence(self):
         for report in [{'schemaVersion': 1, 'kind': 'TraceReport', 'redacted': False},
+                       {'schemaVersion': True, 'kind': 'TraceReport', 'redacted': True},
+                       {'schemaVersion': 2, 'kind': 'TraceReport', 'redacted': True},
+                       {'schemaVersion': 3, 'kind': 'TraceReport', 'redacted': True},
                        {'schemaVersion': 1, 'kind': 'TraceReport', 'redacted': True, 'data': 'x'*32768}]:
             with tempfile.TemporaryDirectory() as name:
                 root = Path(name); binary, digest = self.helper(root, report)

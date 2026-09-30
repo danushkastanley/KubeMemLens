@@ -3,15 +3,18 @@
 package tracereport
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	"github.com/danushkastanley/kube-memlens/internal/traceclient"
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
 	"github.com/danushkastanley/kube-memlens/internal/traceframe"
 )
 
@@ -22,6 +25,10 @@ var ErrInvalid = errors.New("trace report is invalid or exceeds its byte limit")
 // Document holds an immutable approved projection. No caller can insert raw
 // frames or expand the exported field set by mutating its input afterwards.
 type Document struct{ data string }
+
+func (Document) Format(w fmt.State, _ rune) {
+	_, _ = io.WriteString(w, "[private trace report]")
+}
 
 func (d Document) MarshalJSON() ([]byte, error) {
 	if d.data == "" {
@@ -37,7 +44,16 @@ func (d Document) Bytes() ([]byte, error) {
 }
 
 func New(snapshot traceclient.Snapshot, toolVersion string, capturedAt time.Time) (Document, error) {
-	if !snapshot.State.Terminal() || capturedAt.IsZero() || len(toolVersion) == 0 || len(toolVersion) > 256 || !utf8.ValidString(toolVersion) || strings.ContainsAny(toolVersion, "\x00\r\n\x1b") {
+	if !snapshot.State.Terminal() || capturedAt.IsZero() || !validToolVersion(toolVersion) {
+		return Document{}, ErrInvalid
+	}
+	var contract *uint16
+	switch snapshot.Result.ContractVersion {
+	case tracecompat.Legacy:
+	case tracecompat.Current:
+		value := uint16(tracecompat.Current)
+		contract = &value
+	default:
 		return Document{}, ErrInvalid
 	}
 	if snapshot.Cleanup != traceclient.CleanupConfirmed && snapshot.Cleanup != traceclient.CleanupUnconfirmed && snapshot.Cleanup != traceclient.CleanupNotRequested {
@@ -51,7 +67,7 @@ func New(snapshot traceclient.Snapshot, toolVersion string, capturedAt time.Time
 		return Document{}, ErrInvalid
 	}
 	caveats := []string{"Target aliases apply only within this report.", "Raw events, paths, process details and runtime identifiers are omitted.", "Transport completion, observation coverage and cleanup confirmation are separate.", "This report does not establish resource or provider qualification."}
-	doc := map[string]any{"schemaVersion": 1, "kind": "TraceReport", "capturedAt": capturedAt.UTC(), "toolVersion": toolVersion, "redacted": true,
+	doc := map[string]any{"schemaVersion": CurrentSchema, "contractVersion": contract, "kind": "TraceReport", "capturedAt": capturedAt.UTC(), "toolVersion": toolVersion, "redacted": true,
 		"state": snapshot.State, "cleanup": snapshot.Cleanup, "failure": errorCode(snapshot.Failure), "cleanupFailure": errorCode(snapshot.CleanupFailure),
 		"target":            map[string]string{"namespace": "namespace-1", "pod": "pod-1", "container": "container-1"},
 		"transportComplete": snapshot.Result.TransportComplete, "validatedStreamBytes": snapshot.Result.Bytes, "validatedEventFrames": snapshot.Result.DeliveredEvents}
@@ -80,6 +96,9 @@ func New(snapshot traceclient.Snapshot, toolVersion string, capturedAt time.Time
 	if err != nil || len(data)+1 > MaxBytes {
 		return Document{}, ErrInvalid
 	}
+	if _, err := Read(bytes.NewReader(data)); err != nil {
+		return Document{}, ErrInvalid
+	}
 	return Document{data: string(data)}, nil
 }
 
@@ -103,7 +122,7 @@ func errorCode(err error) any {
 	var known *traceclient.Error
 	if errors.As(err, &known) {
 		switch known.Kind {
-		case traceclient.Invalid, traceclient.Configuration, traceclient.Unavailable, traceclient.Denied, traceclient.TargetChanged, traceclient.Capacity, traceclient.Gone, traceclient.Protocol, traceclient.Uncertain, traceclient.Incomplete:
+		case traceclient.Invalid, traceclient.Configuration, traceclient.Unavailable, traceclient.Denied, traceclient.TargetChanged, traceclient.Capacity, traceclient.Gone, traceclient.Protocol, traceclient.Uncertain, traceclient.Incomplete, traceclient.Incompatible:
 			return string(known.Kind)
 		}
 	}
