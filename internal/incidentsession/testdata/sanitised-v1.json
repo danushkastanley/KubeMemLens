@@ -1,0 +1,116 @@
+{
+  "kind": "IncidentSession",
+  "schemaVersion": 1,
+  "redacted": true,
+  "alias": "session-1",
+  "openedAt": "2026-09-30T10:00:00Z",
+  "expiresAt": "2026-09-30T11:00:00Z",
+  "closedAt": "2026-09-30T10:00:06Z",
+  "entries": [
+    {
+      "sequence": 1,
+      "kind": "opened",
+      "recordedAt": "2026-09-30T10:00:00Z",
+      "observedAt": "2026-09-30T10:00:00Z",
+      "namespace": "namespace-1",
+      "actor": "operator-1",
+      "source": "operator",
+      "sensitivity": "redacted",
+      "clockUncertain": false
+    },
+    {
+      "sequence": 2,
+      "kind": "annotated",
+      "recordedAt": "2026-09-30T10:00:01Z",
+      "observedAt": "2026-09-30T10:00:01Z",
+      "namespace": "namespace-1",
+      "actor": "operator-1",
+      "source": "operator",
+      "sensitivity": "redacted",
+      "clockUncertain": false
+    },
+    {
+      "sequence": 3,
+      "kind": "captured",
+      "recordedAt": "2026-09-30T10:00:02Z",
+      "observedAt": "2026-09-30T09:59:00Z",
+      "namespace": "namespace-1",
+      "actor": "operator-1",
+      "source": "collector",
+      "sensitivity": "redacted",
+      "clockUncertain": false,
+      "references": [
+        {
+          "alias": "evidence-1",
+          "schemaVersion": 6,
+          "observedAt": "2026-09-30T09:59:00Z"
+        }
+      ]
+    },
+    {
+      "sequence": 4,
+      "kind": "marked",
+      "recordedAt": "2026-09-30T10:00:03Z",
+      "observedAt": "2026-09-30T09:59:00Z",
+      "namespace": "namespace-1",
+      "actor": "operator-1",
+      "source": "collector",
+      "sensitivity": "redacted",
+      "clockUncertain": false,
+      "references": [
+        {
+          "alias": "evidence-1",
+          "schemaVersion": 6,
+          "observedAt": "2026-09-30T09:59:00Z"
+        }
+      ]
+    },
+    {
+      "sequence": 5,
+      "kind": "compared",
+      "recordedAt": "2026-09-30T10:00:04Z",
+      "observedAt": "2026-09-30T10:00:04Z",
+      "namespace": "namespace-1",
+      "actor": "operator-1",
+      "source": "collector",
+      "sensitivity": "redacted",
+      "clockUncertain": false,
+      "references": [
+        {
+          "alias": "evidence-1",
+          "schemaVersion": 6,
+          "observedAt": "2026-09-30T09:59:00Z"
+        },
+        {
+          "alias": "evidence-2",
+          "schemaVersion": 6,
+          "observedAt": "2026-09-30T09:59:30Z"
+        }
+      ]
+    },
+    {
+      "sequence": 6,
+      "kind": "gap",
+      "recordedAt": "2026-09-30T10:00:05Z",
+      "observedAt": null,
+      "namespace": "namespace-1",
+      "actor": "operator-1",
+      "source": "prometheus",
+      "sensitivity": "redacted",
+      "clockUncertain": false,
+      "gapReason": "source-unavailable"
+    },
+    {
+      "sequence": 7,
+      "kind": "closed",
+      "recordedAt": "2026-09-30T10:00:06Z",
+      "observedAt": "2026-09-30T10:00:06Z",
+      "namespace": "namespace-1",
+      "actor": "operator-1",
+      "source": "operator",
+      "sensitivity": "redacted",
+      "clockUncertain": false
+    }
+  ],
+  "limitReached": false
+}

@@ -13,6 +13,7 @@ import (
 
 type appModel struct {
 	tracePanel            tracePanel
+	sessionPanel          sessionPanel
 	historyPanel          historyPanel
 	replicaPanel          replicaPanel
 	ctx                   context.Context
@@ -134,6 +135,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.reconcileCurrentViewport("")
 		return m, m.ensureHistoryTarget()
 	case tickMsg:
+		m.expireSession(time.Now().UTC())
 		m.expireVolumes(time.Now().UTC())
 		if m.paused {
 			return m, m.tickCmd()
@@ -219,8 +221,16 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case volumeMsg:
 		m.receiveVolumes(msg)
 		return m, nil
+	case sessionPanelMsg:
+		m.receiveSessionPanel(msg)
+		return m, nil
 	case actionMsg:
 		m.completeAction(msg)
+		return m, nil
+	case tea.PasteMsg:
+		if m.sessionPanel.open && !m.sessionPanel.loading && m.sessionPanel.mode != sessionMenu {
+			m.appendSessionInput(msg.Content)
+		}
 		return m, nil
 	case tea.KeyPressMsg:
 		return m.handleKey(msg)
@@ -231,6 +241,7 @@ func (m appModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *appModel) clearRevokedData() {
 	m.revokeTraceEvidence()
+	m.clearSessionPanel()
 	m.closeReplicaPanel()
 	m.closeHistoryPanel()
 	m.clearVolumeTarget()
@@ -275,6 +286,9 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if m.tracePanel.open {
 		return m.tracePanelKey(msg)
 	}
+	if m.sessionPanel.open {
+		return m.sessionPanelKey(msg)
+	}
 	if m.replicaPanel.open {
 		return m.replicaPanelKey(msg)
 	}
@@ -312,12 +326,16 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		m.openTracePanel()
 		return m, nil
 	case "q", "ctrl+c":
+		m.clearSessionPanel()
 		m.cancelHistoryRequest()
 		m.cancelNodeRequest()
 		m.cancelVolumeRequest()
 		return m, tea.Quit
 	case "?":
 		m.help = !m.help
+	case "I":
+		command := m.openSessionPanel()
+		return m, command
 	case "B":
 		command := m.openReplicaPanel()
 		return m, command
