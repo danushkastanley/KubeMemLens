@@ -31,7 +31,7 @@ func TestVerifiedOOMPreparationWithoutReaders(t *testing.T) {
 	verifyObjectPreparation(t, trace.OOM, "KML_OOM_OBJECTS")
 }
 
-func verifyObjectPreparation(t *testing.T, kind trace.Kind, environment string) {
+func verifyObjectPreparation(t *testing.T, kind trace.Kind, environment string) *diagnostics {
 	t.Helper()
 	root := os.Getenv(environment)
 	if root == "" {
@@ -95,6 +95,7 @@ func verifyObjectPreparation(t *testing.T, kind trace.Kind, environment string) 
 	if !ok || !typed || mapSpec.Type != ebpf.RingBuf || mapSpec.MaxEntries != 262144 {
 		t.Fatal("SDK altered the fixed ring specification")
 	}
+	return diagnostic
 }
 
 func TestDiagnosticsRetainSeverityWithoutMessageContent(t *testing.T) {

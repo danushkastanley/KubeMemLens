@@ -7,6 +7,9 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/danushkastanley/kube-memlens/prototype/trace/worker/outputbuffer"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/workeripc"
 )
 
 func TestInheritedPipeReadDeadline(t *testing.T) {
@@ -57,5 +60,26 @@ func TestRegularFileCannotReplaceProtocolPipe(t *testing.T) {
 	defer file.Close()
 	if pipe, err := pollablePipe(file); err == nil || pipe != nil {
 		t.Fatal("regular protocol file accepted")
+	}
+}
+
+func TestBufferedOutputPreservesPipeDeadline(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	defer writer.Close()
+	output, err := pollablePipe(writer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	buffer := outputbuffer.New(pipeWriter{output})
+	defer buffer.Abort()
+	start := time.Now()
+	_, err = buffer.Write(make([]byte, 2<<20))
+	if err != workeripc.ErrOutput || buffer.Flush() != workeripc.ErrOutput || time.Since(start) > 3*time.Second {
+		t.Fatal("buffered output escaped write deadline or hid failure")
 	}
 }

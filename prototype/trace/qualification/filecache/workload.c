@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <poll.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,13 +75,23 @@ static unsigned int resident(int fd, size_t page) {
     return count;
 }
 
+enum operation_start { START_IMMEDIATELY, WAIT_FOR_COMMAND };
+
+static void wait_command(char command) {
+    struct pollfd input = {STDIN_FILENO, POLLIN, 0};
+    char value;
+    if (poll(&input, 1, 30000) != 1 || !(input.revents & POLLIN)
+        || read(STDIN_FILENO, &value, 1) != 1 || value != command)
+        fail("bounded command");
+}
+
 struct observation {
     size_t page;
     unsigned int before, after;
     uint64_t read_bytes, write_bytes, started, ended;
 };
 
-static struct observation run_one(const char *mode) {
+static struct observation run_one(const char *mode, enum operation_start start) {
     int prepare = strcmp(mode, "prepare") == 0;
     int cached = strcmp(mode, "cached") == 0;
     int uncached = strcmp(mode, "uncached") == 0;
@@ -99,6 +110,11 @@ static struct observation run_one(const char *mode) {
     if (fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) || info.st_uid != getuid()
         || info.st_nlink != 1 || info.st_size != (prepare ? 0 : FILE_BYTES))
         fail("fixture identity");
+    // Perform container startup and file opening before the trace attaches.
+    if (start == WAIT_FOR_COMMAND) {
+        if (puts("{\"ready\":true}") < 0 || fflush(stdout) != 0) fail("ready output");
+        wait_command('R');
+    }
     unsigned int before = 0;
     uint64_t read_bytes = 0, write_bytes = 0;
     uint64_t started = monotonic_nanos();
@@ -132,14 +148,18 @@ static struct observation run_one(const char *mode) {
     return (struct observation){page, before, after, read_bytes, write_bytes, started, ended};
 }
 
-static void emit(const char *mode, struct observation value) {
+static void emit_fields(const char *mode, struct observation value) {
     printf("{\"mode\":\"%s\",\"fileBytes\":%d,\"pageBytes\":%zu,"
            "\"residentPagesBefore\":%u,\"residentPagesAfter\":%u,"
-           "\"readBytes\":%" PRIu64 ",\"writeBytes\":%" PRIu64 ","
-           "\"operationStartedMonotonicNanos\":%" PRIu64 ","
+           "\"readBytes\":%" PRIu64 ",\"writeBytes\":%" PRIu64,
+           mode, FILE_BYTES, value.page, value.before, value.after, value.read_bytes, value.write_bytes);
+}
+
+static void emit_timed(const char *mode, struct observation value) {
+    emit_fields(mode, value);
+    printf(",\"operationStartedMonotonicNanos\":%" PRIu64 ","
            "\"operationEndedMonotonicNanos\":%" PRIu64 ","
            "\"operationNanos\":%" PRIu64 "}",
-           mode, FILE_BYTES, value.page, value.before, value.after, value.read_bytes, value.write_bytes,
            value.started, value.ended, value.ended - value.started);
 }
 
@@ -188,7 +208,7 @@ static int series(int argc, char **argv) {
     for (unsigned int i = 0; i < count; i++) {
         uint64_t due = first + (uint64_t)i * period;
         wait_until(due);
-        observations[i] = run_one(mode);
+        observations[i] = run_one(mode, START_IMMEDIATELY);
         if (observations[i].started < due || observations[i].ended >= due + period)
             fail("series deadline missed");
     }
@@ -196,7 +216,7 @@ static int series(int argc, char **argv) {
     wait_until(first + (uint64_t)count * period);
     for (unsigned int i = 0; i < count; i++) {
         printf("{\"sequence\":%u,\"dueMonotonicNanos\":%" PRIu64 ",\"observation\":", i, first + (uint64_t)i * period);
-        emit(mode, observations[i]);
+        emit_timed(mode, observations[i]);
         puts("}");
     }
     if (fflush(stdout) != 0) fail("series output");
@@ -205,10 +225,20 @@ static int series(int argc, char **argv) {
 
 int main(int argc, char **argv) {
     if (argc >= 2 && strcmp(argv[1], "series") == 0) return series(argc, argv);
-    if (argc != 2) fail("mode");
-    if (strcmp(argv[1], "idle") == 0) { sleep(3600); return 0; }
-    alarm(10);
-    emit(argv[1], run_one(argv[1]));
-    puts("");
+    int gated = argc == 3 && strcmp(argv[2], "--gated") == 0;
+    if (argc != 2 && !gated) fail("mode");
+    if (gated && strcmp(argv[1], "cached") != 0 && strcmp(argv[1], "uncached") != 0)
+        fail("mode");
+    if (strcmp(argv[1], "idle") == 0) { sleep(1800); return 0; }
+    if (strcmp(argv[1], "paired-idle") == 0) { sleep(3600); return 0; }
+    alarm(gated ? 70 : 10);
+    struct observation value = run_one(argv[1], gated ? WAIT_FOR_COMMAND : START_IMMEDIATELY);
+    // Preserve the exact seven-field receipt consumed by isolation qualification.
+    emit_fields(argv[1], value);
+    puts("}");
+    if (gated) {
+        if (fflush(stdout) != 0) fail("receipt output");
+        wait_command('Q');
+    }
     return 0;
 }

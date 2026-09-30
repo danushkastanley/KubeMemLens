@@ -2,7 +2,7 @@ package traceframe
 
 import (
 	"bufio"
-	"encoding/json"
+	"bytes"
 	"github.com/danushkastanley/kube-memlens/internal/traceevidence"
 	"io"
 	"time"
@@ -37,22 +37,33 @@ func (r *Reader) Next() (Frame, error) {
 		r.failed = true
 		return Frame{}, ErrInvalid
 	}
-	frame, err := Decode(data)
+	e, err := decodeEnvelope(data)
 	if err != nil {
 		r.failed = true
 		return Frame{}, err
-	}
-	var e envelope
-	if json.Unmarshal(data, &e) != nil {
-		r.failed = true
-		return Frame{}, ErrInvalid
 	}
 	if r.accept(e, uint64(len(data))) != nil {
 		r.failed = true
 		return Frame{}, ErrInvalid
 	}
 	r.bytes += uint64(len(data))
-	return frame, nil
+	return Frame{kind: e.Type, data: string(data), version: e.Version}, nil
+}
+
+// NextBuffered consumes a complete frame only when its newline is already in
+// the fixed read buffer. It never reads the underlying transport or waits for
+// another frame. The same validation and accounting as Next apply.
+func (r *Reader) NextBuffered() (Frame, bool, error) {
+	if r.failed {
+		return Frame{}, false, ErrInvalid
+	}
+	// Peeking exactly the buffered count cannot perform I/O or fail.
+	data, _ := r.input.Peek(r.input.Buffered())
+	if bytes.IndexByte(data, '\n') < 0 {
+		return Frame{}, false, nil
+	}
+	frame, err := r.Next()
+	return frame, true, err
 }
 func (r *Reader) accept(e envelope, size uint64) error {
 	if r.metadata == nil {

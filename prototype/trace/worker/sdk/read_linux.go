@@ -14,8 +14,13 @@ import (
 
 type readCounts struct{ seen, forwarded uint64 }
 
-func readEvents(ctx context.Context, owned *resources, decoder *filecache.Decoder, output trace.Output, cancel context.CancelFunc) (readCounts, error) {
-	var counts readCounts
+func readEvents(ctx context.Context, owned *resources, decoder *filecache.Decoder, output trace.Output, cancel context.CancelFunc) (counts readCounts, err error) {
+	finishInterrupt := interruptRead(ctx, owned.reader)
+	defer func() {
+		if finishInterrupt() != nil {
+			err = ErrWorker
+		}
+	}()
 	var record ringbuf.Record
 	nextValidation := time.Now()
 	for {
@@ -30,14 +35,17 @@ func readEvents(ctx context.Context, owned *resources, decoder *filecache.Decode
 			}
 			nextValidation = now.Add(time.Second)
 		}
-		// No unbounded read or growing queue. Poll cancellation within 100 ms.
-		deadline := now.Add(100 * time.Millisecond)
-		if end, ok := ctx.Deadline(); ok && end.Before(deadline) {
-			deadline = end
-		}
-		owned.reader.SetDeadline(deadline)
+		// Approved programmes notify the ring on submission. Only target
+		// revalidation needs a timed wake-up; cancellation flushes the reader.
+		owned.reader.SetDeadline(nextValidation)
 		if err := owned.reader.ReadInto(&record); err != nil {
+			if interruptedRead(ctx, err) {
+				return counts, nil
+			}
 			if errors.Is(err, os.ErrDeadlineExceeded) {
+				// epoll rounds deadlines to milliseconds. Revalidate immediately
+				// instead of spinning on an already elapsed/rounded deadline.
+				nextValidation = time.Time{}
 				continue
 			}
 			cancel()
@@ -116,4 +124,10 @@ func reconcileCounts(counts trace.Counts, reads readCounts) (trace.Counts, error
 	rejected := *counts.Rejected + remaining - reads.forwarded
 	counts.Rejected = &rejected
 	return counts, nil
+}
+
+// Cancellation explains only the expected flush/deadline interruption. Other
+// reader failures must still invalidate the engine's terminal evidence.
+func interruptedRead(ctx context.Context, err error) bool {
+	return ctx.Err() != nil && (errors.Is(err, ringbuf.ErrFlushed) || errors.Is(err, os.ErrDeadlineExceeded))
 }

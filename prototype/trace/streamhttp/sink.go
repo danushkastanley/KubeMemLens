@@ -24,6 +24,10 @@ func NewSink(writer http.ResponseWriter) (*Sink, error) {
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
 	return &Sink{writer, control}, nil
 }
+
+// WriteFrame synchronously writes and flushes at most one frame-sized block.
+// An authenticated relay may coalesce complete validated frames within that
+// same byte bound. Their validation and delivery accounting remain with it.
 func (s *Sink) WriteFrame(ctx context.Context, data []byte) (int, error) {
 	if ctx.Err() != nil {
 		return 0, ctx.Err()

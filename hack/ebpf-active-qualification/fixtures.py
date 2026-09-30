@@ -109,7 +109,7 @@ class Fixtures:
             'activeDeadlineSeconds': 3600,
             'securityContext': {'runAsNonRoot': True, 'runAsUser': 65532, 'runAsGroup': 65532, 'fsGroup': 65532, 'seccompProfile': {'type': 'RuntimeDefault'}},
             'containers': [{'name': 'worker', 'image': self.cfg['fixtureImage'], 'imagePullPolicy': 'Never',
-                            'command': ['/usr/local/bin/kml-io-workload', 'idle'],
+                            'command': ['/usr/local/bin/kml-io-workload', 'paired-idle'],
                             'securityContext': {'allowPrivilegeEscalation': False, 'readOnlyRootFilesystem': True, 'capabilities': {'drop': ['ALL']}},
                             'resources': {'requests': {'cpu': '5m', 'memory': '16Mi'}, 'limits': {'cpu': '1', 'memory': '64Mi'}},
                             'volumeMounts': [{'name': 'work', 'mountPath': '/work'}]}],

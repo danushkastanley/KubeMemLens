@@ -888,3 +888,26 @@
  	}
  	return nil
  }
+--- a/pkg/operators/ebpf/formatters.go
++++ b/pkg/operators/ebpf/formatters.go
+@@ -232,6 +232,12 @@
+ }
+ 
+ func (i *ebpfInstance) initFormatters(gadgetCtx operators.GadgetContext) error {
++	// Raw-record workers have no SDK data sources to format. Avoid loading
++	// kernel BTF solely for display converters that cannot be used.
++	if len(gadgetCtx.GetDataSources()) == 0 {
++		return nil
++	}
++
+ 	if err := i.initEnumFormatter(gadgetCtx); err != nil {
+ 		return fmt.Errorf("initializing enum formatter: %w", err)
+ 	}
+--- a/pkg/gadget-service/api/api_grpc.pb.go
++++ b/pkg/gadget-service/api/api_grpc.pb.go
+@@ -2,3 +2,5 @@
+ 
++//go:build ignore
++
+ package api
+ 

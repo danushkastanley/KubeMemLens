@@ -45,9 +45,9 @@ func receive(r io.Reader, value any) (int, error) {
 	if _, err := io.ReadFull(r, data); err != nil || !utf8.Valid(data) {
 		return 0, ErrProtocol
 	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	if decoder.Decode(value) != nil {
+	// The complete bounded message is already available. Canonical comparison
+	// below rejects unknown fields as well as aliases and duplicate keys.
+	if json.Unmarshal(data, value) != nil {
 		return 0, ErrProtocol
 	}
 	canonical, err := json.Marshal(value)

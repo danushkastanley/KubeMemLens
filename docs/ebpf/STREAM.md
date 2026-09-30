@@ -134,6 +134,15 @@ write the session closes output and does not append a summary to a broken frame.
 A disconnected reader must report an incomplete stream; terminal delivery cannot
 be guaranteed on a failed connection.
 
+The API relay may coalesce complete event frames already present in its fixed
+8 KiB read buffer into one synchronous write of at most 8 KiB. It adds no waiting
+period or background queue. Every frame keeps its original bytes and validation;
+metadata and the terminal summary flush separately. Terminal EOF and permission
+checks still precede summary forwarding. Batch writes obey the same cancellation
+and one-second deadline, commit event counts only after a complete flush, and
+discard their scratch bytes afterwards. A partial batch closes the transport
+without appending a summary.
+
 Callbacks are synchronous and serialised. There is no growing event queue. A
 frame sink must enforce cancellation and the one-second write deadline; a plain
 unbounded writer does not satisfy the interface. Engines must stop on output
@@ -213,6 +222,13 @@ and byte ceilings, terminal reservation and summary accounting. EOF before a
 summary and any frame after a summary invalidate the stream. The caller must
 bound underlying transport reads and consume through EOF.
 
+Canonical event frames use exact typed re-encoding to check field spelling,
+placement, required nullable fields and duplicate keys before semantic validation.
+They contain no raw JSON subtrees. Metadata, summaries and noncanonical input use
+the strict token parser; legal whitespace and field ordering remain accepted,
+and forwarding preserves the received bytes. Differential tests compare both
+syntax paths so the optimisation does not broaden the accepted protocol.
+
 Core verification covers round trips, privacy, strict decoding, visible text
 escaping, reader limits, event/output/duration ceilings, partial and slow writes,
 permission revalidation, concurrent callbacks, one-use sessions and cleanup before
@@ -241,7 +257,7 @@ audit rules for the tracing group, and verify the applied API-server policy:
 - level: Metadata
   resources:
   - group: tracing.kubememlens.io
-    resources: [traces, traces/stream]
+    resources: [tracepreflights, traces, traces/stream]
 ```
 
 Qualification checks the real audit log for absent request/response objects and

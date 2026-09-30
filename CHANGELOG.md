@@ -4,6 +4,39 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Fixes
+
+- Report a container once when it creates its own sub-cgroups (systemd, Docker-in-Docker). Nested cgroups were listed as extra entries with the same container ID and their memory was counted twice.
+
+### Optional trace operations
+
+- Add an operator walkthrough, incident playbooks and diagnostic-sharing guidance for the separate development extension. Document expiry and cancellation outcomes without equating a missing admission with confirmed cleanup.
+- Exercise the documented CLI, bounded redacted reports, metadata-only audit policy and installation removal locally. Resource and managed-provider qualification remain open.
+
+### Optional incident timelines
+
+- Add explicitly created, owner-only incident sessions with bounded in-memory retention, Pod captures, comparisons, change markers, private annotations and visible evidence gaps through the CLI and TUI.
+- Reference local trace reports by exact-byte digest and typed outcomes without uploading report text. Keep operator-supplied references distinct from verified measurements; offline verification proves file agreement only.
+- Separate sanitised and authorised exports, preserve schema-1 timelines and use schema 2 for trace references. Enforce current namespace and operation permissions; sessions expire after one hour and disappear on collector restart.
+
+### Optional trace compatibility
+
+- Negotiate an explicit trace contract before admission and guard activation against extension downgrades. Previous development clients retain their existing response shapes and server-enforced limits; incompatible current clients fail before tracing starts.
+- Read bounded trace exports in schemas 1 and 2 without rewriting retained files. New schema-2 exports distinguish acknowledged and unknown contract versions; imported evidence remains untrusted.
+- Verify previous/current development binaries locally and document upgrade order and deprecation windows. Resource, provider and release qualification remain incomplete.
+
+### Optional trace audit and retention
+
+- Add bounded, versioned audit records with keyed actor, tenant, session and immutable target references, frozen quotas and separate terminal/cleanup outcomes. Trace payloads remain outside routine audit logs.
+- Require an administrator-owned audit key and exact digest for optional trace installations. Fail closed on uncertain audit delivery while preserving physical cleanup.
+- Document zero server result retention and verify local quota rejection, expiry, cancellation, path redaction and kernel cleanup. Resource and provider qualification remain incomplete.
+
+### Optional trace development packaging
+
+- Add a separate, disabled-by-default trace chart with pinned images, policy bytes, TLS peers and node profiles. Keep standard installations unchanged and require explicit acknowledgement of unqualified development use.
+- Validate installation trust and host prerequisites before workloads start. Reject node profile drift during admission and active revalidation; document administrator-owned prerequisites and verified removal.
+- Exercise local Helm installation, upgrade, rollback, tenant/network isolation and active kernel teardown. Resource and provider qualification remain incomplete; no supported trace profile is declared.
+
 ### Optional worker attachment scope
 
 - Restrict the constrained SDK to the tracepoint and fentry/fexit classes already permitted by signed file/cache/OOM objects, rejecting other classes before map loading.

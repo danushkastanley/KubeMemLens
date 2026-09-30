@@ -52,6 +52,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -66,6 +68,27 @@ jobs:
 
       - name: Verify modules
         run: go mod verify
+
+      - name: Evaluate recommendation quality
+        run: make check-recommendation-evaluation
+
+      - name: Compare recommendation rules with pull-request base
+        if: github.event_name == 'pull_request'
+        env:
+          EVALUATION_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: >-
+          python3 hack/recommend-evaluation/compare_revision.py
+          --base "$EVALUATION_BASE_SHA"
+          --output "$RUNNER_TEMP/recommendation-evaluation"
+
+      - name: Retain recommendation evaluation reports
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: recommendation-evaluation
+          path: ${{ runner.temp }}/recommendation-evaluation
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Check formatting
         run: |
@@ -92,6 +115,7 @@ jobs:
       - name: Test shell helpers
         run: |
           hack/test-retry.sh
+          python3 hack/test_helm_hook_preflight.py
           make check-scale-contract
           make check-provider-contract
           make check-terminal-contract
@@ -289,6 +313,8 @@ jobs:
           export -f helm
           hack/test-memory-history-contract.sh
           hack/test-replica-contract.sh
+          hack/test-trace-chart-contract.sh
+          hack/test-incident-session-contract.sh
 
       - name: Reject values outside the chart schema
         run: |

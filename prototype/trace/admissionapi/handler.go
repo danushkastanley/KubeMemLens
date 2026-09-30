@@ -9,6 +9,7 @@ import (
 	"time"
 
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
+	"github.com/danushkastanley/kube-memlens/internal/tracecompat"
 	"golang.org/x/time/rate"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -53,15 +54,27 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusMethodNotAllowed, metav1.Status{TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "Status"}, Status: metav1.StatusFailure, Code: http.StatusMethodNotAllowed, Reason: metav1.StatusReasonMethodNotAllowed, Message: http.StatusText(http.StatusMethodNotAllowed)})
 		return
 	}
-	if r.URL.RawQuery != "" || r.URL.RawPath != "" {
+	contract, err := h.negotiate(r)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	if r.URL.RawPath != "" || !contractQuery(r, contract) {
 		writeError(w, admission.ErrInvalidRequest)
 		return
+	}
+	if contract == tracecompat.Current {
+		w.Header().Set(tracecompat.Header, tracecompat.Selected)
 	}
 	if r.Method == http.MethodGet && r.URL.Path == prefix {
 		writeJSON(w, 200, metav1.APIResourceList{TypeMeta: metav1.TypeMeta{APIVersion: "v1", Kind: "APIResourceList"}, GroupVersion: groupVersion, APIResources: resources()})
 		return
 	}
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, prefix+"/namespaces/"), "/")
+	if strings.HasPrefix(r.URL.Path, prefix+"/namespaces/") && len(parts) == 2 && parts[0] != "" && parts[1] == "tracepreflights" {
+		h.servePreflight(w, r, principal, parts[0], contract)
+		return
+	}
 	if !strings.HasPrefix(r.URL.Path, prefix+"/namespaces/") || len(parts) < 2 || len(parts) > 4 || parts[1] != "traces" {
 		writeError(w, admission.ErrNotFound)
 		return
@@ -86,6 +99,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		intent, err := admission.DecodeRequest(namespace, http.MaxBytesReader(w, r.Body, admission.MaxRequestBytes))
 		if err != nil {
+			writeError(w, err)
+			return
+		}
+		if err := contractRequest(contract, intent); err != nil {
 			writeError(w, err)
 			return
 		}
@@ -137,7 +154,11 @@ func writeAdmission(w http.ResponseWriter, code int, namespace string, a admissi
 	writeJSON(w, code, response{groupVersion, "TraceAdmission", responseMetadata{a.ID(), namespace}, string(a.State()), a.ExpiresAt(), a.EngineDigest()})
 }
 func resources() []metav1.APIResource {
-	return []metav1.APIResource{{Name: "traces", SingularName: "trace", Namespaced: true, Kind: "TraceAdmission", Verbs: metav1.Verbs{"create", "get", "delete"}, Group: admission.APIGroup, Version: admission.APIVersion}, {Name: "traces/stream", Namespaced: true, Kind: "TraceStream", Verbs: metav1.Verbs{"get"}, Group: admission.APIGroup, Version: admission.APIVersion}}
+	return []metav1.APIResource{
+		{Name: "traces", SingularName: "trace", Namespaced: true, Kind: "TraceAdmission", Verbs: metav1.Verbs{"create", "get", "delete"}, Group: admission.APIGroup, Version: admission.APIVersion},
+		{Name: "traces/stream", Namespaced: true, Kind: "TraceStream", Verbs: metav1.Verbs{"get"}, Group: admission.APIGroup, Version: admission.APIVersion},
+		{Name: "tracepreflights", SingularName: "tracepreflight", Namespaced: true, Kind: "TracePreflight", Verbs: metav1.Verbs{"create"}, Group: admission.APIGroup, Version: admission.APIVersion},
+	}
 }
 func writeJSON(w http.ResponseWriter, code int, value any) {
 	w.Header().Set("Content-Type", "application/json")
@@ -151,8 +172,10 @@ func writeError(w http.ResponseWriter, err error) {
 		code, reason = 401, metav1.StatusReasonUnauthorized
 	case errors.Is(err, admission.ErrDenied):
 		code, reason = 403, metav1.StatusReasonForbidden
-	case errors.Is(err, admission.ErrInvalidRequest):
+	case errors.Is(err, admission.ErrInvalidRequest), errors.Is(err, tracecompat.ErrInvalid):
 		code, reason = 400, metav1.StatusReasonBadRequest
+	case errors.Is(err, tracecompat.ErrIncompatible):
+		code, reason = 406, metav1.StatusReasonNotAcceptable
 	case errors.Is(err, admission.ErrNotFound):
 		code, reason = 404, metav1.StatusReasonNotFound
 	case errors.Is(err, admission.ErrCapacity):

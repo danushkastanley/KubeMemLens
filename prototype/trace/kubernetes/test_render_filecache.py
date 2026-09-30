@@ -9,7 +9,7 @@ class FileCacheDeploymentTests(unittest.TestCase):
     def test_policy_mount_and_node_profile_preserve_privilege_boundaries(self):
         for paths in (False, True):
             items = deployments("example.invalid/image@sha256:" + "a" * 64,
-                                "node", "uid", "admin", "/kubelet", "b" * 64)
+                                "node", "uid", "admin", "/kubelet", "b" * 64, "audit-key", "e" * 64)
             configured = configure(items, "accepted-filecache", paths)
             self.assertFalse(any(item["kind"] == "ConfigMap" for item in configured))
             for item in configured:
@@ -46,7 +46,7 @@ class FileCacheDeploymentTests(unittest.TestCase):
     def test_two_trace_limit_is_installation_owned_and_preserves_resources(self):
         for maximum in (1, 2):
             items = deployments("example.invalid/image@sha256:" + "a" * 64,
-                                "node", "uid", "admin", "/kubelet", "b" * 64)
+                                "node", "uid", "admin", "/kubelet", "b" * 64, "audit-key", "e" * 64)
             resources = {item["metadata"]["name"]: copy.deepcopy(item["spec"]["template"]["spec"]["containers"][0]["resources"])
                          for item in items if item["kind"] == "Deployment"}
             for item in configure(items, "accepted", max_node_traces=maximum):

@@ -37,7 +37,8 @@ func (w Walker) WalkContext(ctx context.Context) ([]Entry, error) {
 		return nil, err
 	}
 
-	info, err := os.Stat(w.Root)
+	root := filepath.Clean(w.Root)
+	info, err := os.Stat(root)
 	if err != nil {
 		return nil, fmt.Errorf("stat cgroup root: %w", err)
 	}
@@ -47,7 +48,8 @@ func (w Walker) WalkContext(ctx context.Context) ([]Entry, error) {
 
 	var entries []Entry
 	var errs []error
-	err = filepath.WalkDir(w.Root, func(path string, d fs.DirEntry, walkErr error) error {
+	containerDirs := map[string]string{}
+	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -66,8 +68,14 @@ func (w Walker) WalkContext(ctx context.Context) ([]Entry, error) {
 		if containerID == "" {
 			return nil
 		}
+		// cgroup v2 is hierarchical: a sub-cgroup created inside a container
+		// (systemd, Docker-in-Docker) is already charged to the container.
+		if nestedInContainer(containerDirs, root, path, containerID) {
+			return nil
+		}
+		containerDirs[path] = containerID
 
-		relativePath, err := filepath.Rel(w.Root, path)
+		relativePath, err := filepath.Rel(root, path)
 		if err != nil {
 			relativePath = path
 		}
@@ -125,6 +133,16 @@ func ExtractContainerIDFromPath(path string) string {
 	}
 
 	return longest
+}
+
+func nestedInContainer(containerDirs map[string]string, root, path, containerID string) bool {
+	for dir := path; dir != root && dir != filepath.Dir(dir); {
+		dir = filepath.Dir(dir)
+		if containerDirs[dir] == containerID {
+			return true
+		}
+	}
+	return false
 }
 
 func hasMemoryFiles(dir string) bool {

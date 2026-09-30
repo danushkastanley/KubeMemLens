@@ -1,4 +1,4 @@
-.PHONY: check-replica-contract check-memory-history-contract check-trace-preflight check-trace-worker test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract check-community-settings vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
+.PHONY: check-incident-session-contract check-trace-release check-recommendation-evaluation check-replica-contract check-memory-history-contract check-trace-preflight check-trace-worker test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract check-community-settings vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -101,6 +101,7 @@ check-trace-preflight:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C prototype/trace build ./...
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace build ./...
 	python3 -m unittest discover -s prototype/trace/kubernetes -p 'test_*.py'
+	python3 -m unittest discover -s prototype/trace/qualification/isolation -p 'test_*.py'
 	python3 -m unittest discover -s hack/ebpf-qualification -p 'test_*.py'
 	python3 -m unittest discover -s hack/ebpf-active-qualification -p 'test_*.py'
 	python3 -m unittest discover -s prototype/trace/qualification/filecache -p 'test_*observation.py'
@@ -116,7 +117,7 @@ check-trace-worker:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C prototype/trace/worker build ./...
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace/worker build ./...
 
-check: check-trace-preflight check-trace-worker fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test coverage test-race vet vuln build
+check: check-incident-session-contract check-trace-release check-trace-chart-contract check-recommendation-evaluation check-trace-preflight check-trace-worker fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test coverage test-race vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh
@@ -142,8 +143,23 @@ qualify-cluster:
 soak-live-density:
 	hack/soak-live-density.sh
 
+.PHONY: check-trace-chart-contract
+check-trace-chart-contract:
+	hack/test-trace-chart-contract.sh
+
 check-memory-history-contract:
 	hack/test-memory-history-contract.sh
 
 check-replica-contract:
 	hack/test-replica-contract.sh
+
+check-recommendation-evaluation:
+	go test ./hack/recommend-evaluation
+	python3 -m unittest discover -s hack/recommend-evaluation -p 'test_*.py'
+	go run ./hack/recommend-evaluation
+
+check-trace-release:
+	python3 -m unittest discover -s hack/trace-release -p 'test_*.py'
+
+check-incident-session-contract:
+	hack/test-incident-session-contract.sh

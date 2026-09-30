@@ -11,7 +11,7 @@ from admission_resources import deployments, permissions, resource
 from admission_network import policies
 
 
-def render(image, node, uid, namespace, kubelet_root, certificate_directory):
+def render(image, node, uid, namespace, kubelet_root, certificate_directory, audit_secret=None, audit_key_sha256=None):
     if not re.fullmatch(r"[a-zA-Z0-9./:_-]+@sha256:[a-f0-9]{64}", image):
         raise ValueError("an immutable image digest is required")
     if not re.fullmatch(r"[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?", node):
@@ -24,6 +24,10 @@ def render(image, node, uid, namespace, kubelet_root, certificate_directory):
         raise ValueError("invalid kubelet cgroup root")
     if any(len(part) > 63 for part in kubelet_root.split("/")):
         raise ValueError("kubelet cgroup component exceeds 63 bytes")
+    if not isinstance(audit_secret, str) or not re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", audit_secret):
+        raise ValueError("an administrator-owned audit key Secret is required")
+    if not isinstance(audit_key_sha256, str) or not re.fullmatch(r"[a-f0-9]{64}", audit_key_sha256):
+        raise ValueError("an exact audit reference key digest is required")
     ns = namespace
     directory = Path(certificate_directory)
     def read(name):
@@ -51,7 +55,7 @@ def render(image, node, uid, namespace, kubelet_root, certificate_directory):
     items.append(resource("ConfigMap", "node-registry", ns, data={"nodes.json": json.dumps(registry)}))
     items += permissions(ns)
     items += policies(ns)
-    items += deployments(image, node, uid, ns, kubelet_root, cpin)
+    items += deployments(image, node, uid, ns, kubelet_root, cpin, audit_secret, audit_key_sha256)
     items.append(resource("APIService", "v1alpha1.tracing.kubememlens.io", None,
                           "apiregistration.k8s.io/v1", spec={
         "group": "tracing.kubememlens.io", "version": "v1alpha1",
@@ -64,12 +68,12 @@ def render(image, node, uid, namespace, kubelet_root, certificate_directory):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("image", "node", "node-uid", "namespace", "kubelet-cgroup-root", "certificate-directory"):
+    for name in ("image", "node", "node-uid", "namespace", "kubelet-cgroup-root", "certificate-directory", "audit-reference-secret", "audit-reference-key-sha256"):
         parser.add_argument("--" + name, required=True)
     args = parser.parse_args()
     try:
         result = render(args.image, args.node, args.node_uid, args.namespace,
-                        args.kubelet_cgroup_root, args.certificate_directory)
+                        args.kubelet_cgroup_root, args.certificate_directory, args.audit_reference_secret, args.audit_reference_key_sha256)
     except (ValueError, OSError) as error:
         parser.error(str(error))
     print(json.dumps(result, indent=2))

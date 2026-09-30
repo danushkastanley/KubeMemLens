@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "caseID": "replica-local-outlier",
+  "method": "Original five admitted comparable charge values, selected outlier last. Synthetic identities and normalised clock; missing change history retained. This projection exercises numerical comparison, not ownership or API authorisation.",
+  "sourceSHA256": "f475a4fa2fa232dcb3368e38b15465e62ca44c6bd7fc5034ed3e42a4169fb2fd",
+  "cleanupSHA256": "a12343e618c084f45f535ab13165470ea0bc1732cbc1879a184db2a2193abfe6",
+  "memory": null,
+  "replica": {
+    "charges": [
+      1024000,
+      987136,
+      995328,
+      2682880,
+      69931008
+    ],
+    "referenceState": "current",
+    "changeHistory": "unreported"
+  }
+}

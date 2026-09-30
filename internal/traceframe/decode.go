@@ -3,7 +3,6 @@ package traceframe
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -18,21 +17,21 @@ const fieldNames = "version|type|metadata|event|summary|sessionID|engineDigest|p
 // fields, case aliases, duplicate keys, arrays and ambiguous unions. A Reader
 // additionally enforces stream order and the metadata's cumulative limits.
 func Decode(data []byte) (Frame, error) {
+	e, err := decodeEnvelope(data)
+	if err != nil {
+		return Frame{}, err
+	}
+	// Retain legal whitespace so forwarding accounts for actual received bytes.
+	return Frame{kind: e.Type, data: string(data), version: e.Version}, nil
+}
+
+func decodeEnvelope(data []byte) (envelope, error) {
 	if len(data) == 0 || len(data) > MaxBytes || data[len(data)-1] != '\n' || bytes.ContainsRune(data[:len(data)-1], '\n') || !utf8.Valid(data) {
-		return Frame{}, ErrInvalid
+		return envelope{}, ErrInvalid
 	}
-	keys := json.NewDecoder(bytes.NewReader(data))
-	if uniqueValue(keys, 0, "root") != nil {
-		return Frame{}, ErrInvalid
-	}
-	if _, err := keys.Token(); err != io.EOF {
-		return Frame{}, ErrInvalid
-	}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	var e envelope
-	if decoder.Decode(&e) != nil || !SupportedVersion(e.Version) {
-		return Frame{}, ErrInvalid
+	e, err := decodeFrameSyntax(data)
+	if err != nil || !SupportedVersion(e.Version) {
+		return envelope{}, ErrInvalid
 	}
 	payloads := 0
 	for _, present := range []bool{e.Metadata != nil, e.Event != nil, e.Summary != nil} {
@@ -41,33 +40,31 @@ func Decode(data []byte) (Frame, error) {
 		}
 	}
 	if payloads != 1 {
-		return Frame{}, ErrInvalid
+		return envelope{}, ErrInvalid
 	}
 	switch e.Type {
 	case MetadataFrame:
 		if e.Metadata == nil || validateMetadata(*e.Metadata) != nil || !AllowsKind(e.Version, e.Metadata.Kind) {
-			return Frame{}, ErrInvalid
+			return envelope{}, ErrInvalid
 		}
 	case EventFrame:
 		if e.Event == nil || validateEvent(*e.Event) != nil {
-			return Frame{}, ErrInvalid
+			return envelope{}, ErrInvalid
 		}
 		if e.Version == AggregateVersion && validateAggregateEvent(*e.Event) != nil {
-			return Frame{}, ErrInvalid
+			return envelope{}, ErrInvalid
 		}
 		if e.Version == OOMVersion && validateOOMVersionEvent(*e.Event) != nil {
-			return Frame{}, ErrInvalid
+			return envelope{}, ErrInvalid
 		}
 	case SummaryFrame:
 		if e.Summary == nil || validateSummary(*e.Summary, e.Version) != nil {
-			return Frame{}, ErrInvalid
+			return envelope{}, ErrInvalid
 		}
 	default:
-		return Frame{}, ErrInvalid
+		return envelope{}, ErrInvalid
 	}
-	// Retain the received representation: forwarding must account for its actual
-	// bytes, including legal whitespace, rather than a shorter re-encoding.
-	return Frame{kind: e.Type, data: string(data), version: e.Version}, nil
+	return e, nil
 }
 
 func uniqueValue(decoder *json.Decoder, depth int, field string) error {

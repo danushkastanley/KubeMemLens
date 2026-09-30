@@ -58,6 +58,7 @@ func (s *Service) activate(parent context.Context, id string, deadline time.Time
 	l.execution = e
 	l.expires = deadline
 	s.seen[id] = deadline
+	s.wakeExpiry()
 	return e, nil
 }
 func (e *execution) finish() error {
@@ -69,6 +70,7 @@ func (e *execution) finish() error {
 		s.mu.Lock()
 		e.cleanupErr = s.closeHandle(e.handle)
 		delete(s.leases, e.id)
+		s.wakeExpiry()
 		s.mu.Unlock()
 		close(e.done)
 	})
@@ -84,6 +86,7 @@ func (s *Service) stopLease(id string, l *lease, cause error) error {
 		return nil
 	}
 	delete(s.leases, id)
+	s.wakeExpiry()
 	return s.closeHandle(l.handle)
 }
 func (s *Service) operation(ctx context.Context, id string, remove bool) error {

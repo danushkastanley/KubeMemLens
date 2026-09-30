@@ -27,6 +27,7 @@ func (m appModel) receiveDiscovery(msg discoveryMsg) (tea.Model, tea.Cmd) {
 	if msg.generation != m.fetchGeneration {
 		return m, nil
 	}
+	m.clearSessionPanel()
 	m.opts.EvidencePlan = &msg.session.Plan
 	m.connectionDescription = msg.session.Description
 	if msg.err != nil {
@@ -38,7 +39,7 @@ func (m appModel) receiveDiscovery(msg discoveryMsg) (tea.Model, tea.Cmd) {
 		m.observationReader = msg.session.Observations
 		m.sort = sortTotal
 	}
-	return m, m.fetchCmd()
+	return m, tea.Batch(m.fetchCmd(), m.discoverTraceCmd())
 }
 
 func (m appModel) evidenceLabel() string {

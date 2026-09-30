@@ -30,9 +30,18 @@ Local fixtures fetch BusyBox from `docker.io/library/busybox` at the same pinned
 content digest formerly fetched from the ECR Public mirror. The registry change
 has new profile digests; earlier records retain their original identity. Before
 rollout, the owned Node checks its image cache, then permits at most three
-30-second pulls with five seconds between attempts. Failure stops the fixture
-before measurement and reports only a fixed failure category. Registry retries
-do not extend workload readiness or measurement limits.
+30-second pulls with five seconds between attempts. For a classified rate limit
+on the fixed BusyBox digest only, the local runner may use the other existing
+public location: Docker Hub or ECR Public. It checks that mirror's cache, permits
+one 30-second pull if needed, then registers the original requested reference
+without overwriting an existing reference and verifies it through CRI. Cache
+inspection and reference registration each have a ten-second deadline. The digest
+and workload specification remain unchanged; another digest, repository or failure
+category cannot use this path. Logs retain which transport was used.
+
+Failure stops the fixture before measurement and reports only fixed categories.
+This local preflight also serves the Helm hook fixture. Registry attempts do not
+extend workload readiness or measurement limits or establish provider evidence.
 
 ## Measurement protocol and budgets
 

@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 
 FORBIDDEN = (
+    "google.golang.org/grpc",
     "k8s.io/client-go/",
     "k8s.io/cli-runtime/",
     "sigs.k8s.io/kustomize/",
@@ -22,7 +23,7 @@ def verify(dependencies):
     for name in names:
         if any(name == prefix.rstrip("/") or name.startswith(prefix.rstrip("/") + "/")
                for prefix in FORBIDDEN):
-            raise ValueError("worker links unsupported discovery or attachment code: " + name)
+            raise ValueError("worker links an unsupported package: " + name)
 
 
 if __name__ == "__main__":

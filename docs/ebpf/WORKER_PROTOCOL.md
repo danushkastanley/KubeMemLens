@@ -25,13 +25,41 @@ trace. `prototype/trace/workeripc` and `prototype/trace/workerprocess` contain n
 BPF loader. The isolated worker module owns the SDK. Ordinary collector binaries,
 snapshots, captures, charts and release artefacts do not use this protocol.
 
+The constrained SDK excludes its unused generated gRPC client/server transport
+from compilation. Its data models and parameter types remain available to the
+fixed image operator. Both worker architecture dependency checks reject gRPC
+packages, so the transport cannot silently return through a new import. This
+constraint changes the accepted SDK patch digest and requires a newly matched
+worker, signed programme bundle and installation policy.
+
 ## Request and observations
 
 The parent sends one canonical JSON request through a private pipe and closes its
 write end. A four-byte big-endian length precedes every message; the receiver
-rejects lengths above 4,096 bytes before allocation. Unknown fields, aliases,
+rejects lengths above 4,096 bytes before allocating the message payload. Unknown fields, aliases,
 duplicate keys, omitted fields, noncanonical encodings and trailing requests fail.
 The protocol version is independent of the public trace-stream version.
+
+The observation reader uses a fixed 4,100-byte read buffer to coalesce pipe reads.
+Validation and cumulative limits still apply to each message, and terminal EOF is
+checked through that same buffer so prefetched trailing data cannot be hidden.
+Pipe deadlines and process supervision remain responsible for interrupted reads.
+
+The Node may hand off at most 16 validated file observations synchronously when
+complete messages are already present in that read buffer. It never reads ahead
+to fill a batch or waits on a timer. A sparse event is delivered before reading
+an incomplete next message. The session coalesces confirmed-path frames within
+one 8 KiB write, retaining per-event validation, output/event ceilings and ordered
+aggregate accounting. Default output remains aggregate-only. A failed transport
+write cannot produce a terminal summary; scratch frame bytes and observation
+references are cleared after each call. No asynchronous queue is introduced.
+
+The worker coalesces output in one fixed 4,100-byte buffer. Full buffers flush
+immediately; partial buffers schedule a flush after five milliseconds, subject to
+scheduling and the pipe's one-second write deadline. Readiness flushes before
+activation and the terminal result flushes before successful exit. Short or failed
+writes are terminal and never retried; pending bytes are cleared on exit. Framing,
+event quotas, cumulative byte limits and parent supervision remain unchanged.
 
 The request carries the immutable specification, issue time, absolute deadline
 and accepted programme-manifest digest. It has no executable path, gadget
@@ -77,6 +105,13 @@ Raw messages and callback errors must never enter logs or persisted evidence.
 
 ## Supervision and ownership
 
+The worker wakes its ring-buffer reader directly when its context is cancelled,
+using the reader's flush operation. Idle reads time out for the existing
+once-per-second target revalidation, rather than polling cancellation every
+100 ms. The cancellation callback is joined before reader teardown, and a failed
+wake-up invalidates terminal counts. Approved programmes notify on submission;
+event delivery does not wait for the validation timer.
+
 Startup is bounded at five seconds, even for a five-minute request. The supervisor
 enforces the earlier parent/request deadline, uses private OS pipes and sends
 stderr directly to `/dev/null`. Signals use the owned process handle, avoiding
@@ -88,10 +123,23 @@ A valid terminal message or natural request expiry permits one second for normal
 exit, allowing final counters to drain after the observation deadline. An earlier
 parent deadline remains cancellation. Event callbacks stop at the deadline;
 terminal draining cannot forward late events or accept malformed output.
+Natural expiry requires `DeadlineExceeded` for the exact request deadline on the
+effective context. It is not inferred from a fresh wall-clock reading: the UTC
+request timestamp has no monotonic component, and wall time can change while a
+context timer runs. An earlier parent deadline never becomes request expiry just
+because its cancellation is processed late.
 The grace period and reaping after SIGKILL share a two-second process-exit bound.
+
 A result is accepted only after successful process exit;
 a result followed by non-zero exit fails. The pipe reader is also joined, allowing
 one second for an outstanding output callback. No growing queue retains events.
+
+The constrained SDK skips display-formatter initialisation when there are no SDK
+data sources. The accepted raw-record worker requires that empty data-source
+set and decodes its fixed records itself. This avoids parsing kernel BTF solely
+for unused enum/stack display conversion; BTF needed for verified programme
+relocation and attachment is still required. This SDK patch has a new accepted
+digest, so old signed installation policies cannot silently select it.
 
 The normal-exit change was accepted and exercised in local kernel tests; see
 [ADR 0013](../adr/0013-bound-normal-worker-exit-within-teardown-budget.md).
@@ -121,6 +169,9 @@ qualification is claimed from startup helpers alone.
 Protocol race tests cover canonical requests, malformed input, path consent,
 typed records, byte/event limits, short writes, terminal ordering, contradictory
 counts and redaction. Decoder fuzzing includes a valid request and malformed seeds.
+Read-buffer regressions cover fragmented delivery, bounded reads and an open pipe
+that sends a terminal message without EOF. A real OS-pipe benchmark measures a
+128-event burst; its results do not establish end-to-end resource qualification.
 
 Process tests use real Linux children in a network-disabled, read-only container
 with all capabilities dropped. They cover startup/expiry, ignored SIGTERM,

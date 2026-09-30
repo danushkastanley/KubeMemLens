@@ -31,10 +31,7 @@ func (m *Manager) reserve(owner [32]byte, r Request) (*entry, error) {
 	}
 	e := &entry{id: id, owner: owner, request: r, expires: time.Now().Add(m.policy.PendingTTL), initializing: true}
 	m.entries[id] = e
-	select {
-	case m.wake <- struct{}{}:
-	default:
-	}
+	m.wakeExpiry()
 	return e, nil
 }
 

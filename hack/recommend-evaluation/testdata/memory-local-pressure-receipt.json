@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "caseID": "memory-local-pressure",
+  "method": "Owned local64MiB Pod. Direct cgroup-v2 counters projected using numeric allow-list; known event deltas retained. Synthetic scope identities and normalised replay clock; no collector or authorisation claim.",
+  "sourceSHA256": "7a57156a96a405d615b868788a4b4aee9a3b7f3889fc336bd7ea50fe69dc6187",
+  "cleanupSHA256": "d644f1b9c3f3e60faa6c2603a20ece15e778720882b666f9c549c9e824ae0dee",
+  "memory": {
+    "charge": 3842048,
+    "anon": 2002944,
+    "file": 0,
+    "shmem": 0,
+    "slab": 172696,
+    "slabUnreclaimable": 105416,
+    "dirty": 0,
+    "writeback": 0,
+    "socket": 0,
+    "pageTables": 249856,
+    "high": 4194304,
+    "max": 67108864,
+    "psiSome": 0.0,
+    "psiFull": 0.0,
+    "oom": 0,
+    "oomKill": 0,
+    "maxEvents": 0,
+    "highEvents": 61,
+    "localEvents": true,
+    "deltasKnown": true
+  },
+  "replica": null,
+  "volume": null
+}

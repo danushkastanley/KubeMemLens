@@ -1,7 +1,7 @@
 """Validate a complete fixed-schedule workload record; never infer missing operations."""
 import json
 
-from verify_workload import validate_observation
+from verify_workload import validate_timed_observation
 
 
 START_KEYS = {"type", "schemaVersion", "count", "periodNanos", "monotonicBeforeNanos",
@@ -51,7 +51,7 @@ def validate_series(raw, mode, count, period_ms):
                 or not isinstance(row["observation"], dict)):
             raise ValueError("missing, duplicate or rescheduled operation")
         observation = row["observation"]
-        validate_observation(observation, mode)
+        validate_timed_observation(observation, mode)
         if not due <= observation["operationStartedMonotonicNanos"] < observation["operationEndedMonotonicNanos"] < due + period:
             raise ValueError("series deadline missed")
     return rows

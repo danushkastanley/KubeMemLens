@@ -54,6 +54,9 @@ Before deployment:
    Private keys and rendered Secret manifests must not enter source control.
    Kubernetes aggregation proxy trust is loaded separately from its ConfigMap.
 
+Provision the separate immutable [audit reference key](AUDIT_AND_RETENTION.md)
+before rendering; the renderer references that Secret and never generates its key.
+
 The private node connection requires TLS 1.3, normal CA/hostname verification and
 an exact administrator-pinned leaf certificate SHA-256 digest in both directions.
 The registry is keyed by Node UID. Certificate or registry changes require a
@@ -68,6 +71,8 @@ python3 prototype/trace/kubernetes/render_admission.py \
   --image YOUR_LOADED_IMAGE@sha256:YOUR_VERIFIED_DIGEST \
   --node YOUR_NODE --node-uid YOUR_NODE_UID \
   --namespace kube-memlens-trace-admission --kubelet-cgroup-root /kubelet \
+  --audit-reference-secret YOUR_AUDIT_SECRET \
+  --audit-reference-key-sha256 YOUR_AUDIT_KEY_SHA256 \
   --certificate-directory /YOUR/PROTECTED/CERTIFICATES > /YOUR/PROTECTED/admission.json
 kubectl --context kind-kml-r6-admission apply -f /YOUR/PROTECTED/admission.json
 ```
@@ -86,7 +91,8 @@ Do not scale it or change the security profile to obtain a passing preflight.
 
 Grant an intended namespace user `create`, `get` and `delete` on
 `traces.tracing.kubememlens.io` in that namespace, plus `get` on the selected core
-Pod. Exact `resourceNames` restrictions are honoured on Pod reads and individual
+Pod. The explicit preflight workflow also requires `create` on
+`tracepreflights.tracing.kubememlens.io`. Exact `resourceNames` restrictions are honoured on Pod reads and individual
 trace reads/deletes. There is no trace list, update, watch, CRD or generic gadget
 endpoint. Every operation requires current policy and owner checks; knowing an
 admission ID grants no access.
@@ -101,10 +107,48 @@ A create is a JSON POST to
 The request allows only fixed trace kinds (`files`, `cache`, `oom`), explicit
 raw-path consent and lower limits. Raw paths are denied by the default server
 policy. Namespace is taken from the authenticated route. Node, Pod UID, container
-ID, cgroup ID, engine references and selectors are rejected as user fields.
+ID, cgroup ID, engine references and selectors are rejected as binding authority.
 Duplicate, null, unknown and case-aliased fields are rejected within a 4096-byte
 body limit. The response contains an opaque admission name, namespace, expiry,
 engine digest and `admitted` state; it exposes no runtime identifiers.
+
+Request schema 2 additionally requires `expectedPodUID`, `expectedContainerID`,
+`expectedContainerStartedAt` and `expectedNodeName`. These compare the user's
+selected lifetime with a fresh, server-resolved workload. They cannot choose a
+Node UID, supply a cgroup, grant access or replace node-side resolution. A mismatch
+returns 409 before node binding, and releases the pending admission reservation.
+The start timestamp is compared by instant; the container ID must be the complete
+64-character lower-case containerd identifier without its URI prefix.
+
+Schema 1 retains its existing name-based behaviour and rejects the new fields.
+Schema 2 rejects missing, empty or null preconditions; future versions fail closed.
+Clients using selection preconditions must not fall back to schema 1 after a
+rejection, since doing so would discard the selected-lifetime guarantee. Existing
+stream versions and server-side revalidation are unchanged.
+
+### Inspect before admission
+
+POST a schema-2 request to
+`/apis/tracing.kubememlens.io/v1alpha1/namespaces/NAMESPACE/tracepreflights`.
+The API checks current permission for preflight creation, trace creation and the
+exact Pod read, resolves the selected lifetime and asks the registered node to
+inspect it. It repeats permission and lifetime checks before returning HTTP 200.
+This operation creates no admission, lease, replay nonce or persistent object.
+There is no list/get/delete API for preflight reports.
+
+The node verifies the current cgroup handle and accepted programme artefacts,
+then closes the handle without running the engine. The response includes the
+observed **startup** baseline with its original capture time, the checked incident
+engine/programme digests and stream version, and requested bounds/path policy.
+The startup baseline is not a new kernel-probe run or incident qualification;
+`resourceQualified` remains false. Workload identifiers and private handles are
+not included. A preflight report cannot authorise activation: ordinary admission
+repeats the checks, and schema-2 selection preconditions must be retained.
+
+Only one temporary node preflight runs at a time. Its bounded preparation does
+not hold the node lease lock or consume control-operation slots, so cancellation
+can proceed concurrently. Shutdown cancels and joins the temporary inspection.
+Unconfirmed handle cleanup fails closed and poisons subsequent node work.
 
 GET the individual admission to revalidate, or DELETE it to cancel. The optional
 single-consumer `GET traces/ID/stream` route additionally requires exact
@@ -118,10 +162,17 @@ one per principal, two per namespace, one per node by default and 32 globally.
 The optional API installation flag `--max-node-traces` accepts one or two;
 requests cannot change it or exceed that hard ceiling. The node has
 an independent hard ceiling of two handles and 256 unexpired replay records;
-full replay storage refuses work. Expiry timers sleep while no state is retained
-and resume their 100 ms cadence for reservations, node leases and replay records.
-Node expiry remains independent of
-controller connectivity. Cleanup failures are reported and block new node work.
+full replay storage refuses work. Each expiry loop sleeps until its next retained
+deadline, or indefinitely when empty. New reservations, changed active deadlines
+and cleanup transitions notify the loop so an earlier deadline cannot be missed.
+Unfinished controller cleanup retains the 100 ms retry cadence; failed
+controller-to-node cleanup keeps its one-second backoff and continues consuming
+quota. Active node
+executions expire through their own deadline contexts, avoiding a competing
+sweep cancellation. Their handles and replay records remain retained until
+teardown is confirmed.
+Node expiry remains independent of controller connectivity. Cleanup failures
+are reported and block new node work.
 
 A replacement node process cannot confirm that its predecessor cleaned up.
 The API therefore retains the old reservation, including its quota, even if the

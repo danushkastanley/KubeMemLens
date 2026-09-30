@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from fixtures import Fixtures
+from profile import load_profile
 
 
 class FixtureCleanupTests(unittest.TestCase):
@@ -16,6 +17,18 @@ class FixtureCleanupTests(unittest.TestCase):
         case.namespace.side_effect = lambda ns: {'metadata': {'uid': fixture.namespaces[ns], 'resourceVersion': '10'}}
         case.kube.return_value = b'{}'
         return case, fixture
+
+    def test_paired_fixture_covers_both_windows_with_a_fixed_deadline(self):
+        case, fixture = self.fixture()
+        case.node = "owned-worker"
+        case.cfg["fixtureImage"] = "fixture@sha256:" + "a" * 64
+        pod = fixture.pod("kml-active-a", "target")
+        profile = load_profile()
+        duration = 2 * (profile["windowSeconds"] + profile["warmupSeconds"]) + 600
+        self.assertLess(duration, pod["spec"]["activeDeadlineSeconds"])
+        self.assertEqual(pod["spec"]["activeDeadlineSeconds"], 3600)
+        self.assertEqual(pod["spec"]["containers"][0]["command"],
+                         ["/usr/local/bin/kml-io-workload", "paired-idle"])
 
     def test_replaced_reader_is_preserved_and_owned_namespaces_still_removed(self):
         case, fixture = self.fixture()

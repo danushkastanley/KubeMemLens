@@ -41,7 +41,7 @@ func (a delegatedAuthorizer) Authorize(ctx context.Context, attrs authorizer.Att
 	}
 	if attrs.IsResourceRequest() {
 		// No optional route can accidentally expand this resource vocabulary.
-		if attrs.GetAPIGroup() != admission.APIGroup || attrs.GetAPIVersion() != admission.APIVersion || attrs.GetResource() != "traces" || (attrs.GetSubresource() != "" && (attrs.GetSubresource() != "stream" || attrs.GetVerb() != "get" || attrs.GetName() == "")) || attrs.GetNamespace() == "" {
+		if !validTraceResource(attrs) {
 			return authorizer.DecisionDeny, "denied", nil
 		}
 		spec.ResourceAttributes = &authorizationv1.ResourceAttributes{Group: attrs.GetAPIGroup(), Version: attrs.GetAPIVersion(), Resource: attrs.GetResource(), Namespace: attrs.GetNamespace(), Name: attrs.GetName(), Verb: attrs.GetVerb(), Subresource: attrs.GetSubresource()}
@@ -56,4 +56,14 @@ func (a delegatedAuthorizer) Authorize(ctx context.Context, attrs authorizer.Att
 		return authorizer.DecisionDeny, "denied", nil
 	}
 	return authorizer.DecisionAllow, "allowed", nil
+}
+
+func validTraceResource(attrs authorizer.Attributes) bool {
+	if attrs.GetAPIGroup() != admission.APIGroup || attrs.GetAPIVersion() != admission.APIVersion || attrs.GetNamespace() == "" {
+		return false
+	}
+	if attrs.GetResource() == "tracepreflights" {
+		return attrs.GetVerb() == "create" && attrs.GetName() == "" && attrs.GetSubresource() == ""
+	}
+	return attrs.GetResource() == "traces" && (attrs.GetSubresource() == "" || (attrs.GetSubresource() == "stream" && attrs.GetVerb() == "get" && attrs.GetName() != ""))
 }

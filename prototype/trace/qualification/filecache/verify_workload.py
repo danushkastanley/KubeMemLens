@@ -6,20 +6,36 @@ import re
 import subprocess
 import uuid
 
+from gated import GatedWorkload
+
 
 FILE_BYTES = 8 * 1024 * 1024
 
 
-def validate_observation(data, mode):
+def expected_observation(data, mode):
     read = {"prepare": 0, "cached": 1, "uncached": 1, "write": 0, "noise": 4}[mode]
     write = {"prepare": 1, "cached": 0, "uncached": 0, "write": 1, "noise": 4}[mode]
     page = data.get("pageBytes")
     if type(page) is not int or page not in (4096, 65536):
         raise ValueError("unsupported fixture page size")
     before = 0 if mode in ("prepare", "uncached") else FILE_BYTES // page
-    expected = {"mode": mode, "fileBytes": FILE_BYTES, "pageBytes": page,
-                "residentPagesBefore": before, "residentPagesAfter": FILE_BYTES // page,
-                "readBytes": read * FILE_BYTES, "writeBytes": write * FILE_BYTES}
+    return {"mode": mode, "fileBytes": FILE_BYTES, "pageBytes": page,
+            "residentPagesBefore": before, "residentPagesAfter": FILE_BYTES // page,
+            "readBytes": read * FILE_BYTES, "writeBytes": write * FILE_BYTES}
+
+
+def require_observation(data, expected):
+    if (any(type(data.get(key)) is not int for key in expected if key != "mode")
+            or data != expected):
+        raise ValueError("fixture did not establish its I/O/cache contract")
+
+
+def validate_observation(data, mode):
+    require_observation(data, expected_observation(data, mode))
+
+
+def validate_timed_observation(data, mode):
+    expected = expected_observation(data, mode)
     start, end, elapsed = (data.get(key) for key in (
         "operationStartedMonotonicNanos", "operationEndedMonotonicNanos", "operationNanos"))
     if (any(type(value) is not int or not 0 < value < 2**64 for value in (start, end, elapsed))
@@ -27,9 +43,7 @@ def validate_observation(data, mode):
         raise ValueError("invalid operation clock evidence")
     expected.update(operationStartedMonotonicNanos=start,
                     operationEndedMonotonicNanos=end, operationNanos=elapsed)
-    if (any(type(data.get(key)) is not int for key in expected if key != "mode")
-            or data != expected):
-        raise ValueError("fixture did not establish its I/O/cache contract")
+    require_observation(data, expected)
 
 
 def verify(image):
@@ -58,12 +72,31 @@ def verify(image):
 
     results = []
     try:
+        for idle_mode in ("idle", "paired-idle"):
+            idle = subprocess.run(common + ["--detach", "--entrypoint", "/usr/local/bin/kml-io-workload", image, idle_mode],
+                                  capture_output=True, text=True, check=True, timeout=15).stdout.strip()
+            if not re.fullmatch(r"[a-f0-9]{64}", idle):
+                raise RuntimeError("idle fixture identity unavailable")
+            try:
+                state = json.loads(subprocess.check_output(["docker", "inspect", idle], text=True, timeout=15))[0]
+                if state["Id"] != idle or not state["State"]["Running"]:
+                    raise RuntimeError("idle fixture did not remain running")
+                subprocess.run(["docker", "exec", idle, "/bin/sh", "-ec", "test ! -e /work/fixed-seed.bin"],
+                               capture_output=True, check=True, timeout=15)
+                logs = subprocess.run(["docker", "logs", idle], capture_output=True, check=True, timeout=15)
+                if logs.stdout or logs.stderr:
+                    raise RuntimeError("idle fixture emitted unexpected output")
+                results.append({"mode": idle_mode, "running": True, "fixtureFileAbsent": True, "outputEmpty": True})
+            finally:
+                subprocess.run(["docker", "rm", "-f", idle], check=True,
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15)
         for mode in ("prepare", "cached", "uncached", "cached", "write", "noise"):
             result = workload(mode)
             if result.returncode != 0 or result.stderr:
                 raise RuntimeError(f"fixture mode {mode} failed")
             data = json.loads(result.stdout)
             validate_observation(data, mode)
+            page = data["pageBytes"]
             results.append(data)
 
         # Persistent process, deterministic absolute deadlines, buffered reports.
@@ -88,6 +121,31 @@ def verify(image):
                     "workload failed: series schedule bound\n")):
                 raise RuntimeError("unbounded or invalid series was not rejected")
         results.append({"negativeCase": "series arguments and schedule ceilings", "passed": True})
+        for mode in ("cached", "uncached"):
+            gated = GatedWorkload(common + ["--interactive", "--entrypoint",
+                                  "/usr/local/bin/kml-io-workload", image, mode, "--gated"])
+            try:
+                if gated.process.poll() is not None:
+                    raise RuntimeError("gated fixture exited before its command")
+                receipt = gated.run()
+                expected = {"mode": mode, "fileBytes": FILE_BYTES, "pageBytes": page,
+                            "residentPagesBefore": 0 if mode == "uncached" else FILE_BYTES // page,
+                            "residentPagesAfter": FILE_BYTES // page,
+                            "readBytes": FILE_BYTES, "writeBytes": 0}
+                if receipt != expected or gated.process.poll() is not None:
+                    raise RuntimeError("gated fixture contract or lifetime failed")
+                gated.finish()
+                results.append({"gated": True, "receipt": receipt, "retainedUntilCompletion": True})
+            finally:
+                gated.close()
+
+        rejected = subprocess.run(common + ["--interactive", "--entrypoint",
+                                  "/usr/local/bin/kml-io-workload", image, "cached", "--gated"],
+                                  input="X", capture_output=True, text=True, timeout=15)
+        if (rejected.returncode != 2 or rejected.stdout != '{"ready":true}\n' or
+                rejected.stderr != "workload failed: bounded command\n"):
+            raise RuntimeError("invalid gated command was not rejected")
+        results.append({"negativeCase": "invalid gated command", "passed": True})
 
         result = workload("prepare")
         if (result.returncode != 2 or result.stdout or

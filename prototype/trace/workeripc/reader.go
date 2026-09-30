@@ -1,6 +1,7 @@
 package workeripc
 
 import (
+	"bufio"
 	"io"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
@@ -13,33 +14,60 @@ func ReadStream(in io.Reader, request Request, output trace.Output, onReady func
 	if in == nil || output == nil || onReady == nil || request.Validate() != nil {
 		return trace.Result{}, ErrProtocol
 	}
+	// Coalesce pipe reads within one maximum-size framed message. Validation,
+	// cumulative limits and the required terminal EOF use this same reader.
+	stream := bufio.NewReaderSize(in, MaxMessageBytes+4)
+	files := fileBatch{output: output}
+	defer files.clear()
+	fail := func(err error) (trace.Result, error) {
+		if files.flush() != nil {
+			return trace.Result{}, ErrOutput
+		}
+		return trace.Result{}, err
+	}
 	ready := false
 	var events, bytes uint64
 	for {
 		var message responseWire
-		size, err := receive(in, &message)
+		size, err := receive(stream, &message)
 		if err != nil || message.validate(request) != nil {
-			return trace.Result{}, ErrProtocol
+			return fail(ErrProtocol)
 		}
 		switch message.Type {
 		case "ready":
+			if files.flush() != nil {
+				return trace.Result{}, ErrOutput
+			}
 			if ready {
 				return trace.Result{}, ErrProtocol
 			}
 			ready = true
 			onReady()
 		case "result":
-			if (!ready && (message.Result.Termination != trace.EngineFailed || !message.Result.StartedAt.IsZero())) || !message.Result.covers(events) || end(in) != nil {
+			if files.flush() != nil {
+				return trace.Result{}, ErrOutput
+			}
+			if (!ready && (message.Result.Termination != trace.EngineFailed || !message.Result.StartedAt.IsZero())) || !message.Result.covers(events) || end(stream) != nil {
 				return trace.Result{}, ErrProtocol
 			}
 			return message.Result.result(request)
 		default:
 			bounds := request.Specification.Bounds()
 			if !ready || events >= bounds.Events || uint64(size) > bounds.OutputBytes-bytes {
-				return trace.Result{}, ErrProtocol
+				return fail(ErrProtocol)
 			}
 			events++
 			bytes += uint64(size)
+			if message.File != nil {
+				event, err := fileObservation(message.File, request.Specification)
+				if err != nil {
+					return fail(ErrProtocol)
+				}
+				if files.add(event, stream) != nil {
+					return trace.Result{}, ErrOutput
+				}
+				continue
+			}
 			if err := forward(message, request.Specification, output); err != nil {
 				return trace.Result{}, ErrOutput
 			}
@@ -48,14 +76,6 @@ func ReadStream(in io.Reader, request Request, output trace.Output, onReady func
 }
 
 func forward(message responseWire, spec trace.Specification, output trace.Output) error {
-	if message.File != nil {
-		f := message.File
-		path, err := trace.NewSensitiveText(f.Path, spec.Bounds().PathBytes)
-		if err != nil {
-			return ErrProtocol
-		}
-		return output.FileActivity(trace.FileActivity{ObservedAt: f.ObservedAt, Operation: f.Operation, RequestedBytes: &f.Requested, CompletedBytes: &f.Completed, Path: path})
-	}
 	if message.OOM != nil {
 		o := message.OOM
 		command, err := trace.NewSensitiveText(o.Command, 16)

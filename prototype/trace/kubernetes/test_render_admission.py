@@ -8,7 +8,7 @@ from admission_network import policies
 class AdmissionProfileTests(unittest.TestCase):
     def test_node_privileges_are_separate_from_controller(self):
         items = deployments("example.invalid/image@sha256:" + "a" * 64,
-                            "node", "uid", "admin", "/kubelet", "b" * 64)
+                            "node", "uid", "admin", "/kubelet", "b" * 64, "audit-key", "e" * 64)
         specs = {item["metadata"]["name"]: item["spec"]["template"]["spec"]
                  for item in items if item["kind"] == "Deployment"}
         node, api = specs["binding-node"], specs["admission-api"]
@@ -18,6 +18,12 @@ class AdmissionProfileTests(unittest.TestCase):
                          {"drop": ["ALL"], "add": ["BPF", "PERFMON"]})
         self.assertEqual(api["containers"][0]["securityContext"]["capabilities"], {"drop": ["ALL"]})
         self.assertFalse(any("hostPath" in volume for volume in api["volumes"]))
+        self.assertFalse(any(v.get("secret", {}).get("secretName") == "audit-key" for v in node["volumes"]))
+        audit = next(v for v in api["volumes"] if v["name"] == "audit-reference")
+        self.assertEqual(audit["secret"], {"secretName": "audit-key", "defaultMode": 0o440,
+                         "items": [{"key": "reference.key", "path": "reference.key"}]})
+        args = api["containers"][0]["args"]
+        self.assertEqual(args[args.index("--audit-reference-key-sha256") + 1], "e" * 64)
         self.assertTrue(all(mount["readOnly"] for mount in node["containers"][0]["volumeMounts"]))
         self.assertFalse(any(node.get(key, False) for key in ("hostPID", "hostIPC", "hostNetwork")))
         for item in items:
@@ -37,9 +43,9 @@ class AdmissionProfileTests(unittest.TestCase):
                 self.assertNotIn("delete", rule["verbs"])
 
     def test_unreviewed_profile_inputs_fail_before_reading_certificates(self):
-        defaults = ["example.invalid/image@sha256:" + "a" * 64, "node", "uid", "admin", "/kubelet", "/does-not-exist"]
+        defaults = ["example.invalid/image@sha256:" + "a" * 64, "node", "uid", "admin", "/kubelet", "/does-not-exist", "audit-key", "e" * 64]
         for index, value in ((0, "image:latest"), (1, "../node"), (2, "bad uid"),
-                             (3, "../tenant"), (4, "/a/b/c/d/e"), (4, "/../kubelet")):
+                             (3, "../tenant"), (4, "/a/b/c/d/e"), (4, "/../kubelet"), (6, "../key"), (7, "not-a-digest")):
             args = defaults.copy()
             args[index] = value
             with self.assertRaises(ValueError):

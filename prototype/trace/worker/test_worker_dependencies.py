@@ -1,4 +1,4 @@
-"""Prevent unused discovery or attachment support re-entering the worker."""
+"""Prevent unused discovery, attachment or RPC support re-entering the worker."""
 import unittest
 from worker_dependencies import FORBIDDEN, verify
 

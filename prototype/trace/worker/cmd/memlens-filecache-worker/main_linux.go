@@ -14,6 +14,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/filecache"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/worker/outputbuffer"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/worker/sdk"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/workercontainment"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/workerinstall"
@@ -91,11 +92,19 @@ func run() (code int) {
 	if err != nil || ctx.Err() != nil {
 		return
 	}
-	writer, err := workeripc.NewWriter(pipeWriter{output}, request)
+	buffer := outputbuffer.New(pipeWriter{output})
+	defer buffer.Abort()
+	writer, err := workeripc.NewWriter(buffer, request)
 	if err != nil {
 		return
 	}
-	adapter, err := sdk.NewAdapter(signalLifetime, programme, request.Specification, target, writer.Ready)
+	ready := func() error {
+		if err := writer.Ready(); err != nil {
+			return err
+		}
+		return buffer.Flush()
+	}
+	adapter, err := sdk.NewAdapter(signalLifetime, programme, request.Specification, target, ready)
 	if err != nil {
 		return
 	}
@@ -106,7 +115,7 @@ func run() (code int) {
 		result.Counts = trace.Counts{}
 		result.Incomplete = true
 	}
-	if writer.Finish(result) != nil || runErr != nil {
+	if writer.Finish(result) != nil || buffer.Flush() != nil || runErr != nil {
 		return
 	}
 	return 0

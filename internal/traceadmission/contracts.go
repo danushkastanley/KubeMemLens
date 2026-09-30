@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/internal/traceaudit"
 	"io"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"time"
@@ -16,10 +17,11 @@ const APIVersion = "v1alpha1"
 type Operation string
 
 const (
-	Create Operation = "create"
-	Read   Operation = "get"
-	Cancel Operation = "delete"
-	Attach Operation = "stream"
+	Create  Operation = "create"
+	Read    Operation = "get"
+	Cancel  Operation = "delete"
+	Attach  Operation = "stream"
+	Inspect Operation = "preflight"
 )
 
 // Authorizer checks trace-resource permission and exact Pod read permission.
@@ -64,16 +66,11 @@ type Binder interface {
 	Bind(context.Context, string, Workload, Request, time.Time) (Binding, error)
 }
 
-type AuditEvent struct {
-	Operation Operation
-	Decision  string
-	Reason    string
-	Principal string
-	Kind      trace.Kind
-}
+type AuditEvent = traceaudit.Record
 
-// Audit receives only fixed categories, never the request or authenticated name.
-type Audit func(AuditEvent)
+// Audit receives only bounded, validated records. It must honour ctx and report
+// a failed or uncertain delivery; it must not format private dependency errors.
+type Audit func(context.Context, AuditEvent) error
 
 type AdmissionState string
 

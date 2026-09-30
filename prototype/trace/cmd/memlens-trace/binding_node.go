@@ -32,8 +32,10 @@ func runBindingNodeRuntime(ctx context.Context, args []string, errOut io.Writer,
 	uid := flags.String("node-uid", "", "installation-bound Node UID")
 	name := flags.String("node-name", "", "installation-bound Node name")
 	root := flags.String("kubelet-cgroup-root", "", "explicit kubelet cgroup root")
+	expectedKernel := flags.String("expected-kernel-release", "", "exact installation-bound kernel release")
 	bundle := flags.String("bundle", "/opt/memlens-trace/reference", "frozen preflight reference directory")
 	acceptance := flags.String("acceptance-policy", "", "independently accepted worker installation policy")
+	policySHA256 := flags.String("acceptance-policy-sha256", "", "exact installation policy digest")
 	executable := flags.String("worker-executable", "/opt/memlens-trace/memlens-filecache-worker", "accepted worker executable")
 	programmes := flags.String("programme-bundle", "/opt/memlens-trace/programmes", "accepted programme bundle directory")
 	if err := flags.Parse(args); err != nil {
@@ -42,11 +44,14 @@ func runBindingNodeRuntime(ctx context.Context, args []string, errOut io.Writer,
 	if flags.NArg() != 0 || *uid == "" || *name == "" || *root == "" {
 		return errors.New("binding node requires exact installation identity and cgroup root")
 	}
+	if err := validatePolicyArguments(*acceptance, *policySHA256); err != nil {
+		return err
+	}
 	if *acceptance != "" {
 		if runtime != nil {
 			return errors.New("worker installation cannot replace a configured runtime")
 		}
-		installed, err := configureWorker(ctx, *acceptance, *executable, *programmes)
+		installed, err := configureWorker(ctx, *acceptance, *policySHA256, *executable, *programmes)
 		if err != nil {
 			return err
 		}
@@ -74,11 +79,11 @@ func runBindingNodeRuntime(ctx context.Context, args []string, errOut io.Writer,
 	// Execute the existing supervised, non-attaching baseline in this very
 	// runtime before opening the listener. No externally supplied report is used.
 	report := supervise(ctx, *bundle, 10*time.Second)
-	if report.State != tracepreflight.Supported {
+	if profileErr := checkRuntimeKernel(report, *expectedKernel); profileErr != nil {
 		if err := writeJSON(errOut, report); err != nil {
 			return errors.New("binding node preflight report unavailable")
 		}
-		return errors.New("binding node preflight is incomplete or unsupported")
+		return profileErr
 	}
 	service, err := nodebinding.NewService(ctx, *uid, *name, control, func(ctx context.Context, w admission.Workload) (targetfs.Handle, error) {
 		return targetfs.Resolve(ctx, targetfs.Config{MountPoint: "/sys/fs/cgroup", KubeletRoot: *root}, w)
@@ -99,6 +104,9 @@ func runBindingNodeRuntime(ctx context.Context, args []string, errOut io.Writer,
 			runErr = errors.New("binding node cleanup unconfirmed")
 		}
 	}()
+	if err := service.SetStartupReport(report); err != nil {
+		return errors.New("binding node startup report unavailable")
+	}
 	server, err := nodebinding.NewHTTPServer(*address, tlsConfig, service)
 	if err != nil {
 		return err

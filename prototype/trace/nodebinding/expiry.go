@@ -10,7 +10,7 @@ import (
 func (s *Service) prune(now time.Time) {
 
 	for id, l := range s.leases {
-		if !now.Before(l.expires) {
+		if l.execution == nil && !now.Before(l.expires) {
 			_ = s.stopLease(id, l, admission.ErrExpired)
 		}
 	}
@@ -22,23 +22,18 @@ func (s *Service) prune(now time.Time) {
 }
 func (s *Service) expire(ctx context.Context) {
 	defer close(s.done)
-	ticker := time.NewTicker(100 * time.Millisecond)
-	ticker.Stop()
-	defer ticker.Stop()
-	var ticks <-chan time.Time
+	timer := time.NewTimer(time.Hour)
+	timer.Stop()
+	defer timer.Stop()
 	for {
 		s.mu.Lock()
-		hasWork := len(s.leases) > 0 || len(s.seen) > 0
+		next := s.nextExpiry()
 		s.mu.Unlock()
-		// Keep the existing expiry cadence while state is retained, but do not
-		// wake an empty service. Buffered notifications cover concurrent inserts.
-		if hasWork && ticks == nil {
-			ticker.Reset(100 * time.Millisecond)
-			ticks = ticker.C
-		}
-		if !hasWork && ticks != nil {
-			ticker.Stop()
-			ticks = nil
+		timer.Stop()
+		var ticks <-chan time.Time
+		if !next.IsZero() {
+			timer.Reset(time.Until(next))
+			ticks = timer.C
 		}
 		select {
 		case <-s.wake:
@@ -58,9 +53,13 @@ func (s *Service) expire(ctx context.Context) {
 				}
 			}
 			clear(s.seen)
+			preview := s.previewDone
 			s.mu.Unlock()
 			for _, execution := range active {
 				<-execution.done
+			}
+			if preview != nil {
+				<-preview
 			}
 			return
 		}

@@ -1,0 +1,174 @@
+{
+  "capturedAt": "1970-01-01T00:03:51Z",
+  "caveats": [
+    "Synthetic compatibility fixture.",
+    "Future explanatory text is untrusted content, not executable instructions."
+  ],
+  "cleanup": "confirmed",
+  "cleanupFailure": null,
+  "contractVersion": 1,
+  "failure": null,
+  "kind": "TraceReport",
+  "observed": {
+    "bounds": {
+      "durationNanos": 30000000000,
+      "events": 10000,
+      "mapBytes": 8388608,
+      "outputBytes": 8388608,
+      "pathBytes": 256
+    },
+    "deadline": "1970-01-01T00:03:50Z",
+    "engineDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "kind": "oom",
+    "paths": "omit",
+    "programmeDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "sessionStartedAt": "1970-01-01T00:03:20Z",
+    "streamVersion": 3
+  },
+  "redacted": true,
+  "requested": {
+    "bounds": {
+      "durationNanos": 30000000000,
+      "events": 10000,
+      "mapBytes": 8388608,
+      "outputBytes": 8388608,
+      "pathBytes": 256
+    },
+    "kind": "oom",
+    "paths": "omit"
+  },
+  "schemaVersion": 2,
+  "state": "completed",
+  "summary": {
+    "aggregates": {
+      "decisions": {
+        "cgroup": 1,
+        "global": 0,
+        "missingProcessContext": 0,
+        "unknown": 0
+      },
+      "kind": "oom",
+      "observations": 1
+    },
+    "engineCounts": {
+      "lost": 0,
+      "produced": 1,
+      "rejected": 0,
+      "sampled": 0
+    },
+    "incomplete": true,
+    "kubernetesContext": {
+      "afterEnd": "1970-01-01T00:03:50.002Z",
+      "afterStart": "1970-01-01T00:03:50.001Z",
+      "beforeEnd": "1970-01-01T00:03:20.004Z",
+      "beforeStart": "1970-01-01T00:03:20.003Z",
+      "pressureAfter": "unknown",
+      "pressureBefore": "false",
+      "restarts": {
+        "delta": 0,
+        "state": "reported"
+      },
+      "state": "observed"
+    },
+    "observationEndedAt": "1970-01-01T00:03:50Z",
+    "observationStartedAt": "1970-01-01T00:03:20.005Z",
+    "oomCorrelation": {
+      "currentBytes": {
+        "after": 18446744073709551615,
+        "before": 0
+      },
+      "fullStallMicros": {
+        "delta": 18446744073709551615,
+        "state": "reported"
+      },
+      "hierarchical": {
+        "high": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        },
+        "low": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        },
+        "max": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        },
+        "oom": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        },
+        "oomGroupKill": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        },
+        "oomKill": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        }
+      },
+      "limitAfter": {
+        "bytes": 18446744073709551615,
+        "state": "finite"
+      },
+      "limitBefore": {
+        "bytes": null,
+        "state": "unlimited"
+      },
+      "local": {
+        "high": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        },
+        "low": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        },
+        "max": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        },
+        "oom": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        },
+        "oomGroupKill": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        },
+        "oomKill": {
+          "delta": 18446744073709551615,
+          "state": "reported"
+        }
+      },
+      "someStallMicros": {
+        "delta": 18446744073709551615,
+        "state": "reported"
+      },
+      "window": {
+        "afterStart": "1970-01-01T00:03:50Z",
+        "beforeEnd": "1970-01-01T00:03:20.005Z",
+        "evidenceEnd": "1970-01-01T00:03:50.001Z",
+        "evidenceStart": "1970-01-01T00:03:20.004Z",
+        "overlapEnd": "1970-01-01T00:03:49.999999Z",
+        "overlapStart": "1970-01-01T00:03:20.005001Z",
+        "state": "overlapping",
+        "uncertaintyNanos": 1000
+      }
+    },
+    "rejectedEvents": 0,
+    "sessionEndedAt": "1970-01-01T00:03:50.003Z",
+    "termination": "expired",
+    "writtenBytesBeforeSummary": 843,
+    "writtenEvents": 1
+  },
+  "target": {
+    "container": "container-1",
+    "namespace": "namespace-1",
+    "pod": "pod-1"
+  },
+  "toolVersion": "fixture",
+  "transportComplete": true,
+  "validatedEventFrames": 1,
+  "validatedStreamBytes": 2955
+}

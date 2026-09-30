@@ -1,0 +1,80 @@
+{{- if .Values.enabled }}
+{{- $name := include "trace.name" . }}
+{{- $nodes := list }}
+{{- range .Values.nodes }}{{ $nodes = append $nodes .name }}{{ end }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}-api
+  namespace: {{ .Release.Namespace | quote }}
+automountServiceAccountToken: true
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $name }}-node
+  namespace: {{ .Release.Namespace | quote }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $name }}-api
+rules:
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get]
+  - apiGroups: [""]
+    resources: [nodes]
+    resourceNames: {{ $nodes | toJson }}
+    verbs: [get]
+  - apiGroups: [authorization.k8s.io]
+    resources: [subjectaccessreviews]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $name }}-api
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $name }}-api
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}-api
+    namespace: {{ .Release.Namespace | quote }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $name }}-requestheader
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: extension-apiserver-authentication-reader
+subjects:
+  - kind: ServiceAccount
+    name: {{ $name }}-api
+    namespace: {{ .Release.Namespace | quote }}
+---
+# Intentionally unbound. The administrator assigns this only to named operators.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $name }}-operator
+rules:
+  - apiGroups: [tracing.kubememlens.io]
+    resources: [traces]
+    verbs: [create, get, delete]
+  - apiGroups: [tracing.kubememlens.io]
+    resources: [traces/stream]
+    verbs: [get]
+  - apiGroups: [tracing.kubememlens.io]
+    resources: [tracepreflights]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [pods]
+    verbs: [get]
+{{- end }}

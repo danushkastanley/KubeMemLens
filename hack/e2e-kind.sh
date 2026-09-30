@@ -191,6 +191,14 @@ collect_diagnostics() {
   # Preserve the failed hook's exit reason in CI without exporting cluster credentials.
   KUBECONFIG="${kubeconfig}" kubectl get pod kube-memlens-test-connection -n "${namespace}" -o json |
     jq '{phase: .status.phase, reason: .status.reason, containers: [.status.containerStatuses[]? | {name, terminated: (.state.terminated | {reason, exitCode, signal})}]}' >&2 || true
+  # Waiting Pods have no exit reason; retain only allow-listed state counts.
+  if KUBECONFIG="${kubeconfig}" kubectl get pods -n "${namespace}" \
+    --field-selector metadata.name=kube-memlens-test-connection -o json \
+    > "${work_dir}/helm-hook-status.private.json" 2>/dev/null; then
+    python3 hack/node-qualification/readiness_failure.py \
+      --input "${work_dir}/helm-hook-status.private.json" \
+      --output "${artifact_dir}/helm-hook-readiness.json" >&2 || true
+  fi
 }
 
 cleanup() {
@@ -224,6 +232,8 @@ if [ -n "${E2E_KIND_CONFIG:-}" ]; then
 fi
 kind create cluster "${kind_args[@]}"
 cluster_created=true
+source hack/lib/helm-hook-preflight.sh
+prefetch_helm_hook_image "${cluster_name}" "${chart}" "${work_dir}"
 if [ "${E2E_RUN_AGENTLESS_SMOKE:-false}" = true ]; then
   AGENTLESS_KUBECONFIG="${kubeconfig}" AGENTLESS_CONTEXT="kind-${cluster_name}" \
     AGENTLESS_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/agentless" \

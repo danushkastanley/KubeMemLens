@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -11,6 +12,8 @@ import (
 
 func Run(ctx context.Context, opts Options) error {
 	ctx = interactiveContext(ctx)
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	reader := opts.SnapshotReader
 	description := opts.ConnectionDescription
 	if opts.RefreshInterval <= 0 {
@@ -18,7 +21,10 @@ func Run(ctx context.Context, opts Options) error {
 	}
 	model := newModel(ctx, opts, reader, description)
 	program := tea.NewProgram(model, tea.WithContext(ctx))
-	_, err := program.Run()
+	final, err := program.Run()
+	if model, ok := final.(appModel); ok {
+		return errors.Join(err, model.shutdownTrace())
+	}
 	return err
 }
 

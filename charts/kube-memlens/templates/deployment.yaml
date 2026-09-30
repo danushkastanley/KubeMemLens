@@ -51,6 +51,10 @@ spec:
             - "--extension-tls-cert-file=/var/run/kube-memlens/tls/tls.crt"
             - "--extension-tls-key-file=/var/run/kube-memlens/tls/tls.key"
             - "--agent-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-agent"
+{{- if .Values.incidentSessions.enabled }}
+            - "--incident-sessions=true"
+            - {{ printf "--incident-session-namespaces=%s" (join "," .Values.incidentSessions.namespaces) | quote }}
+{{- end }}
 {{- if .Values.replicaBaselines.enabled }}
             - "--replica-baselines=true"
             - {{ printf "--replica-namespaces=%s" (join "," .Values.replicaBaselines.namespaces) | quote }}

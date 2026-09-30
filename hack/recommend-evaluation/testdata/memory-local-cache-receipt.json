@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "caseID": "memory-local-cache",
+  "method": "Owned local64MiB Pod. Direct cgroup-v2 counters projected using numeric allow-list; known event deltas retained. Synthetic scope identities and normalised replay clock; no collector or authorisation claim.",
+  "sourceSHA256": "130d4089c915a0554b36306957a431391ce43f22e0eadd89942bf3b7dd3c2baa",
+  "cleanupSHA256": "d644f1b9c3f3e60faa6c2603a20ece15e778720882b666f9c549c9e824ae0dee",
+  "memory": {
+    "charge": 10018816,
+    "anon": 122880,
+    "file": 8392704,
+    "shmem": 0,
+    "slab": 403168,
+    "slabUnreclaimable": 79008,
+    "dirty": 4096,
+    "writeback": 0,
+    "socket": 0,
+    "pageTables": 221184,
+    "max": 67108864,
+    "psiSome": 0.0,
+    "psiFull": 0.0,
+    "oom": 0,
+    "oomKill": 0,
+    "maxEvents": 0,
+    "highEvents": 0,
+    "localEvents": true,
+    "deltasKnown": true
+  },
+  "replica": null,
+  "volume": null
+}
