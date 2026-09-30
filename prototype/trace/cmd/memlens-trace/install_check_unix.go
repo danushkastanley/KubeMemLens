@@ -24,6 +24,7 @@ func runInstallCheck(ctx context.Context, args []string, out, errOut io.Writer) 
 	specFile := flags.String("spec", "/installation/check.json", "bounded installation specification")
 	policyFile := flags.String("acceptance-policy", "/acceptance/policy.json", "pinned installation policy")
 	apiTrust := flags.String("api-trust", "/tls", "mounted admission API trust directory")
+	auditKey := flags.String("audit-reference-key", "/audit/reference.key", "mounted audit reference key")
 	nodeTrust := flags.String("node-trust", "/node-trust", "mounted public node certificates")
 	if flags.Parse(args) != nil || flags.NArg() != 0 {
 		return installcheck.ErrConfiguration
@@ -37,6 +38,9 @@ func runInstallCheck(ctx context.Context, args []string, out, errOut io.Writer) 
 	spec, err := installcheck.Decode(data)
 	if err != nil {
 		return err
+	}
+	if _, err := loadAuditReferences(*auditKey, spec.AuditReferenceKeySHA256); err != nil {
+		return installcheck.ErrTrust
 	}
 	policy, err := workerinstall.ReadPinnedFile(*policyFile, spec.PolicySHA256)
 	if err != nil {

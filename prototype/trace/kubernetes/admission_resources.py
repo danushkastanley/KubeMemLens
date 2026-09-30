@@ -40,7 +40,7 @@ def workload(name, namespace, node, image, args, port, mounts, volumes, security
     return [deployment, service]
 
 
-def deployments(image, node, uid, namespace, kubelet_root, control_pin):
+def deployments(image, node, uid, namespace, kubelet_root, control_pin, audit_secret, audit_key_sha256):
     items = []
     paths = {
         "btf": "/sys/kernel/btf", "tracing": "/sys/kernel/tracing",
@@ -58,6 +58,8 @@ def deployments(image, node, uid, namespace, kubelet_root, control_pin):
         "--node-client-cert", "/tls/node-client.crt",
         "--node-client-key", "/tls/node-client.key",
         "--node-registry", "/registry/nodes.json",
+        "--audit-reference-key", "/audit/reference.key",
+        "--audit-reference-key-sha256", audit_key_sha256,
     ]
     for name, args, port in (("binding-node", node_args, 9443),
                              ("admission-api", api_args, 8443)):
@@ -75,6 +77,9 @@ def deployments(image, node, uid, namespace, kubelet_root, control_pin):
             mounts += [{"name": n, "mountPath": path, "readOnly": True} for n, path in paths.items()]
             volumes += [{"name": n, "hostPath": {"path": path, "type": "Directory"}} for n, path in paths.items()]
         else:
+            mounts.append({"name": "audit-reference", "mountPath": "/audit", "readOnly": True})
+            volumes.append({"name": "audit-reference", "secret": {"secretName": audit_secret, "defaultMode": 0o440,
+                            "items": [{"key": "reference.key", "path": "reference.key"}]}})
             mounts.append({"name": "registry", "mountPath": "/registry", "readOnly": True})
             volumes.append({"name": "registry", "configMap": {"name": "node-registry"}})
         items += workload(name, namespace, node, image, args, port, mounts, volumes, security, seccomp)

@@ -33,16 +33,17 @@ func TestInstallationSpecificationRejectsAmbiguousInput(t *testing.T) {
 
 func TestInstallationSpecificationBoundsAndIdentity(t *testing.T) {
 	for name, mutate := range map[string]func(*Spec){
-		"empty-nodes":    func(s *Spec) { s.Nodes = nil },
-		"duplicate-node": func(s *Spec) { s.Nodes = append(s.Nodes, s.Nodes[0]) },
-		"duplicate-uid":  func(s *Spec) { n := s.Nodes[0]; n.Name, n.ID = "other", "two"; s.Nodes = append(s.Nodes, n) },
-		"path-escape":    func(s *Spec) { s.Nodes[0].KubeletCgroupRoot = "/../kubelet" },
-		"long-component": func(s *Spec) { s.Nodes[0].KubeletCgroupRoot = "/" + strings.Repeat("a", 64) },
-		"wrong-runtime":  func(s *Spec) { s.Nodes[0].RuntimeVersion = "cri-o://1.0" },
-		"empty-runtime":  func(s *Spec) { s.Nodes[0].RuntimeVersion = "containerd://" },
-		"bad-pin":        func(s *Spec) { s.Nodes[0].CertificateSHA256 = "not-a-digest" },
-		"bad-policy":     func(s *Spec) { s.PolicySHA256 = "" },
-		"bad-service":    func(s *Spec) { s.APIServiceName = "other/path" },
+		"empty-nodes":       func(s *Spec) { s.Nodes = nil },
+		"duplicate-node":    func(s *Spec) { s.Nodes = append(s.Nodes, s.Nodes[0]) },
+		"duplicate-uid":     func(s *Spec) { n := s.Nodes[0]; n.Name, n.ID = "other", "two"; s.Nodes = append(s.Nodes, n) },
+		"path-escape":       func(s *Spec) { s.Nodes[0].KubeletCgroupRoot = "/../kubelet" },
+		"long-component":    func(s *Spec) { s.Nodes[0].KubeletCgroupRoot = "/" + strings.Repeat("a", 64) },
+		"wrong-runtime":     func(s *Spec) { s.Nodes[0].RuntimeVersion = "cri-o://1.0" },
+		"empty-runtime":     func(s *Spec) { s.Nodes[0].RuntimeVersion = "containerd://" },
+		"bad-pin":           func(s *Spec) { s.Nodes[0].CertificateSHA256 = "not-a-digest" },
+		"bad-audit-key-pin": func(s *Spec) { s.AuditReferenceKeySHA256 = "" },
+		"bad-policy":        func(s *Spec) { s.PolicySHA256 = "" },
+		"bad-service":       func(s *Spec) { s.APIServiceName = "other/path" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			spec := specFixture()

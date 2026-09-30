@@ -38,6 +38,8 @@ spec:
             - --tls-key=/tls/tls.key
             - --node-client-cert=/tls/node-client.crt
             - --node-client-key=/tls/node-client.key
+            - --audit-reference-key=/audit/reference.key
+            - {{ printf "--audit-reference-key-sha256=%s" .Values.auditReferenceKeySHA256 | quote }}
             - --node-registry=/registry/nodes.json
             - --node-profile-mode=pinned
             - --acceptance-policy=/acceptance/policy.json
@@ -62,9 +64,15 @@ spec:
             periodSeconds: 2
           volumeMounts:
             - {name: tls, mountPath: /tls, readOnly: true}
+            - {name: audit-reference, mountPath: /audit, readOnly: true}
             - {name: registry, mountPath: /registry, readOnly: true}
             - {name: acceptance, mountPath: /acceptance, readOnly: true}
       volumes:
+        - name: audit-reference
+          secret:
+            secretName: {{ .Values.auditReferenceKeySecret | quote }}
+            defaultMode: 0440
+            items: [{key: reference.key, path: reference.key}]
         - name: tls
           secret: {secretName: {{ .Values.apiTLSSecret | quote }}, defaultMode: 0440}
         - name: registry

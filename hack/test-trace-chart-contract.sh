@@ -13,6 +13,7 @@ values={'enabled':True,'profile':'development-linux-containerd',
         'image':{'repository':'example.invalid/trace','digest':'sha256:'+'a'*64},
         'acceptancePolicyConfigMap':'accepted-policy','apiTLSSecret':'api-tls',
         'acceptancePolicySHA256':'d'*64,
+        'auditReferenceKeySecret':'audit-key','auditReferenceKeySHA256':'e'*64,
         'preflightServiceAccount':'trace-installer',
         'apiCABundle':'Y2E=','controlCertificateSHA256':'b'*64,'nodes':[]}
 for suffix,arch in [('one','amd64'),('two','arm64')]:
@@ -33,6 +34,9 @@ cases=[(['acknowledgeUnqualifiedDevelopment'],False),(['profile'],'qualified'),
        (['nodes',0,'kubeletCgroupRoot'],'/'+'a'*64),
        (['controlCertificateSHA256'],'not-a-pin')]
 cases.append((['acceptancePolicySHA256'],''))
+cases.append((['auditReferenceKeySecret'],''))
+cases.append((['auditReferenceKeySHA256'],''))
+cases.append((['auditReferenceKeySHA256'],'not-a-digest'))
 cases.append((['preflightServiceAccount'],''))
 cases.append((['nodes',0,'runtimeVersion'],'containerd://'))
 cases.append((['apiCABundle'],'a'*90000))

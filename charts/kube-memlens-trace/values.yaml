@@ -14,6 +14,9 @@ image:
 acceptancePolicyConfigMap: ""
 acceptancePolicySHA256: ""
 apiTLSSecret: ""
+# Separate administrator-owned key; values contain its name and digest only.
+auditReferenceKeySecret: ""
+auditReferenceKeySHA256: ""
 apiCABundle: ""
 controlCertificateSHA256: ""
 # Existing administrator-owned account with get on the exact configured Nodes.

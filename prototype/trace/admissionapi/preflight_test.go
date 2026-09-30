@@ -59,7 +59,7 @@ func TestPublicPreflightRequiresAuthoritySelectionAndInstalledProgramme(t *testi
 	}{{"ready", 200}, {"denied", 403}, {"unauthenticated", 401}, {"replacement", 409}, {"unapproved", 503}, {"legacy", 400}} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &preflightFixture{denied: tc.name == "denied"}
-			m, err := admission.NewManager(context.Background(), admission.Dependencies{Authorizer: f, Resolver: f, Binder: f, Audit: func(admission.AuditEvent) {}}, admission.DefaultPolicy())
+			m, err := admission.NewManager(context.Background(), admission.Dependencies{Authorizer: f, Resolver: f, Binder: f, AuditReferences: testAuditReferences(t), Audit: func(context.Context, admission.AuditEvent) error { return nil }}, admission.DefaultPolicy())
 			if err != nil {
 				t.Fatal(err)
 			}

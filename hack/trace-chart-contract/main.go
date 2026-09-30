@@ -37,6 +37,15 @@ func main() {
 		case "ConfigMap":
 			var config corev1.ConfigMap
 			decode(data, &config)
+			if raw, ok := config.Data["check.json"]; ok {
+				var spec struct {
+					AuditReferenceKeySHA256 string `json:"auditReferenceKeySHA256"`
+				}
+				decode([]byte(raw), &spec)
+				if spec.AuditReferenceKeySHA256 != strings.Repeat("e", 64) {
+					fail("preflight audit key is not pinned")
+				}
+			}
 			if raw, ok := config.Data["nodes.json"]; ok {
 				verifyRegistry(raw, os.Args[4])
 				registries++
@@ -113,6 +122,7 @@ func verifyPod(d appsv1.Deployment) {
 	}
 	profile := p.SecurityContext.SeccompProfile
 	if d.Spec.Template.Labels["app.kubernetes.io/component"] == "trace-api" {
+		verifyAuditAPI(p)
 		if !slices.Contains(c.Args, "--node-profile-mode=pinned") {
 			fail("API does not require runtime profile checks")
 		}
@@ -126,6 +136,7 @@ func verifyPod(d appsv1.Deployment) {
 		}
 		return
 	}
+	rejectNodeAuditKey(p)
 	if !slices.Contains(c.Args, "--expected-kernel-release=6.12.0") {
 		fail("node startup is not bound to the configured kernel")
 	}

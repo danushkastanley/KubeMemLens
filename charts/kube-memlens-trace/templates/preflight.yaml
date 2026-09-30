@@ -1,6 +1,6 @@
 {{- if .Values.enabled }}
 {{- $name := include "trace.name" . }}
-{{- $spec := dict "schemaVersion" 1 "namespace" .Release.Namespace "apiServiceName" (printf "%s-api" $name) "nodeServicePrefix" (printf "%s-node" $name) "policySHA256" .Values.acceptancePolicySHA256 "controlCertificateSHA256" .Values.controlCertificateSHA256 "apiCABundle" .Values.apiCABundle "nodes" .Values.nodes | toJson }}
+{{- $spec := dict "schemaVersion" 1 "namespace" .Release.Namespace "apiServiceName" (printf "%s-api" $name) "nodeServicePrefix" (printf "%s-node" $name) "policySHA256" .Values.acceptancePolicySHA256 "auditReferenceKeySHA256" .Values.auditReferenceKeySHA256 "controlCertificateSHA256" .Values.controlCertificateSHA256 "apiCABundle" .Values.apiCABundle "nodes" .Values.nodes | toJson }}
 {{- if gt (len $spec) 65536 }}{{ fail "installation specification exceeds runtime byte limit" }}{{ end }}
 apiVersion: v1
 kind: ConfigMap
@@ -60,10 +60,16 @@ spec:
             - {name: specification, mountPath: /installation, readOnly: true}
             - {name: acceptance, mountPath: /acceptance, readOnly: true}
             - {name: api-trust, mountPath: /tls, readOnly: true}
+            - {name: audit-reference, mountPath: /audit, readOnly: true}
             {{- range .Values.nodes }}
             - {name: node-{{ .id }}, mountPath: {{ printf "/node-trust/%s" .id | quote }}, readOnly: true}
             {{- end }}
       volumes:
+        - name: audit-reference
+          secret:
+            secretName: {{ .Values.auditReferenceKeySecret | quote }}
+            defaultMode: 0440
+            items: [{key: reference.key, path: reference.key}]
         - name: specification
           configMap: {name: {{ $name }}-preflight, defaultMode: 0444}
         - name: acceptance

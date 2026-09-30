@@ -48,13 +48,22 @@ func (m *Manager) Preflight(ctx context.Context, info user.Info, request Request
 		return result, ErrUnavailable
 	}
 	defer m.inflight.Done()
-	principalClass := "unauthenticated"
-	defer func() { m.record(Inspect, principalClass, request.kind, err) }()
+	event := m.auditEvent(Inspect, request)
+	defer func() {
+		if m.record(event, err) != nil {
+			result, err = NodePreflight{}, ErrUnavailable
+		}
+	}()
+	if m.AuditHealthy() != nil {
+		return result, ErrUnavailable
+	}
 	principal, _, err := snapshotPrincipal(info)
 	if err != nil {
 		return result, err
 	}
-	principalClass = principalCategory(principal)
+	if err = m.identifyAudit(&event, principal, request.namespace, ""); err != nil {
+		return result, err
+	}
 	ctx, stop := m.operationContext(ctx)
 	defer stop()
 	if request.selection == nil {

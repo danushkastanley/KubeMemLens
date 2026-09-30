@@ -9,6 +9,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	admission "github.com/danushkastanley/kube-memlens/internal/traceadmission"
+	"github.com/danushkastanley/kube-memlens/internal/traceaudit"
 	"github.com/danushkastanley/kube-memlens/internal/traceframe"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/nodebinding"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/streamhttp"
@@ -58,7 +59,23 @@ func NewStreamProxyProgrammes(programmes map[trace.Kind]StreamProgramme) (*Strea
 	}
 	return p, nil
 }
-func (p *StreamProxy) serve(parent context.Context, w http.ResponseWriter, lease *admission.Lease) error {
+func (p *StreamProxy) serve(parent context.Context, w http.ResponseWriter, lease *admission.Lease) (resultErr error) {
+	defer func() {
+		reason := trace.EngineFailed
+		switch {
+		case errors.Is(resultErr, admission.ErrTargetChanged):
+			reason = trace.TargetChanged
+		case errors.Is(resultErr, admission.ErrDenied):
+			reason = trace.AuthorisationLost
+		case errors.Is(context.Cause(lease.Context()), admission.ErrExpired):
+			reason = trace.Expired
+		case errors.Is(context.Cause(lease.Context()), context.Canceled):
+			reason = trace.Cancelled
+		}
+		if lease.RecordTerminal(reason, traceaudit.ControllerOutcome) != nil {
+			resultErr = admission.ErrUnavailable
+		}
+	}()
 	ctx := parent
 	a := lease.Admission()
 	programme, approved := p.programmes[a.Specification().Kind()]
@@ -148,6 +165,9 @@ func (p *StreamProxy) serve(parent context.Context, w http.ResponseWriter, lease
 			if errors.Is(context.Cause(lease.Context()), context.Canceled) {
 				termination = trace.Cancelled
 			}
+		}
+		if err := lease.RecordTerminal(termination, traceaudit.ControllerOutcome); err != nil {
+			return err
 		}
 		return relay.terminate(parent, termination)
 	}

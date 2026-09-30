@@ -34,6 +34,7 @@ type Node struct {
 }
 
 type Spec struct {
+	AuditReferenceKeySHA256  string `json:"auditReferenceKeySHA256"`
 	SchemaVersion            int    `json:"schemaVersion"`
 	Namespace                string `json:"namespace"`
 	APIServiceName           string `json:"apiServiceName"`
@@ -59,7 +60,7 @@ func (n Node) profile() nodeprofile.Profile {
 }
 
 func (s Spec) Validate() error {
-	if s.SchemaVersion != 1 || len(validation.IsDNS1123Label(s.Namespace)) != 0 || len(validation.IsDNS1123Label(s.APIServiceName)) != 0 || len(s.NodeServicePrefix) > 42 || len(validation.IsDNS1123Label(s.NodeServicePrefix)) != 0 || !validSHA(s.PolicySHA256) || !validSHA(s.ControlCertificateSHA256) || len(s.APICABundle) == 0 || len(s.APICABundle) > 64<<10 || len(s.Nodes) == 0 || len(s.Nodes) > 64 {
+	if s.SchemaVersion != 1 || len(validation.IsDNS1123Label(s.Namespace)) != 0 || len(validation.IsDNS1123Label(s.APIServiceName)) != 0 || len(s.NodeServicePrefix) > 42 || len(validation.IsDNS1123Label(s.NodeServicePrefix)) != 0 || !validSHA(s.AuditReferenceKeySHA256) || !validSHA(s.PolicySHA256) || !validSHA(s.ControlCertificateSHA256) || len(s.APICABundle) == 0 || len(s.APICABundle) > 64<<10 || len(s.Nodes) == 0 || len(s.Nodes) > 64 {
 		return ErrConfiguration
 	}
 	names, uids, ids := map[string]bool{}, map[string]bool{}, map[string]bool{}
