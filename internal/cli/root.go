@@ -55,6 +55,7 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	cmd.AddCommand(newExplainCommand(flags.options))
 	cmd.AddCommand(newVolumesCommand(flags.options))
 	cmd.AddCommand(newTUICommand(flags.options))
+	cmd.AddCommand(newTraceCommand(flags.options))
 	cmd.AddCommand(newStatusCommand(flags.options))
 	cmd.AddCommand(newDoctorCommand(flags.options))
 	cmd.AddCommand(newHistoryCommand(flags.options))

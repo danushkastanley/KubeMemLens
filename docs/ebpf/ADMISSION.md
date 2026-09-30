@@ -86,7 +86,8 @@ Do not scale it or change the security profile to obtain a passing preflight.
 
 Grant an intended namespace user `create`, `get` and `delete` on
 `traces.tracing.kubememlens.io` in that namespace, plus `get` on the selected core
-Pod. Exact `resourceNames` restrictions are honoured on Pod reads and individual
+Pod. The explicit preflight workflow also requires `create` on
+`tracepreflights.tracing.kubememlens.io`. Exact `resourceNames` restrictions are honoured on Pod reads and individual
 trace reads/deletes. There is no trace list, update, watch, CRD or generic gadget
 endpoint. Every operation requires current policy and owner checks; knowing an
 admission ID grants no access.
@@ -101,10 +102,48 @@ A create is a JSON POST to
 The request allows only fixed trace kinds (`files`, `cache`, `oom`), explicit
 raw-path consent and lower limits. Raw paths are denied by the default server
 policy. Namespace is taken from the authenticated route. Node, Pod UID, container
-ID, cgroup ID, engine references and selectors are rejected as user fields.
+ID, cgroup ID, engine references and selectors are rejected as binding authority.
 Duplicate, null, unknown and case-aliased fields are rejected within a 4096-byte
 body limit. The response contains an opaque admission name, namespace, expiry,
 engine digest and `admitted` state; it exposes no runtime identifiers.
+
+Request schema 2 additionally requires `expectedPodUID`, `expectedContainerID`,
+`expectedContainerStartedAt` and `expectedNodeName`. These compare the user's
+selected lifetime with a fresh, server-resolved workload. They cannot choose a
+Node UID, supply a cgroup, grant access or replace node-side resolution. A mismatch
+returns 409 before node binding, and releases the pending admission reservation.
+The start timestamp is compared by instant; the container ID must be the complete
+64-character lower-case containerd identifier without its URI prefix.
+
+Schema 1 retains its existing name-based behaviour and rejects the new fields.
+Schema 2 rejects missing, empty or null preconditions; future versions fail closed.
+Clients using selection preconditions must not fall back to schema 1 after a
+rejection, since doing so would discard the selected-lifetime guarantee. Existing
+stream versions and server-side revalidation are unchanged.
+
+### Inspect before admission
+
+POST a schema-2 request to
+`/apis/tracing.kubememlens.io/v1alpha1/namespaces/NAMESPACE/tracepreflights`.
+The API checks current permission for preflight creation, trace creation and the
+exact Pod read, resolves the selected lifetime and asks the registered node to
+inspect it. It repeats permission and lifetime checks before returning HTTP 200.
+This operation creates no admission, lease, replay nonce or persistent object.
+There is no list/get/delete API for preflight reports.
+
+The node verifies the current cgroup handle and accepted programme artefacts,
+then closes the handle without running the engine. The response includes the
+observed **startup** baseline with its original capture time, the checked incident
+engine/programme digests and stream version, and requested bounds/path policy.
+The startup baseline is not a new kernel-probe run or incident qualification;
+`resourceQualified` remains false. Workload identifiers and private handles are
+not included. A preflight report cannot authorise activation: ordinary admission
+repeats the checks, and schema-2 selection preconditions must be retained.
+
+Only one temporary node preflight runs at a time. Its bounded preparation does
+not hold the node lease lock or consume control-operation slots, so cancellation
+can proceed concurrently. Shutdown cancels and joins the temporary inspection.
+Unconfirmed handle cleanup fails closed and poisons subsequent node work.
 
 GET the individual admission to revalidate, or DELETE it to cancel. The optional
 single-consumer `GET traces/ID/stream` route additionally requires exact

@@ -27,6 +27,12 @@ func (a *Authorizer) Trace(ctx context.Context, p user.Info, operation admission
 	case admission.Attach:
 		resource.Verb = "get"
 		resource.Subresource = "stream"
+	case admission.Inspect:
+		if name != "" {
+			return admission.ErrInvalidRequest
+		}
+		resource.Verb = "create"
+		resource.Resource = "tracepreflights"
 	default:
 		return admission.ErrInvalidRequest
 	}

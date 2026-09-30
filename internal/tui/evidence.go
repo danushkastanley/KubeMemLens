@@ -38,7 +38,7 @@ func (m appModel) receiveDiscovery(msg discoveryMsg) (tea.Model, tea.Cmd) {
 		m.observationReader = msg.session.Observations
 		m.sort = sortTotal
 	}
-	return m, m.fetchCmd()
+	return m, tea.Batch(m.fetchCmd(), m.discoverTraceCmd())
 }
 
 func (m appModel) evidenceLabel() string {

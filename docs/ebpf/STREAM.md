@@ -257,7 +257,7 @@ audit rules for the tracing group, and verify the applied API-server policy:
 - level: Metadata
   resources:
   - group: tracing.kubememlens.io
-    resources: [traces, traces/stream]
+    resources: [tracepreflights, traces, traces/stream]
 ```
 
 Qualification checks the real audit log for absent request/response objects and

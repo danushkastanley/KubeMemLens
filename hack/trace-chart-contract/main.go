@@ -156,6 +156,7 @@ func verifyRole(role rbacv1.ClusterRole) {
 		expected = []rbacv1.PolicyRule{
 			{APIGroups: []string{"tracing.kubememlens.io"}, Resources: []string{"traces"}, Verbs: []string{"create", "get", "delete"}},
 			{APIGroups: []string{"tracing.kubememlens.io"}, Resources: []string{"traces/stream"}, Verbs: []string{"get"}},
+			{APIGroups: []string{"tracing.kubememlens.io"}, Resources: []string{"tracepreflights"}, Verbs: []string{"create"}},
 			{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get"}},
 		}
 	default:

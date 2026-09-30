@@ -173,7 +173,7 @@ func (m *Manager) operationContext(parent context.Context) (context.Context, fun
 
 func validateWorkload(r Request, w Workload) error {
 	t := w.Target
-	if t.ValidateLifetime() != nil || t.CgroupID != 0 || t.Namespace != r.namespace || t.PodName != r.pod || t.ContainerName != r.container || w.NodeName == "" {
+	if t.ValidateLifetime() != nil || t.CgroupID != 0 || t.Namespace != r.namespace || t.PodName != r.pod || t.ContainerName != r.container || w.NodeName == "" || !r.matchesSelection(w) {
 		return ErrTargetChanged
 	}
 	switch w.QoS {

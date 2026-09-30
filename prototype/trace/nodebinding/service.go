@@ -44,6 +44,8 @@ type Service struct {
 	done              chan struct{}
 	closed            bool
 	cleanupErr        error
+	startupReport     []byte
+	previewDone       chan struct{}
 }
 
 // NewService owns at most two handles and 256 unexpired replay records. When
@@ -98,6 +100,12 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if id, ok := streamID(r); ok {
 		s.serveStream(w, r, id)
+		return
+	}
+	if r.Method == http.MethodPost && r.URL.Path == "/v1/preflight" {
+		ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
+		defer cancel()
+		s.servePreflight(ctx, w, r)
 		return
 	}
 	select {
