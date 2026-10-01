@@ -150,6 +150,24 @@ local kind kubeconfig, Node lifetime, immutable images, service and helper hashe
 and three new owned namespaces. Mounted certificates must cover the full campaign
 and restoration margin. It does not accept a shortened profile.
 
+Build the chart inventory decoder before freezing the campaign or provisioning
+a paid test host. Add `chartInventory` to the private configuration with its
+absolute `path` and independently recorded `sha256`. The file must be owned by
+the controller user, executable, and not writable by group or others. Symlinks,
+changed hashes and missing binaries fail before campaign runtime access. The
+decoder is rechecked at each campaign invariant and before and after use.
+
+```sh
+go build -trimpath -o /absolute/preparation/kml-chart-inventory ./hack/node-qualification/chart-inventory
+shasum -a 256 /absolute/preparation/kml-chart-inventory
+```
+
+For the planned EKS host, build for `GOOS=linux GOARCH=amd64 CGO_ENABLED=0` and
+verify the installed bytes there. The fixture installer no longer compiles Go
+code. The frozen source inventory now includes the decoder and every standard
+chart file, including values, schema and templates. Prepare a fresh configuration
+and source hash for new runs; historical frozen campaigns remain unchanged.
+
 `normal_profile.json` specifies five paired 1,350-second windows, 32 fixed workload
 containers, a persistent 1 Hz cached-file series and 36 separate 30-second trace
 admissions. The files programme has seven maps (`.bss`, `.rodata`, `control`,

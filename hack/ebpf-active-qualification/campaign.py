@@ -18,13 +18,14 @@ from processes import wait_until
 from profile import load_profile
 from high_rate_profile import load_high_rate_profile
 from preflight import read_configuration, certificate_lifetimes
+from chart_inventory import verify_inventory
 from window import Window
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_DIRS = ['hack/ebpf-active-qualification', 'hack/ebpf-qualification',
                'prototype/trace/qualification/active-measure', 'prototype/trace/qualification/lifecycle',
                'prototype/trace/qualification/filecache', 'prototype/trace/qualification/delivery',
-               'prototype/trace/qualification/delivery-client']
+               'prototype/trace/qualification/delivery-client', 'hack/node-qualification/chart-inventory']
 
 
 def sources():
@@ -33,6 +34,7 @@ def sources():
         paths += [p for p in (ROOT / name).rglob('*') if p.is_file() and '__pycache__' not in p.parts
                   and (p.suffix in {'.go', '.py', '.json', '.md', '.c'} or p.name == 'Dockerfile')]
     paths += [ROOT / p for p in ('go.mod', 'go.sum', 'prototype/trace/go.mod', 'prototype/trace/go.sum')]
+    paths += [p for p in (ROOT / 'charts/kube-memlens').rglob('*') if p.is_file()]
     return {str(p.relative_to(ROOT)): digest(p.read_bytes()) for p in sorted(paths)}
 
 
@@ -50,6 +52,7 @@ class Campaign:
         self.source = sources()
         if digest(canonical(self.source)) != cfg['sourceSHA256']:
             raise ValueError('source differs from independently frozen manifest')
+        verify_inventory(cfg['chartInventory'])
         self.case = LocalCase(cfg)
         self.case.runtime.policy()
         self.case.runtime.ready()
@@ -93,6 +96,7 @@ class Campaign:
     def invariant(self):
         if sources() != self.source:
             raise ValueError('source changed during campaign')
+        verify_inventory(self.cfg['chartInventory'])
         self.case.runtime.policy()
         for role in ('node', 'api'):
             self.case.runtime.deployment(role)

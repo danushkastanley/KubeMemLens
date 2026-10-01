@@ -7,7 +7,7 @@ import stat
 from local_case import command, digest
 
 FIELDS = {'trace', 'sourceSHA256', 'fixtureNamespaces', 'standardNamespace', 'release',
-          'standardImage', 'fixtureImage', 'fixtureSHA256', 'standardSHA256', 'helpers', 'owner'}
+          'standardImage', 'fixtureImage', 'fixtureSHA256', 'standardSHA256', 'helpers', 'owner', 'chartInventory'}
 
 
 def unique_fields(pairs):
