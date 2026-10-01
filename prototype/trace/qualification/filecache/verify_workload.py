@@ -164,6 +164,9 @@ def verify(image):
             raise RuntimeError("fixture replacement was not rejected")
         results.append({"negativeCase": "existing fixture replacement", "passed": True})
 
+        from verify_flood_runtime import verify_corrupt_flood, verify_flood
+        results.extend(verify_flood(common, image))
+
         # Corrupt one byte of the test-owned file without changing its length.
         result = run("/bin/sh", "-ec",
                      "printf x | dd of=/work/fixed-seed.bin bs=1 conv=notrunc 2>/dev/null")
@@ -174,6 +177,7 @@ def verify(image):
                 result.stderr != "workload failed: data integrity\n"):
             raise RuntimeError("corrupted fixture was not rejected")
         results.append({"negativeCase": "corrupted bytes", "passed": True})
+        results.append(verify_corrupt_flood(common, image))
     finally:
         # Also stop the exact owned container if a CLI timeout left it running.
         subprocess.run(["docker", "rm", "-f", container],

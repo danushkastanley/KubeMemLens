@@ -30,31 +30,48 @@ func Connect(ctx context.Context, connection Connection, expected Expectation) (
 	if !validExpectation(expected) {
 		return Result{}, ErrObservation
 	}
-	endpoint, err := url.Parse(connection.Server)
-	if err != nil || endpoint.Scheme != "https" || endpoint.User != nil || endpoint.Path != "" || endpoint.RawQuery != "" || endpoint.ForceQuery || endpoint.Fragment != "" || endpoint.String() != connection.Server || endpoint.Port() == "" {
-		return Result{}, ErrObservation
+	client, err := newHTTPClient(connection)
+	if err != nil {
+		return Result{}, err
 	}
-	host := endpoint.Hostname()
-	ip := net.ParseIP(host)
-	if !(ip != nil && ip.IsLoopback()) && !kindHost.MatchString(host) && !(host == "kubernetes.default.svc" && endpoint.Port() == "443") {
-		return Result{}, ErrObservation
-	}
-	if connection.Token == "" || len(connection.Token) > 8192 || strings.ContainsAny(connection.Token, " \t\r\n") || len(connection.CAPEM) > 16384 {
-		return Result{}, ErrObservation
-	}
-	roots := x509.NewCertPool()
-	if !roots.AppendCertsFromPEM([]byte(connection.CAPEM)) {
-		return Result{}, ErrObservation
-	}
-	transport := &http.Transport{Proxy: nil, TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS13}, DialContext: (&net.Dialer{Timeout: 5 * time.Second}).DialContext, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: 5 * time.Second, MaxResponseHeaderBytes: 16384, MaxConnsPerHost: 2, DisableCompression: true}
-	defer transport.CloseIdleConnections()
-	client := &http.Client{Transport: transport, Timeout: 40 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	defer client.CloseIdleConnections()
 	lifetime, cancel := context.WithTimeout(ctx, 40*time.Second)
 	defer cancel()
 	return readWithClient(lifetime, client, connection.Server, connection.Token, expected, time.Now)
 }
 
+func newHTTPClient(connection Connection) (*http.Client, error) {
+	endpoint, err := url.Parse(connection.Server)
+	if err != nil || endpoint.Scheme != "https" || endpoint.User != nil || endpoint.Path != "" || endpoint.RawQuery != "" || endpoint.ForceQuery || endpoint.Fragment != "" || endpoint.String() != connection.Server || endpoint.Port() == "" {
+		return nil, ErrObservation
+	}
+	host := endpoint.Hostname()
+	ip := net.ParseIP(host)
+	if !(ip != nil && ip.IsLoopback()) && !kindHost.MatchString(host) && !(host == "kubernetes.default.svc" && endpoint.Port() == "443") {
+		return nil, ErrObservation
+	}
+	if connection.Token == "" || len(connection.Token) > 8192 || strings.ContainsAny(connection.Token, " \t\r\n") || len(connection.CAPEM) > 16384 {
+		return nil, ErrObservation
+	}
+	roots := x509.NewCertPool()
+	if !roots.AppendCertsFromPEM([]byte(connection.CAPEM)) {
+		return nil, ErrObservation
+	}
+	transport := &http.Transport{Proxy: nil, TLSClientConfig: &tls.Config{RootCAs: roots, MinVersion: tls.VersionTLS13}, DialContext: (&net.Dialer{Timeout: 5 * time.Second}).DialContext, TLSHandshakeTimeout: 5 * time.Second, ResponseHeaderTimeout: 5 * time.Second, MaxResponseHeaderBytes: 16384, MaxConnsPerHost: 2, DisableCompression: true}
+	client := &http.Client{Transport: transport, Timeout: 40 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	return client, nil
+}
+
 func readWithClient(ctx context.Context, client *http.Client, server, token string, expected Expectation, now func() time.Time) (Result, error) {
+	body, active, err := openAdmittedStream(ctx, client, server, token, expected)
+	if err != nil {
+		return Result{}, err
+	}
+	defer body.Close()
+	return Observe(body, expected, now, active)
+}
+
+func openAdmittedStream(ctx context.Context, client *http.Client, server, token string, expected Expectation) (io.ReadCloser, func() (time.Time, error), error) {
 	target := expected.Specification.Target()
 	path := "/apis/tracing.kubememlens.io/v1alpha1/namespaces/" + url.PathEscape(target.Namespace) + "/traces/" + url.PathEscape(expected.SessionID)
 	get := func(suffix string) (*http.Response, error) {
@@ -75,9 +92,8 @@ func readWithClient(ctx context.Context, client *http.Client, server, token stri
 	}
 	response, err := get("/stream")
 	if err != nil {
-		return Result{}, ErrObservation
+		return nil, nil, ErrObservation
 	}
-	defer response.Body.Close()
 	active := func() (time.Time, error) {
 		state, err := get("")
 		if err != nil {
@@ -104,5 +120,5 @@ func readWithClient(ctx context.Context, client *http.Client, server, token stri
 		}
 		return admission.ExpiresAt, nil
 	}
-	return Observe(response.Body, expected, now, active)
+	return response.Body, active, nil
 }

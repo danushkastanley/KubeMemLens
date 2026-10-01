@@ -181,3 +181,20 @@ path and prefix move, checks lengths from zero through 512 bytes and retains
 guards around the destination. The former whole-buffer copy must fail the same
 dirty-suffix check. This verifies byte-copy behaviour without loading BPF; it does
 not replace verifier, permission-hook or live consented-path qualification.
+
+## Finite flood workload
+
+`flood COUNT` opens the existing owned 8 MiB fixture read-only and requires it to
+be fully cached. It emits the existing readiness record, waits for `R`, then
+performs exactly COUNT successful 64-byte reads with fixed-seed integrity checks.
+COUNT is bounded to 1–262,144; wrapping the file seeks to its start. A partial or
+interrupted read fails instead of silently changing the syscall count. The burst
+must complete within ten seconds, and the process retains the bounded gated
+lifetime and final `Q` handshake. It neither creates nor changes file content.
+
+The separate flood receipt contains schema version, mode, file size, read-call
+count, bytes per read, total bytes and monotonic operation timing. `verify_flood.py`
+validates those independent workload counters. They do not establish how many
+BPF events were produced, lost or delivered: the controller must match readiness,
+actual admission, event/output outcome, resource limits and owned cleanup.
+The initial controller burst will use 131,072 reads (8 MiB total application I/O).
