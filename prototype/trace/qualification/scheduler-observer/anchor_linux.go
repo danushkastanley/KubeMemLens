@@ -9,6 +9,8 @@ import (
 )
 
 var errAnchor = errors.New("scheduler owner process changed or exited")
+var errAnchorPoll = errors.New("scheduler owner poll failed")
+var errAnchorInterrupted = errors.New("scheduler owner poll interruption limit exceeded")
 
 type anchorConfiguration struct {
 	PID   int    `json:"pid"`
@@ -56,12 +58,27 @@ func bindAnchor(cfg anchorConfiguration) (*processAnchor, error) {
 }
 
 func (a *processAnchor) alive() error {
-	fds := []unix.PollFd{{Fd: int32(a.fd), Events: unix.POLLIN}}
-	count, err := unix.Poll(fds, 0)
-	if err != nil || count != 0 || fds[0].Revents != 0 {
-		return errAnchor
+	return pollAnchor(a.fd, unix.Poll)
+}
+
+func pollAnchor(fd int, poll func([]unix.PollFd, int) (int, error)) error {
+	// Signals can interrupt a zero-timeout poll before it examines the pidfd.
+	// Retry only EINTR, with a fixed bound; no interrupted check proves liveness.
+	for attempt := 0; attempt < 3; attempt++ {
+		fds := []unix.PollFd{{Fd: int32(fd), Events: unix.POLLIN}}
+		count, err := poll(fds, 0)
+		if errors.Is(err, unix.EINTR) {
+			continue
+		}
+		if err != nil {
+			return errors.Join(errAnchorPoll, err)
+		}
+		if count != 0 || fds[0].Revents != 0 {
+			return errAnchor
+		}
+		return nil
 	}
-	return nil
+	return errAnchorInterrupted
 }
 
 func (a *processAnchor) close() error {
