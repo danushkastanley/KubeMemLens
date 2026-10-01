@@ -1,6 +1,6 @@
 import unittest
 
-from verify_flood import validate_flood
+from verify_flood import validate_flood, validate_paced_flood
 
 
 def observation():
@@ -10,6 +10,20 @@ def observation():
 
 
 class FloodObservationTests(unittest.TestCase):
+    def test_paced_writer_case_has_separate_schema_and_a_real_schedule_floor(self):
+        value = observation()
+        value.update(schemaVersion=2, mode='paced-flood', readCalls=12000, readBytes=768000,
+                     readPeriodNanos=500000, operationNanos=6000000000,
+                     operationEndedMonotonicNanos=6000000100)
+        self.assertEqual(validate_paced_flood(value, 12000), value)
+        for change in ({'schemaVersion': 2.0}, {'readPeriodNanos': 0},
+                       {'operationNanos': 5999000000, 'operationEndedMonotonicNanos': 5999000100}):
+            wrong = dict(value, **change)
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                validate_paced_flood(wrong, 12000)
+        with self.assertRaises(ValueError):
+            validate_paced_flood(value, 12001)
+
     def test_fixed_burst_retains_exact_independent_calls_and_bytes(self):
         value = observation()
         self.assertEqual(validate_flood(value, 131072), value)

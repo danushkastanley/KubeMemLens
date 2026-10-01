@@ -250,8 +250,17 @@ static int series(const struct series_pattern *pattern, const char *count_text, 
 
 // A finite cached-read burst starts only after the controller has matched the
 // active admission. Small reads exercise event volume without unbounded I/O.
-static int flood(const char *count_text) {
-    unsigned int count = number(count_text, 262144);
+struct flood_pattern {
+    const char *mode;
+    unsigned int version, maximum_count;
+    uint64_t period;
+};
+
+static const struct flood_pattern burst_flood = {"flood", 1, 262144, 0};
+static const struct flood_pattern paced_flood = {"paced-flood", 2, 12000, 500000};
+
+static int flood(const struct flood_pattern *pattern, const char *count_text) {
+    unsigned int count = number(count_text, pattern->maximum_count);
     long page = sysconf(_SC_PAGESIZE);
     if (page != 4096 && page != 65536) fail("page size");
     seed_block();
@@ -269,6 +278,7 @@ static int flood(const char *count_text) {
     uint64_t started = monotonic_nanos();
     size_t offset = 0;
     for (unsigned int i = 0; i < count; i++) {
+        if (pattern->period) wait_until(started + (uint64_t)i * pattern->period);
         if (offset == FILE_BYTES) {
             if (lseek(fd, 0, SEEK_SET) != 0) fail("seek");
             offset = 0;
@@ -284,20 +294,22 @@ static int flood(const char *count_text) {
     uint64_t ended = monotonic_nanos();
     if (ended <= started || ended - started > UINT64_C(10000000000))
         fail("flood duration");
-    printf("{\"schemaVersion\":1,\"mode\":\"flood\",\"fileBytes\":%d,"
+    printf("{\"schemaVersion\":%u,\"mode\":\"%s\",\"fileBytes\":%d,"
            "\"readCalls\":%u,\"bytesPerRead\":64,\"readBytes\":%" PRIu64 ","
            "\"operationStartedMonotonicNanos\":%" PRIu64 ","
-           "\"operationEndedMonotonicNanos\":%" PRIu64 ",\"operationNanos\":%" PRIu64 "}\n",
-           FILE_BYTES, count, (uint64_t)count * 64, started, ended, ended - started);
+           "\"operationEndedMonotonicNanos\":%" PRIu64 ",\"operationNanos\":%" PRIu64,
+           pattern->version, pattern->mode, FILE_BYTES, count, (uint64_t)count * 64, started, ended, ended - started);
+    if (pattern->period) printf(",\"readPeriodNanos\":%" PRIu64, pattern->period);
+    puts("}");
     if (fflush(stdout) != 0) fail("flood output");
     wait_command('Q');
     return 0;
 }
 
 int main(int argc, char **argv) {
-    if (argc >= 2 && strcmp(argv[1], "flood") == 0) {
+    if (argc >= 2 && (strcmp(argv[1], "flood") == 0 || strcmp(argv[1], "paced-flood") == 0)) {
         if (argc != 3) fail("flood arguments");
-        return flood(argv[2]);
+        return flood(strcmp(argv[1], "flood") == 0 ? &burst_flood : &paced_flood, argv[2]);
     }
     if (argc >= 2 && strcmp(argv[1], "series") == 0) {
         if (argc != 5) fail("series arguments");
