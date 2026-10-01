@@ -26,8 +26,20 @@ func canonicalEvent(data []byte, e envelope) bool {
 	if e.Type != EventFrame || e.Event == nil || e.Metadata != nil || e.Summary != nil {
 		return false
 	}
-	canonical, err := json.Marshal(e)
-	return err == nil && bytes.Equal(data[:len(data)-1], canonical)
+	// Compare the encoder's output in place rather than allocating a second
+	// encoded frame. Encode includes the required final newline.
+	match := canonicalMatch{remaining: data}
+	return json.NewEncoder(&match).Encode(e) == nil && len(match.remaining) == 0
+}
+
+type canonicalMatch struct{ remaining []byte }
+
+func (m *canonicalMatch) Write(data []byte) (int, error) {
+	if !bytes.HasPrefix(m.remaining, data) {
+		return 0, ErrInvalid
+	}
+	m.remaining = m.remaining[len(data):]
+	return len(data), nil
 }
 
 func decodeStrictSyntax(data []byte) (envelope, error) {

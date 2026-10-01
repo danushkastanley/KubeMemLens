@@ -12,6 +12,15 @@ const canonicalFileEvent = `{"version":2,"type":"event","event":{"observedAt":"2
 
 func assertSameSyntax(t *testing.T, data []byte) {
 	t.Helper()
+	var decoded envelope
+	if json.Unmarshal(data, &decoded) == nil {
+		encoded, err := json.Marshal(decoded)
+		wantCanonical := err == nil && decoded.Type == EventFrame && decoded.Event != nil &&
+			decoded.Metadata == nil && decoded.Summary == nil && bytes.Equal(data, append(encoded, '\n'))
+		if canonicalEvent(data, decoded) != wantCanonical {
+			t.Fatal("streamed comparison disagrees with canonical encoding")
+		}
+	}
 	fast, fastErr := decodeFrameSyntax(data)
 	strict, strictErr := decodeStrictSyntax(data)
 	if (fastErr == nil) != (strictErr == nil) {
@@ -44,6 +53,10 @@ func TestEventSyntaxPreservesStrictRejections(t *testing.T) {
 		"whitespace":       strings.ReplaceAll(canonicalFileEvent, ":", ": "),
 		"reordered":        strings.Replace(canonicalFileEvent, `"version":2,"type":"event"`, `"type":"event","version":2`, 1),
 		"escaped-key":      strings.Replace(canonicalFileEvent, `"type"`, `"\u0074ype"`, 1),
+		"escaped-path":     strings.Replace(canonicalFileEvent, `/fixture`, `/\u003cfixture\u003e\u0026`, 1),
+		"unescaped-path":   strings.Replace(canonicalFileEvent, `/fixture`, `/<fixture>&`, 1),
+		"unicode-path":     strings.Replace(canonicalFileEvent, `/fixture`, `/données`, 1),
+		"trailing-space":   canonicalFileEvent + " ",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) { assertSameSyntax(t, []byte(body+"\n")) })
@@ -52,6 +65,19 @@ func TestEventSyntaxPreservesStrictRejections(t *testing.T) {
 	data := []byte(canonicalFileEvent + "\n")
 	if json.Unmarshal(data, &e) != nil || !canonicalEvent(data, e) {
 		t.Fatal("normal production event missed the canonical path")
+	}
+}
+
+func TestCanonicalComparisonRequiresCompleteEncoding(t *testing.T) {
+	data := []byte(canonicalFileEvent + "\n")
+	var e envelope
+	if err := json.Unmarshal(data, &e); err != nil {
+		t.Fatal(err)
+	}
+	for _, input := range [][]byte{nil, data[:len(data)-1], append(bytes.Clone(data), ' '), append(bytes.Clone(data), '\n')} {
+		if canonicalEvent(input, e) {
+			t.Fatal("accepted incomplete or extended canonical encoding")
+		}
 	}
 }
 

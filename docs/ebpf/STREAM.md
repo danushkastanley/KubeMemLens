@@ -224,6 +224,8 @@ bound underlying transport reads and consume through EOF.
 
 Canonical event frames use exact typed re-encoding to check field spelling,
 placement, required nullable fields and duplicate keys before semantic validation.
+The encoder output, including its final newline, is compared directly against
+the received bytes without retaining a second encoded frame.
 They contain no raw JSON subtrees. Metadata, summaries and noncanonical input use
 the strict token parser; legal whitespace and field ordering remain accepted,
 and forwarding preserves the received bytes. Differential tests compare both
