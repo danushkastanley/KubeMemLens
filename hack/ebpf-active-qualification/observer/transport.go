@@ -42,7 +42,7 @@ func readCollector(ctx context.Context, client *http.Client, server, token strin
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return collectorObservation{}, atStage("collector-status", errObservation)
+		return collectorObservation{}, observationFailure{stage: "collector-status", status: response.StatusCode}
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, (2<<20)+1))
 	if err != nil || len(data) > 2<<20 {

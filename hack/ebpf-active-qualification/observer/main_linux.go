@@ -188,7 +188,7 @@ func main() {
 	deadline := time.AfterFunc(time.Duration(cfg.Seconds+10)*time.Second, func() { os.Exit(2) })
 	defer deadline.Stop()
 	if err := run(ctx, cfg, os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "metrics observation incomplete (%s); retain numeric records\n", failureStage(err))
+		fmt.Fprintf(os.Stderr, "metrics observation incomplete (%s); retain numeric records\n", failureDetail(err))
 		os.Exit(1)
 	}
 }

@@ -66,6 +66,11 @@ Durations round upward to integer nanoseconds. Unknown labels within selected
 metric families, duplicate series, malformed numbers and incomplete responses
 fail. Unrelated families, including identity-labelled metrics, are omitted.
 
+A rejected collector response ends the observation immediately. Its diagnostic
+includes only the fixed failure category and numeric HTTP status (100–599), never
+the response body, headers, URL or token. Transport errors remain category-only.
+No response is retried or counted as a successful sample.
+
 Each record includes wall/monotonic clock correlation, uncertainty, actual read
 span, observer CPU including reaped reader children, and a conservative sum of
 parent/child peak RSS. This peak RSS is observer accounting, not a working-set
