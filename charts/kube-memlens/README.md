@@ -95,6 +95,8 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `collector.ingestion.maxSnapshotBytes` | `8388608` | Per-node snapshot request ceiling in bytes |
 | `collector.resources.requests.memory` | `192Mi` | Local `rc-5000` p95-derived collector scheduling request |
 | `collector.resources.limits.memory` | `256Mi` | Default collector memory ceiling |
+| `collector.service.extensionPort` | `443` | Authenticated Service and APIService port; targets the collector's named `extension` listener |
+| `collector.service.extensionPortName` | `https-extension` | Authenticated Service port name |
 | `extensionTLS.rotateBefore` | `720h` | Serving-certificate rotation window |
 | `networkPolicy.enabled` | `true` | Cluster-local read and APIService ingress policy |
 | `metrics.includeContainers` | `false` | High-cardinality container metrics opt-in |
@@ -102,6 +104,14 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `metrics.grafanaDashboard.enabled` | `false` | Optional dashboard ConfigMap |
 
 See the repository [support and compatibility contract](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/compatibility.md), [installation guide](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/installation.md), [security model](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/security-model.md), and [qualification runbook](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/qualification.md) for the complete contract.
+
+The EKS AL2023 qualification values set the authenticated Service port to `8443`
+and its name to `extension`, matching the collector listener for VPC CNI network
+policy testing. If changing the listener port, set
+`collector.service.extensionPort` to the same number. This updates the APIService
+route and Helm connection test too; it does not grant provider qualification.
+The default Service remains `443` named `https-extension`. Reverting these values
+with a Helm upgrade restores that mapping without changing TLS or RBAC.
 
 ## Read access
 

@@ -1,1 +1,5 @@
-{}
+collector:
+  service:
+    # VPC CNI policy requires matching Service/container port numbers and names.
+    extensionPort: 8443
+    extensionPortName: extension

@@ -29,7 +29,8 @@ require_text() {
 render_template() {
   local template=$1
   local output=$2
-  helm template kube-memlens "${chart}" --show-only "templates/${template}" > "${output}"
+  shift 2
+  helm template kube-memlens "${chart}" --show-only "templates/${template}" "$@" > "${output}"
 }
 
 for command in grep helm; do
@@ -70,10 +71,43 @@ require_text "${work_dir}/networkpolicy.yaml" "- Ingress"
 require_text "${work_dir}/networkpolicy.yaml" "port: http"
 require_text "${work_dir}/networkpolicy.yaml" "port: extension"
 require_text "${work_dir}/service.yaml" "port: 443"
+require_text "${work_dir}/service.yaml" 'name: "https-extension"'
 require_text "${work_dir}/service.yaml" "targetPort: extension"
 if grep -Eq 'port: (8080|8081)' "${work_dir}/service.yaml"; then
   fail "collector Service exposes a plaintext port"
 fi
+
+# Provider mappings must agree across the listener, Service, aggregation route
+# and the actual connectivity probe, without exposing the plaintext listener.
+for mapping in eks custom; do
+  port=8443
+  options=(--values hack/provider-values/eks-al2023-containerd-amd64.yaml)
+  if [ "${mapping}" = custom ]; then
+    port=9443
+    options+=(--set collector.ingestion.extensionPort=9443 --set collector.service.extensionPort=9443)
+  fi
+  for template in service.yaml deployment.yaml extension-tls.yaml tests/test-connection.yaml; do
+    render_template "${template}" "${work_dir}/${mapping}-${template##*/}" "${options[@]}"
+  done
+  require_text "${work_dir}/${mapping}-service.yaml" 'name: "extension"'
+  require_text "${work_dir}/${mapping}-service.yaml" "port: ${port}"
+  require_text "${work_dir}/${mapping}-service.yaml" "targetPort: extension"
+  require_text "${work_dir}/${mapping}-deployment.yaml" "--extension-port=${port}"
+  require_text "${work_dir}/${mapping}-deployment.yaml" "containerPort: ${port}"
+  require_text "${work_dir}/${mapping}-extension-tls.yaml" "port: ${port}"
+  require_text "${work_dir}/${mapping}-test-connection.yaml" ".svc ${port}; do"
+done
+
+# A valid port name that YAML also recognises as a boolean must remain a string.
+render_template service.yaml "${work_dir}/string-port-name.yaml" --set-string collector.service.extensionPortName=true
+require_text "${work_dir}/string-port-name.yaml" 'name: "true"'
+
+for setting in collector.service.extensionPort=0 collector.service.extensionPort=65536 \
+  collector.service.extensionPortName=bad.name collector.service.extensionPortName=; do
+  if helm template kube-memlens "${chart}" --set "${setting}" >/dev/null 2>&1; then
+    fail "invalid authenticated Service setting rendered: ${setting}"
+  fi
+done
 
 if helm template kube-memlens "${chart}" --set security.privileged=true >/dev/null 2>&1; then
   fail "privileged standard profile rendered"

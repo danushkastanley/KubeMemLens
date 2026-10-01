@@ -28,7 +28,7 @@ spec:
       args:
         - |
           attempt=0
-          until nc -z -w 5 kube-memlens-collector.{{ .Values.namespace.name }}.svc 443; do
+          until nc -z -w 5 kube-memlens-collector.{{ .Values.namespace.name }}.svc {{ .Values.collector.service.extensionPort }}; do
             attempt=$((attempt + 1))
             [ "${attempt}" -lt 30 ] || exit 1
             sleep 2
