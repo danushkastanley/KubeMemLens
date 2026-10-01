@@ -214,3 +214,41 @@ a lost submission still consumes its slot. An aggressive burst can therefore
 exhaust that budget while delivering fewer events than the writer ceiling.
 Keep writer-limit, output-limit, kernel-loss and paused-reader results separate.
 Neither fixture mode alone establishes tracing correctness or performance.
+
+## Continuous pressure producer
+
+`pressure SECONDS` performs continuous fixed-size reads against the same prepared,
+fully cached owned file, for 1–1,800 seconds. It shares the finite flood fixture's
+ownership, regular-file, cache and seed checks. The R/Q handshake keeps process
+startup and fixture opening outside the measured read interval. After R, it reads
+without deliberate sleeping or per-interval output. It checks the monotonic clock
+after each 4,096 successful 64-byte reads and retains contiguous one-second
+intervals. A boundary over 100 ms late fails; it is not retried or relabelled.
+The process also has a bounded alarm and a 20-billion-read total ceiling.
+
+Reports are emitted after the read loop, followed by the final Q handshake. They
+contain only fixed mode/schema fields, the wall/monotonic alignment and each
+interval's independent call, byte and timing counters. The read-count ceiling is
+an application-I/O bound over the fixed cached file, not a claim about physical
+disk throughput. No file is created, replaced or written by pressure mode.
+
+`verify_pressure.py` rejects missing or duplicate records, discontinuous intervals,
+late deadlines, byte/count mismatches, changed bounds and private extra fields.
+`PressureWorkload` separates starting the producer from collecting its buffered
+receipt so resource observers and trace sessions can run concurrently. On failure,
+the outer controller must tear down the owned Pod/container as well as its local
+exec client. `verify_workload.py` includes short native pressure, command, argument
+and corrupt-byte tests while retaining all prior fixture cases.
+
+Run the receipt and pipe-lifecycle unit tests, then build the Linux fixture and
+run `verify_workload.py --image <immutable-image-id> --output <new-result-file>`.
+These short checks establish fixture behaviour. Sustained tracing qualification
+still requires paired campaigns with independent attachment, resource, loss and
+throughput evidence. Finite bursts do not establish sustained saturation.
+
+Each pressure interval also carries its wall reading and the monotonic reading
+immediately after it. Together with the interval's ending monotonic reading,
+these bound clock alignment without reporting a node identifier. Parsing rejects
+alignment uncertainty or wall/monotonic offset drift beyond five milliseconds.
+This supports conservative pairing against resource timestamps; it does not by
+itself prove which intervals had live trace attachments.

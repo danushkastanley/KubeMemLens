@@ -166,6 +166,8 @@ def verify(image):
 
         from verify_flood_runtime import verify_corrupt_flood, verify_flood
         results.extend(verify_flood(common, image))
+        from verify_pressure_runtime import verify_corrupt_pressure, verify_pressure
+        results.extend(verify_pressure(common, image))
 
         # Corrupt one byte of the test-owned file without changing its length.
         result = run("/bin/sh", "-ec",
@@ -178,6 +180,7 @@ def verify(image):
             raise RuntimeError("corrupted fixture was not rejected")
         results.append({"negativeCase": "corrupted bytes", "passed": True})
         results.append(verify_corrupt_flood(common, image))
+        results.append(verify_corrupt_pressure(common, image))
     finally:
         # Also stop the exact owned container if a CLI timeout left it running.
         subprocess.run(["docker", "rm", "-f", container],
