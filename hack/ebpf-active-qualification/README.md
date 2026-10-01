@@ -1,7 +1,7 @@
 # Active qualification accounting
 
 This harness is separate from the frozen historical idle experiment. It currently
-runs the explicit owned local normal case and validates its measurements. It cannot
+runs explicit owned local normal and high-rate mixed cases and validates their measurements. It cannot
 issue a full qualification verdict. Running the controller starts bounded fixture
 workloads and submits trace requests; importing accounting helpers does neither.
 
@@ -62,6 +62,14 @@ must be declared before the run alongside its minimum observed active duration.
 Incomplete, retimed, missing or altered-I/O series cannot produce a passing pair.
 The fixed completed byte rate is explicitly paced workload delivery, not maximum
 storage throughput. Operation elapsed time is not event-to-client latency.
+
+`mixed_workload.py` accepts the separately versioned fixed cached-read,
+uncached-read and write cycle. It compares matching indices for every operation
+class as well as the combined population. Each class needs its own predeclared
+minimum number of fully attachment-bracketed operations. Both complete and active
+subsets must remain below 2% p99 regression in every class; a passing combined
+percentile cannot override a failing class. Unproven and transition operations
+remain in the results. The comparison alone does not qualify a campaign.
 
 These functions still need the full frozen orchestration/provenance envelope,
 kernel allocation attribution, event latency/loss, standard scan/collector observations
@@ -167,3 +175,25 @@ The kernel configuration check follows [cilium/ebpf memory accounting guidance](
 The live watcher also verifies that the worker remains in its parent's cgroup.
 This supports the measured cgroup accounting; it does not turn missing node-wide
 scheduler percentiles or isolated verifier timing into measured evidence.
+
+## Explicit local high-rate controller
+
+The same owned controller accepts `--acknowledge-local-high-rate-campaign` instead
+of the normal acknowledgement. Exactly one is required. It loads the separate
+`high_rate_profile.json`; the original normal profile and acknowledgement remain
+unchanged. Freeze the source, profile, configuration and newly built fixture image
+before measurement; the older fixture image does not implement `mixed-series`.
+
+The high-rate profile requires five paired 1,350-second windows, 32 workload
+containers, and 13,200 operations at 100 ms, cycling cached read, uncached read and
+write. At least 3,000 operations of each class must be fully bracketed by unchanged
+owned attachments. The 36 separate 30-second admissions keep the same duration,
+event, output, map and path ceilings. Measurement, observation, ownership and
+restoration checks use the same implementation as the normal campaign.
+
+Replay compares latency per class and combined. CPU, memory, scan and event
+results conservatively apply the existing normal thresholds to this higher rate;
+`measuredNormalBudgetsPassed` retains that precise meaning. No threshold is relaxed
+or inferred from these measurements. `high-rate-result.json` records this case
+only. It cannot establish noisy-neighbour, concurrency, flood, lifecycle, provider
+or full qualification. Missing scheduler/verifier observations remain explicit.

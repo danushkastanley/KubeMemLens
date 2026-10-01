@@ -163,8 +163,18 @@ static void emit_timed(const char *mode, struct observation value) {
            value.started, value.ended, value.ended - value.started);
 }
 
-#define MAX_SERIES 1800
-static struct observation observations[MAX_SERIES];
+#define MAX_MIXED_SERIES 18000
+static struct observation observations[MAX_MIXED_SERIES];
+
+struct series_pattern {
+    const char *record_type;
+    unsigned int version, maximum_count, mode_count;
+    const char *modes[3];
+};
+
+static const struct series_pattern mixed_pattern = {
+    "mixed-series-start", 2, MAX_MIXED_SERIES, 3, {"cached", "uncached", "write"}
+};
 
 static unsigned int number(const char *text, unsigned int maximum) {
     unsigned int value = 0;
@@ -186,45 +196,71 @@ static void wait_until(uint64_t due) {
     if (result != 0) fail("series scheduling");
 }
 
-static int series(int argc, char **argv) {
-    if (argc != 5) fail("series arguments");
-    const char *mode = argv[2];
-    if (strcmp(mode, "cached") && strcmp(mode, "uncached") && strcmp(mode, "write") && strcmp(mode, "noise"))
-        fail("series mode");
-    unsigned int count = number(argv[3], MAX_SERIES);
-    unsigned int period_ms = number(argv[4], 10000);
-    if (period_ms < 100 || (uint64_t)count * period_ms > UINT64_C(1800000))
+static void emit_series(const struct series_pattern *pattern, unsigned int count, uint64_t first, uint64_t period) {
+    for (unsigned int i = 0; i < count; i++) {
+        printf("{\"sequence\":%u,\"dueMonotonicNanos\":%" PRIu64 ",\"observation\":", i, first + (uint64_t)i * period);
+        emit_timed(pattern->modes[i % pattern->mode_count], observations[i]);
+        puts("}");
+    }
+    if (fflush(stdout) != 0) fail("series output");
+}
+
+static int series(const struct series_pattern *pattern, const char *count_text, const char *period_text) {
+    unsigned int count = number(count_text, pattern->maximum_count);
+    unsigned int period_ms = number(period_text, 10000);
+    if (count % pattern->mode_count || period_ms < 100 || (uint64_t)count * period_ms > UINT64_C(1800000))
         fail("series schedule bound");
     uint64_t period = (uint64_t)period_ms * UINT64_C(1000000);
     uint64_t before = monotonic_nanos(), wall = clock_nanos(CLOCK_REALTIME), after = monotonic_nanos();
     if (after < before || after - before > UINT64_C(1000000)) fail("series clock alignment");
     uint64_t first = after + UINT64_C(5000000000);
     alarm(16 + (count * period_ms + 999) / 1000);
-    printf("{\"type\":\"series-start\",\"schemaVersion\":1,\"count\":%u,\"periodNanos\":%" PRIu64
+    printf("{\"type\":\"%s\",\"schemaVersion\":%u,\"count\":%u,\"periodNanos\":%" PRIu64
            ",\"monotonicBeforeNanos\":%" PRIu64 ",\"wallNanos\":%" PRIu64
            ",\"monotonicAfterNanos\":%" PRIu64 ",\"firstDueNanos\":%" PRIu64 "}\n",
-           count, period, before, wall, after, first);
+           pattern->record_type, pattern->version, count, period, before, wall, after, first);
     if (fflush(stdout) != 0) fail("series output");
     for (unsigned int i = 0; i < count; i++) {
         uint64_t due = first + (uint64_t)i * period;
+        uint64_t cpu_before = clock_nanos(CLOCK_PROCESS_CPUTIME_ID);
+        uint64_t wait_started = monotonic_nanos();
         wait_until(due);
-        observations[i] = run_one(mode, START_IMMEDIATELY);
-        if (observations[i].started < due || observations[i].ended >= due + period)
+        uint64_t woke = monotonic_nanos();
+        uint64_t cpu_woke = clock_nanos(CLOCK_PROCESS_CPUTIME_ID);
+        observations[i] = run_one(pattern->modes[i % pattern->mode_count], START_IMMEDIATELY);
+        uint64_t cpu_ended = clock_nanos(CLOCK_PROCESS_CPUTIME_ID);
+        if (observations[i].started < due || observations[i].ended >= due + period) {
+            // Retain completed operations and the late one before stopping. The
+            // incomplete/late stream still fails verification; no slot is retried.
+            emit_series(pattern, i + 1, first, period);
+            printf("{\"type\":\"series-deadline-failure\",\"schemaVersion\":1,\"sequence\":%u,"
+                   "\"waitStartedMonotonicNanos\":%" PRIu64 ",\"wokeMonotonicNanos\":%" PRIu64 ","
+                   "\"cpuBeforeWaitNanos\":%" PRIu64 ",\"cpuAfterWakeNanos\":%" PRIu64 ","
+                   "\"cpuAfterOperationNanos\":%" PRIu64 "}\n",
+                   i, wait_started, woke, cpu_before, cpu_woke, cpu_ended);
+            if (fflush(stdout) != 0) fail("series output");
             fail("series deadline missed");
+        }
     }
     // Avoid turning measurement reports into traced I/O during the workload.
     wait_until(first + (uint64_t)count * period);
-    for (unsigned int i = 0; i < count; i++) {
-        printf("{\"sequence\":%u,\"dueMonotonicNanos\":%" PRIu64 ",\"observation\":", i, first + (uint64_t)i * period);
-        emit_timed(mode, observations[i]);
-        puts("}");
-    }
-    if (fflush(stdout) != 0) fail("series output");
+    emit_series(pattern, count, first, period);
     return 0;
 }
 
 int main(int argc, char **argv) {
-    if (argc >= 2 && strcmp(argv[1], "series") == 0) return series(argc, argv);
+    if (argc >= 2 && strcmp(argv[1], "series") == 0) {
+        if (argc != 5) fail("series arguments");
+        const char *mode = argv[2];
+        if (strcmp(mode, "cached") && strcmp(mode, "uncached") && strcmp(mode, "write") && strcmp(mode, "noise"))
+            fail("series mode");
+        const struct series_pattern uniform = {"series-start", 1, 1800, 1, {mode}};
+        return series(&uniform, argv[3], argv[4]);
+    }
+    if (argc >= 2 && strcmp(argv[1], "mixed-series") == 0) {
+        if (argc != 4) fail("series arguments");
+        return series(&mixed_pattern, argv[2], argv[3]);
+    }
     int gated = argc == 3 && strcmp(argv[2], "--gated") == 0;
     if (argc != 2 && !gated) fail("mode");
     if (gated && strcmp(argv[1], "cached") != 0 && strcmp(argv[1], "uncached") != 0)

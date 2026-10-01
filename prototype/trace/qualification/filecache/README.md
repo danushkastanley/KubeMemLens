@@ -136,12 +136,41 @@ container profile, then removes its owned resources. Run the parser regressions:
 ```sh
 python3 -m unittest discover -s . -p 'test_*observation.py'
 python3 -m unittest discover -s . -p test_series.py
+python3 -m unittest discover -s . -p test_mixed_series.py
 ```
 
 The scheduled byte rate is controlled by the test. Report achieved operations and
 latencies against the identical paired schedule; do not describe a paced series as
 maximum storage throughput. Startup, deadlines and every failed run remain part of
 the qualification record. This fixture does not extend admitted trace durations.
+
+`mixed-series COUNT PERIOD_MS` uses a separate schema-2 `mixed-series-start`
+record and repeats cached read, uncached read, then write in that exact order.
+Each operation retains the same cache-state, integrity, byte-count and timing
+checks. The count must be a multiple of three between 3 and 18,000; periods remain
+100–10,000 ms and the complete schedule is bounded to 30 minutes. This permits a
+sustained 10 Hz workload beyond the uniform series' 1,800-operation limit. All
+records remain buffered until the schedule ends; complete output is bounded to
+8 MiB by `validate_mixed_series`. The existing schema-1 series and seven-field
+ordinary/gated receipts are unchanged. The native verifier checks a 30-operation
+mixed cycle and rejects invalid counts, periods and total durations.
+
+A missed deadline flushes the completed operations and the late operation before
+exiting with failure. This partial stream remains invalid for comparison; no slot
+is retried or moved. A final `series-deadline-failure` record binds the same
+sequence to monotonic wait/wakeup times and cumulative process CPU readings around
+the wait and operation. This separates late wakeup from seed/open/stat setup and
+the existing timed I/O span. CPU deltas include the clock probes at their sampling
+boundaries; these values alone cannot attribute a delay to quotas or the host.
+Successful series and ordinary/gated receipt formats remain unchanged.
+The native verifier deliberately pauses only its owned
+container across a deadline, then verifies both the retained timing evidence and
+the failed result. Other fatal I/O failures may leave only the start record.
+
+A campaign must freeze its mixed schedule separately and compare each operation
+class against the same paired indices. An aggregate percentile can conceal a
+regression in one class. This generator alone does not establish sustained traced
+performance, isolation, flood behaviour or a qualification verdict.
 
 ## Path-copy regression
 

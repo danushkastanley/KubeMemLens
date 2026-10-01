@@ -100,13 +100,17 @@ def verify(image):
             results.append(data)
 
         # Persistent process, deterministic absolute deadlines, buffered reports.
-        from verify_series import validate_series
+        from verify_series import validate_mixed_series, validate_series
         for mode in ("cached", "uncached", "write", "noise"):
             result = workload("series", mode, "3", "500")
             if result.returncode != 0 or result.stderr:
                 raise RuntimeError(f"fixture series {mode} failed")
             rows = validate_series(result.stdout, mode, 3, 500)
             results.append({"series": mode, "records": rows})
+        result = workload("mixed-series", "30", "100")
+        if result.returncode != 0 or result.stderr:
+            raise RuntimeError("fixture mixed series failed")
+        results.append({"series": "mixed", "records": validate_mixed_series(result.stdout, 30, 100)})
         for args in (("series",), ("series", "prepare", "1", "100"),
                      ("series", "cached", "0", "100"),
                      ("series", "cached", "1801", "100"),
@@ -114,13 +118,20 @@ def verify(image):
                      ("series", "cached", "1", "10001"),
                      ("series", "cached", "1800", "1001"),
                      ("series", "cached", "-1", "100"),
-                     ("series", "cached", "99999999999999999999", "100")):
+                     ("series", "cached", "99999999999999999999", "100"),
+                     ("mixed-series",), ("mixed-series", "0", "100"),
+                     ("mixed-series", "2", "100"), ("mixed-series", "18003", "100"),
+                     ("mixed-series", "3", "99"), ("mixed-series", "3", "10001"),
+                     ("mixed-series", "18000", "101"), ("mixed-series", "-3", "100"),
+                     ("mixed-series", "99999999999999999999", "100")):
             result = workload(*args)
             if (result.returncode != 2 or result.stdout or result.stderr not in (
                     "workload failed: series arguments\n", "workload failed: series mode\n",
                     "workload failed: series schedule bound\n")):
                 raise RuntimeError("unbounded or invalid series was not rejected")
         results.append({"negativeCase": "series arguments and schedule ceilings", "passed": True})
+        from verify_deadline import verify_deadline
+        results.append(verify_deadline(common, image))
         for mode in ("cached", "uncached"):
             gated = GatedWorkload(common + ["--interactive", "--entrypoint",
                                   "/usr/local/bin/kml-io-workload", image, mode, "--gated"])
