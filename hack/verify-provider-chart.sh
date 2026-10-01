@@ -33,7 +33,7 @@ render_template() {
   helm template kube-memlens "${chart}" --show-only "templates/${template}" "$@" > "${output}"
 }
 
-for command in grep helm; do
+for command in grep helm ruby cmp; do
   command -v "${command}" >/dev/null 2>&1 || fail "required command not found: ${command}"
 done
 
@@ -43,6 +43,34 @@ render_template deployment.yaml "${work_dir}/deployment.yaml"
 render_template extension-cert-bootstrap.yaml "${work_dir}/bootstrap.yaml"
 render_template networkpolicy.yaml "${work_dir}/networkpolicy.yaml"
 render_template service.yaml "${work_dir}/service.yaml"
+
+# Collector placement must preserve Linux and all unrelated workload settings.
+render_template deployment.yaml "${work_dir}/collector-without-new-value.yaml" --set collector.nodeSelector=null
+cmp "${work_dir}/deployment.yaml" "${work_dir}/collector-without-new-value.yaml" || fail 'omitted collector selector changed defaults'
+collector_placement=(--set-string 'collector.nodeSelector.kubernetes\.io/hostname=ip-10-0-0-1.ec2.internal'
+                     --set-string 'collector.nodeSelector.qualification=true')
+render_template deployment.yaml "${work_dir}/collector-placement.yaml" "${collector_placement[@]}"
+render_template daemonset.yaml "${work_dir}/agent-placement.yaml" "${collector_placement[@]}"
+cmp "${work_dir}/daemonset.yaml" "${work_dir}/agent-placement.yaml" || fail 'collector placement changed agent configuration'
+ruby -ryaml - "${work_dir}/deployment.yaml" "${work_dir}/collector-placement.yaml" <<'RUBY'
+normal, placed = ARGV.map { |path| YAML.safe_load(File.read(path), aliases: true) }
+expected = {"kubernetes.io/os" => "linux", "kubernetes.io/hostname" => "ip-10-0-0-1.ec2.internal", "qualification" => "true"}
+abort "collector selector differs from requested string labels" unless placed.dig("spec", "template", "spec", "nodeSelector") == expected
+placed.fetch("spec").fetch("template").fetch("spec")["nodeSelector"] = normal.dig("spec", "template", "spec", "nodeSelector")
+abort "collector placement changed unrelated configuration" unless placed == normal
+RUBY
+for validation in schema template; do
+  options=(--set-string 'collector.nodeSelector.kubernetes\.io/os=windows')
+  if [[ "${validation}" == template ]]; then options+=(--skip-schema-validation); fi
+  if helm template kube-memlens "${chart}" "${options[@]}" >"${work_dir}/placement-rejected.log" 2>&1; then
+    fail 'collector placement accepted a non-Linux selector'
+  fi
+  require_text "${work_dir}/placement-rejected.log" 'collector.nodeSelector'
+done
+if helm template kube-memlens "${chart}" --set collector.nodeSelector.qualification=true >"${work_dir}/placement-rejected.log" 2>&1; then
+  fail 'collector placement accepted a non-string label value'
+fi
+require_text "${work_dir}/placement-rejected.log" 'collector.nodeSelector'
 
 for workload in daemonset deployment bootstrap; do
   manifest="${work_dir}/${workload}.yaml"

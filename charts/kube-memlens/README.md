@@ -67,6 +67,13 @@ cgroup v1 nodes are not silently treated as supported.
 
 The collector must remain at one replica because replicas do not share state. The chart rejects other replica counts.
 
+To place that collector on a specific Linux node or pool, set
+`collector.nodeSelector` to matching node labels, such as
+`kubernetes.io/hostname: ip-10-0-0-1.ec2.internal`. The Linux selector remains
+mandatory; a conflicting OS value is rejected. An unmatched selector leaves the
+collector Pending until a matching node is available. This does not change the
+agent DaemonSet's separate `agent.nodeSelector`.
+
 The chart ships a strict values schema and a `helm test` hook that checks the collector's TLS Service from a non-root, capability-free Pod. Run it after install, upgrade and rollback:
 
 ```sh
@@ -87,6 +94,7 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `agent.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime |
 | `agent.resources.requests.memory` | `96Mi` | Local `rc-5000` p95-derived agent scheduling request |
 | `agent.resources.limits.memory` | `128Mi` | Default per-agent memory ceiling |
+| `collector.nodeSelector` | `{}` | Additional placement labels; `kubernetes.io/os: linux` is always required |
 | `collector.replicas` | `1` | Required single in-memory collector |
 | `collector.read.maxConcurrentRequests` | `4` | Authenticated read admission ceiling; aggregate construction is serialised |
 | `collector.ingestion.maxConcurrentRequests` | `4` | Concurrent snapshot decode ceiling |
