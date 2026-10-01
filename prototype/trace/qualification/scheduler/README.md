@@ -36,6 +36,9 @@ The reader opens only the four named tracepoints with CLOEXEC perf descriptors,
 one shared 256 KiB ring per frozen CPU, CLOCK_MONOTONIC sample time and numeric
 event identifiers. Every CPU is drained before the command advances its fixed
 100 ms reorder watermark. Loss, throttling and truncated records fail capture.
+Counter coverage/loss errors include the zero-based owned descriptor ordinal,
+following the CPU/format opening order. They expose no raw descriptor or task
+identity, preserve the original error category and return no usable counts.
 The command checks boot/topology bindings and emits one-second aggregates with
 its own CPU/RSS. Runtime/output are bounded and descriptors/mappings are closed
 on return. The parent controller must verify process/resource cleanup. Raw perf buffers contain kernel task names and

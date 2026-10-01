@@ -128,7 +128,9 @@ static __always_inline int finish(struct file *file, __u64 requested,
 rejected:
 	__sync_fetch_and_add(&c->rejected, 1);
 discard:
-	if (path_bytes)
+	/* A missing-key hash deletion still takes the kernel bucket lock. Keep
+	 * cleanup for existing entries, including a task that left the target. */
+	if (path_bytes && bpf_map_lookup_elem(&paths, &tid))
 		bpf_map_delete_elem(&paths, &tid);
 	return 0;
 }

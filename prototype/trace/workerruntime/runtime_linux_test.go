@@ -12,6 +12,8 @@ import (
 )
 
 func TestLauncherPassesOnlyFixedVerifiedDescriptors(t *testing.T) {
+	t.Setenv("GODEBUG", "disablethp=0")
+	t.Setenv("HTTPS_PROXY", "http://unused.fixture:1234")
 	r := fixtureRuntime(t)
 	exported := make(chan *os.File, 1)
 	r.exportTarget = fixtureExporter(exported)

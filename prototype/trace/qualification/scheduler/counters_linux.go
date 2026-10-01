@@ -41,7 +41,7 @@ func readCounters(fds []int, read func(int, []byte) (int, error)) (Counters, err
 	if len(fds) == 0 || len(fds) > 256 {
 		return Counters{}, ErrObservation
 	}
-	for _, fd := range fds {
+	for ordinal, fd := range fds {
 		var raw [32]byte
 		n, err := read(fd, raw[:])
 		if err != nil || n != len(raw) {
@@ -49,7 +49,7 @@ func readCounters(fds []int, read func(int, []byte) (int, error)) (Counters, err
 		}
 		next, err := decodeCounters(raw[:])
 		if err != nil {
-			return Counters{}, err
+			return Counters{}, fmt.Errorf("descriptor=%d: %w", ordinal, err)
 		}
 		if next.EnabledNanos > math.MaxUint64-result.EnabledNanos || next.RunningNanos > math.MaxUint64-result.RunningNanos {
 			return Counters{}, ErrObservation

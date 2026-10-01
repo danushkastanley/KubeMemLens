@@ -30,8 +30,16 @@ establish active-trace overhead.
 The separate optional chart sets `GODEBUG=disablethp=1` on its API and binding-node
 containers. This uses the Go runtime's process-local control for heap mappings.
 GC metadata can still use huge pages; the setting is not a guarantee that all
-anonymous huge pages disappear. The separately executed incident worker retains
-its sanitised `GOTRACEBACK=none` environment and does not inherit this setting.
+anonymous huge pages disappear. The separately executed incident worker uses
+the fixed environment `GOTRACEBACK=none` and `GODEBUG=disablethp=1`; it does not
+inherit caller-supplied runtime settings or any other environment values.
+
+The worker setting extends this decision on 2 October. The failed normal run's
+node subtree reached 45.738 MiB working set, including 16 MiB anonymous huge
+pages. Inspection found that worker execution omitted the service heap setting.
+Those subtree measurements do not identify every allocation's owner or establish
+the worker change's savings. The launcher regression exercises an actual fixture
+child with conflicting parent settings and requires the exact fixed environment.
 
 The chart remains disabled by default. The standard chart, host kernel policy,
 capabilities, seccomp, admission bounds and benchmark thresholds do not change.
