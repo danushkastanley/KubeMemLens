@@ -105,6 +105,11 @@ func readResponse(client *http.Client, request *http.Request, maximum int64, exp
 		return nil, transportError(err)
 	}
 	defer response.Body.Close()
+	// A response can arrive while the request is being cancelled. Preserve the
+	// caller's cancellation instead of classifying that response as usable.
+	if err := request.Context().Err(); err != nil {
+		return nil, transportError(err)
+	}
 	if response.StatusCode != expectedStatus {
 		return nil, statusError(response.StatusCode)
 	}
@@ -117,6 +122,9 @@ func readResponse(client *http.Client, request *http.Request, maximum int64, exp
 		return nil, &Error{Reason: nodecontext.ResponseTooLarge}
 	}
 	data, err := io.ReadAll(io.LimitReader(response.Body, maximum+1))
+	if contextErr := request.Context().Err(); contextErr != nil {
+		return data, transportError(contextErr)
+	}
 	if errors.Is(err, io.ErrUnexpectedEOF) {
 		return data, &Error{Reason: nodecontext.InvalidResponse, cause: err}
 	}
