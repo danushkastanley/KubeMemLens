@@ -172,6 +172,14 @@ class EKSHostRuntime(Runtime):
     def observer_server(self):
         return self.provider['clusterEndpoint']
 
+    def kernel_configuration(self):
+        release = self.provider['nodeInfo']['kernelVersion']
+        require(re.fullmatch(r'[A-Za-z0-9._+-]{1,256}', release) is not None,
+                'invalid bound kernel release')
+        # Read the installed config for the verified running kernel. A missing
+        # package file remains an error, never inferred accounting support.
+        return self.exec(['cat', '/boot/config-' + release]).decode()
+
     def environment_fields(self):
         return {'sharedKindKernel': False, 'provider': 'eks-managed-al2023-amd64',
                 'providerBindingSHA256': digest(canonical(self.provider)),

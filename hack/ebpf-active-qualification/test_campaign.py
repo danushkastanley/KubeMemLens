@@ -6,11 +6,14 @@ import unittest
 from unittest.mock import Mock, patch
 
 from campaign import Campaign
+from profile import load_profile
+from concurrent_profile import load_concurrent_profile
 
 
 class CampaignCleanupTests(unittest.TestCase):
     def profile_case(self):
         run = Campaign.__new__(Campaign)
+        run.profile = load_profile()
         run.cfg = {'trace': {'deploymentSpecSHA256': {'api': 'original'},
                             'deploymentNames': {'api': 'reviewed-trace-api', 'node': 'reviewed-trace-node-local'}}}
         run.original = {'metadata': {'uid': 'owned-api', 'resourceVersion': '17'},
@@ -24,6 +27,24 @@ class CampaignCleanupTests(unittest.TestCase):
         run.record = Mock()
         run.confirmed = None
         return run, runtime
+
+    def test_concurrent_transition_raises_only_node_limit_and_restores_original_spec(self):
+        run, runtime = self.profile_case()
+        run.profile = load_concurrent_profile()
+        run.original['spec']['template']['spec']['containers'][0]['args'] += ['--max-node-traces=1']
+        runtime.deployment.return_value = deepcopy(run.original)
+        with tempfile.TemporaryDirectory() as directory:
+            run.directory = Path(directory)
+            with patch('campaign.command') as command, patch('campaign.LocalCase', return_value=run.case):
+                run.confirmed_profile()
+                transition = json.loads(command.call_args.args[1])
+                self.assertEqual(transition[0]['value'], 'owned-api')
+                self.assertEqual(transition[1]['value'], '17')
+                self.assertEqual(transition[2]['value']['template']['spec']['containers'][0]['args'],
+                                 ['serve', '--max-node-traces=2', '--allow-confirmed-paths'])
+                runtime.get.return_value = deepcopy(run.confirmed)
+                run.restore()
+                self.assertEqual(json.loads(command.call_args.args[1])[2]['value'], run.original['spec'])
 
     def test_chart_profile_transition_and_restoration_target_same_owned_api(self):
         run, runtime = self.profile_case()

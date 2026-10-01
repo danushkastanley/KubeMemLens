@@ -36,7 +36,7 @@ func TestActiveConfigurationHasIndependentBounds(t *testing.T) {
 	}
 }
 func TestBindingsAreExplicitAndCannotEscapeCgroups(t *testing.T) {
-	for _, role := range []string{"node", "api", "selected", "agent", "collector", "probe", "nonselected-0", "nonselected-9"} {
+	for _, role := range []string{"node", "api", "selected", "selected-peer", "agent", "collector", "probe", "nonselected-0", "nonselected-9"} {
 		if !validGroup(groupSpec{role, "/sys/fs/cgroup/fixture", 1}) {
 			t.Fatal(role)
 		}

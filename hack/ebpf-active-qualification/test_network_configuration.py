@@ -22,9 +22,10 @@ class NetworkConfigurationTests(unittest.TestCase):
         case = SimpleNamespace(runtime=runtime, cfg={'standardNamespace': 'owned-standard'},
                                kube=Mock(return_value=b'observer-token\n'), namespaces=['owned-workload'])
         window = Window(case, None, load_profile(), None, 'control', 1)
-        window.client = SimpleNamespace(token='delivery-token', ca='verified-ca')
+        client = SimpleNamespace(namespace='owned-workload', token='delivery-token', ca='verified-ca')
+        window.admissions = SimpleNamespace(client=Mock(return_value=client), pending={0: '/owned-session'})
         window.boot = 'owned-boot'
-        window.targets = [{'podUID': 'owned-pod', 'container': 'c' * 64,
+        window.targets = [{'podName': 'owned-target', 'podUID': 'owned-pod', 'container': 'c' * 64,
                            'startedAt': '2026-10-01T01:00:00Z', 'group': {'inode': 100}}]
         return window
 
@@ -35,7 +36,8 @@ class NetworkConfigurationTests(unittest.TestCase):
                 window = self.window(provider)
                 standard = window.standard_config({})
                 window.case.runtime.api_cluster.assert_called_once_with()
-                delivery = window.receiver_config({'metadata': {'name': 'owned-session'}})
+                delivery = window.receiver_config({'metadata': {'name': 'owned-session'},
+                                                   'engineDigest': 'sha256:' + 'a' * 64})
                 for cfg in (standard, delivery):
                     self.assertEqual(cfg['networkScope'], scope)
                     self.assertEqual(cfg['server'], server)

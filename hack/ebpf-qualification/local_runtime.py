@@ -1,7 +1,9 @@
 """Explicit local-only identities and UID-guarded optional-service transitions."""
 
 import base64
+import gzip
 import hashlib
+import io
 import json
 import re
 import subprocess
@@ -99,6 +101,14 @@ class Runtime:
 
     def environment_fields(self):
         return {'sharedKindKernel': True}
+
+    def kernel_configuration(self):
+        raw = self.exec(['cat', '/proc/config.gz'])
+        with gzip.GzipFile(fileobj=io.BytesIO(raw)) as stream:
+            config = stream.read((1 << 20) + 1)
+        if len(config) > 1 << 20:
+            raise ValueError('kernel configuration exceeds bound')
+        return config.decode()
 
     def api_cluster(self):
         cluster = read_api_cluster(self)

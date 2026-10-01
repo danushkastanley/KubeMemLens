@@ -1,9 +1,17 @@
 # Active qualification accounting
 
 This harness is separate from the frozen historical idle experiment. It currently
-runs explicit owned local normal and high-rate mixed cases and validates their measurements. It cannot
+runs explicit owned local normal, high-rate mixed and noisy-neighbour cases and validates their measurements. It cannot
 issue a full qualification verdict. Running the controller starts bounded fixture
 workloads and submits trace requests; importing accounting helpers does neither.
+
+The separate [EKS node-host entrypoint](EKS_HOST.md) binds the same full workload
+protocol to an approved AL2023 amd64 host. It requires provider preparation and
+live validation; local results cannot establish EKS support.
+
+The separate [storage sizing probe](STORAGE.md) reads owned fixture cgroup and
+backing-device counters before and after an approved workload. Its observations
+help size the provider host; they do not replace a performance qualification case.
 
 The schema-2 `active-measure` command samples explicit cgroup roles at 1 Hz for up
 to 1,800 seconds. `samples.py` checks exact fields, counters, order, duration,
@@ -22,6 +30,27 @@ replaced or missing brackets are unproven time. Expected object counts must come
 from the independently frozen accepted programme inventory, not from the run.
 The current helper records its own hashing/census CPU and RSS. Preserve that cost
 in Node and workload comparisons; do not present it as zero overhead.
+
+Paired evaluators and the sizing replay summarise validated scheduler counters
+with observed coverage, missing/disabled source counts, counter resets and cohort
+changes. The mean queue-wait ratio uses only observed intervals and preserves its
+integer numerator and timeslice denominator. Missing data has no numeric total;
+an interval with no timeslices has no derived mean. These summaries do not infer
+latency percentiles or supply a scheduler regression verdict. The existing
+counter-only percentile disclosure remains unchanged; separate native capture supplies verifier measurements below.
+
+Attachment accounting accepts an explicit expected worker/control count of one
+or two. Existing normal, high-rate and noisy profiles retain exactly one. The
+two-worker option requires exact complete object inventories and uninterrupted
+two-worker/control brackets across each resource interval, workload operation and
+scan; a single-worker gap cannot count as simultaneous activity. It additionally
+requires the schema-2 `watch-targets` observation with `targetWorkers: [1, 1]`.
+Counts correspond to ascending frozen target cgroup IDs; raw IDs stay out of the
+stream. The native observer rechecks each worker's target descriptor around the
+object census. Missing coverage and two workers on the same target cannot qualify
+an interval. Native/live verification of this mode, a concurrent controller,
+independent streams and a frozen concurrent profile remain required before a
+maximum-concurrency run can qualify. Legacy `watch` keeps its schema-1 output.
 
 `resources.py` retains **all** installation CPU, including loader starts and gaps.
 It reports both wall-time cost and all CPU divided by observed active time. The
@@ -216,6 +245,221 @@ or inferred from these measurements. `high-rate-result.json` records this case
 only. It cannot establish noisy-neighbour, concurrency, flood, lifecycle, provider
 or full qualification. Missing scheduler/verifier observations remain explicit.
 
+## Ten non-selected noisy neighbours
+
+`--acknowledge-local-noisy-campaign` selects the separate frozen
+`noisy_profile.json`. Five peers share the selected target's namespace and five
+use the other owned namespace. The total stays at 32 fixture containers; the ten
+peers replace passive fixtures. They are never admission targets. Each peer runs
+1,320 fixed `noise` operations at 1 Hz, reading and writing 32 MiB per operation,
+while the selected target retains the normal cached-read schedule and trace limits.
+
+All ten process/cgroup identities and resource streams join the paired control and
+enabled accounting. Their complete operation streams are hashed in each envelope.
+Every peer must have at least 900 operations fully bracketed by the selected trace
+attachments, with complete and active-subset p99 regression strictly below 1%.
+Exactly 1% fails. The selected workload still uses its below-2% limit. No combined
+peer average can hide a single failure; transitions and gaps remain in the report.
+
+The existing bound event receiver rejects events that differ from the admitted
+target. This case does not grant a standalone isolation verdict or prove absent
+events in unobserved channels. CPU, memory, scan and event checks conservatively
+retain normal limits. The full noisy campaign still requires live paired execution;
+offline validators, fixture inventories and a `noisy-result.json` filename alone
+cannot establish qualification. Concurrency, flood and remaining lifecycle/provider
+cases remain separate requirements.
+
+## Maximum concurrent selected traces
+
+`--acknowledge-local-concurrent-campaign` selects `concurrent_profile.json`: five
+paired 1,350-second windows, 32 fixture containers, two independent cached-read
+workloads, and 36 pairs of 30-second trace sessions. Both workloads perform 1,320
+operations at 1 Hz. Each requires at least 900 fully bracketed operations; resource
+accounting requires at least 900 seconds of simultaneous two-target attachments.
+The installation, memory, scan and per-receiver event limits conservatively retain
+the normal thresholds. No budget is multiplied by two.
+
+The guarded API profile transition changes the Node limit from its default one
+to the supported maximum two and enables confirmed paths for the fixed fixture.
+Its exact original specification is restored using UID/resource-version checks.
+The campaign creates a probe ServiceAccount and binding only in the owned fixture
+namespace. Both workloads have separate resource roles (`selected` and
+`selected-peer`), and all 72 delivery streams are hashed in the enabled envelope.
+
+`concurrent_workload.py` compares exactly two selected operation streams against
+the same schema-2 attachment witness. Each target must independently meet the
+full-window and simultaneously bracketed below-2% p99 limit, including its own
+minimum active operation count. A faster peer cannot offset a failing target.
+Single-worker intervals, duplicate-target coverage and missing observations
+remain unproven; their operations stay in the full-window results.
+
+Target ordinals are bound to distinct owned fixture identities in the private
+window receipt; replay rejects changed identities or duplicate observer ordinals.
+It compares both delivery summaries against their raw streams and retains failed
+latency/loss/teardown verdicts separately. Offline checks do not establish live
+maximum-concurrency qualification.
+
+`ConcurrentAdmissions` retains the two selected sessions and uses a separate
+`limit-probe` ServiceAccount in the first namespace for the third request. Its
+namespaced grant reuses the existing target-only fixture Role. Both selected
+admissions must report the same active identities before and after the exact
+capacity error response. An unexpectedly accepted probe is retained for cleanup,
+including when its candidate digest is wrong. A lost response or missing identity
+requires the enclosing controller's guarded source teardown; it cannot be counted
+as denial. The capacity response alone cannot identify the exhausted quota: the
+live controller must also freeze the Node limit at two, prove that actor/namespace
+and global limits are not exhausted, and retain simultaneous target attachments.
+The helper does not create grants or change the installation policy on its own.
+
+Receiver configuration selects the matching admission client and pinned workload
+by target index. A namespace, session or candidate mismatch fails before starting
+the receiver. The private window receipt records each target's identity and its
+ordinal in the native observer's ascending cgroup-inode order. Duplicate Pod,
+container or cgroup identities cannot represent two targets. These bindings
+preserve the existing single-target path. Live two-receiver verification remains
+required before recording a concurrency verdict.
+
+`ConcurrentTracePair` implements one bounded two-receiver session. It starts both
+streams before waiting for either, checks the combined owned attachment inventory,
+probes the third principal, and retains each target's delivery result and expiry.
+Both streams share one absolute completion deadline. Failed budgets remain failed
+results; incomplete delivery or residual owned state invalidates the pair. Errors
+escape to the enclosing Window's admission cancellation and guarded source
+teardown. Continuous schema-2 target coverage is still needed to establish the
+simultaneously active intervals; an aggregate startup census cannot prove them.
+
+The frozen combined inventory expects 14 maps, 10 programmes and 10 links for the
+candidate's two workers. Those counts alone are insufficient: the native schema-2
+witness must observe exactly one worker per target, unchanged object identities
+and complete controls across each counted interval. Build and verify the updated
+native observer and its separate resource role before running this case. A full
+paired campaign, native/live verification and remaining provider/lifecycle gates
+are still required; this controller's presence does not establish qualification.
+
+## Ceiling-result replay preparation
+
+`ceiling_result.py` validates the separate native ceiling-observation document
+against its requested event or output bound and process exit status. It checks
+frame/byte accounting, the terminal reserve, same-kernel evidence and nullable
+engine counters. A complete expiry or a different observed ceiling remains
+inconclusive for the requested ceiling. Missing transport, contradictory counts,
+extra fields and inconsistent exit/verdict combinations cannot produce a pass.
+Unknown counters are retained without calculating loss or latency percentiles.
+`evaluate_ceiling_session` also requires exactly one successful readiness record
+before the final observation. The live controller must consume that readiness
+before launching the flood; replayed record order alone cannot establish when
+the workload actually started.
+
+This replay establishes only a reported admitted ceiling. It does not prove ring
+saturation, resource containment, isolation, cleanup or the five-pair flood case.
+Native parser/transport/CLI execution and the flood controller remain required.
+
+
+## Paired bounded flood controller
+
+`campaign.py --acknowledge-local-flood-campaign` selects a separate frozen
+`flood_profile.json`: five pairs, 900-second control and enabled windows,
+60-second warmups, 32 owned fixture containers and 20 slots at fixed offsets.
+Each window repeats the event-limit, output-limit, ring-loss and paused-reader
+cases five times. Workload preparation has a two-second lead; a slot more than
+250 ms late fails without retiming or retrying it. Control windows run the same
+independent fixed-volume inputs without an optional tracer.
+
+The controller selects schema-3 resource observations and retains every workload,
+delivery, activity, standard-service and private window receipt in its hashed
+envelope. Each enabled session records the complete attachment census before
+releasing I/O and the captured-object census after cancellation. Replay recomputes
+the writer/kernel/pause verdict, checks workload timing inside the resource window,
+and rejects altered counts, omitted attachments or remaining captured objects.
+A complete failed mechanism remains a failed paired result; transport, cadence,
+identity or cleanup failures abort and retain the partial window.
+
+Flood replay checks the actual frozen service CPU/memory settings, available
+memory lifetime peaks and sampled BPF map allocations. It compares each matched
+burst's application-read throughput using I/O time, excluding time waiting for
+controller commands. A throughput regression of exactly 2% fails; favourable
+bursts cannot hide a failed one. Standard scan comparisons and collector gaps are
+retained separately. The normal-case CPU, loss and latency gates are unchanged.
+
+This controller is prepared and covered by host tests, but has not run a full
+paired campaign. The inputs are finite bursts; they do not establish sustained
+producer saturation throughout the window. Continuous-pressure coverage still
+needs its own bounded workload before full flood qualification can be claimed.
+Native schema-3 observer tests, real controller integration, event-latency and
+verifier measurements, isolation, lifecycle and provider checks remain required.
+Previously completed single-session checks used their own frozen source and do
+not establish this new campaign or its additional replay fields.
+
+`pressure_metrics.py` prepares the continuous producer's separate replay seam.
+It validates schema-3 resources and the complete pressure stream, requires the
+producer to cover both resource windows, then selects the same contiguous whole
+producer intervals in both phases. Boundary intervals are excluded by clock
+bounds alone, with a five-millisecond margin; partial bytes are never estimated.
+The comparison retains every selected interval and applies the strict 2% limit
+to their aggregate measured read throughput. It reports matched-interior
+throughput only, not an active-trace-only or full-qualification verdict.
+
+The producer now records a wall/monotonic alignment at each interval boundary.
+Replay rejects more than five milliseconds of alignment uncertainty or clock
+offset drift from its start, in addition to the original contiguous-duration and
+counter checks. This avoids treating an initial timestamp as sufficient evidence
+for the entire pressure run. These paths are host-tested only; native execution
+and live campaign verification remain pending.
+
+## Sustained-pressure window preparation
+
+`PressureWindow` now owns a 910-second continuous producer around a 900-second
+resource window, with a one-second lead. Both control and enabled phases use the
+same producer. Required observers and producer lifetime are checked throughout
+sampling; failure uses the existing owned tracer/fixture teardown before closing
+local workload handles. Successful collection retains the validated pressure
+stream and completes its Q handshake.
+
+The prepared `pressure_profile.json` has five pairs and 20 fixed 30-second trace
+slots, alternating ring-pressure and paused-pressure observations. These sessions
+retain the authenticated active-admission check and complete attachment census.
+A fast writer that finishes before those observations is not silently accepted.
+Known produced/sampled/lost/delivered counters must establish actual ring loss and
+the exact kernel candidate cap. Both post-cancel and expiry-relative physical
+cleanup observations must be below two seconds; equality fails.
+
+`campaign.py --acknowledge-local-pressure-campaign` now selects this sustained
+profile. Its paired replay binds each session to that session's exact attachment
+IDs and independently measured read-count bounds. At least 20 complete producer
+intervals must be bracketed by those attachments; a pause must contain independent
+read volume beyond the admitted candidate cap. It joins these checks to resource,
+map, standard-service and paired-throughput observations. Native observer/producer
+execution and real controller integration remain unverified. The finite writer-limit and output-limit checks remain separate;
+continuous producer traffic would invalidate their exact fixed-burst accounting.
+
+
+Pressure provenance inventories the continuous producer, resource and standard
+streams in both phases, plus every delivery and activity witness in the enabled
+phase. A synthetic pair containing complete 900-second record sequences exercises full
+replay; it is not a timed runtime run. Mutating its memory peak while
+preserving successful mechanisms yields a failed pressure budget; altering a
+stream without updating its envelope is rejected. These host tests establish
+replay behaviour only. They do not replace native or real five-pair execution.
+
+Sustained-session saturation requires known counters, an exhausted kernel
+candidate budget, observed ring loss, expiry and exact accounting of delivered,
+lost and rejected candidates. Reported rejections remain visible; they do not
+negate observed ring loss or establish complete delivery. Unknown counters,
+unaccounted candidates and rejection without ring loss cannot establish
+saturation. This follows the benchmark protocol's allowance for disclosed drops
+in flood cases; it changes no normal loss, resource, duration, isolation or
+cleanup threshold. It grants no paired performance qualification by itself.
+
+Active paired campaigns create controller-owned fixture Jobs with one child, no
+retries and the existing fixed deadline and Pod security/resource settings. They
+bind each logical roster entry to its real generated Pod name and UID before
+granting tenant Pod-read permission or admitting traces. Parent UID/spec changes,
+replaced/restarted children, multiple children and expanded admission-time bounds
+fail the campaign. Requests, native receiver identities, selected/noisy workload
+commands and collector density checks use those same bound Pod identities. The
+new controller path requires a live local check after any timed campaign ends;
+unit fixtures alone do not establish provider policy enforcement.
+
 ## Failed observer diagnostics
 
 An incomplete standard observation reports a fixed failure category for process
@@ -227,21 +471,48 @@ with code zero is also invalid. This receipt identifies detected exits, not an
 assumed root cause or exit ordering between polls. Keep all partial streams.
 No diagnostic changes permit retries or relax observation and workload limits.
 
-## Explicit provider transport preparation
+## Scheduler measurement in every window
 
-Native standard and delivery observers accept an optional private `networkScope`.
-Omitting it retains local routing; `local` is equivalent. Only an explicitly
-selected verified EKS runtime writes `eks`. Unknown, empty or null values fail.
-EKS scope accepts commercial AWS regional `eks.amazonaws.com` and `api.aws`
-hostnames on HTTPS 443, including the implicit port. See the
-[AWS endpoint formats](https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html).
-Other partitions and arbitrary hosts remain outside the approved scope.
+All active cases require a fifth immutable `scheduler` helper. The controller
+freezes the scheduler packages, records the exact private native input and stream
+in the envelope, and pins the validated standard collector as its process owner.
+The helper runs in both control and enabled windows. Early exit, owner death,
+loss, inactive perf time or incomplete cleanup invalidates the window.
 
-A hostname shape does not establish cluster ownership. The parent runtime must
-verify the exact endpoint and CA against its frozen provider binding and AWS
-cluster description before preparing private native inputs. Both transports
-retain CA and hostname verification, TLS 1.3, fixed routes, disabled proxying and
-redirects, and existing time/byte limits. Credentials remain private. The shared
-validator is included in the campaign source freeze. Local acknowledgement and
-runtime checks remain local; adding this transport does not itself create an EKS
-active campaign, provision resources, or establish provider qualification.
+Replay checks the input boot/duration, collector identity and pid/start binding,
+CPU roster and tracepoint hashes, then validates the full schema-2 histogram
+stream. Paired CPU/format bindings must match. Scheduler cutoffs must be within
+one sampling period (one second) of the standard-observer window; the actual
+start skew is reported. This guards against a different window being substituted,
+without claiming simultaneous process startup. Results retain percentile ranges,
+coverage counters and the observer's own cost. They do not change existing tracer
+or workload budgets. Verifier measurements use the separate bounded capture below.
+Historical evidence must use its frozen older verifier; missing new streams
+cannot be treated as measured zeros or silently supplied during replay.
+
+
+### Verifier capture in every active case
+
+All six active profiles require a sixth immutable `verifier` helper built from
+`prototype/trace/qualification/verifier-observer`. Its package and verifier library
+are included in the source inventory. Each window freezes private input and an
+exact probe ownership journal before launch; both files and `verifier.jsonl` are
+mandatory in its evidence envelope. Historical runs retain their original frozen
+replay code and cannot acquire these measurements retrospectively.
+
+Enabled windows bind to the trace Node service process and cgroup, including its
+worker descendants. Control windows bind to the existing capability-free standard
+collector and explicitly prove that the tracer is absent. This is a distinct
+negative control; the evaluator does not subtract measurements from different
+process scopes. It requires zero completed control calls and positive enabled
+calls. Missing or early-exited capture is an error, not a zero result.
+
+Replay checks the process identity, cgroup inode, boot, online CPUs, kernel BTF,
+format hashes, fixed timing bounds, counters and completed cleanup. It reports
+completed/rejected calls, verifier elapsed time and finalizer byte counts without
+log contents. Probe overhead and observer CPU/RSS remain explicit. Every capture
+has to account for its final records; profiles retain their existing idle tail.
+After observer exit, the controller reconciles only unchanged definitions from
+that window's journal. A live helper or changed definition prevents cleanup and
+invalidates qualification. Full paired execution and provider evidence are still
+required; successful component tests do not establish those outcomes.

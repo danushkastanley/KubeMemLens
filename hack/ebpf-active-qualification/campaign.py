@@ -1,4 +1,4 @@
-"""Run a frozen five-pair local normal or mixed case; no provider/support claim."""
+"""Run a frozen five-pair local active case; no provider/support claim."""
 import argparse
 import copy
 from datetime import datetime, timezone
@@ -17,15 +17,28 @@ from local_runtime import spec_digest
 from processes import wait_until
 from profile import load_profile
 from high_rate_profile import load_high_rate_profile
+from noisy_profile import CASE as NOISY_CASE, load_noisy_profile
+from concurrent_profile import CASE as CONCURRENT_CASE, load_concurrent_profile, maximum_node_arguments
 from preflight import read_configuration, certificate_lifetimes
 from chart_inventory import verify_inventory
 from window import Window
+from flood_profile import CASE as FLOOD_CASE, load_flood_profile
+from flood_window import FloodWindow
+from flood_evaluate import evaluate_flood_pair
+from pressure_profile import CASE as PRESSURE_CASE, load_pressure_profile
+from pressure_window import PressureWindow
+from pressure_evaluate import evaluate_pressure_pair
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_DIRS = ['internal/qualificationendpoint', 'hack/ebpf-active-qualification', 'hack/ebpf-qualification',
                'prototype/trace/qualification/active-measure', 'prototype/trace/qualification/lifecycle',
                'prototype/trace/qualification/filecache', 'prototype/trace/qualification/delivery',
-               'prototype/trace/qualification/delivery-client', 'hack/node-qualification/chart-inventory']
+               'prototype/trace/qualification/delivery-client', 'prototype/trace/qualification/scheduler',
+               'prototype/trace/qualification/scheduler-observer', 'prototype/trace/qualification/verifier',
+               'prototype/trace/qualification/verifier-observer', 'hack/node-qualification/chart-inventory']
+PROFILES = {'normal': load_profile, 'high-rate': load_high_rate_profile,
+            'noisy': load_noisy_profile, 'concurrent': load_concurrent_profile,
+            'flood': load_flood_profile, 'pressure': load_pressure_profile}
 
 
 def sources():
@@ -45,15 +58,26 @@ def write(path, value):
 
 
 class Campaign:
+    execution_scope = 'owned local workload; no full qualification or cloud execution'
+
+    def make_case(self, cfg):
+        return LocalCase(cfg)
+
     def __init__(self, cfg, directory, profile):
         self.cfg, self.directory = cfg, directory
         self.profile = profile
-        self.label = {'normal-confirmed-files': 'normal', 'high-rate-mixed-files': 'high-rate'}[profile['case']]
+        self.label = {'normal-confirmed-files': 'normal', 'high-rate-mixed-files': 'high-rate',
+                      NOISY_CASE: 'noisy', CONCURRENT_CASE: 'concurrent', FLOOD_CASE: 'flood',
+                      PRESSURE_CASE: 'pressure'}[profile['case']]
+        cases = {FLOOD_CASE: (FloodWindow, evaluate_flood_pair, 'measuredFloodBudgetsPassed'),
+                 PRESSURE_CASE: (PressureWindow, evaluate_pressure_pair, 'measuredPressureBudgetsPassed')}
+        self.window_class, self.evaluate_pair, self.pass_field = cases.get(
+            profile['case'], (Window, evaluate_pair, 'measuredNormalBudgetsPassed'))
         self.source = sources()
         if digest(canonical(self.source)) != cfg['sourceSHA256']:
             raise ValueError('source differs from independently frozen manifest')
         verify_inventory(cfg['chartInventory'])
-        self.case = LocalCase(cfg)
+        self.case = self.make_case(cfg)
         self.case.runtime.policy()
         self.case.runtime.ready()
         for role in ('node', 'api'):
@@ -81,7 +105,8 @@ class Campaign:
               'images': {k: cfg[k] for k in ('standardImage', 'fixtureImage')},
               'tracerImage': cfg['trace']['image'], 'policySHA256': cfg['trace']['policySHA256'],
               'helperSHA256': {name: value['sha256'] for name, value in cfg['helpers'].items()},
-              'scope': 'owned local ' + self.label + ' workload; no full qualification or cloud execution'})
+              'executionEnvironment': self.case.runtime.environment_fields(),
+              'scope': self.execution_scope})
 
     def record(self, event, value, private=False):
         self.sequence += 1
@@ -114,6 +139,8 @@ class Campaign:
         if '--allow-confirmed-paths' in args:
             raise ValueError('campaign must start from recorded default profile')
         args.append('--allow-confirmed-paths')
+        if self.profile['case'] == CONCURRENT_CASE:
+            args[:] = maximum_node_arguments(args)
         cfg = copy.deepcopy(self.cfg)
         cfg['trace']['deploymentSpecSHA256']['api'] = spec_digest(desired['spec'])
         write(self.directory / 'profile-transition.private.json', {'before': current, 'afterSpec': desired['spec'],
@@ -123,7 +150,7 @@ class Campaign:
                  {'op': 'replace', 'path': '/spec', 'value': desired['spec']}]
         self.confirmed = desired
         command(runtime.kube + ['-n', runtime.cfg['namespace'], 'patch', 'deployment', runtime.services['api'], '--type=json', '--patch-file=/dev/stdin'], canonical(patch))
-        self.case = LocalCase(cfg)
+        self.case = self.make_case(cfg)
         self.case.runtime.ready()
         self.case.runtime.service('api')
 
@@ -140,7 +167,7 @@ class Campaign:
                      {'op': 'test', 'path': '/metadata/resourceVersion', 'value': current['metadata']['resourceVersion']},
                      {'op': 'replace', 'path': '/spec', 'value': self.original['spec']}]
             command(runtime.kube + ['-n', runtime.cfg['namespace'], 'patch', 'deployment', runtime.services['api'], '--type=json', '--patch-file=/dev/stdin'], canonical(patch))
-        self.case = LocalCase(self.cfg)
+        self.case = self.make_case(self.cfg)
         for role in ('node', 'api'):
             if self.case.runtime.deployment(role)['spec']['replicas'] == 0:
                 self.case.runtime.scale(role, 1)
@@ -167,7 +194,7 @@ class Campaign:
                 self.progress('control-warmup', pair)
                 wait_until(time.monotonic() + self.profile['warmupSeconds'])
                 self.progress('control-sampling', pair)
-                Window(self.case, self.fixtures, self.profile, pair_dir / 'control', 'control', pair).run()
+                self.window_class(self.case, self.fixtures, self.profile, pair_dir / 'control', 'control', pair).run()
                 self.invariant()
                 self.case.runtime.scale('node', 1)
                 self.case.runtime.scale('api', 1)
@@ -175,9 +202,9 @@ class Campaign:
                 self.progress('enabled-warmup', pair)
                 wait_until(time.monotonic() + self.profile['warmupSeconds'])
                 self.progress('enabled-sampling', pair)
-                Window(self.case, self.fixtures, self.profile, pair_dir / 'enabled', 'enabled', pair).run()
+                self.window_class(self.case, self.fixtures, self.profile, pair_dir / 'enabled', 'enabled', pair).run()
                 self.invariant()
-                result = evaluate_pair(pair_dir / 'control', pair_dir / 'enabled', self.profile)
+                result = self.evaluate_pair(pair_dir / 'control', pair_dir / 'enabled', self.profile)
                 result['pair'] = pair
                 write(pair_dir / 'result.json', result)
                 self.pairs.append(result)
@@ -185,8 +212,8 @@ class Campaign:
                 self.fixtures = None
                 self.progress('paired-measurements-complete', pair)
             write(self.directory / (self.label + '-result.json'), {'schemaVersion': 1, 'pairs': self.pairs,
-                  'measuredNormalBudgetsPassed': all(p['measuredNormalBudgetsPassed'] for p in self.pairs),
-                  'qualification': 'normal measured budgets applied to this case only; remaining protocol gates are not waived'})
+                  self.pass_field: all(p[self.pass_field] for p in self.pairs),
+                  'qualification': 'measured budgets applied to this case only; remaining protocol gates are not waived'})
             self.progress(self.label + '-case-complete', self.profile['pairs'])
         except BaseException:
             self.progress('interrupted-or-invalid; evidence retained', len(self.pairs) + 1)
@@ -208,13 +235,17 @@ def main():
     cases = parser.add_mutually_exclusive_group(required=True)
     cases.add_argument('--acknowledge-local-normal-campaign', action='store_const', const='normal', dest='case')
     cases.add_argument('--acknowledge-local-high-rate-campaign', action='store_const', const='high-rate', dest='case')
+    cases.add_argument('--acknowledge-local-noisy-campaign', action='store_const', const='noisy', dest='case')
+    cases.add_argument('--acknowledge-local-concurrent-campaign', action='store_const', const='concurrent', dest='case')
+    cases.add_argument('--acknowledge-local-flood-campaign', action='store_const', const='flood', dest='case')
+    cases.add_argument('--acknowledge-local-pressure-campaign', action='store_const', const='pressure', dest='case')
     args = parser.parse_args()
     os.umask(0o077)
     cfg = read_configuration(args.config)
     def interrupted(_signal, _frame):
         raise InterruptedError('campaign interrupted; restore owned resources')
     signal.signal(signal.SIGTERM, interrupted)
-    profile = {'normal': load_profile, 'high-rate': load_high_rate_profile}[args.case]()
+    profile = PROFILES[args.case]()
     Campaign(cfg, args.output, profile).run()
 
 

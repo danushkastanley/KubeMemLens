@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "case": "sustained-file-pressure",
+  "pairs": 5,
+  "windowSeconds": 900,
+  "warmupSeconds": 60,
+  "workloadContainers": 32,
+  "workload": {
+    "fileBytes": 8388608
+  },
+  "producerSeconds": 910,
+  "producerLeadSeconds": 1,
+  "minimumCommonIntervals": 890,
+  "minimumObservedSessionIntervals": 20,
+  "trace": {
+    "count": 20,
+    "firstOffsetSeconds": 30,
+    "periodSeconds": 40,
+    "durationSeconds": 30,
+    "maxEvents": 10000,
+    "maxOutputBytes": 8388608,
+    "maxMapBytes": 8388608,
+    "maxPathBytes": 64,
+    "kind": "files",
+    "rawPaths": true,
+    "objects": {
+      "map": 7,
+      "prog": 5,
+      "link": 5
+    }
+  },
+  "caseOrder": [
+    "ring-pressure",
+    "paused-pressure"
+  ],
+  "maximumSlotLatenessNanos": 250000000,
+  "minimumScans": 160,
+  "resourceCaps": {
+    "node": {
+      "cpuQuotaUsec": 200000,
+      "cpuPeriodUsec": 100000,
+      "cpuBurstUsec": 0,
+      "memoryMaxBytes": 536870912
+    },
+    "api": {
+      "cpuQuotaUsec": 200000,
+      "cpuPeriodUsec": 100000,
+      "cpuBurstUsec": 0,
+      "memoryMaxBytes": 536870912
+    }
+  }
+}

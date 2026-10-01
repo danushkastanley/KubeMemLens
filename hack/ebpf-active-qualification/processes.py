@@ -37,7 +37,7 @@ class Processes:
         return process
 
     def native(self, name, helper, *args):
-        return self.start(name, ['docker', 'exec', self.case.node, self.case.cfg['helpers'][helper]['path'], *args])
+        return self.start(name, self.case.runtime.observer_command([self.case.cfg['helpers'][helper]['path'], *args]))
 
     def scheduler(self, config_path):
         args = [self.case.cfg['helpers']['scheduler']['path'], '--config', config_path,

@@ -14,6 +14,17 @@ class ProcessTests(unittest.TestCase):
         self.addCleanup(temporary.cleanup)
         self.directory = Path(temporary.name)
 
+    def test_observer_execution_uses_the_verified_runtime_command(self):
+        runtime = Mock()
+        argv = ['/usr/local/bin/kml-measure', '--config', '/private/input']
+        runtime.observer_command.return_value = argv
+        case = SimpleNamespace(runtime=runtime, cfg={'helpers': {'measure': {'path': argv[0]}}})
+        processes = Processes(case, None, 'owned')
+        processes.start = Mock()
+        processes.native('resources', 'measure', '--config', '/private/input')
+        runtime.observer_command.assert_called_once_with(argv)
+        processes.start.assert_called_once_with('resources', argv)
+
     def test_complete_delivery_budget_failure_is_retained_but_crash_is_not(self):
         processes = Processes(None, self.directory, 'test')
         delivery = Mock(returncode=1)
@@ -43,6 +54,20 @@ class ProcessTests(unittest.TestCase):
             processes.healthy()
         receipt = json.loads((self.directory / 'failed-processes.private.json').read_text())
         self.assertEqual(receipt['processes'], [{'label': 'resources', 'exitCode': 0}])
+
+    def test_successful_scheduler_or_verifier_exit_before_window_end_is_invalid(self):
+        for name in ('scheduler', 'verifier'):
+            with self.subTest(name=name):
+                directory = self.directory / name
+                directory.mkdir()
+                processes = Processes(None, directory, 'test')
+                observer = Mock()
+                observer.poll.return_value = 0
+                processes.items = [(name, observer, Mock(), Mock())]
+                with self.assertRaises(ValueError):
+                    processes.healthy()
+                receipt = json.loads((directory / 'failed-processes.private.json').read_text())
+                self.assertEqual(receipt['processes'], [{'label': name, 'exitCode': 0}])
 
     def test_first_failure_excludes_still_running_workloads(self):
         processes = Processes(None, self.directory, 'test')

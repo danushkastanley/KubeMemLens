@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "case": "maximum-two-selected-traces",
+  "pairs": 5,
+  "windowSeconds": 1350,
+  "warmupSeconds": 60,
+  "workloadContainers": 32,
+  "minimumActiveSeconds": 900,
+  "minimumActiveOperations": 900,
+  "minimumScans": 240,
+  "minimumActiveScans": 120,
+  "selectedTargets": 2,
+  "workload": {
+    "mode": "cached",
+    "count": 1320,
+    "periodMilliseconds": 1000,
+    "fileBytes": 8388608
+  },
+  "trace": {
+    "count": 36,
+    "firstOffsetSeconds": 30,
+    "periodSeconds": 35,
+    "durationSeconds": 30,
+    "maxEvents": 10000,
+    "maxOutputBytes": 8388608,
+    "maxMapBytes": 8388608,
+    "maxPathBytes": 64,
+    "kind": "files",
+    "rawPaths": true,
+    "objects": {
+      "map": 14,
+      "prog": 10,
+      "link": 10
+    }
+  }
+}

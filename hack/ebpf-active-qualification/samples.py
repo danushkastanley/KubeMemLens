@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ebpf-qualification"))
 from idle_evaluate import counter_map, exact, integer, require, strict_json, validate_node
 
-ROLES = {"node", "api", "selected", "agent", "collector", "probe"} | {
+ROLES = {"node", "api", "selected", "selected-peer", "agent", "collector", "probe"} | {
     f"nonselected-{index}" for index in range(10)}
 SCHEDULING_COUNTERS = {"runtimeNanos", "runqueueWaitNanos", "timeslices"}
 
