@@ -29,3 +29,13 @@ helm template trace charts/kube-memlens-trace
 The second command produces no Kubernetes resources. The repository's
 `make check-trace-chart-contract` verifies enabled manifests, rejected inputs,
 separate permissions and the unchanged standard chart.
+
+## Runtime memory configuration
+
+The API and binding-node containers set `GODEBUG=disablethp=1` to limit Go heap
+huge-page use on hosts that otherwise promote anonymous memory aggressively.
+The incident worker keeps its existing sanitised environment. This changes no host
+policy or process privilege.
+The local diagnostic and remaining qualification requirements are recorded in
+[ADR 0024](../../docs/adr/0024-limit-huge-pages-in-optional-trace-containers.md).
+This configuration does not establish a resource-qualified profile.
