@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"math"
+	"strings"
 	"testing"
 )
 
@@ -13,6 +14,28 @@ func countRecord(enabled, running, lost uint64) []byte {
 	binary.LittleEndian.PutUint64(raw[16:], running)
 	binary.LittleEndian.PutUint64(raw[24:], lost)
 	return raw
+}
+
+func TestCounterFailureNamesOwnedOrdinalWithoutRawDescriptor(t *testing.T) {
+	for _, failure := range []struct {
+		running, lost uint64
+		cause         error
+	}{{99, 0, ErrCoverage}, {100, 1, ErrLoss}} {
+		read := func(fd int, raw []byte) (int, error) {
+			value := countRecord(100, 100, 0)
+			if fd == 98765 {
+				value = countRecord(100, failure.running, failure.lost)
+			}
+			return copy(raw, value), nil
+		}
+		counts, err := readCounters([]int{12345, 98765}, read)
+		if !errors.Is(err, failure.cause) || !strings.HasPrefix(err.Error(), "descriptor=1: ") || strings.Contains(err.Error(), "98765") {
+			t.Fatal("coverage/loss diagnostic lost its cause or owned ordinal")
+		}
+		if counts != (Counters{}) {
+			t.Fatal("failed coverage returned usable counts")
+		}
+	}
 }
 
 func TestCounterReadsDetectPendingLossAndInactiveTime(t *testing.T) {
