@@ -38,13 +38,15 @@ def write(path, value):
 
 
 class Campaign:
+    runtime_class = Runtime
+
     def __init__(self, cfg, output):
         self.cfg, self.output = cfg, output
         self.profile = load_profile(PROFILE)
         self.source = source_manifest()
         if digest(canonical(self.source)) != cfg["sourceSHA256"]:
             raise ValueError("source differs from the predeclared manifest")
-        self.runtime = Runtime(cfg)
+        self.runtime = self.runtime_class(cfg)
         self.runtime.policy()
         self.output.mkdir(mode=0o700)
         for source in source_files():
@@ -58,7 +60,7 @@ class Campaign:
                        "profileSHA256": digest(PROFILE.read_bytes()), "privateConfigurationSHA256": digest(canonical(cfg))})
         node = self.runtime.json(["get", "node", cfg["node"], "-o", "json"])["status"]["nodeInfo"]
         frozen["environment"] = {k: node[k] for k in ("kernelVersion", "osImage", "containerRuntimeVersion", "kubeletVersion", "architecture", "operatingSystem")}
-        frozen["environment"]["sharedKindKernel"] = True
+        frozen["environment"].update(self.runtime.environment_fields())
         write(self.output / "freeze.json", frozen)
 
     def progress(self, state, pair):
@@ -92,7 +94,7 @@ class Campaign:
         started = instant()
         try:
             with target.open("xb") as stream, (self.output / (stem + ".stderr")).open("xb") as errors:
-                result = subprocess.run(["docker", "exec", self.cfg["node"], MEASURE, "--config", remote],
+                result = subprocess.run(self.runtime.observer_command([MEASURE, "--config", remote]),
                                         stdout=stream, stderr=errors, timeout=930)
             if result.returncode:
                 raise RuntimeError("sampler failed; raw incomplete window retained")

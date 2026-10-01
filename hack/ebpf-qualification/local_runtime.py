@@ -83,6 +83,12 @@ class Runtime:
     def exec(self, args, data=None, timeout=10):
         return command(["docker", "exec", "-i", self.cfg["node"], *args], data, timeout)
 
+    def environment_fields(self):
+        return {'sharedKindKernel': True}
+
+    def observer_command(self, args):
+        return ['docker', 'exec', self.cfg['node'], *args]
+
     def verify_tools(self):
         for path, key in ((MEASURE, "measureSHA256"), (CENSUS, "censusSHA256")):
             if self.exec(["sha256sum", path]).decode().split()[0] != self.cfg[key]:
