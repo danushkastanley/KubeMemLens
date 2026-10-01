@@ -21,8 +21,9 @@ const maxSeconds = 1800
 const maxGroups = 16
 
 type configuration struct {
-	Seconds int         `json:"seconds"`
-	Groups  []groupSpec `json:"groups"`
+	Seconds     int         `json:"seconds"`
+	Groups      []groupSpec `json:"groups"`
+	Observation string      `json:"observation,omitempty"`
 }
 type record struct {
 	SchemaVersion int                    `json:"schemaVersion"`
@@ -55,6 +56,9 @@ func loadConfiguration(input io.Reader) (configuration, error) {
 	d.DisallowUnknownFields()
 	if d.Decode(&cfg) != nil || d.Decode(new(any)) != io.EOF || cfg.Seconds < 1 || cfg.Seconds > maxSeconds || len(cfg.Groups) > maxGroups {
 		return cfg, errors.New("invalid configuration")
+	}
+	if cfg.Observation != "" && cfg.Observation != "containment" {
+		return cfg, errors.New("unknown observation format")
 	}
 	roles := map[string]bool{}
 	paths := map[string]bool{}
@@ -118,10 +122,19 @@ func run(ctx context.Context, path string, output io.Writer) error {
 			begin = origin
 		}
 		r := record{SchemaVersion: 2, Index: i, ElapsedNanos: begin.Sub(origin).Nanoseconds(), WallNanos: begin.UnixNano(), Groups: map[string]groupSample{}}
+		if cfg.Observation == "containment" {
+			r.SchemaVersion = 3
+		}
 		for role, g := range groups {
 			s, err := g.sample()
 			if err != nil {
 				return err
+			}
+			if cfg.Observation == "containment" {
+				s.Containment, err = g.containment()
+				if err != nil {
+					return err
+				}
 			}
 			r.Groups[role] = s
 		}

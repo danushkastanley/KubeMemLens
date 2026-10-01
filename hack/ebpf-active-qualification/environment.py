@@ -1,6 +1,4 @@
 """Read-only kernel accounting evidence; no boot settings or rlimits are changed."""
-import gzip
-import io
 import re
 import shlex
 import hashlib
@@ -44,12 +42,9 @@ def memory_configuration(config, command_line, release):
 
 
 def kernel_accounting(runtime):
-    raw = runtime.exec(['cat', '/proc/config.gz'])
-    with gzip.GzipFile(fileobj=io.BytesIO(raw)) as stream:
-        config = stream.read((1 << 20) + 1)
-    require(len(config) <= 1 << 20, 'kernel configuration exceeds bound')
+    config = runtime.kernel_configuration()
     release = runtime.exec(['uname', '-r']).decode().strip()
     arguments = runtime.exec(['cat', '/proc/cmdline']).decode().strip()
     require(runtime.exec(['stat', '-f', '-c', '%T', '/sys/fs/cgroup']).decode().strip() == 'cgroup2fs',
             'unified memory hierarchy required')
-    return memory_configuration(config.decode(), arguments, release)
+    return memory_configuration(config, arguments, release)

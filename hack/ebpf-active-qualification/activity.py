@@ -3,6 +3,8 @@ from bisect import bisect_left, bisect_right
 from samples import exact, integer, require
 
 OBJECT_KINDS = {"map", "prog", "link"}
+# Schema 2 adds per-target coverage; legacy one-worker observations stay schema 1.
+WITNESS_SCHEMA = {1: 1, 2: 2}
 
 
 def clock(value):
@@ -32,8 +34,9 @@ def snapshot(value):
                 and value["userMapBytes"] == 0, "empty worker state contains owned objects")
 
 
-def validate_witness(rows, seconds):
+def validate_witness(rows, seconds, *, expected_workers=1):
     integer(seconds, 1, 1800)
+    integer(expected_workers, 1, 2)
     require(type(rows) is list and len(rows) == seconds + 1, "incomplete activity witness")
     starts, ends = [], []
     for index, row in enumerate(rows):
@@ -44,8 +47,15 @@ def validate_witness(rows, seconds):
         if row["state"] == "observed":
             fields.add("snapshot")
             snapshot(row.get("snapshot"))
+            if expected_workers == 2:
+                fields.add('targetWorkers')
+                counts = row.get('targetWorkers')
+                require(type(counts) is list and len(counts) == 2, 'two-target coverage is missing')
+                for count in counts:
+                    integer(count, 0, 2)
+                require(sum(counts) == row['snapshot']['workers'], 'target coverage differs from worker inventory')
         exact(row, fields)
-        require(type(row["schemaVersion"]) is int and row["schemaVersion"] == 1 and
+        require(type(row["schemaVersion"]) is int and row["schemaVersion"] == WITNESS_SCHEMA[expected_workers] and
                 type(row["index"]) is int and row["index"] == index, "activity ordering/version mismatch")
         clock(row["clock"])
         integer(row["elapsedNanos"])
@@ -79,17 +89,18 @@ def validate_witness(rows, seconds):
     return starts, ends
 
 
-def active_intervals(samples, witness, seconds, expected_objects):
+def active_intervals(samples, witness, seconds, expected_objects, *, expected_workers=1):
     """Call after schema-2 sample validation; a missing bracket remains unproven."""
-    starts, ends = validate_witness(witness, seconds)
+    starts, ends = validate_witness(witness, seconds, expected_workers=expected_workers)
     require(len(samples) == seconds + 1, "resource/witness window mismatch")
-    signatures = active_signatures(witness, expected_objects)
+    signatures = active_signatures(witness, expected_objects, expected_workers=expected_workers)
     windows = [(before["wallNanos"], after["wallNanos"] + after["readNanos"])
                for before, after in zip(samples, samples[1:])]
     return bracket_windows(starts, ends, signatures, windows)
 
 
-def active_signatures(witness, expected_objects):
+def active_signatures(witness, expected_objects, *, expected_workers=1):
+    integer(expected_workers, 1, 2)
     exact(expected_objects, OBJECT_KINDS)
     for number in expected_objects.values():
         integer(number, 1, 512)
@@ -97,9 +108,10 @@ def active_signatures(witness, expected_objects):
     for row in witness:
         value = row.get("snapshot")
         signature = None
-        if (value is not None and value["workers"] == 1 and value["excludedWorkers"] == 0
-                and value["activeControls"] == 1 and value["kernelMapBytes"] > 0
+        if (value is not None and value["workers"] == expected_workers and value["excludedWorkers"] == 0
+                and value["activeControls"] == expected_workers and value["kernelMapBytes"] > 0
                 and value["userMapBytes"] > 0
+                and (expected_workers == 1 or row.get('targetWorkers') == [1, 1])
                 and all(len(value["objects"][kind]) == count for kind, count in expected_objects.items())):
             signature = tuple(tuple(value["objects"][kind]) for kind in sorted(OBJECT_KINDS))
         signatures.append(signature)
@@ -119,9 +131,9 @@ def bracket_windows(starts, ends, signatures, windows):
     return result
 
 
-def operation_activity(observations, witness, seconds, expected_objects):
-    validate_witness(witness, seconds)
-    signatures = active_signatures(witness, expected_objects)
+def operation_activity(observations, witness, seconds, expected_objects, *, expected_workers=1):
+    validate_witness(witness, seconds, expected_workers=expected_workers)
+    signatures = active_signatures(witness, expected_objects, expected_workers=expected_workers)
     starts = [r["clock"]["monotonicNanos"] - r["readNanos"] - r["clock"]["uncertaintyNanos"] for r in witness]
     ends = [r["clock"]["monotonicNanos"] + r["clock"]["uncertaintyNanos"] for r in witness]
     windows = [(r["observation"]["operationStartedMonotonicNanos"], r["observation"]["operationEndedMonotonicNanos"])

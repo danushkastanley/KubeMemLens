@@ -1,7 +1,9 @@
 """Explicit local-only identities and UID-guarded optional-service transitions."""
 
 import base64
+import gzip
 import hashlib
+import io
 import json
 import re
 import subprocess
@@ -100,6 +102,14 @@ class Runtime:
     def environment_fields(self):
         return {'sharedKindKernel': True}
 
+    def kernel_configuration(self):
+        raw = self.exec(['cat', '/proc/config.gz'])
+        with gzip.GzipFile(fileobj=io.BytesIO(raw)) as stream:
+            config = stream.read((1 << 20) + 1)
+        if len(config) > 1 << 20:
+            raise ValueError('kernel configuration exceeds bound')
+        return config.decode()
+
     def api_cluster(self):
         cluster = read_api_cluster(self)
         if not re.fullmatch(r'https://(?:127\.0\.0\.1|localhost):[0-9]+', cluster['server']):
@@ -114,6 +124,9 @@ class Runtime:
 
     def observer_command(self, args):
         return ['docker', 'exec', self.cfg['node'], *args]
+
+    def observer_input_command(self, args):
+        return ['docker', 'exec', '-i', self.cfg['node'], *args]
 
     def verify_tools(self):
         for path, key in ((MEASURE, "measureSHA256"), (CENSUS, "censusSHA256")):

@@ -19,6 +19,7 @@ type watchRecord struct {
 	ReadNanos            int64     `json:"readNanos"`
 	State                string    `json:"state"`
 	Snapshot             *snapshot `json:"snapshot,omitempty"`
+	TargetWorkers        []int     `json:"targetWorkers,omitempty"`
 	Clock                clockPair `json:"clock"`
 	ObserverCPUUsec      int64     `json:"observerCPUUsec"`
 	ObserverPeakRSSBytes int64     `json:"observerPeakRSSBytes"`
@@ -72,6 +73,13 @@ func watchOwned(ctx context.Context, output io.Writer, parent *process, parentHa
 
 // sample is the existing qualification ownership/census seam, injected in tests.
 func watchSamples(ctx context.Context, output io.Writer, seconds int, sample func() (*snapshot, error)) error {
+	return watchRecords(ctx, output, seconds, 1, func() (*snapshot, []int, error) {
+		value, err := sample()
+		return value, nil, err
+	})
+}
+
+func watchRecords(ctx context.Context, output io.Writer, seconds, version int, sample func() (*snapshot, []int, error)) error {
 	origin := time.Now()
 	written := 0
 	for index := 0; index <= seconds; index++ {
@@ -89,9 +97,12 @@ func watchSamples(ctx context.Context, output io.Writer, seconds int, sample fun
 		if index == 0 {
 			begin = origin
 		}
-		value, err := sample()
+		value, coverage, err := sample()
 		if err != nil {
 			return err
+		}
+		if !validTargetCoverage(version, value, coverage) {
+			return errOwnership
 		}
 		clock, err := readClock()
 		if err != nil {
@@ -105,7 +116,7 @@ func watchSamples(ctx context.Context, output io.Writer, seconds int, sample fun
 		if value == nil {
 			state = "unavailable"
 		}
-		row := watchRecord{SchemaVersion: 1, Index: index, ElapsedNanos: begin.Sub(origin).Nanoseconds(), ReadNanos: time.Since(begin).Nanoseconds(), State: state, Snapshot: value, Clock: clock,
+		row := watchRecord{SchemaVersion: version, Index: index, ElapsedNanos: begin.Sub(origin).Nanoseconds(), ReadNanos: time.Since(begin).Nanoseconds(), State: state, Snapshot: value, TargetWorkers: coverage, Clock: clock,
 			ObserverCPUUsec: usage.Utime.Sec*1000000 + usage.Utime.Usec + usage.Stime.Sec*1000000 + usage.Stime.Usec, ObserverPeakRSSBytes: usage.Maxrss * 1024}
 		if err := ctx.Err(); err != nil {
 			return err

@@ -13,6 +13,7 @@ class Processes:
         self.items = []
         self.private = {}
         self.budget_failures = set()
+        self.scheduler_completion = None
 
     def configuration(self, name, value):
         raw = canonical(value)
@@ -21,13 +22,13 @@ class Processes:
         self.private[path] = digest(raw)
         return path
 
-    def start(self, name, args):
+    def start(self, name, args, stdin=None):
         if not re.fullmatch(r'[a-z][a-z0-9-]{0,79}', name):
             raise ValueError('invalid observation process label')
         out = (self.directory / (name + '.jsonl')).open('xb')
         err = (self.directory / (name + '.stderr')).open('xb')
         try:
-            process = subprocess.Popen(args, stdout=out, stderr=err)
+            process = subprocess.Popen(args, stdin=stdin, stdout=out, stderr=err)
         except BaseException:
             out.close()
             err.close()
@@ -36,7 +37,27 @@ class Processes:
         return process
 
     def native(self, name, helper, *args):
-        return self.start(name, ['docker', 'exec', self.case.node, self.case.cfg['helpers'][helper]['path'], *args])
+        return self.start(name, self.case.runtime.observer_command([self.case.cfg['helpers'][helper]['path'], *args]))
+
+    def scheduler(self, config_path):
+        args = [self.case.cfg['helpers']['scheduler']['path'], '--config', config_path,
+                '--acknowledge-owned-node', '--completion-signal', 'stdin-eof']
+        process = self.start('scheduler', self.case.runtime.observer_input_command(args), stdin=subprocess.PIPE)
+        self.scheduler_completion = process.stdin
+        return process
+
+    def release_scheduler(self, states):
+        if self.scheduler_completion is None:
+            return
+        peers = {name: code for name, _, code in states}
+        if 'verifier' not in peers:
+            raise ValueError('scheduler completion requires a verifier process')
+        if peers['scheduler'] is not None:
+            self.record_failure([('scheduler', peers['scheduler'])])
+            raise ValueError('scheduler exited before verifier completion acknowledgement')
+        if peers['verifier'] == 0:
+            self.scheduler_completion.close()
+            self.scheduler_completion = None
 
     def wait(self, process, seconds):
         if process.wait(timeout=seconds) != 0:
@@ -50,7 +71,7 @@ class Processes:
     def healthy(self):
         for name, process, _, _ in self.items:
             code = process.poll()
-            if code is not None and ((code != 0 and process not in self.budget_failures) or name in ('resources', 'standard', 'witness')):
+            if code is not None and ((code != 0 and process not in self.budget_failures) or name in ('resources', 'standard', 'witness', 'scheduler', 'verifier')):
                 self.record_failure([(name, code)])
                 raise ValueError('required observer stopped before its window ended')
 
@@ -68,6 +89,7 @@ class Processes:
             if failed:
                 self.record_failure(failed)
                 raise ValueError('observer or workload failed; retain partial records')
+            self.release_scheduler(states)
             if all(code is not None for code in codes):
                 return
             if time.monotonic() >= deadline:
@@ -76,6 +98,12 @@ class Processes:
 
     def close(self):
         failures = []
+        if self.scheduler_completion is not None:
+            try:
+                self.scheduler_completion.close()
+                self.scheduler_completion = None
+            except Exception:
+                failures.append('scheduler completion pipe')
         for name, process, out, err in self.items:
             try:
                 if process.poll() is None:

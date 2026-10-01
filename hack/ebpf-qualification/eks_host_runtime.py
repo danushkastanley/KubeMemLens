@@ -172,6 +172,14 @@ class EKSHostRuntime(Runtime):
     def observer_server(self):
         return self.provider['clusterEndpoint']
 
+    def kernel_configuration(self):
+        release = self.provider['nodeInfo']['kernelVersion']
+        require(re.fullmatch(r'[A-Za-z0-9._+-]{1,256}', release) is not None,
+                'invalid bound kernel release')
+        # Read the installed config for the verified running kernel. A missing
+        # package file remains an error, never inferred accounting support.
+        return self.exec(['cat', '/boot/config-' + release]).decode()
+
     def environment_fields(self):
         return {'sharedKindKernel': False, 'provider': 'eks-managed-al2023-amd64',
                 'providerBindingSHA256': digest(canonical(self.provider)),
@@ -184,6 +192,9 @@ class EKSHostRuntime(Runtime):
         self.verify_host()
         require(type(args) is list and args and all(isinstance(x, str) and '\0' not in x for x in args), 'invalid native command')
         return list(args)
+
+    def observer_input_command(self, args):
+        return self.observer_command(args)
 
     def policy(self):
         self.verify_kubeconfig_binding()

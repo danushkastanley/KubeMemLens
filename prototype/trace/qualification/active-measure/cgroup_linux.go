@@ -26,12 +26,13 @@ type group struct {
 }
 
 type groupSample struct {
-	CPU           map[string]uint64 `json:"cpu"`
-	MemoryCurrent uint64            `json:"memoryCurrent"`
-	Memory        map[string]uint64 `json:"memory"`
-	MemoryEvents  map[string]uint64 `json:"memoryEvents"`
-	Process       processSample     `json:"process"`
-	PIDs          uint64            `json:"pids"`
+	CPU           map[string]uint64  `json:"cpu"`
+	MemoryCurrent uint64             `json:"memoryCurrent"`
+	Memory        map[string]uint64  `json:"memory"`
+	MemoryEvents  map[string]uint64  `json:"memoryEvents"`
+	Process       processSample      `json:"process"`
+	PIDs          uint64             `json:"pids"`
+	Containment   *containmentSample `json:"containment,omitempty"`
 }
 
 func readBounded(r io.Reader) ([]byte, error) {
@@ -52,7 +53,7 @@ func (g *group) read(name string) ([]byte, error) {
 }
 
 func validGroup(spec groupSpec) bool {
-	role := spec.Role == "node" || spec.Role == "api" || spec.Role == "selected" || spec.Role == "agent" || spec.Role == "collector" || spec.Role == "probe"
+	role := spec.Role == "node" || spec.Role == "api" || spec.Role == "selected" || spec.Role == "selected-peer" || spec.Role == "agent" || spec.Role == "collector" || spec.Role == "probe"
 	for i := 0; i < 10; i++ {
 		role = role || spec.Role == "nonselected-"+strconv.Itoa(i)
 	}

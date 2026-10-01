@@ -75,10 +75,10 @@ func TestCancelledOrWrongBootCannotStartCapture(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	var output bytes.Buffer
-	if err := run(ctx, configuration{}, &output); !errors.Is(err, context.Canceled) {
+	if err := run(ctx, configuration{}, &output, nil); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
-	if run(context.Background(), fixture(), &output) == nil || output.Len() != 0 {
+	if run(context.Background(), fixture(), &output, nil) == nil || output.Len() != 0 {
 		t.Fatal("wrong boot reached capture")
 	}
 }

@@ -1,10 +1,14 @@
-"""Create and remove only the explicit local campaign's standard stack and Pods."""
+"""Create and remove only the explicit campaign's owned standard stack and Pods."""
 import json
 import hashlib
 from pathlib import Path
 
 from local_case import canonical, command
 from density import mapped_fixtures
+from fixture_jobs import FixtureJobs
+from fixture_roster import fixture_roster, noise_targets
+from concurrent_profile import CASE as CONCURRENT_CASE
+from concurrent_admissions import probe_resources
 from chart_inventory import inventory
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -20,6 +24,7 @@ class Fixtures:
         self.chart_objects = []
         self.reader_binding = 'kml-active-metrics-' + self.cfg['owner'][-12:]
         self.reader_uid = None
+        self.jobs = FixtureJobs(case, self.create, record)
 
     def create(self, obj):
         return json.loads(self.case.kube(['create', '-f', '-', '-o', 'json'], canonical(obj)))
@@ -41,9 +46,7 @@ class Fixtures:
         for ns in c.namespaces:
             self.namespace(ns, True)
         self.namespace(cfg['standardNamespace'], False)
-        values = {'namespace': {'name': cfg['standardNamespace'], 'create': False},
-                  'image': {'repository': cfg['standardImage'].split('@')[0],
-                            'digest': cfg['standardImage'].split('@')[1], 'pullPolicy': 'Never'}}
+        values = c.standard_values()
         rendered = command(['helm', 'template', cfg['release'], str(ROOT / 'charts/kube-memlens'),
                             '-n', cfg['standardNamespace'], '-f', '-'], canonical(values))
         objects = inventory(cfg['chartInventory'], rendered)
@@ -70,31 +73,37 @@ class Fixtures:
                            'roleRef': {'apiGroup': 'rbac.authorization.k8s.io', 'kind': 'ClusterRole', 'name': 'kube-memlens-metrics-reader'},
                            'subjects': [{'kind': 'ServiceAccount', 'name': 'observer', 'namespace': cfg['standardNamespace']}]})
         self.reader_uid = obj['metadata']['uid']
+        roster = fixture_roster(profile, c.namespaces)
+        for item in roster:
+            self.jobs.add(self.pod(item['namespace'], item['name']))
+        self.jobs.ready()
         for ns in c.namespaces:
-            self.tenant(ns)
-        roster = [(c.namespaces[0], 'target'), (c.namespaces[1], 'target')]
-        roster += [(c.namespaces[0], f'passive-{i:02}') for i in range(profile['workloadContainers'] - 2)]
-        for ns, name in roster:
-            self.create(self.pod(ns, name))
-        for ns in c.namespaces:
-            c.kube(['-n', ns, 'wait', 'pod', '-l', 'kube-memlens.io/fixture=' + cfg['owner'], '--for=condition=Ready', '--timeout=90s'], timeout=95)
-        for ns, name in roster:
-            value = c.fixture(ns, name)
+            self.tenant(ns, self.pod_name(ns, 'target'))
+        if profile['case'] == CONCURRENT_CASE:
+            for obj in probe_resources(c.namespaces[0], cfg['owner']):
+                self.create(obj)
+        for item in roster:
+            ns = item['namespace']
+            name = self.pod_name(ns, item['name'])
+            value = c.fixture(ns, name, item['role'])
             c.runtime.exec(['sh', '-ec', 'test "$(stat -c %i "$1")" = "$2"; printf 32 > "$1/pids.max"', '--', value['group']['path'], str(value['group']['inode'])])
             self.bindings[ns + '/' + name] = value
-        for ns in c.namespaces:
-            data = c.kube(['-n', ns, 'exec', 'target', '-c', 'worker', '--', '/usr/local/bin/kml-io-workload', 'prepare'])
+        prepared = [(ns, 'target') for ns in c.namespaces]
+        prepared += [(item['namespace'], item['name']) for item in noise_targets(profile, c.namespaces)]
+        for ns, logical_name in prepared:
+            name = self.pod_name(ns, logical_name)
+            data = c.kube(['-n', ns, 'exec', name, '-c', 'worker', '--', '/usr/local/bin/kml-io-workload', 'prepare'])
             if json.loads(data)['writeBytes'] != profile['workload']['fileBytes']:
                 raise ValueError('fixture byte inventory changed')
         self.record('fixture-bindings', self.bindings, private=True)
         self.verify()
 
-    def tenant(self, ns):
+    def tenant(self, ns, target_name='target'):
         labels = {'kube-memlens.io/fixture': self.cfg['owner']}
         resources = [
             {'apiVersion': 'v1', 'kind': 'ServiceAccount', 'metadata': {'name': 'tenant', 'namespace': ns, 'labels': labels}, 'automountServiceAccountToken': False},
             {'apiVersion': 'rbac.authorization.k8s.io/v1', 'kind': 'Role', 'metadata': {'name': 'trace-fixture', 'namespace': ns, 'labels': labels}, 'rules': [
-                {'apiGroups': [''], 'resources': ['pods'], 'resourceNames': ['target'], 'verbs': ['get']},
+                {'apiGroups': [''], 'resources': ['pods'], 'resourceNames': [target_name], 'verbs': ['get']},
                 {'apiGroups': ['tracing.kubememlens.io'], 'resources': ['traces'], 'verbs': ['create', 'get', 'delete']},
                 {'apiGroups': ['tracing.kubememlens.io'], 'resources': ['traces/stream'], 'verbs': ['get']}]},
             {'apiVersion': 'rbac.authorization.k8s.io/v1', 'kind': 'RoleBinding', 'metadata': {'name': 'trace-fixture', 'namespace': ns, 'labels': labels},
@@ -116,10 +125,17 @@ class Fixtures:
                             'volumeMounts': [{'name': 'work', 'mountPath': '/work'}]}],
             'volumes': [{'name': 'work', 'emptyDir': {'sizeLimit': '128Mi'}}]}}
 
+    def pod_name(self, namespace, logical_name):
+        return self.jobs.pod_name(namespace, logical_name)
+
+    def binding(self, namespace, logical_name, role='selected'):
+        return self.case.fixture(namespace, self.pod_name(namespace, logical_name), role)
+
     def verify(self):
+        self.jobs.verify()
         for key, previous in self.bindings.items():
             ns, name = key.split('/')
-            if self.case.fixture(ns, name) != previous:
+            if self.case.fixture(ns, name, previous['group']['role']) != previous:
                 raise ValueError('fixture lifetime/specification changed')
         for ns, uid in self.namespaces.items():
             if self.case.namespace(ns)['metadata']['uid'] != uid:
@@ -184,7 +200,8 @@ class Fixtures:
                 self.case.kube(['wait', '--for=delete', 'namespace/' + ns, '--timeout=90s'], timeout=95)
             except Exception:
                 failures.append('owned namespace')
-        self.record('cleanup', {'complete': not failures, 'failedSteps': failures, 'cloudActions': False})
+        self.record('cleanup', {'complete': not failures, 'failedSteps': failures,
+                               'cloudInfrastructureTeardown': 'not-performed'})
         if failures:
             raise ValueError('owned campaign cleanup incomplete; retain evidence')
         self.cleaned = True

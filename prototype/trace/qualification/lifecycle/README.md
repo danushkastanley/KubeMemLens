@@ -104,3 +104,18 @@ evidence, not syscall tracing or proof of unsampled event delivery. The watch mo
 never signals a worker, loads BPF or changes the production trace duration.
 Native Linux tests and a read-only runtime smoke are required before freezing it
 for a campaign. Building the helper alone does not establish qualification.
+
+`--mode watch-targets --watch-seconds N` uses a separate schema-2 record and
+requires exactly two frozen target cgroup IDs. It reads each verified worker's
+target descriptor before and after the object census; changed assignments make
+that sample unavailable. `targetWorkers` contains two counts, ordered by ascending
+input cgroup ID, without exposing those IDs. Empty observed coverage is `[0, 0]`;
+unavailable coverage is omitted. Two workers on one target remain `[2, 0]` or
+`[0, 2]`, so a replay requiring one per target cannot count them as simultaneous
+two-target activity. Legacy `watch` retains its schema-1 format and checks.
+
+The target-aware mode has the same duration, output, ownership, cancellation and
+read-only boundaries. Its aggregate object inventory still requires exact
+candidate-specific counts. Native tests and real two-target ownership verification
+are required before a concurrency campaign; per-target counts alone do not prove
+event delivery or every teardown path.

@@ -5,7 +5,7 @@ active-workload qualification. The historical `../measure` source, schema 1,
 900-second limit and two-service role vocabulary remain unchanged.
 
 Schema 2 samples at 1 Hz for 1–1,800 seconds, including the initial sample. It
-accepts at most 16 distinct bound cgroups: `node`, `api`, `selected`, `agent`,
+accepts at most 16 distinct bound cgroups: `node`, `api`, `selected`, `selected-peer`, `agent`,
 `collector`, `probe`, and `nonselected-0` through `nonselected-9`. Each binding
 supplies a private absolute cgroup-v2 path and expected inode. Path replacement,
 malformed counter values or output failure aborts the stream. Duplicate roles,
@@ -52,3 +52,30 @@ availability, 1 Hz cadence, bounded read duration and absence of private identif
 in output. Preserve failed/partial runs. Qualification requires additional workload,
 BPF lifecycle, transport, scan and collector measurements and a paired evaluator;
 this observer alone cannot satisfy the benchmark protocol.
+
+## Flood containment observations
+
+The explicit configuration field `"observation":"containment"` selects schema 3.
+It retains every schema-2 usage, process, pressure and scheduling observation and
+adds a `containment` object to each cgroup. The default remains schema 2, and its
+strict readers reject schema 3 rather than silently ignoring the extra fields.
+
+Every sample reads `cpu.max`, `cpu.max.burst`, `memory.max`, `memory.peak` and
+`pids.max` through the same bound cgroup root, then checks its lifetime again.
+Numeric zero, an explicit `max` setting and a missing file have distinct output.
+Malformed or unreadable values abort; absent optional files remain unavailable.
+No kernel setting is written and no peak is reset. The records contain no paths.
+
+The [kernel cgroup-v2 documentation](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+defines `memory.peak` as a cgroup-lifetime high-water mark when read without a
+reset. It is not a window-local measurement. `cpu.max` describes bandwidth for
+applicable scheduling classes; the setting alone does not prove an instantaneous
+rate ceiling or the scheduling class of every task. One-second observations also
+cannot exclude a setting change between reads.
+
+`hack/ebpf-active-qualification/flood_resources.py` separately replays schema 3
+against independently frozen CPU and memory settings. Missing peaks or settings,
+changed limits, OOMs, invalid cadence and observed limit violations cannot produce
+a pass. Normal workload budgets and validators are unchanged. This observation
+slice still requires native Linux tests, a real read-only stream and integration
+with a complete five-pair flood campaign; it does not grant qualification.

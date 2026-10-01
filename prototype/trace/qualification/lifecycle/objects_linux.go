@@ -25,16 +25,24 @@ type snapshot struct {
 }
 
 func selectedTarget(pid int, targets map[uint64]bool) bool {
+	id, err := workerTarget(pid)
+	return err == nil && targets[id]
+}
+
+func workerTarget(pid int) (uint64, error) {
 	path := procPath(pid, "fd/3")
 	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return false
+		return 0, errOwnership
 	}
 	var fs unix.Statfs_t
 	var value unix.Stat_t
 	fsErr, statErr := unix.Fstatfs(fd, &fs), unix.Fstat(fd, &value)
 	closeErr := unix.Close(fd)
-	return fsErr == nil && statErr == nil && closeErr == nil && fs.Type == unix.CGROUP2_SUPER_MAGIC && targets[value.Ino]
+	if fsErr != nil || statErr != nil || closeErr != nil || fs.Type != unix.CGROUP2_SUPER_MAGIC || value.Ino == 0 {
+		return 0, errOwnership
+	}
+	return value.Ino, nil
 }
 
 func ownedChildren(parent *process, digest string, targets map[uint64]bool) ([]*process, int, error) {

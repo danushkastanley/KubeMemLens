@@ -15,7 +15,7 @@ def comparison(control, enabled):
 
 
 def compare_scans(control_rows, enabled_rows, *, seconds, witness, expected_objects,
-                  minimum_scans, minimum_active_scans):
+                  minimum_scans, minimum_active_scans, expected_workers=1):
     before = standard_window(control_rows, seconds)
     after = standard_window(enabled_rows, seconds)
     control, enabled = before['scans'], after['scans']
@@ -23,8 +23,8 @@ def compare_scans(control_rows, enabled_rows, *, seconds, witness, expected_obje
     integer(minimum_active_scans, 1, minimum_scans)
     require(len(control) == len(enabled) and len(control) >= minimum_scans,
             'insufficient or unmatched complete scan observations')
-    starts, ends = validate_witness(witness, seconds)
-    signatures = active_signatures(witness, expected_objects)
+    starts, ends = validate_witness(witness, seconds, expected_workers=expected_workers)
+    signatures = active_signatures(witness, expected_objects, expected_workers=expected_workers)
     mask = bracket_windows(starts, ends, signatures,
                            [(r['earliestStartWallNanos'], r['latestEndWallNanos']) for r in enabled])
     require(sum(mask) >= minimum_active_scans, 'insufficient scans wholly bracketed by attachments')

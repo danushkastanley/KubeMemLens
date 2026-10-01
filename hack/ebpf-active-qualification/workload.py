@@ -31,12 +31,12 @@ def latency_comparison(control, enabled):
 
 
 def compare_workloads(control_raw, enabled_raw, *, mode, count, period_ms,
-                      witness, seconds, expected_objects, minimum_active_operations):
+                      witness, seconds, expected_objects, minimum_active_operations, expected_workers=1):
     control = validate_series(control_raw, mode, count, period_ms)
     enabled = validate_series(enabled_raw, mode, count, period_ms)
     integer(minimum_active_operations, 1, count)
     before, after = control[1:], enabled[1:]
-    mask = workload_activity(enabled, witness, seconds, expected_objects)
+    mask = workload_activity(enabled, witness, seconds, expected_objects, expected_workers=expected_workers)
     require(sum(mask) >= minimum_active_operations, "insufficient fully bracketed workload operations")
     active_before = [row for row, active in zip(before, mask) if active]
     active_after = [row for row, active in zip(after, mask) if active]
@@ -60,8 +60,8 @@ def compare_workloads(control_raw, enabled_raw, *, mode, count, period_ms,
             "qualification": "incomplete: resource, event, scan, collector and lifecycle gates required"}
 
 
-def workload_activity(enabled, witness, seconds, expected_objects):
-    mask = operation_activity(enabled[1:], witness, seconds, expected_objects)
+def workload_activity(enabled, witness, seconds, expected_objects, *, expected_workers=1):
+    mask = operation_activity(enabled[1:], witness, seconds, expected_objects, expected_workers=expected_workers)
     alignment = enabled[0]["wallNanos"] - (enabled[0]["monotonicBeforeNanos"] + enabled[0]["monotonicAfterNanos"]) // 2
     witness_alignment = witness[0]["clock"]["wallNanos"] - witness[0]["clock"]["monotonicNanos"]
     require(abs(alignment - witness_alignment) <= 105500000,

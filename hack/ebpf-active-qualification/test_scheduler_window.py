@@ -7,9 +7,9 @@ import unittest
 from scheduler_window import percentile_bounds, scheduler_window, read_scheduler_samples
 
 
-def samples():
+def samples(seconds=2):
     result = []
-    for index in range(3):
+    for index in range(seconds + 1):
         origin = 1_000_000_000
         cutoff = origin + index * 1_000_000_000
         buckets = [0] * 65
