@@ -259,12 +259,11 @@ struct flood_pattern {
 static const struct flood_pattern burst_flood = {"flood", 1, 262144, 0};
 static const struct flood_pattern paced_flood = {"paced-flood", 2, 12000, 500000};
 
-static int flood(const struct flood_pattern *pattern, const char *count_text) {
-    unsigned int count = number(count_text, pattern->maximum_count);
+static int open_flood_fixture(void) {
     long page = sysconf(_SC_PAGESIZE);
     if (page != 4096 && page != 65536) fail("page size");
     seed_block();
-    int fd = open(fixture, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    int fd = open(fixture, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK);
     if (fd < 0) fail("open owned fixture");
     struct stat info;
     if (fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) || info.st_uid != getuid()
@@ -272,23 +271,32 @@ static int flood(const struct flood_pattern *pattern, const char *count_text) {
         fail("fixture identity");
     if (resident(fd, (size_t)page) != FILE_BYTES / (size_t)page)
         fail("cache not fully resident");
+    return fd;
+}
+
+static void read_flood_chunk(int fd, size_t *offset) {
+    if (*offset == FILE_BYTES) {
+        if (lseek(fd, 0, SEEK_SET) != 0) fail("seek");
+        *offset = 0;
+    }
+    // A partial or interrupted syscall cannot count as a successful fixed read.
+    if (read(fd, actual, 64) != 64) fail("flood transfer");
+    if (memcmp(expected + *offset % BLOCK_BYTES, actual, 64) != 0)
+        fail("data integrity");
+    *offset += 64;
+}
+
+static int flood(const struct flood_pattern *pattern, const char *count_text) {
+    unsigned int count = number(count_text, pattern->maximum_count);
     alarm(70);
+    int fd = open_flood_fixture();
     if (puts("{\"ready\":true}") < 0 || fflush(stdout) != 0) fail("ready output");
     wait_command('R');
     uint64_t started = monotonic_nanos();
     size_t offset = 0;
     for (unsigned int i = 0; i < count; i++) {
         if (pattern->period) wait_until(started + (uint64_t)i * pattern->period);
-        if (offset == FILE_BYTES) {
-            if (lseek(fd, 0, SEEK_SET) != 0) fail("seek");
-            offset = 0;
-        }
-        // Do not retry a partial/interrupted read: the receipt requires exactly
-        // the requested number of successful, fixed-size read system calls.
-        if (read(fd, actual, 64) != 64) fail("flood transfer");
-        if (memcmp(expected + offset % BLOCK_BYTES, actual, 64) != 0)
-            fail("data integrity");
-        offset += 64;
+        read_flood_chunk(fd, &offset);
     }
     if (close(fd) != 0) fail("close");
     uint64_t ended = monotonic_nanos();
@@ -306,7 +314,73 @@ static int flood(const struct flood_pattern *pattern, const char *count_text) {
     return 0;
 }
 
+#define MAX_PRESSURE_SECONDS 1800
+#define PRESSURE_BATCH 4096
+#define MAX_PRESSURE_READS UINT64_C(20000000000)
+struct pressure_interval { uint64_t started, ended, calls, wall, clock_after; };
+static struct pressure_interval pressure_intervals[MAX_PRESSURE_SECONDS];
+
+static void emit_pressure(unsigned int requested, unsigned int completed,
+                          uint64_t mono_before, uint64_t wall, uint64_t started) {
+    printf("{\"type\":\"pressure-start\",\"schemaVersion\":1,\"seconds\":%u,"
+           "\"fileBytes\":%d,\"bytesPerRead\":64,\"batchReadCalls\":%d,"
+           "\"maximumReadCalls\":%" PRIu64 ",\"monotonicBeforeNanos\":%" PRIu64 ","
+           "\"wallNanos\":%" PRIu64 ",\"monotonicAfterNanos\":%" PRIu64 "}\n",
+           requested, FILE_BYTES, PRESSURE_BATCH, MAX_PRESSURE_READS, mono_before, wall, started);
+    for (unsigned int i = 0; i < completed; i++) {
+        struct pressure_interval value = pressure_intervals[i];
+        printf("{\"sequence\":%u,\"startedMonotonicNanos\":%" PRIu64 ","
+               "\"endedMonotonicNanos\":%" PRIu64 ",\"readCalls\":%" PRIu64 ","
+               "\"readBytes\":%" PRIu64 ",\"wallNanos\":%" PRIu64 ","
+               "\"clockAfterMonotonicNanos\":%" PRIu64 "}\n",
+               i, value.started, value.ended, value.calls, value.calls * 64, value.wall, value.clock_after);
+    }
+    if (fflush(stdout) != 0) fail("pressure output");
+}
+
+// Continuous reads have no deliberate waits or per-interval reporting during
+// measurement. All reports are buffered until completion or a deadline failure.
+static int pressure(const char *seconds_text) {
+    unsigned int seconds = number(seconds_text, MAX_PRESSURE_SECONDS);
+    alarm(seconds + 65);
+    int fd = open_flood_fixture();
+    if (puts("{\"ready\":true}") < 0 || fflush(stdout) != 0) fail("ready output");
+    wait_command('R');
+    uint64_t before = monotonic_nanos(), wall = clock_nanos(CLOCK_REALTIME), started = monotonic_nanos();
+    if (started < before || started - before > UINT64_C(1000000)) fail("pressure clock alignment");
+    uint64_t total = 0, previous = started;
+    size_t offset = 0;
+    for (unsigned int i = 0; i < seconds; i++) {
+        uint64_t calls = 0, ended;
+        uint64_t due = started + (uint64_t)(i + 1) * UINT64_C(1000000000);
+        do {
+            if (total > MAX_PRESSURE_READS - PRESSURE_BATCH) fail("pressure read ceiling");
+            for (unsigned int j = 0; j < PRESSURE_BATCH; j++) read_flood_chunk(fd, &offset);
+            calls += PRESSURE_BATCH;
+            total += PRESSURE_BATCH;
+            ended = monotonic_nanos();
+        } while (ended < due);
+        uint64_t interval_wall = clock_nanos(CLOCK_REALTIME), clock_after = monotonic_nanos();
+        if (clock_after < ended || clock_after - ended > UINT64_C(5000000))
+            fail("pressure clock alignment");
+        pressure_intervals[i] = (struct pressure_interval){previous, ended, calls, interval_wall, clock_after};
+        if (ended - due > UINT64_C(100000000)) {
+            emit_pressure(seconds, i + 1, before, wall, started);
+            fail("pressure deadline missed");
+        }
+        previous = ended;
+    }
+    if (close(fd) != 0) fail("close");
+    emit_pressure(seconds, seconds, before, wall, started);
+    wait_command('Q');
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc >= 2 && strcmp(argv[1], "pressure") == 0) {
+        if (argc != 3) fail("pressure arguments");
+        return pressure(argv[2]);
+    }
     if (argc >= 2 && (strcmp(argv[1], "flood") == 0 || strcmp(argv[1], "paced-flood") == 0)) {
         if (argc != 3) fail("flood arguments");
         return flood(strcmp(argv[1], "flood") == 0 ? &burst_flood : &paced_flood, argv[2]);
