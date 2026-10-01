@@ -121,3 +121,11 @@ reviewed before publication; schema validation is not independent human review.
 Record both pins independently of the bundle being checked. The freeze pin binds
 the selected image, executables, policy and environment as well as the method;
 hash consistency alone is not external attestation of a measurement.
+
+## Explicit EKS host preparation
+
+The separate [EKS host runner](EKS_HOST.md) reuses the idle protocol from the
+approved node host after binding AWS, Kubernetes and local host identities. The
+local kind entrypoint remains local-only. Provider unit tests and CLI preparation
+are not a live EKS result; the cloud bootstrap, remaining active protocol and AWS
+teardown must be verified separately.
