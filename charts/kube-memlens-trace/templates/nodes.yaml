@@ -41,6 +41,8 @@ spec:
         - name: binding-node
           image: {{ include "trace.image" $ | quote }}
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          env:
+            - {name: GODEBUG, value: "disablethp=1"}
           args:
             - binding-node
             - {{ printf "--node-uid=%s" .uid | quote }}

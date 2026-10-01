@@ -32,6 +32,8 @@ spec:
         - name: admission-api
           image: {{ include "trace.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - {name: GODEBUG, value: "disablethp=1"}
           args:
             - admission-api
             - --tls-cert=/tls/tls.crt

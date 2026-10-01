@@ -94,6 +94,9 @@ func verifyPod(d appsv1.Deployment, expectedImage string) {
 	}
 	verifyImage(p, expectedImage)
 	c := p.Containers[0]
+	if !reflect.DeepEqual(c.Env, []corev1.EnvVar{{Name: "GODEBUG", Value: "disablethp=1"}}) || len(c.EnvFrom) != 0 {
+		fail("trace workload runtime memory configuration changed")
+	}
 	policyFlags := 0
 	for _, argument := range c.Args {
 		if argument == "--acceptance-policy-sha256="+strings.Repeat("d", 64) {
