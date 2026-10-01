@@ -1,4 +1,8 @@
 {{- if .Values.collector.enabled }}
+{{- $collectorSelector := .Values.collector.nodeSelector | default dict }}
+{{- if and (hasKey $collectorSelector "kubernetes.io/os") (ne (index $collectorSelector "kubernetes.io/os") "linux") }}
+{{- fail "collector.nodeSelector must retain kubernetes.io/os=linux" }}
+{{- end }}
 {{- if .Values.security.privileged }}
 {{- fail "security.privileged must remain false for the standard cgroup-read profile" }}
 {{- end }}
@@ -31,7 +35,7 @@ spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
       nodeSelector:
-        kubernetes.io/os: linux
+{{- toYaml (merge (dict "kubernetes.io/os" "linux") $collectorSelector) | nindent 8 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532

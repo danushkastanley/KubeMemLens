@@ -86,6 +86,8 @@ agent:
 
 collector:
   enabled: true
+  # Additional placement labels; the collector always requires Linux.
+  nodeSelector: {}
   # Multiple replicas would each hold an independent in-memory view.
   replicas: 1
   snapshotTTL: 30s
