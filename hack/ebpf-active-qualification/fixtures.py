@@ -5,6 +5,7 @@ from pathlib import Path
 
 from local_case import canonical, command
 from density import mapped_fixtures
+from chart_inventory import inventory
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -45,7 +46,7 @@ class Fixtures:
                             'digest': cfg['standardImage'].split('@')[1], 'pullPolicy': 'Never'}}
         rendered = command(['helm', 'template', cfg['release'], str(ROOT / 'charts/kube-memlens'),
                             '-n', cfg['standardNamespace'], '-f', '-'], canonical(values))
-        objects = json.loads(command(['go', '-C', str(ROOT), 'run', './hack/node-qualification/chart-inventory'], rendered, timeout=120))
+        objects = inventory(cfg['chartInventory'], rendered)
         self.chart_objects = objects
         for obj in objects:
             metadata = obj['metadata']
