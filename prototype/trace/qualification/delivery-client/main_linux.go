@@ -15,24 +15,26 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/danushkastanley/kube-memlens/internal/qualificationendpoint"
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/qualification/delivery"
 )
 
 type privateConfig struct {
-	Server          string               `json:"server"`
-	Token           string               `json:"token"`
-	CAPEM           string               `json:"caPEM"`
-	WorkerBootID    string               `json:"workerBootID"`
-	SessionID       string               `json:"sessionID"`
-	EngineDigest    string               `json:"engineDigest"`
-	ProgrammeDigest string               `json:"programmeDigest"`
-	Target          trace.TargetIdentity `json:"target"`
-	DurationSeconds int                  `json:"durationSeconds"`
-	MaxEvents       uint64               `json:"maxEvents"`
-	MaxOutputBytes  uint64               `json:"maxOutputBytes"`
-	MaxMapBytes     uint64               `json:"maxMapBytes"`
-	MaxPathBytes    uint64               `json:"maxPathBytes"`
+	NetworkScope    qualificationendpoint.Scope `json:"networkScope"`
+	Server          string                      `json:"server"`
+	Token           string                      `json:"token"`
+	CAPEM           string                      `json:"caPEM"`
+	WorkerBootID    string                      `json:"workerBootID"`
+	SessionID       string                      `json:"sessionID"`
+	EngineDigest    string                      `json:"engineDigest"`
+	ProgrammeDigest string                      `json:"programmeDigest"`
+	Target          trace.TargetIdentity        `json:"target"`
+	DurationSeconds int                         `json:"durationSeconds"`
+	MaxEvents       uint64                      `json:"maxEvents"`
+	MaxOutputBytes  uint64                      `json:"maxOutputBytes"`
+	MaxMapBytes     uint64                      `json:"maxMapBytes"`
+	MaxPathBytes    uint64                      `json:"maxPathBytes"`
 }
 
 func (privateConfig) Format(w fmt.State, _ rune) {
@@ -54,7 +56,7 @@ func load(path string) (privateConfig, error) {
 		return cfg, delivery.ErrObservation
 	}
 	raw, err := io.ReadAll(io.LimitReader(file, 32769))
-	if err != nil || len(raw) > 32768 {
+	if err != nil || len(raw) > 32768 || !uniqueConfigurationKeys(raw) {
 		return cfg, delivery.ErrObservation
 	}
 	decoder := json.NewDecoder(bytes.NewReader(raw))
@@ -73,7 +75,7 @@ func run(ctx context.Context, path string, output io.Writer) error {
 	if err != nil {
 		return delivery.ErrObservation
 	}
-	result, observationErr := delivery.Connect(ctx, delivery.Connection{Server: cfg.Server, Token: cfg.Token, CAPEM: cfg.CAPEM}, expected)
+	result, observationErr := delivery.Connect(ctx, delivery.Connection{Server: cfg.Server, Token: cfg.Token, CAPEM: cfg.CAPEM, NetworkScope: cfg.NetworkScope}, expected)
 	clockMatched := sameBoot(cfg.WorkerBootID)
 	var measured *delivery.Latency
 	if observationErr == nil && clockMatched {

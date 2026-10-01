@@ -36,7 +36,7 @@ func TestAuthenticatedTLSCollectorUsesFixedRoute(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(metricsEnvelope())
 	}))
 	defer server.Close()
-	client, err := collectorClient(server.URL, "fixture-token", caFor(server))
+	client, err := collectorClient(server.URL, "fixture-token", caFor(server), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestDeniedRedirectMalformedAndOversizedResponsesFail(t *testing.T) {
 				}
 			}))
 			defer server.Close()
-			client, err := collectorClient(server.URL, "fixture-token", caFor(server))
+			client, err := collectorClient(server.URL, "fixture-token", caFor(server), "")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -110,7 +110,7 @@ func TestWrongValidCABlocksTokenBeforeHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client, err := collectorClient(server.URL, "fixture-token", string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})))
+	client, err := collectorClient(server.URL, "fixture-token", string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,8 +121,26 @@ func TestWrongValidCABlocksTokenBeforeHTTP(t *testing.T) {
 }
 func TestUnapprovedEndpointsRejectedBeforeConnection(t *testing.T) {
 	for _, url := range []string{"http://127.0.0.1:443", "https://example.com:443", "https://user@127.0.0.1:443", "https://127.0.0.1:443/path", "https://127.0.0.1:443?x=y"} {
-		if _, err := collectorClient(url, "fixture-token", "invalid"); err == nil {
+		if _, err := collectorClient(url, "fixture-token", "invalid", ""); err == nil {
 			t.Fatal("unapproved endpoint")
 		}
+	}
+}
+
+func TestCollectorProviderRouteRequiresExplicitScope(t *testing.T) {
+	server := httptest.NewTLSServer(http.NotFoundHandler())
+	defer server.Close()
+	endpoint := "https://owned.us-east-1.eks.amazonaws.com"
+	if _, err := collectorClient(endpoint, "fixture-token", caFor(server), ""); err == nil {
+		t.Fatal("implicit provider route")
+	}
+	client, err := collectorClient(endpoint, "fixture-token", caFor(server), "eks")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.CloseIdleConnections()
+	tr := client.Transport.(*http.Transport)
+	if tr.Proxy != nil || tr.TLSClientConfig.InsecureSkipVerify || tr.TLSClientConfig.MinVersion != 0x304 || client.Timeout != 2*time.Second {
+		t.Fatal("provider route changed transport constraints")
 	}
 }

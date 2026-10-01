@@ -3,6 +3,7 @@ package delivery
 import (
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -83,5 +84,25 @@ func TestWrongActiveOwnerOrStateIsRejected(t *testing.T) {
 				t.Fatal("unmatched active status accepted")
 			}
 		})
+	}
+}
+
+func TestDeliveryProviderRouteRequiresExplicitScope(t *testing.T) {
+	server := httptest.NewTLSServer(http.NotFoundHandler())
+	defer server.Close()
+	ca := string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw}))
+	connection := Connection{Server: "https://owned.us-east-1.eks.amazonaws.com", Token: "fixture", CAPEM: ca}
+	if _, err := newHTTPClient(connection); err == nil {
+		t.Fatal("implicit provider route")
+	}
+	connection.NetworkScope = "eks"
+	client, err := newHTTPClient(connection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.CloseIdleConnections()
+	tr := client.Transport.(*http.Transport)
+	if tr.Proxy != nil || tr.TLSClientConfig.InsecureSkipVerify || tr.TLSClientConfig.MinVersion != 0x304 {
+		t.Fatal("provider route changed TLS constraints")
 	}
 }

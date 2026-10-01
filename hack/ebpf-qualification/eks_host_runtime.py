@@ -166,6 +166,9 @@ class EKSHostRuntime(Runtime):
                 'API endpoint differs from the verified EKS binding')
         return cluster
 
+    def observer_network_scope(self):
+        return 'eks'
+
     def observer_server(self):
         return self.provider['clusterEndpoint']
 

@@ -226,3 +226,22 @@ first-detected failing process labels and exit codes in
 with code zero is also invalid. This receipt identifies detected exits, not an
 assumed root cause or exit ordering between polls. Keep all partial streams.
 No diagnostic changes permit retries or relax observation and workload limits.
+
+## Explicit provider transport preparation
+
+Native standard and delivery observers accept an optional private `networkScope`.
+Omitting it retains local routing; `local` is equivalent. Only an explicitly
+selected verified EKS runtime writes `eks`. Unknown, empty or null values fail.
+EKS scope accepts commercial AWS regional `eks.amazonaws.com` and `api.aws`
+hostnames on HTTPS 443, including the implicit port. See the
+[AWS endpoint formats](https://docs.aws.amazon.com/eks/latest/userguide/cluster-endpoint.html).
+Other partitions and arbitrary hosts remain outside the approved scope.
+
+A hostname shape does not establish cluster ownership. The parent runtime must
+verify the exact endpoint and CA against its frozen provider binding and AWS
+cluster description before preparing private native inputs. Both transports
+retain CA and hostname verification, TLS 1.3, fixed routes, disabled proxying and
+redirects, and existing time/byte limits. Credentials remain private. The shared
+validator is included in the campaign source freeze. Local acknowledgement and
+runtime checks remain local; adding this transport does not itself create an EKS
+active campaign, provision resources, or establish provider qualification.

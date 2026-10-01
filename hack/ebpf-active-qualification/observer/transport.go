@@ -9,22 +9,14 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"net/url"
-	"regexp"
 	"strings"
 	"time"
+
+	"github.com/danushkastanley/kube-memlens/internal/qualificationendpoint"
 )
 
-var kindHost = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,100}-control-plane$`)
-
-func collectorClient(server, token, ca string) (*http.Client, error) {
-	endpoint, err := url.Parse(server)
-	if err != nil || endpoint.Scheme != "https" || endpoint.User != nil || endpoint.Path != "" || endpoint.RawQuery != "" || endpoint.ForceQuery || endpoint.Fragment != "" || endpoint.String() != server || endpoint.Port() == "" {
-		return nil, errObservation
-	}
-	host := endpoint.Hostname()
-	ip := net.ParseIP(host)
-	if !(ip != nil && ip.IsLoopback()) && !kindHost.MatchString(host) && !(host == "kubernetes.default.svc" && endpoint.Port() == "443") {
+func collectorClient(server, token, ca string, scope qualificationendpoint.Scope) (*http.Client, error) {
+	if !qualificationendpoint.Allowed(server, scope) {
 		return nil, errObservation
 	}
 	if token == "" || len(token) > 8192 || strings.ContainsAny(token, " \t\r\n") || len(ca) > 16384 {

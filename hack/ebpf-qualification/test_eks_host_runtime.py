@@ -58,6 +58,7 @@ class EKSHostRuntimeTests(unittest.TestCase):
     def test_api_clients_use_the_same_verified_provider_endpoint_and_ca(self):
         cfg, docs = documents()
         runtime = verify(cfg, docs)
+        self.assertEqual(runtime.observer_network_scope(), 'eks')
         self.assertEqual(runtime.observer_server(), cfg['providerExecution']['clusterEndpoint'])
         with patch.object(runtime, 'verify_kubeconfig_binding') as binding:
             self.assertEqual(runtime.api_cluster(), docs['config']['clusters'][0]['cluster'])

@@ -125,7 +125,7 @@ func run(ctx context.Context, cfg config, out io.Writer) error {
 		return atStage("collector-binding", err)
 	}
 	defer collector.close()
-	client, err := collectorClient(cfg.Server, cfg.Token, cfg.CAPEM)
+	client, err := collectorClient(cfg.Server, cfg.Token, cfg.CAPEM, cfg.NetworkScope)
 	if err != nil {
 		return atStage("collector-client", err)
 	}

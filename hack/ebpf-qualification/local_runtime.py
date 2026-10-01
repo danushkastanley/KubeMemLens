@@ -106,6 +106,9 @@ class Runtime:
             raise ValueError('local API endpoint required')
         return cluster
 
+    def observer_network_scope(self):
+        return 'local'
+
     def observer_server(self):
         return 'https://' + self.cfg['context'].removeprefix('kind-') + '-control-plane:6443'
 

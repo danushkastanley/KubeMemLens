@@ -14,6 +14,7 @@ class RuntimeGuards(unittest.TestCase):
         cluster = {'server': 'https://127.0.0.1:1234', 'certificate-authority-data': 'Y2E='}
         runtime.json = lambda args: {'clusters': [{'cluster': cluster}]}
         self.assertEqual(runtime.api_cluster(), cluster)
+        self.assertEqual(runtime.observer_network_scope(), 'local')
         self.assertEqual(runtime.observer_server(), 'https://owned-control-plane:6443')
         for changed in ({'server': 'https://other.example'}, {'insecure-skip-tls-verify': True},
                         {'proxy-url': 'http://foreign'}, {'tls-server-name': 'foreign'},

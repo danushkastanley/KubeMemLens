@@ -9,22 +9,25 @@ import (
 	"regexp"
 	"strings"
 	"syscall"
+
+	"github.com/danushkastanley/kube-memlens/internal/qualificationendpoint"
 )
 
 type config struct {
-	Seconds            int    `json:"seconds"`
-	BootID             string `json:"bootID"`
-	Server             string `json:"server"`
-	Token              string `json:"token"`
-	CAPEM              string `json:"caPEM"`
-	AgentPID           int    `json:"agentPID"`
-	AgentStart         uint64 `json:"agentStart"`
-	AgentContainer     string `json:"agentContainer"`
-	AgentSHA256        string `json:"agentSHA256"`
-	CollectorPID       int    `json:"collectorPID"`
-	CollectorStart     uint64 `json:"collectorStart"`
-	CollectorContainer string `json:"collectorContainer"`
-	CollectorSHA256    string `json:"collectorSHA256"`
+	NetworkScope       qualificationendpoint.Scope `json:"networkScope"`
+	Seconds            int                         `json:"seconds"`
+	BootID             string                      `json:"bootID"`
+	Server             string                      `json:"server"`
+	Token              string                      `json:"token"`
+	CAPEM              string                      `json:"caPEM"`
+	AgentPID           int                         `json:"agentPID"`
+	AgentStart         uint64                      `json:"agentStart"`
+	AgentContainer     string                      `json:"agentContainer"`
+	AgentSHA256        string                      `json:"agentSHA256"`
+	CollectorPID       int                         `json:"collectorPID"`
+	CollectorStart     uint64                      `json:"collectorStart"`
+	CollectorContainer string                      `json:"collectorContainer"`
+	CollectorSHA256    string                      `json:"collectorSHA256"`
 }
 
 func (config) Format(w fmt.State, _ rune) {
@@ -60,7 +63,7 @@ func loadConfig(path string) (config, error) {
 	return cfg, nil
 }
 func uniqueConfig(data []byte) error {
-	allowed := strings.Fields("seconds bootID server token caPEM agentPID agentStart agentContainer agentSHA256 collectorPID collectorStart collectorContainer collectorSHA256")
+	allowed := strings.Fields("seconds bootID server token caPEM agentPID agentStart agentContainer agentSHA256 collectorPID collectorStart collectorContainer collectorSHA256 networkScope")
 	dec := json.NewDecoder(bytes.NewReader(data))
 	token, err := dec.Token()
 	if err != nil || token != json.Delim('{') {
@@ -90,7 +93,7 @@ func uniqueConfig(data []byte) error {
 		}
 	}
 	token, err = dec.Token()
-	if err != nil || token != json.Delim('}') || len(seen) != len(allowed) {
+	if err != nil || token != json.Delim('}') || (len(seen) != len(allowed) && !(len(seen) == len(allowed)-1 && !seen["networkScope"])) {
 		return errObservation
 	}
 	return nil

@@ -38,10 +38,11 @@ class Window:
 
     def standard_config(self, services):
         c = self.case
-        cluster = c.runtime.json(['config', 'view', '--raw', '--minify', '-o', 'json'])['clusters'][0]['cluster']
+        cluster = c.runtime.api_cluster()
         result = {'seconds': self.profile['windowSeconds'],
                   'bootID': c.runtime.exec(['cat', '/proc/sys/kernel/random/boot_id']).decode().strip(),
-                  'server': 'https://' + c.node.removesuffix('-worker') + '-control-plane:6443',
+                  'server': c.runtime.observer_server(),
+                  'networkScope': c.runtime.observer_network_scope(),
                   'token': c.kube(['-n', c.cfg['standardNamespace'], 'create', 'token', 'observer', '--duration=1h']).decode().strip(),
                   'caPEM': base64.b64decode(cluster['certificate-authority-data']).decode()}
         for role, binding in services.items():
@@ -51,7 +52,8 @@ class Window:
 
     def receiver_config(self, admission):
         c, target, t = self.case, self.targets[0], self.profile['trace']
-        return {'server': 'https://' + c.node.removesuffix('-worker') + '-control-plane:6443',
+        return {'server': c.runtime.observer_server(),
+                  'networkScope': c.runtime.observer_network_scope(),
                 'token': self.client.token, 'caPEM': self.client.ca,
                 'workerBootID': self.boot, 'sessionID': admission['metadata']['name'],
                 'engineDigest': 'sha256:' + c.runtime.cfg['engineSHA256'],
