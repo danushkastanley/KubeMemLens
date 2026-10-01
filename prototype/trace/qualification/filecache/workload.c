@@ -196,6 +196,15 @@ static void wait_until(uint64_t due) {
     if (result != 0) fail("series scheduling");
 }
 
+static void emit_series(const struct series_pattern *pattern, unsigned int count, uint64_t first, uint64_t period) {
+    for (unsigned int i = 0; i < count; i++) {
+        printf("{\"sequence\":%u,\"dueMonotonicNanos\":%" PRIu64 ",\"observation\":", i, first + (uint64_t)i * period);
+        emit_timed(pattern->modes[i % pattern->mode_count], observations[i]);
+        puts("}");
+    }
+    if (fflush(stdout) != 0) fail("series output");
+}
+
 static int series(const struct series_pattern *pattern, const char *count_text, const char *period_text) {
     unsigned int count = number(count_text, pattern->maximum_count);
     unsigned int period_ms = number(period_text, 10000);
@@ -215,17 +224,16 @@ static int series(const struct series_pattern *pattern, const char *count_text, 
         uint64_t due = first + (uint64_t)i * period;
         wait_until(due);
         observations[i] = run_one(pattern->modes[i % pattern->mode_count], START_IMMEDIATELY);
-        if (observations[i].started < due || observations[i].ended >= due + period)
+        if (observations[i].started < due || observations[i].ended >= due + period) {
+            // Retain completed operations and the late one before stopping. The
+            // incomplete/late stream still fails verification; no slot is retried.
+            emit_series(pattern, i + 1, first, period);
             fail("series deadline missed");
+        }
     }
     // Avoid turning measurement reports into traced I/O during the workload.
     wait_until(first + (uint64_t)count * period);
-    for (unsigned int i = 0; i < count; i++) {
-        printf("{\"sequence\":%u,\"dueMonotonicNanos\":%" PRIu64 ",\"observation\":", i, first + (uint64_t)i * period);
-        emit_timed(pattern->modes[i % pattern->mode_count], observations[i]);
-        puts("}");
-    }
-    if (fflush(stdout) != 0) fail("series output");
+    emit_series(pattern, count, first, period);
     return 0;
 }
 

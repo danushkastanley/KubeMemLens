@@ -155,6 +155,12 @@ records remain buffered until the schedule ends; complete output is bounded to
 ordinary/gated receipts are unchanged. The native verifier checks a 30-operation
 mixed cycle and rejects invalid counts, periods and total durations.
 
+A missed deadline flushes the completed operations and the late operation before
+exiting with failure. This partial stream remains invalid for comparison; no slot
+is retried or moved. The native verifier deliberately pauses only its owned
+container across a deadline, then verifies both the retained timing evidence and
+the failed result. Other fatal I/O failures may leave only the start record.
+
 A campaign must freeze its mixed schedule separately and compare each operation
 class against the same paired indices. An aggregate percentile can conceal a
 regression in one class. This generator alone does not establish sustained traced

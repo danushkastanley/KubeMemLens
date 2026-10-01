@@ -130,6 +130,8 @@ def verify(image):
                     "workload failed: series schedule bound\n")):
                 raise RuntimeError("unbounded or invalid series was not rejected")
         results.append({"negativeCase": "series arguments and schedule ceilings", "passed": True})
+        from verify_deadline import verify_deadline
+        results.append(verify_deadline(common, image))
         for mode in ("cached", "uncached"):
             gated = GatedWorkload(common + ["--interactive", "--entrypoint",
                                   "/usr/local/bin/kml-io-workload", image, mode, "--gated"])
