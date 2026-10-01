@@ -185,6 +185,9 @@ class EKSHostRuntime(Runtime):
         require(type(args) is list and args and all(isinstance(x, str) and '\0' not in x for x in args), 'invalid native command')
         return list(args)
 
+    def observer_input_command(self, args):
+        return self.observer_command(args)
+
     def policy(self):
         self.verify_kubeconfig_binding()
         self.verify_host()

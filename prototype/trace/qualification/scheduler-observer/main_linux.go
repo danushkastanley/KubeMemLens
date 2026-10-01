@@ -27,7 +27,7 @@ func clock() (uint64, error) {
 	return uint64(ts.Nano()), nil
 }
 
-func run(ctx context.Context, cfg configuration, out io.Writer) (result error) {
+func run(ctx context.Context, cfg configuration, out io.Writer, completion *os.File) (result error) {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -140,6 +140,14 @@ func run(ctx context.Context, cfg configuration, out io.Writer) (result error) {
 		}
 		index++
 	}
+	if completion != nil {
+		if err := capture.Stop(); err != nil {
+			return err
+		}
+		if err := awaitCompletion(ctx, completion); err != nil {
+			return err
+		}
+	}
 	return anchor.alive()
 }
 
@@ -148,7 +156,8 @@ func main() {
 	flags.SetOutput(io.Discard)
 	path := flags.String("config", "", "private frozen configuration")
 	ack := flags.Bool("acknowledge-owned-node", false, "explicit owned-node perf capture")
-	if flags.Parse(os.Args[1:]) != nil || flags.NArg() != 0 || !*ack {
+	completionSignal := flags.String("completion-signal", "", "stdin-eof waits for the controller before closing perf descriptors")
+	if flags.Parse(os.Args[1:]) != nil || flags.NArg() != 0 || !*ack || (*completionSignal != "" && *completionSignal != "stdin-eof") {
 		fmt.Fprintln(os.Stderr, "invalid scheduler observer arguments")
 		os.Exit(2)
 	}
@@ -168,7 +177,11 @@ func main() {
 	defer stop()
 	deadline := time.AfterFunc(time.Duration(cfg.Seconds+10)*time.Second, func() { os.Exit(2) })
 	defer deadline.Stop()
-	if err := run(ctx, cfg, os.Stdout); err != nil {
+	var completion *os.File
+	if *completionSignal == "stdin-eof" {
+		completion = os.Stdin
+	}
+	if err := run(ctx, cfg, os.Stdout, completion); err != nil {
 		fmt.Fprintln(os.Stderr, "scheduler observation incomplete:", err)
 		os.Exit(1)
 	}
