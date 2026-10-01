@@ -172,7 +172,15 @@ class against the same paired indices. An aggregate percentile can conceal a
 regression in one class. This generator alone does not establish sustained traced
 performance, isolation, flood behaviour or a qualification verdict.
 
-## Path-copy regression
+## File-path regressions
+
+`test_pending_path.py` compiles the exact producer exit function with bounded
+helper fixtures using the system C compiler. It checks selected delivery, stale
+path rejection, pending-entry cleanup after target departure or disabled
+collection, ring pressure and path omission. Non-selected callers with no entry
+must avoid a hash deletion. This is a host-side semantic check, not a verifier,
+kernel execution or performance qualification; the candidate still needs the
+signed-object build and live selected/non-selected workload checks.
 
 `test_path_copy.py --compiler-image IMAGE_ID --output NEW_DIRECTORY` extracts the
 producer's exact bounded copy helper and compiles a native test in the immutable,

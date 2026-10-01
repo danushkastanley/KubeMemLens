@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 }
 
 func fixtureWorker() int {
-	if testworker.Baseline() != nil || workercontainment.Restrict() != nil || testworker.CheckBaseline() != nil || len(os.Environ()) != 1 || os.Getenv("GOTRACEBACK") != "none" {
+	if testworker.Baseline() != nil || workercontainment.Restrict() != nil || testworker.CheckBaseline() != nil || len(os.Environ()) != 2 || os.Getenv("GOTRACEBACK") != "none" || os.Getenv("GODEBUG") != "disablethp=1" {
 		return 20
 	}
 	policy, err := workerinstall.ReadDescriptor(os.NewFile(6, "policy"))

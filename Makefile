@@ -106,6 +106,7 @@ check-trace-preflight:
 	python3 -m unittest discover -s hack/ebpf-active-qualification -p 'test_*.py'
 	python3 -m unittest discover -s prototype/trace/qualification/filecache -p 'test_*observation.py'
 	python3 -m unittest discover -s prototype/trace/qualification/filecache -p 'test_*series.py'
+	python3 prototype/trace/qualification/filecache/test_pending_path.py
 
 check-trace-worker:
 	python3 -m unittest discover -s prototype/trace/worker -p 'test_*.py'
