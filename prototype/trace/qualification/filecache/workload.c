@@ -222,12 +222,23 @@ static int series(const struct series_pattern *pattern, const char *count_text, 
     if (fflush(stdout) != 0) fail("series output");
     for (unsigned int i = 0; i < count; i++) {
         uint64_t due = first + (uint64_t)i * period;
+        uint64_t cpu_before = clock_nanos(CLOCK_PROCESS_CPUTIME_ID);
+        uint64_t wait_started = monotonic_nanos();
         wait_until(due);
+        uint64_t woke = monotonic_nanos();
+        uint64_t cpu_woke = clock_nanos(CLOCK_PROCESS_CPUTIME_ID);
         observations[i] = run_one(pattern->modes[i % pattern->mode_count], START_IMMEDIATELY);
+        uint64_t cpu_ended = clock_nanos(CLOCK_PROCESS_CPUTIME_ID);
         if (observations[i].started < due || observations[i].ended >= due + period) {
             // Retain completed operations and the late one before stopping. The
             // incomplete/late stream still fails verification; no slot is retried.
             emit_series(pattern, i + 1, first, period);
+            printf("{\"type\":\"series-deadline-failure\",\"schemaVersion\":1,\"sequence\":%u,"
+                   "\"waitStartedMonotonicNanos\":%" PRIu64 ",\"wokeMonotonicNanos\":%" PRIu64 ","
+                   "\"cpuBeforeWaitNanos\":%" PRIu64 ",\"cpuAfterWakeNanos\":%" PRIu64 ","
+                   "\"cpuAfterOperationNanos\":%" PRIu64 "}\n",
+                   i, wait_started, woke, cpu_before, cpu_woke, cpu_ended);
+            if (fflush(stdout) != 0) fail("series output");
             fail("series deadline missed");
         }
     }

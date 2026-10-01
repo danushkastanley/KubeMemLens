@@ -157,7 +157,13 @@ mixed cycle and rejects invalid counts, periods and total durations.
 
 A missed deadline flushes the completed operations and the late operation before
 exiting with failure. This partial stream remains invalid for comparison; no slot
-is retried or moved. The native verifier deliberately pauses only its owned
+is retried or moved. A final `series-deadline-failure` record binds the same
+sequence to monotonic wait/wakeup times and cumulative process CPU readings around
+the wait and operation. This separates late wakeup from seed/open/stat setup and
+the existing timed I/O span. CPU deltas include the clock probes at their sampling
+boundaries; these values alone cannot attribute a delay to quotas or the host.
+Successful series and ordinary/gated receipt formats remain unchanged.
+The native verifier deliberately pauses only its owned
 container across a deadline, then verifies both the retained timing evidence and
 the failed result. Other fatal I/O failures may leave only the start record.
 

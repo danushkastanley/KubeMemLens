@@ -6,6 +6,7 @@ import time
 
 from verify_series import MIXED_MODES, validate_mixed_series
 from verify_workload import validate_timed_observation
+from deadline_diagnostic import validate_deadline_diagnostic
 
 
 def verify_deadline(common, image):
@@ -39,6 +40,9 @@ def verify_deadline(common, image):
             raise RuntimeError('deliberate missed deadline did not fail explicitly')
         raw = header + remaining
         rows = [json.loads(line) for line in remaining.splitlines()]
+        if not rows:
+            raise RuntimeError('deadline failure did not retain diagnostics')
+        diagnostic = rows.pop()
         if not 1 <= len(rows) < 30:
             raise RuntimeError('deadline failure lost its partial operations')
         for index, row in enumerate(rows):
@@ -48,11 +52,14 @@ def verify_deadline(common, image):
         last = rows[-1]
         if last['observation']['operationEndedMonotonicNanos'] < last['dueMonotonicNanos'] + start['periodNanos']:
             raise RuntimeError('deadline failure did not retain the late operation')
+        timing = validate_deadline_diagnostic(diagnostic, last, start['periodNanos'])
+        if timing['wakeLatenessNanos'] < start['periodNanos']:
+            raise RuntimeError('deliberate pause was not observed at wakeup')
         try:
             validate_mixed_series(raw, 30, 100)
         except ValueError:
             return {'negativeCase': 'missed deadline retains partial operations and still fails validation',
-                    'retainedOperations': len(rows), 'schedule': start, 'lastOperation': last}
+                    'retainedOperations': len(rows), 'schedule': start, 'lastOperation': last, 'timing': timing}
         raise RuntimeError('incomplete deadline failure passed series validation')
     finally:
         if paused is not None:
