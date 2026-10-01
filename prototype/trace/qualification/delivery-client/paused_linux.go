@@ -14,7 +14,7 @@ func runPausedReader(ctx context.Context, path string, output io.Writer) error {
 		return delivery.ErrObservation
 	}
 	result, observationErr := delivery.ConnectPausedReaderReady(ctx,
-		delivery.Connection{Server: cfg.Server, Token: cfg.Token, CAPEM: cfg.CAPEM}, expected, func() error {
+		delivery.Connection{Server: cfg.Server, Token: cfg.Token, CAPEM: cfg.CAPEM, NetworkScope: cfg.NetworkScope}, expected, func() error {
 			return json.NewEncoder(output).Encode(struct {
 				SchemaVersion int    `json:"schemaVersion"`
 				Case          string `json:"case"`

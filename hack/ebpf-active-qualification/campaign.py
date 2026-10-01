@@ -22,7 +22,7 @@ from chart_inventory import verify_inventory
 from window import Window
 
 ROOT = Path(__file__).resolve().parents[2]
-SOURCE_DIRS = ['hack/ebpf-active-qualification', 'hack/ebpf-qualification',
+SOURCE_DIRS = ['internal/qualificationendpoint', 'hack/ebpf-active-qualification', 'hack/ebpf-qualification',
                'prototype/trace/qualification/active-measure', 'prototype/trace/qualification/lifecycle',
                'prototype/trace/qualification/filecache', 'prototype/trace/qualification/delivery',
                'prototype/trace/qualification/delivery-client', 'hack/node-qualification/chart-inventory']

@@ -50,3 +50,21 @@ func TestPrivateConfigurationAndClockGuardPrecedeNetwork(t *testing.T) {
 		t.Fatal("configuration formatting disclosed token")
 	}
 }
+
+func TestOptionalScopeRejectsAmbiguousProviderSelection(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	base := `{"workerBootID":"00000000-0000-0000-0000-000000000000","durationSeconds":30`
+	for _, field := range []string{`"networkScope":"local"`, `"networkScope":"eks"`, `"networkScope":null`, `"networkScope":""`, `"networkScope":"automatic"`, `"networkScope":"local","networkScope":"eks"`, `"NetworkScope":"eks"`} {
+		if err := os.WriteFile(path, []byte(base+","+field+"}"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := load(path)
+		valid := field == `"networkScope":"local"` || field == `"networkScope":"eks"`
+		if (err == nil) != valid {
+			t.Fatalf("scope validity mismatch: %s", field)
+		}
+		if valid && cfg.NetworkScope == "" {
+			t.Fatal("scope lost")
+		}
+	}
+}

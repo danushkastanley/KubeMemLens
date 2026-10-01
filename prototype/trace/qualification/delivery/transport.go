@@ -10,19 +10,21 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
+
+	"github.com/danushkastanley/kube-memlens/internal/qualificationendpoint"
 )
 
-type Connection struct{ Server, Token, CAPEM string }
+type Connection struct {
+	Server, Token, CAPEM string
+	NetworkScope         qualificationendpoint.Scope
+}
 
 func (Connection) Format(w fmt.State, _ rune) {
 	_, _ = io.WriteString(w, "[private delivery connection]")
 }
 func (Connection) MarshalJSON() ([]byte, error) { return nil, ErrObservation }
-
-var kindHost = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,100}-control-plane$`)
 
 // Connect attaches to an existing admission. GET /stream activates its worker;
 // the controller must cancel that owned admission on any failure and verify cleanup.
@@ -41,13 +43,7 @@ func Connect(ctx context.Context, connection Connection, expected Expectation) (
 }
 
 func newHTTPClient(connection Connection) (*http.Client, error) {
-	endpoint, err := url.Parse(connection.Server)
-	if err != nil || endpoint.Scheme != "https" || endpoint.User != nil || endpoint.Path != "" || endpoint.RawQuery != "" || endpoint.ForceQuery || endpoint.Fragment != "" || endpoint.String() != connection.Server || endpoint.Port() == "" {
-		return nil, ErrObservation
-	}
-	host := endpoint.Hostname()
-	ip := net.ParseIP(host)
-	if !(ip != nil && ip.IsLoopback()) && !kindHost.MatchString(host) && !(host == "kubernetes.default.svc" && endpoint.Port() == "443") {
+	if !qualificationendpoint.Allowed(connection.Server, connection.NetworkScope) {
 		return nil, ErrObservation
 	}
 	if connection.Token == "" || len(connection.Token) > 8192 || strings.ContainsAny(connection.Token, " \t\r\n") || len(connection.CAPEM) > 16384 {

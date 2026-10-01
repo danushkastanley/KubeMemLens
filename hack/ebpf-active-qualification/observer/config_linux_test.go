@@ -70,3 +70,22 @@ func TestPrivateConfigBoundsAndAmbiguity(t *testing.T) {
 		t.Fatal("FIFO accepted")
 	}
 }
+
+func TestOptionalNetworkScopeRetainsLocalConfigAndRejectsInvalidScope(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	raw := string(configFixture(t))
+	for _, scope := range []string{`"local"`, `"eks"`, `null`, `""`, `"automatic"`, `"eks","networkScope":"local"`} {
+		data := strings.TrimSuffix(raw, "}") + `,"networkScope":` + scope + "}"
+		if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+			t.Fatal(err)
+		}
+		cfg, err := loadConfig(path)
+		valid := scope == `"local"` || scope == `"eks"`
+		if (err == nil) != valid {
+			t.Fatalf("scope validity mismatch: %s", scope)
+		}
+		if valid && string(cfg.NetworkScope) != strings.Trim(scope, `"`) {
+			t.Fatal("scope lost")
+		}
+	}
+}
