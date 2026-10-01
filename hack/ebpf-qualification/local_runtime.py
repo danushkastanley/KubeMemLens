@@ -1,5 +1,6 @@
 """Explicit local-only identities and UID-guarded optional-service transitions."""
 
+import base64
 import hashlib
 import json
 import re
@@ -24,6 +25,19 @@ def command(args, data=None, timeout=10):
     if result.returncode or len(result.stdout) > 512 * 1024:
         raise RuntimeError("bounded local qualification operation failed")
     return result.stdout
+
+
+def read_api_cluster(runtime):
+    clusters = runtime.json(['config', 'view', '--raw', '--minify', '-o', 'json'])['clusters']
+    if len(clusters) != 1:
+        raise ValueError('one explicit Kubernetes API endpoint required')
+    cluster = clusters[0]['cluster']
+    if (cluster.get('insecure-skip-tls-verify', False) is not False or cluster.get('proxy-url')
+            or cluster.get('tls-server-name') or not cluster.get('certificate-authority-data')):
+        raise ValueError('explicit Kubernetes serving trust without overrides required')
+    if not base64.b64decode(cluster['certificate-authority-data'], validate=True):
+        raise ValueError('Kubernetes serving CA is empty')
+    return cluster
 
 
 def spec_digest(spec):
@@ -85,6 +99,15 @@ class Runtime:
 
     def environment_fields(self):
         return {'sharedKindKernel': True}
+
+    def api_cluster(self):
+        cluster = read_api_cluster(self)
+        if not re.fullmatch(r'https://(?:127\.0\.0\.1|localhost):[0-9]+', cluster['server']):
+            raise ValueError('local API endpoint required')
+        return cluster
+
+    def observer_server(self):
+        return 'https://' + self.cfg['context'].removeprefix('kind-') + '-control-plane:6443'
 
     def observer_command(self, args):
         return ['docker', 'exec', self.cfg['node'], *args]

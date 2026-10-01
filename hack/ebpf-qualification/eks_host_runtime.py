@@ -8,7 +8,7 @@ import stat
 import uuid
 from urllib.parse import urlsplit
 
-from local_runtime import Runtime, canonical, command, deployment_names, digest
+from local_runtime import Runtime, canonical, command, deployment_names, digest, read_api_cluster
 
 PROVIDER_FIELDS = {'schemaVersion', 'accountID', 'region', 'clusterName', 'clusterCreatedAt',
                    'clusterEndpoint', 'clusterCASHA256', 'nodegroup', 'instanceID', 'amiID',
@@ -138,11 +138,8 @@ class EKSHostRuntime(Runtime):
                 'EKS cluster identity or lifetime changed')
         ca = base64.b64decode(cluster['certificateAuthority']['data'], validate=True)
         require(digest(ca) == p['clusterCASHA256'], 'EKS serving CA changed')
-        clusters = self.json(['config', 'view', '--raw', '--minify', '-o', 'json'])['clusters']
-        require(len(clusters) == 1, 'one Kubernetes endpoint required')
-        selected = clusters[0]['cluster']
-        require(selected['server'] == p['clusterEndpoint'] and not selected.get('insecure-skip-tls-verify')
-                and not selected.get('proxy-url') and not selected.get('tls-server-name')
+        selected = read_api_cluster(self)
+        require(selected['server'] == p['clusterEndpoint']
                 and base64.b64decode(selected['certificate-authority-data'], validate=True) == ca,
                 'kubeconfig endpoint or TLS trust differs from EKS')
         reservations = self.aws('ec2', 'describe-instances', '--instance-ids', p['instanceID'])['Reservations']
@@ -160,6 +157,17 @@ class EKSHostRuntime(Runtime):
         tags = {row['Key']: row['Value'] for row in instance.get('Tags', [])}
         require(tags.get('aws:autoscaling:groupName') in groups, 'instance is outside the approved managed nodegroup')
         self.verify_node()
+
+    def api_cluster(self):
+        self.verify_kubeconfig_binding()
+        cluster = read_api_cluster(self)
+        require(cluster['server'] == self.provider['clusterEndpoint']
+                and digest(base64.b64decode(cluster['certificate-authority-data'], validate=True)) == self.provider['clusterCASHA256'],
+                'API endpoint differs from the verified EKS binding')
+        return cluster
+
+    def observer_server(self):
+        return self.provider['clusterEndpoint']
 
     def environment_fields(self):
         return {'sharedKindKernel': False, 'provider': 'eks-managed-al2023-amd64',

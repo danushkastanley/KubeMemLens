@@ -8,6 +8,24 @@ from local_runtime import Runtime, SERVICES, deployment_names, pod_selector, spe
 
 
 class RuntimeGuards(unittest.TestCase):
+    def test_api_binding_requires_one_local_endpoint_and_explicit_tls_trust(self):
+        runtime = Runtime.__new__(Runtime)
+        runtime.cfg = {'context': 'kind-owned', 'node': 'owned-worker2'}
+        cluster = {'server': 'https://127.0.0.1:1234', 'certificate-authority-data': 'Y2E='}
+        runtime.json = lambda args: {'clusters': [{'cluster': cluster}]}
+        self.assertEqual(runtime.api_cluster(), cluster)
+        self.assertEqual(runtime.observer_server(), 'https://owned-control-plane:6443')
+        for changed in ({'server': 'https://other.example'}, {'insecure-skip-tls-verify': True},
+                        {'proxy-url': 'http://foreign'}, {'tls-server-name': 'foreign'},
+                        {'certificate-authority-data': ''}):
+            value = {**cluster, **changed}
+            runtime.json = lambda args: {'clusters': [{'cluster': value}]}
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                runtime.api_cluster()
+        runtime.json = lambda args: {'clusters': []}
+        with self.assertRaises(ValueError):
+            runtime.api_cluster()
+
     def test_spec_hash_allows_only_replica_transition(self):
         spec = {"replicas": 1, "template": {"spec": {"containers": [{"image": "immutable", "args": ["node"]}]}}}
         before = spec_digest(spec)

@@ -55,6 +55,17 @@ class EKSHostRuntimeTests(unittest.TestCase):
         cfg, docs = documents()
         verify(cfg, docs)
 
+    def test_api_clients_use_the_same_verified_provider_endpoint_and_ca(self):
+        cfg, docs = documents()
+        runtime = verify(cfg, docs)
+        self.assertEqual(runtime.observer_server(), cfg['providerExecution']['clusterEndpoint'])
+        with patch.object(runtime, 'verify_kubeconfig_binding') as binding:
+            self.assertEqual(runtime.api_cluster(), docs['config']['clusters'][0]['cluster'])
+            binding.assert_called_once()
+            docs['config']['clusters'][0]['cluster']['server'] = 'https://other.example'
+            with self.assertRaisesRegex(ValueError, 'verified EKS binding'):
+                runtime.api_cluster()
+
     def test_cloud_and_node_lifetime_mismatches_are_rejected(self):
         mutations = [
             lambda d: d['cluster'].update(arn='arn:aws:eks:us-east-1:999999999999:cluster/owned-test'),
