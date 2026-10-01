@@ -59,6 +59,26 @@ class Processes:
             self.scheduler_completion.close()
             self.scheduler_completion = None
 
+    def scheduler(self, config_path):
+        args = [self.case.cfg['helpers']['scheduler']['path'], '--config', config_path,
+                '--acknowledge-owned-node', '--completion-signal', 'stdin-eof']
+        process = self.start('scheduler', self.case.runtime.observer_input_command(args), stdin=subprocess.PIPE)
+        self.scheduler_completion = process.stdin
+        return process
+
+    def release_scheduler(self, states):
+        if self.scheduler_completion is None:
+            return
+        peers = {name: code for name, _, code in states}
+        if 'verifier' not in peers:
+            raise ValueError('scheduler completion requires a verifier process')
+        if peers['scheduler'] is not None:
+            self.record_failure([('scheduler', peers['scheduler'])])
+            raise ValueError('scheduler exited before verifier completion acknowledgement')
+        if peers['verifier'] == 0:
+            self.scheduler_completion.close()
+            self.scheduler_completion = None
+
     def wait(self, process, seconds):
         if process.wait(timeout=seconds) != 0:
             raise ValueError('observer or workload failed; partial records retained')
