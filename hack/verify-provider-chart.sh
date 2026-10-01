@@ -65,12 +65,15 @@ for validation in schema template; do
   if helm template kube-memlens "${chart}" "${options[@]}" >"${work_dir}/placement-rejected.log" 2>&1; then
     fail 'collector placement accepted a non-Linux selector'
   fi
-  require_text "${work_dir}/placement-rejected.log" 'collector.nodeSelector'
+  # Helm 3.22 uses JSON pointers; earlier versions use dotted schema paths.
+  require_text "${work_dir}/placement-rejected.log" 'nodeSelector'
+  require_text "${work_dir}/placement-rejected.log" 'linux'
 done
 if helm template kube-memlens "${chart}" --set collector.nodeSelector.qualification=true >"${work_dir}/placement-rejected.log" 2>&1; then
   fail 'collector placement accepted a non-string label value'
 fi
-require_text "${work_dir}/placement-rejected.log" 'collector.nodeSelector'
+require_text "${work_dir}/placement-rejected.log" 'nodeSelector'
+require_text "${work_dir}/placement-rejected.log" 'string'
 
 for workload in daemonset deployment bootstrap; do
   manifest="${work_dir}/${workload}.yaml"
