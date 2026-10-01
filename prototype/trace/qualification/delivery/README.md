@@ -1,5 +1,40 @@
 # Bounded event-delivery observation
 
+The separate `ObserveCeiling` parser observes admitted event/output ceilings. It
+uses the same production frame validation and exact admission/target bindings,
+retains nullable engine counts, and emits only numeric evidence and a terminal
+reason. An event ceiling requires the admitted event count. An output ceiling
+requires a validated output-limit summary with less than one maximum-sized frame
+remaining after the terminal reserve; it does not require every byte to be used.
+Ordinary expiry, cancellation and a premature ceiling label remain inconclusive.
+Missing or extra frames remain incomplete transport. The parser does not infer
+ring saturation, resource safety or latency/loss percentiles from unknown counts.
+
+`ConnectCeiling` uses the shared authenticated transport and active-admission
+lookup, with the same allowed origins, private CA, TLS 1.3 minimum, no redirects,
+no proxy, bounded headers and 40-second request lifetime as `Connect`. It starts
+only the supplied existing admission and always closes its stream. The normal
+`Observe` contract below is unchanged.
+
+The Linux CLI selects this observer only with `--observation ceiling`; omitting
+the option retains normal latency observation. Both modes share the private-file,
+bound specification, kernel boot-identity and 45-second process lifetime guards.
+Ceiling mode first emits one `case: "ceiling-ready"` record after the received
+metadata matches the authenticated active admission. The controller must wait for
+this before starting its burst, preventing an early limit from racing that lookup.
+The final record identifies `case: "ceiling-observation"` and contains no latency
+percentiles. Complete transport without a reported ceiling returns a failure
+status while retaining its numeric result. A failed readiness write aborts the
+observation. Normal mode retains its existing single-document output.
+
+`--observation paused-reader` uses the same checks but emits
+`paused-reader-ready`, pauses application reads for five seconds, then resumes.
+Its final `paused-reader-observation` retains requested/actual duration and
+completion, including failed observations. HTTP and kernel buffering can continue
+during this pause: it alone proves neither producer backpressure nor ring loss.
+The controller still needs independent saturation, resource and cleanup evidence.
+Normal mode remains the default; all transport and process limits remain.
+
 This qualification reader attaches to an **existing approved file admission**
 through Kubernetes aggregation. Attaching starts the incident worker. It is not a
 passive metrics read and must run only after the controller's bounded local test
@@ -79,12 +114,14 @@ include it in a public evidence bundle.
 
 ## Qualification status
 
-Host race tests exercise real TLS transport, an untrusted CA, active-status
+Host race and native Linux tests exercise real TLS transport, an untrusted CA, active-status
 matching, cancellation/redirect rejection, the production frame codec, privacy,
 missing data, clock uncertainty and exact latency/loss boundaries. Both Linux
-architectures must build. Linux config/boot tests and the real admitted kernel
-stream still require execution on the owned environment. HTTP fixtures in tests
-are synthetic protocol tests, not kernel evidence.
+architectures build. The combined ceiling/paused-reader delivery and client suite
+passed 29 native Linux tests on 1 October 2026, with no skipped tests or retained
+containers. The real admitted flood stream and full paired campaign still require
+execution on the owned environment. HTTP fixtures in tests are synthetic protocol
+tests, not kernel evidence.
 
 The currently installed aggregate-only file profile does not permit confirmed
 paths. Any profile change and its qualification scope must be recorded separately;

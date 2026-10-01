@@ -248,7 +248,57 @@ static int series(const struct series_pattern *pattern, const char *count_text, 
     return 0;
 }
 
+// A finite cached-read burst starts only after the controller has matched the
+// active admission. Small reads exercise event volume without unbounded I/O.
+static int flood(const char *count_text) {
+    unsigned int count = number(count_text, 262144);
+    long page = sysconf(_SC_PAGESIZE);
+    if (page != 4096 && page != 65536) fail("page size");
+    seed_block();
+    int fd = open(fixture, O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (fd < 0) fail("open owned fixture");
+    struct stat info;
+    if (fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) || info.st_uid != getuid()
+        || info.st_nlink != 1 || info.st_size != FILE_BYTES)
+        fail("fixture identity");
+    if (resident(fd, (size_t)page) != FILE_BYTES / (size_t)page)
+        fail("cache not fully resident");
+    alarm(70);
+    if (puts("{\"ready\":true}") < 0 || fflush(stdout) != 0) fail("ready output");
+    wait_command('R');
+    uint64_t started = monotonic_nanos();
+    size_t offset = 0;
+    for (unsigned int i = 0; i < count; i++) {
+        if (offset == FILE_BYTES) {
+            if (lseek(fd, 0, SEEK_SET) != 0) fail("seek");
+            offset = 0;
+        }
+        // Do not retry a partial/interrupted read: the receipt requires exactly
+        // the requested number of successful, fixed-size read system calls.
+        if (read(fd, actual, 64) != 64) fail("flood transfer");
+        if (memcmp(expected + offset % BLOCK_BYTES, actual, 64) != 0)
+            fail("data integrity");
+        offset += 64;
+    }
+    if (close(fd) != 0) fail("close");
+    uint64_t ended = monotonic_nanos();
+    if (ended <= started || ended - started > UINT64_C(10000000000))
+        fail("flood duration");
+    printf("{\"schemaVersion\":1,\"mode\":\"flood\",\"fileBytes\":%d,"
+           "\"readCalls\":%u,\"bytesPerRead\":64,\"readBytes\":%" PRIu64 ","
+           "\"operationStartedMonotonicNanos\":%" PRIu64 ","
+           "\"operationEndedMonotonicNanos\":%" PRIu64 ",\"operationNanos\":%" PRIu64 "}\n",
+           FILE_BYTES, count, (uint64_t)count * 64, started, ended, ended - started);
+    if (fflush(stdout) != 0) fail("flood output");
+    wait_command('Q');
+    return 0;
+}
+
 int main(int argc, char **argv) {
+    if (argc >= 2 && strcmp(argv[1], "flood") == 0) {
+        if (argc != 3) fail("flood arguments");
+        return flood(argv[2]);
+    }
     if (argc >= 2 && strcmp(argv[1], "series") == 0) {
         if (argc != 5) fail("series arguments");
         const char *mode = argv[2];

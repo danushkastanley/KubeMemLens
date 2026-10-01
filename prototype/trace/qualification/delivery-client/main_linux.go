@@ -69,15 +69,11 @@ func sameBoot(expected string) bool {
 	return err == nil && len(data) <= 64 && strings.TrimSpace(string(data)) == expected
 }
 func run(ctx context.Context, path string, output io.Writer) error {
-	cfg, err := load(path)
-	if err != nil || !sameBoot(cfg.WorkerBootID) {
-		return delivery.ErrObservation
-	}
-	spec, err := trace.NewSpecification(trace.Files, cfg.Target, trace.ConfirmedPaths, trace.Bounds{Duration: time.Duration(cfg.DurationSeconds) * time.Second, Events: cfg.MaxEvents, OutputBytes: cfg.MaxOutputBytes, MapBytes: cfg.MaxMapBytes, PathBytes: cfg.MaxPathBytes})
+	cfg, expected, err := loadExpectation(path)
 	if err != nil {
 		return delivery.ErrObservation
 	}
-	result, observationErr := delivery.Connect(ctx, delivery.Connection{Server: cfg.Server, Token: cfg.Token, CAPEM: cfg.CAPEM}, delivery.Expectation{SessionID: cfg.SessionID, EngineDigest: cfg.EngineDigest, ProgrammeDigest: cfg.ProgrammeDigest, Specification: spec})
+	result, observationErr := delivery.Connect(ctx, delivery.Connection{Server: cfg.Server, Token: cfg.Token, CAPEM: cfg.CAPEM}, expected)
 	clockMatched := sameBoot(cfg.WorkerBootID)
 	var measured *delivery.Latency
 	if observationErr == nil && clockMatched {
@@ -108,13 +104,14 @@ func main() {
 	flags := flag.NewFlagSet("delivery-client", flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
 	path := flags.String("config", "", "private approved-admission configuration")
-	if flags.Parse(os.Args[1:]) != nil || flags.NArg() != 0 {
+	observation := flags.String("observation", "normal", "normal, ceiling, or paused-reader observation")
+	if flags.Parse(os.Args[1:]) != nil || flags.NArg() != 0 || (*observation != "normal" && *observation != "ceiling" && *observation != "paused-reader") {
 		fmt.Fprintln(os.Stderr, "invalid delivery-client arguments")
 		os.Exit(2)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	if run(ctx, *path, os.Stdout) != nil {
+	if runObservation(ctx, *observation, *path, os.Stdout) != nil {
 		fmt.Fprintln(os.Stderr, "delivery qualification incomplete or failed; retain the numeric result")
 		os.Exit(1)
 	}
