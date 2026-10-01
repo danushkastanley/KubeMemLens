@@ -34,6 +34,10 @@ UID/provider ID/boot/runtime. It requires the local AL2023 amd64 host root,
 systemd init, matching boot/kernel and cgroup v2 before making provider requests.
 A different host or provider cannot be selected as a fallback.
 
+The host tools support AL2023's system Python 3.9. Distribution identity comes
+from a bounded `/etc/os-release` read; no shell evaluation or Python upgrade is
+needed. Missing, duplicate or malformed identity fields fail the host check.
+
 ```sh
 python3 hack/ebpf-qualification/eks_idle_campaign.py \
   --config /private/approved-idle.json \

@@ -122,7 +122,7 @@ class EKSHostRuntimeTests(unittest.TestCase):
             with patch('eks_host_runtime.platform.system', return_value=values['system']), \
                  patch('eks_host_runtime.platform.machine', return_value=values['machine']), \
                  patch('eks_host_runtime.platform.release', return_value=values['kernel']), \
-                 patch('eks_host_runtime.platform.freedesktop_os_release', return_value=values['release']), \
+                 patch('eks_host_runtime.read_release', return_value=values['release']), \
                  patch('eks_host_runtime.os.geteuid', return_value=values['uid']), \
                  patch('eks_host_runtime.os.path.samefile', return_value=values['root']), \
                  patch('eks_host_runtime.Path.is_file', return_value=values['cgroup']), \

@@ -9,6 +9,7 @@ import uuid
 from urllib.parse import urlsplit
 
 from local_runtime import Runtime, canonical, command, deployment_names, digest, read_api_cluster
+from host_os import read_release
 
 PROVIDER_FIELDS = {'schemaVersion', 'accountID', 'region', 'clusterName', 'clusterCreatedAt',
                    'clusterEndpoint', 'clusterCASHA256', 'nodegroup', 'instanceID', 'amiID',
@@ -100,7 +101,7 @@ class EKSHostRuntime(Runtime):
                 'EKS observer must execute on the selected Linux amd64 node host')
         require(os.path.samefile('/', '/proc/1/root')
                 and Path('/proc/1/comm').read_text().strip() == 'systemd', 'node host root and init required')
-        release = platform.freedesktop_os_release()
+        release = read_release()
         require(release.get('ID') == 'amzn' and release.get('VERSION_ID') == '2023', 'AL2023 host required')
         require(Path('/proc/sys/kernel/random/boot_id').read_text().strip() == self.provider['bootID']
                 and platform.release() == self.provider['nodeInfo']['kernelVersion'], 'local Node lifetime or kernel changed')
