@@ -13,7 +13,7 @@ import (
 
 const fieldLabel = "kml_history_field"
 
-func (c *Client) Query(ctx context.Context, s memoryhistory.Selection, q memoryhistory.Query) (memoryhistory.Report, error) {
+func (c *Client) Query(ctx context.Context, s memoryhistory.Selection, q memoryhistory.Query) (report memoryhistory.Report, err error) {
 	r, err := memoryhistory.NewReport(s, q, c.now())
 	if err != nil {
 		return memoryhistory.Report{}, err
@@ -35,6 +35,13 @@ func (c *Client) Query(ctx context.Context, s memoryhistory.Selection, q memoryh
 	}
 	ctx, cancel := context.WithTimeout(ctx, memoryhistory.QueryTimeout)
 	defer cancel()
+	// Cancellation wins over a response/decoder error observed at the same
+	// boundary. Run this before our own cancel so successful queries stay valid.
+	defer func() {
+		if cause := ctx.Err(); cause != nil {
+			report, err = memoryhistory.Report{}, cause
+		}
+	}()
 	selectors := make([]string, len(s.Targets))
 	for i, t := range s.Targets {
 		selectors[i] = selector(c.cluster, t, q.Metric)
@@ -51,9 +58,6 @@ func (c *Client) Query(ctx context.Context, s memoryhistory.Selection, q memoryh
 	r.ReceivedAt = c.now()
 	if err := decode(ctx, data, c.cluster, &r); err != nil {
 		return memoryhistory.Report{}, err
-	}
-	if ctx.Err() != nil {
-		return memoryhistory.Report{}, ctx.Err()
 	}
 	return r, nil
 }
