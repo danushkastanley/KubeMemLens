@@ -8,6 +8,7 @@ from local_case import TraceClient, canonical, command, digest
 from processes import Processes, read_document, wait_until
 from profile import trace_slots
 from provenance import write_envelope
+from workload_case import workload_arguments
 
 
 def clock_ns(case):
@@ -159,9 +160,8 @@ class Window:
             if self.phase == 'enabled':
                 self.processes.native('witness', 'watch', '--mode', 'watch', '--watch-seconds', str(p['windowSeconds']),
                                       *self.owner['flags'], '--target-cgroups', ','.join(str(x['group']['inode']) for x in self.targets))
-            work = p['workload']
             workload = self.processes.start('workload', c.runtime.kube + ['-n', c.namespaces[0], 'exec', 'target', '-c', 'worker', '--',
-                                                                       '/usr/local/bin/kml-io-workload', 'series', work['mode'], str(work['count']), str(work['periodMilliseconds'])])
+                                                                       '/usr/local/bin/kml-io-workload', *workload_arguments(p)])
             if self.phase == 'enabled':
                 for index, offset in enumerate(trace_slots(p)):
                     self.trace(index, origin + offset)

@@ -1,4 +1,4 @@
-"""Run the exact five-pair normal local experiment; no provider/support claim."""
+"""Run a frozen five-pair local normal or mixed case; no provider/support claim."""
 import argparse
 import copy
 from datetime import datetime, timezone
@@ -16,6 +16,7 @@ from local_case import LocalCase, canonical, command, digest
 from local_runtime import spec_digest
 from processes import wait_until
 from profile import load_profile
+from high_rate_profile import load_high_rate_profile
 from preflight import read_configuration, certificate_lifetimes
 from window import Window
 
@@ -42,9 +43,10 @@ def write(path, value):
 
 
 class Campaign:
-    def __init__(self, cfg, directory):
+    def __init__(self, cfg, directory, profile):
         self.cfg, self.directory = cfg, directory
-        self.profile = load_profile()
+        self.profile = profile
+        self.label = {'normal-confirmed-files': 'normal', 'high-rate-mixed-files': 'high-rate'}[profile['case']]
         self.source = sources()
         if digest(canonical(self.source)) != cfg['sourceSHA256']:
             raise ValueError('source differs from independently frozen manifest')
@@ -76,7 +78,7 @@ class Campaign:
               'images': {k: cfg[k] for k in ('standardImage', 'fixtureImage')},
               'tracerImage': cfg['trace']['image'], 'policySHA256': cfg['trace']['policySHA256'],
               'helperSHA256': {name: value['sha256'] for name, value in cfg['helpers'].items()},
-              'scope': 'owned local normal workload; no full qualification or cloud execution'})
+              'scope': 'owned local ' + self.label + ' workload; no full qualification or cloud execution'})
 
     def record(self, event, value, private=False):
         self.sequence += 1
@@ -86,7 +88,7 @@ class Campaign:
         temporary = self.directory / 'progress.tmp'
         temporary.write_text(json.dumps({'state': state, 'pair': pair, 'updatedAt': datetime.now(timezone.utc).isoformat()}))
         temporary.replace(self.directory / 'progress.json')
-        print(f'normal pair {pair}: {state}', flush=True)
+        print(f'{self.label} pair {pair}: {state}', flush=True)
 
     def invariant(self):
         if sources() != self.source:
@@ -178,10 +180,10 @@ class Campaign:
                 self.fixtures.cleanup()
                 self.fixtures = None
                 self.progress('paired-measurements-complete', pair)
-            write(self.directory / 'normal-result.json', {'schemaVersion': 1, 'pairs': self.pairs,
+            write(self.directory / (self.label + '-result.json'), {'schemaVersion': 1, 'pairs': self.pairs,
                   'measuredNormalBudgetsPassed': all(p['measuredNormalBudgetsPassed'] for p in self.pairs),
-                  'qualification': 'normal measured budgets only; remaining protocol gates are not waived'})
-            self.progress('normal-case-complete', self.profile['pairs'])
+                  'qualification': 'normal measured budgets applied to this case only; remaining protocol gates are not waived'})
+            self.progress(self.label + '-case-complete', self.profile['pairs'])
         except BaseException:
             self.progress('interrupted-or-invalid; evidence retained', len(self.pairs) + 1)
             raise
@@ -199,14 +201,17 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
-    parser.add_argument('--acknowledge-local-normal-campaign', action='store_true', required=True)
+    cases = parser.add_mutually_exclusive_group(required=True)
+    cases.add_argument('--acknowledge-local-normal-campaign', action='store_const', const='normal', dest='case')
+    cases.add_argument('--acknowledge-local-high-rate-campaign', action='store_const', const='high-rate', dest='case')
     args = parser.parse_args()
     os.umask(0o077)
     cfg = read_configuration(args.config)
     def interrupted(_signal, _frame):
         raise InterruptedError('campaign interrupted; restore owned resources')
     signal.signal(signal.SIGTERM, interrupted)
-    Campaign(cfg, args.output).run()
+    profile = {'normal': load_profile, 'high-rate': load_high_rate_profile}[args.case]()
+    Campaign(cfg, args.output, profile).run()
 
 
 if __name__ == '__main__':
