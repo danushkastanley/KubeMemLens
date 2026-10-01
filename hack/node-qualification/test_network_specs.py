@@ -28,6 +28,13 @@ class NetworkSpecsTest(unittest.TestCase):
 
     def test_ingress_targets_have_a_controller_and_match_the_real_policy(self):
         jobs = [d for d in self.documents if d["kind"] == "Job"]
+        self.assertEqual(len(jobs), 6)
+        self.assertFalse(any(d["kind"] == "Pod" for d in self.documents))
+        for job in jobs:
+            self.assertEqual(job["spec"]["backoffLimit"], 0)
+            self.assertEqual(job["spec"]["activeDeadlineSeconds"], 600)
+            self.assertEqual(job["spec"]["template"]["spec"]["restartPolicy"], "Never")
+            self.assertNotIn("ownerReferences", job["spec"]["template"]["metadata"])
         ingress = [j for j in jobs if j["spec"]["template"]["metadata"]["labels"][LABEL] == "ingress"]
         self.assertEqual(len(ingress), 2)
         for job in ingress:

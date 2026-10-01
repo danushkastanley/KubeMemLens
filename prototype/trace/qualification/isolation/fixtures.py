@@ -1,4 +1,4 @@
-"""Fixed, restricted fixtures for the owned local isolation campaign."""
+"""Fixed, restricted fixtures for owned isolation campaigns."""
 import re
 
 from transport import QualificationError, fixture_name
@@ -41,7 +41,7 @@ def role_binding(namespace_name, name, operator_role, account_namespace, account
 
 def pod(namespace_name, name, node, image, run_id):
     namespace(namespace_name, run_id)
-    if (not fixture_name(name) or not fixture_name(node) or not isinstance(image, str) or
+    if (not fixture_name(name) or not node_name(node) or not isinstance(image, str) or
             not re.fullmatch(r'[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}', image)):
         raise QualificationError('pinned isolation fixture required')
     return {'apiVersion': 'v1', 'kind': 'Pod', 'metadata': {'name': name, 'namespace': namespace_name,
@@ -57,3 +57,17 @@ def pod(namespace_name, name, node, image, run_id):
                                                 'capabilities': {'drop': ['ALL']}},
                             'resources': {'requests': {'cpu': '5m', 'memory': '16Mi'},
                                           'limits': {'cpu': '500m', 'memory': '64Mi'}}}]}}
+
+
+def node_name(value):
+    return isinstance(value, str) and len(value) <= 253 and all(fixture_name(part) for part in value.split('.'))
+
+
+def job(namespace_name, name, node, image, run_id):
+    template = pod(namespace_name, name, node, image, run_id)
+    # Provider nodes pull an explicitly pinned private fixture image. Local Pod
+    # fixtures retain their existing preloaded-image-only behaviour.
+    template['spec']['containers'][0]['imagePullPolicy'] = 'IfNotPresent'
+    return {'apiVersion': 'batch/v1', 'kind': 'Job', 'metadata': template['metadata'],
+            'spec': {'parallelism': 1, 'completions': 1, 'backoffLimit': 0, 'activeDeadlineSeconds': 1800,
+                     'template': {'metadata': {'labels': labels(run_id)}, 'spec': template['spec']}}}

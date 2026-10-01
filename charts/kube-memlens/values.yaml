@@ -120,6 +120,9 @@ collector:
   service:
     # Pod-local health listener. The authenticated Service does not expose it.
     port: 8080
+    # Authenticated Service endpoint; APIService and the connection test follow it.
+    extensionPort: 443
+    extensionPortName: https-extension
 
 extensionTLS:
   secretName: kube-memlens-extension-tls

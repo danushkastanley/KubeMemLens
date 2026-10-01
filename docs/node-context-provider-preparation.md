@@ -118,8 +118,11 @@ The new directory uses mode `0700`; each file uses `0600`:
   have separate audiences.
 - `network-probes.preview.json`: the token-free controlled targets, clients and
   temporary allow rules for ingress and egress verification. Node aliases are
-  replaced only with the bound live Node names. The serving targets use Jobs to
-  prevent the producer DaemonSet adopting their matching labels.
+  replaced only with the bound live Node names. All six targets and clients use
+  Jobs with no retries and a ten-minute deadline. Real controller ownership
+  prevents DaemonSet adoption and supports CNIs that require controller-owned
+  Pods for reliable enforcement. Each generated Pod is bound to its Job UID;
+  every subsequent probe rechecks that parent and the original child identity.
 - `configuration.private.json`: the exact private input configuration.
 - `plan.private.json`: version-2 profile/configuration/file digests, explicit
   observation method/image, frozen measurement settings and budgets, required
