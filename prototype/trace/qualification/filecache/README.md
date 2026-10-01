@@ -198,3 +198,19 @@ validates those independent workload counters. They do not establish how many
 BPF events were produced, lost or delivered: the controller must match readiness,
 actual admission, event/output outcome, resource limits and owned cleanup.
 The initial controller burst will use 131,072 reads (8 MiB total application I/O).
+
+
+`paced-flood COUNT` uses the same file, gated lifetime, 64-byte reads and integrity
+checks with at most 12,000 reads on an absolute 500,000 ns schedule. Its schema-2
+receipt adds `readPeriodNanos`; validation rejects a run shorter than the declared
+schedule. Scheduling delays can cause catch-up reads, so this is an average pacing
+schedule, not a guarantee of an instantaneous rate. The ten-second operation
+bound is unchanged. The native verifier exercises the full paced count and
+rejects invalid counts and arguments.
+
+Use the paced input to exercise a writer event ceiling independently of an
+aggressive burst. The kernel candidate budget counts attempted ring submissions;
+a lost submission still consumes its slot. An aggressive burst can therefore
+exhaust that budget while delivering fewer events than the writer ceiling.
+Keep writer-limit, output-limit, kernel-loss and paused-reader results separate.
+Neither fixture mode alone establishes tracing correctness or performance.
