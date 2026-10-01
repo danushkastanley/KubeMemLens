@@ -102,9 +102,12 @@ func (p ProbePlan) ParseFormat(text string, kind Kind) (Format, error) {
 func (f Format) Decode(raw []byte, stamp uint64, tid uint32) (Event, error) {
 	if f.id == 0 || len(raw) < f.minimum || len(raw) > 256 || len(raw) < 8 || stamp == 0 ||
 		tid == 0 || tid > 0x7fffffff || binary.LittleEndian.Uint16(raw[:2]) != f.id ||
-		binary.LittleEndian.Uint32(raw[4:8]) != tid {
+		binary.LittleEndian.Uint32(raw[4:8]) == 0 || binary.LittleEndian.Uint32(raw[4:8]) > 0x7fffffff {
 		return Event{}, ErrObservation
 	}
+	// common_pid is current->pid in the initial namespace. PERF_SAMPLE_TID
+	// uses the descriptor creator's namespace; it is the consistent matching
+	// key for this capture. Both must be valid, but equality is not an invariant.
 	event := Event{Kind: f.kind, Time: stamp, TID: tid}
 	if f.kind != CheckEnter {
 		event.Result = int32(binary.LittleEndian.Uint32(raw[24:28]))
