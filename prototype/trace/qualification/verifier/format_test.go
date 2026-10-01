@@ -117,7 +117,7 @@ func TestChangedFormatCannotBroadenOrMisreadTheCapture(t *testing.T) {
 	}
 }
 
-func TestRecordRejectsLossTruncationAndIdentityMismatch(t *testing.T) {
+func TestRecordRejectsLossTruncationAndInvalidIdentityBounds(t *testing.T) {
 	f, valid := sampleFixture(LogFinalized)
 	for _, change := range []func([]byte){
 		func(b []byte) { b[0] = 2 }, // loss
@@ -125,7 +125,10 @@ func TestRecordRejectsLossTruncationAndIdentityMismatch(t *testing.T) {
 		func(b []byte) { b[6]-- },
 		func(b []byte) { b[8]++ },
 		func(b []byte) { b[16] = 0 },
-		func(b []byte) { b[20]++ },
+		func(b []byte) { b[20] = 0 },
+		func(b []byte) { b[23] = 0x80 },
+		func(b []byte) { b[48] = 0 },
+		func(b []byte) { b[51] = 0x80 },
 		func(b []byte) { b[32]++ },
 		func(b []byte) { b[36]++ },
 		func(b []byte) { b[40] = 255 },
@@ -142,6 +145,15 @@ func TestRecordRejectsLossTruncationAndIdentityMismatch(t *testing.T) {
 		if _, err := Record(valid[:n], 3, map[uint64]Format{5: f}); err == nil {
 			t.Fatal("truncated record accepted")
 		}
+	}
+}
+
+func TestRecordMatchesInPerfCreatorsPIDNamespace(t *testing.T) {
+	format, data := sampleFixture(LogFinalized)
+	binary.LittleEndian.PutUint32(data[48:52], 424242)
+	event, err := Record(data, 3, map[uint64]Format{5: format})
+	if err != nil || event.TID != 42 {
+		t.Fatal("kernel namespace ID replaced or invalidated perf matching identity")
 	}
 }
 

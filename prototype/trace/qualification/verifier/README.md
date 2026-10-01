@@ -1,17 +1,18 @@
 # Numeric verifier observation
 
-This package currently contains an offline matcher, fixed probe definitions,
-owned registry/counter parsers, a BTF argument check and numeric record projection. It does not install
-probes, open perf descriptors or establish runtime measurement coverage. The
-active campaign must continue to report verifier measurements as unavailable.
+This package contains a numeric matcher, fixed probe definitions, ownership and
+counter checks, BTF argument validation, and a bounded Linux tracefs/perf reader.
+It is not integrated into the active campaign. Verifier measurements there remain
+unavailable until the bounded observer CLI, lifetime checks and campaign integration are complete.
 
 The intended measurement is elapsed monotonic time inside `bpf_check`, with the
 kernel-finalised required log size. It is not syscall/admission latency, CPU time,
-or proof of log delivery. The finalized size can include a terminator and exceed
+or proof of log delivery. The finalised size can include a terminator and exceed
 the supplied buffer. A non-zero finalizer error remains a separate observation.
 No log contents, programme instructions, names or kernel addresses are evidence.
-The format and record tests use synthetic layouts; they do not validate the
-target kernel's actual tracepoint schemas or argument-fetch behaviour.
+Format tests include synthetic layouts and three real LinuxKit 7.0.12 arm64
+schemas from a disabled register/read/remove cycle. This validates the layouts,
+not the saved argument-fetch behaviour.
 
 ## Source basis
 
@@ -59,9 +60,30 @@ verifier-log pointer and unsigned 32-bit size-output pointer, resolving typedefs
 It uses the existing BTF dependency and neither loads a programme nor attaches a
 probe. Passing this type check alone does not validate a return-argument fetch.
 
-## Native work required before use
+## Native reader and remaining validation
 
-The native reader must verify the exact kernel function signatures and availability,
+The Linux adapter pins tracefs, appends only the three fixed registration or
+removal commands, and never opens the registry with truncation or writes enable
+flags. An existing owner group is refused. Partial writes are reconciled before
+cleanup; a changed definition prevents deletion. Cleanup errors remain persistent.
+
+Capture duplicates an inode-bound cgroup-v2 directory and refuses the filesystem
+root. Three close-on-exec perf descriptors per CPU filter that cgroup and its
+descendants. Each CPU has a 64 KiB ring; records are capped at 512 bytes and only
+numeric projections enter the 4,096-frame ordering queue. Stop disables capture,
+drains the final records and requires the kernel event count to match all decoded
+and explicitly discarded startup records. Loss, throttling, backwards counters,
+counter overflow and missing coverage invalidate the observation. Cancellation
+must still close descriptors before removing definitions.
+
+Race tests, native ring/ownership tests, disabled registration and idle capture
+have passed locally. A six-load calibration then captured exactly the three
+selected calls, matched their syscall log-size oracle (0, 98 and 188 bytes),
+recorded the rejected call, and excluded all three loads from the other cgroup.
+It exercised CPUs 0 and 13 with zero loss/misses and verified removal of programmes,
+probes, processes and cgroups. These component checks are not paired qualification.
+
+The enclosing controller must verify the exact kernel function signatures and availability,
 boot, architecture, CPU topology and an inode-bound owned cgroup/process lifetime.
 The proposed probe set is fixed: verifier entry, verifier return, and log finalizer
 return with only its signed result and dereferenced 32-bit size. No arbitrary
@@ -75,15 +97,20 @@ dumps and project only allowed numeric fields. Close all descriptors before
 removing exactly the owned definitions, with a cleanup receipt.
 
 Final coverage requires zero lost/throttled records, zero missed return probes,
-no ambiguous ordering and no pending calls. Perf enabled/running accounting must
-respect cgroup scheduling; do not reuse the scheduler observer's unconditional
-node-wide equality rule. Match observed loads to controlled admissions and reject
+no ambiguous ordering and no pending calls. Perf accounting uses scheduled cgroup
+context time, which can be zero on an idle CPU. The reader requires equal enabled
+and running totals for that context; positive-capture validation remains required.
+Match observed loads to controlled admissions and reject
 unexplained missing verifier calls. Snapshot final loss/miss counters after disable.
 
-Before campaign integration, run bounded known-zero and known-nonzero log cases
-and a rejection case with a fixed small log buffer. These validate saved return
-arguments, dereferencing and size semantics; a successful zero-only capture cannot
-exclude a broken dereference. Confirm owner-exit, cancellation, loss/overflow,
+The fixed calibration runner validates saved return arguments with known-zero,
+known-nonzero and rejected cases; a zero-only idle capture cannot establish those
+semantics. It uses only a fixed small log buffer. Confirm owner-exit, cancellation, loss/overflow,
 missed-return and cleanup failures cannot produce a complete receipt. Measure
-observer cost and use the same instrumentation in each paired window. No such
-native validation has yet been completed.
+observer cost and use the same instrumentation in each paired window. Those
+remaining native checks have not yet been completed.
+
+Perf sample TIDs belong to the descriptor creator's PID namespace; tracepoint
+`common_pid` uses the kernel identity. Both are range-checked, but they are not
+required to be equal. Matching uses the perf TID consistently; ownership comes
+from the pinned cgroup and descriptor, not a cross-namespace numeric comparison.
