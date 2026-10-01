@@ -48,3 +48,15 @@ these additional integrity checks. The subsequent pidfd owner guard passed nativ
 unit, ten-second capture/replay and controlled owner-exit tests. Campaign wiring,
 paired workload overhead, stressed operation and provider verification remain.
 This helper does not measure verifier duration or verifier log size.
+
+When running alongside the verifier observer, pass `--completion-signal stdin-eof`
+and retain an owned stdin pipe. After its last sample, the scheduler disables
+sampling and checks final loss, but retains its descriptors until the controller
+closes that pipe following successful verifier completion. Releasing scheduler
+tracepoints can otherwise block tracefs probe-count reads in a peer's final
+sample. No extra samples or timing-budget exceptions are introduced.
+
+Unexpected stdin data fails. Cancellation and the existing hard deadline still
+bound the wait. Failure cleanup must close the pipe and wait for both helpers;
+only complete streams, successful exits and confirmed cleanup can qualify a
+window. Standalone execution without this flag keeps immediate cleanup.

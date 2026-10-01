@@ -17,6 +17,8 @@ type Capture struct {
 	records   uint64
 	closed    bool
 	failed    bool
+	stopped   bool
+	stopErr   error
 	closeErr  error
 }
 
@@ -131,7 +133,7 @@ func (c *Capture) Started() uint64          { return c.started }
 func (c *Capture) StartupDiscarded() uint64 { return c.discarded }
 
 func (c *Capture) Drain(consume func(Frame) error) error {
-	if c.closed || c.failed || consume == nil {
+	if c.closed || c.stopped || c.failed || consume == nil {
 		return ErrObservation
 	}
 	for _, ring := range c.rings {
@@ -151,13 +153,16 @@ func (c *Capture) Drain(consume func(Frame) error) error {
 	return nil
 }
 
-// Close disables and closes every owned descriptor even after an earlier error.
-// FDs are CLOEXEC and never inherited; closing them removes these perf sessions.
-func (c *Capture) Close() error {
+// Stop ends sampling and checks final loss without unregistering tracepoints.
+// A controller can retain the disabled descriptors until peer reads finish.
+func (c *Capture) Stop() error {
 	if c.closed {
-		return c.closeErr
+		return ErrObservation
 	}
-	c.closed = true
+	if c.stopped {
+		return c.stopErr
+	}
+	c.stopped = true
 	var result error
 	for _, fd := range c.fds {
 		if unix.IoctlSetInt(fd, unix.PERF_EVENT_IOC_DISABLE, 0) != nil {
@@ -169,6 +174,19 @@ func (c *Capture) Close() error {
 	if result == nil && len(c.fds) > 0 {
 		_, result = readCounters(c.fds, unix.Read)
 	}
+	c.stopErr = result
+	c.failed = c.failed || result != nil
+	return result
+}
+
+// Close releases every owned descriptor even after an earlier stop error.
+// FDs are CLOEXEC and never inherited; closing them removes these perf sessions.
+func (c *Capture) Close() error {
+	if c.closed {
+		return c.closeErr
+	}
+	result := c.Stop()
+	c.closed = true
 	for _, ring := range c.rings {
 		if unix.Munmap(ring.mapping) != nil {
 			result = ErrObservation

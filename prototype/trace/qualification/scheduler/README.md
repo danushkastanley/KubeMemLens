@@ -49,3 +49,7 @@ changed by this helper.
 
 Sources: [Linux scheduling tracepoints](https://github.com/torvalds/linux/blob/master/include/trace/events/sched.h)
 and [perf_event_open](https://man7.org/linux/man-pages/man2/perf_event_open.2.html).
+
+`Capture.Stop` disables sampling and validates final loss without releasing the
+perf descriptors. This permits controller-coordinated teardown after peer
+observations finish. `Close` releases all resources and preserves any stop error.

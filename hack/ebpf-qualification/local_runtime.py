@@ -115,6 +115,9 @@ class Runtime:
     def observer_command(self, args):
         return ['docker', 'exec', self.cfg['node'], *args]
 
+    def observer_input_command(self, args):
+        return ['docker', 'exec', '-i', self.cfg['node'], *args]
+
     def verify_tools(self):
         for path, key in ((MEASURE, "measureSHA256"), (CENSUS, "censusSHA256")):
             if self.exec(["sha256sum", path]).decode().split()[0] != self.cfg[key]:
