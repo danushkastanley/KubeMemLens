@@ -215,3 +215,14 @@ results conservatively apply the existing normal thresholds to this higher rate;
 or inferred from these measurements. `high-rate-result.json` records this case
 only. It cannot establish noisy-neighbour, concurrency, flood, lifecycle, provider
 or full qualification. Missing scheduler/verifier observations remain explicit.
+
+## Failed observer diagnostics
+
+An incomplete standard observation reports a fixed failure category for process
+bindings, agent or collector requests, parsing, clocks, or output. Underlying
+errors, URLs, tokens and response bodies are omitted. The controller records
+first-detected failing process labels and exit codes in
+`failed-processes.private.json` before teardown; an observer that exits early
+with code zero is also invalid. This receipt identifies detected exits, not an
+assumed root cause or exit ordering between polls. Keep all partial streams.
+No diagnostic changes permit retries or relax observation and workload limits.

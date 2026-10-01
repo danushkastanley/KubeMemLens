@@ -1,5 +1,6 @@
 """Bound local observer processes and private Node inputs to one window."""
 import json
+import re
 import subprocess
 import time
 
@@ -21,6 +22,8 @@ class Processes:
         return path
 
     def start(self, name, args):
+        if not re.fullmatch(r'[a-z][a-z0-9-]{0,79}', name):
+            raise ValueError('invalid observation process label')
         out = (self.directory / (name + '.jsonl')).open('xb')
         err = (self.directory / (name + '.stderr')).open('xb')
         try:
@@ -48,13 +51,22 @@ class Processes:
         for name, process, _, _ in self.items:
             code = process.poll()
             if code is not None and ((code != 0 and process not in self.budget_failures) or name in ('resources', 'standard', 'witness')):
+                self.record_failure([(name, code)])
                 raise ValueError('required observer stopped before its window ended')
+
+    def record_failure(self, failed):
+        with (self.directory / 'failed-processes.private.json').open('x') as stream:
+            json.dump({'schemaVersion': 1, 'controllerMonotonicNanos': time.monotonic_ns(),
+                       'processes': [{'label': name, 'exitCode': code} for name, code in failed]}, stream)
 
     def wait_all(self, deadline):
         while True:
-            states = [(process, process.poll()) for _, process, _, _ in self.items]
-            codes = [code for _, code in states]
-            if any(code is not None and code != 0 and process not in self.budget_failures for process, code in states):
+            states = [(name, process, process.poll()) for name, process, _, _ in self.items]
+            codes = [code for _, _, code in states]
+            failed = [(name, code) for name, process, code in states
+                      if code is not None and code != 0 and process not in self.budget_failures]
+            if failed:
+                self.record_failure(failed)
                 raise ValueError('observer or workload failed; retain partial records')
             if all(code is not None for code in codes):
                 return

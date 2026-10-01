@@ -82,20 +82,20 @@ func sampleSeries(ctx context.Context, out io.Writer, seconds int, sample func()
 		}
 		clock, err := readClock()
 		if err != nil {
-			return err
+			return atStage("clock", err)
 		}
 		cpu, rss, err := usage()
 		if err != nil {
-			return err
+			return atStage("usage", err)
 		}
 		row := observation{1, index, begin.Sub(origin).Nanoseconds(), time.Since(begin).Nanoseconds(), clock, agent, collector, cpu, rss}
 		data, err := json.Marshal(row)
 		if err != nil {
-			return err
+			return atStage("output-encoding", err)
 		}
 		data = append(data, '\n')
 		if len(data) > 8192 || written > 16<<20-len(data) {
-			return errObservation
+			return atStage("output-budget", errObservation)
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -103,44 +103,59 @@ func sampleSeries(ctx context.Context, out io.Writer, seconds int, sample func()
 		n, err := out.Write(data)
 		written += n
 		if err != nil {
-			return err
+			return atStage("output-write", err)
 		}
 		if n != len(data) {
-			return io.ErrShortWrite
+			return atStage("output-write", io.ErrShortWrite)
 		}
 	}
 	return nil
 }
 func run(ctx context.Context, cfg config, out io.Writer) error {
 	if !sameBoot(cfg.BootID) {
-		return errObservation
+		return atStage("boot-binding", errObservation)
 	}
 	agent, err := openBound(cfg.AgentPID, cfg.AgentStart, cfg.AgentSHA256, cfg.AgentContainer)
 	if err != nil {
-		return err
+		return atStage("agent-binding", err)
 	}
 	defer agent.close()
 	collector, err := openBound(cfg.CollectorPID, cfg.CollectorStart, cfg.CollectorSHA256, cfg.CollectorContainer)
 	if err != nil {
-		return err
+		return atStage("collector-binding", err)
 	}
 	defer collector.close()
 	client, err := collectorClient(cfg.Server, cfg.Token, cfg.CAPEM)
 	if err != nil {
-		return err
+		return atStage("collector-client", err)
 	}
 	defer client.CloseIdleConnections()
 	return sampleSeries(ctx, out, cfg.Seconds, func() (map[string]uint64, collectorObservation, error) {
-		if !sameBoot(cfg.BootID) || agent.verify() != nil || collector.verify() != nil {
-			return nil, collectorObservation{}, errObservation
+		if !sameBoot(cfg.BootID) {
+			return nil, collectorObservation{}, atStage("boot-binding", errObservation)
+		}
+		if err := agent.verify(); err != nil {
+			return nil, collectorObservation{}, atStage("agent-binding", err)
+		}
+		if err := collector.verify(); err != nil {
+			return nil, collectorObservation{}, atStage("collector-binding", err)
 		}
 		a, err := readAgent(ctx, agent)
 		if err != nil {
 			return nil, collectorObservation{}, err
 		}
 		c, err := readCollector(ctx, client, cfg.Server, cfg.Token)
-		if err != nil || agent.alive() != nil || collector.alive() != nil || !sameBoot(cfg.BootID) {
-			return nil, collectorObservation{}, errObservation
+		if err != nil {
+			return nil, collectorObservation{}, err
+		}
+		if err := agent.alive(); err != nil {
+			return nil, collectorObservation{}, atStage("agent-binding", err)
+		}
+		if err := collector.alive(); err != nil {
+			return nil, collectorObservation{}, atStage("collector-binding", err)
+		}
+		if !sameBoot(cfg.BootID) {
+			return nil, collectorObservation{}, atStage("boot-binding", errObservation)
 		}
 		return a, c, nil
 	})
@@ -159,7 +174,8 @@ func main() {
 	if *child {
 		deadline := time.AfterFunc(4*time.Second, func() { os.Exit(2) })
 		defer deadline.Stop()
-		if scrapeAgent(ctx, os.Stdout) != nil {
+		if err := scrapeAgent(ctx, os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, failureStage(err))
 			os.Exit(1)
 		}
 		return
@@ -171,8 +187,8 @@ func main() {
 	}
 	deadline := time.AfterFunc(time.Duration(cfg.Seconds+10)*time.Second, func() { os.Exit(2) })
 	defer deadline.Stop()
-	if run(ctx, cfg, os.Stdout) != nil {
-		fmt.Fprintln(os.Stderr, "metrics observation incomplete; retain numeric records")
+	if err := run(ctx, cfg, os.Stdout); err != nil {
+		fmt.Fprintf(os.Stderr, "metrics observation incomplete (%s); retain numeric records\n", failureStage(err))
 		os.Exit(1)
 	}
 }
