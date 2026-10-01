@@ -3,12 +3,14 @@ package main
 import (
 	"errors"
 	"io"
+	"strconv"
 )
 
 // Never retain an underlying transport error: it can contain a URL or identity.
 type observationFailure struct {
-	stage string
-	cause error
+	stage  string
+	cause  error
+	status int
 }
 
 func safeStage(stage string) string {
@@ -23,7 +25,13 @@ func safeStage(stage string) string {
 	}
 }
 
-func (f observationFailure) Error() string { return safeStage(f.stage) }
+func (f observationFailure) Error() string {
+	stage := safeStage(f.stage)
+	if stage == "collector-status" && f.status >= 100 && f.status <= 599 {
+		return stage + " http=" + strconv.Itoa(f.status)
+	}
+	return stage
+}
 func (f observationFailure) Unwrap() error { return f.cause }
 
 func atStage(stage string, err error) error {
@@ -42,6 +50,14 @@ func failureStage(err error) string {
 	var failure observationFailure
 	if errors.As(err, &failure) {
 		return safeStage(failure.stage)
+	}
+	return "unclassified"
+}
+
+func failureDetail(err error) string {
+	var failure observationFailure
+	if errors.As(err, &failure) {
+		return failure.Error()
 	}
 	return "unclassified"
 }

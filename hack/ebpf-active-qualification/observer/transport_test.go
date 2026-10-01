@@ -14,11 +14,38 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func TestCollectorHTTPFailureRetainsOnlyNumericStatus(t *testing.T) {
+	for _, status := range []int{302, 401, 403, 429, 500, 503, 507} {
+		t.Run(strconv.Itoa(status), func(t *testing.T) {
+			var requests atomic.Int32
+			server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests.Add(1)
+				w.Header().Set("Location", "https://private.example/tenant/path")
+				w.Header().Set("X-Private", "secret-token")
+				w.WriteHeader(status)
+				_, _ = io.WriteString(w, "secret-token private-tenant")
+			}))
+			defer server.Close()
+			client, err := collectorClient(server.URL, "fixture-token", caFor(server), "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer client.CloseIdleConnections()
+			_, err = readCollector(context.Background(), client, server.URL, "fixture-token")
+			want := "collector-status http=" + strconv.Itoa(status)
+			if err == nil || err.Error() != want || failureDetail(err) != want || failureStage(err) != "collector-status" || requests.Load() != 1 {
+				t.Fatal("HTTP failure did not preserve only its status or unexpectedly retried")
+			}
+		})
+	}
+}
 
 func metricsEnvelope() map[string]any {
 	return map[string]any{"apiVersion": "memory.kubememlens.io/v1alpha1", "kind": "Metrics", "metadata": map[string]any{"name": "current", "creationTimestamp": nil}, "contentType": "application/openmetrics-text; version=1.0.0; charset=utf-8", "content": collectorFixture()}
