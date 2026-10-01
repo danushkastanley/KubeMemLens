@@ -83,6 +83,14 @@ func TestDeniedRedirectMalformedAndOversizedResponsesFail(t *testing.T) {
 			defer client.CloseIdleConnections()
 			if _, err := readCollector(context.Background(), client, server.URL, "fixture-token"); err == nil {
 				t.Fatal("invalid response accepted")
+			} else {
+				expected := map[string]string{"denied": "collector-status", "redirect": "collector-status", "oversized": "collector-body"}[kind]
+				if expected == "" {
+					expected = "collector-envelope"
+				}
+				if failureStage(err) != expected {
+					t.Fatalf("failure stage = %s, want %s", failureStage(err), expected)
+				}
 			}
 		})
 	}
