@@ -73,6 +73,17 @@ Keep the runtime configuration private: it binds a loopback kubeconfig/context,
 Node UID, both deployment UIDs/spec hashes, candidate identities and observer hashes.
 The source hash is SHA-256 of the canonical JSON returned by `source_manifest()`.
 
+For a packaged chart installation, set `deploymentNames` in the private runtime
+configuration to exactly the `api` and `node` Deployment names. The active
+controller uses this field inside `trace`. Omitting it retains the prototype names
+`admission-api` and `binding-node`. Pod selection comes from each UID/spec-pinned
+Deployment's bounded `matchLabels` selector; expression selectors are rejected.
+The API and selected Node service must still share the explicitly owned local
+Node, with one container each and zero restarts. Profile changes and restoration
+use these same names and retain UID/resource-version preconditions. Changing names
+does not permit adopting another installation without its independently frozen
+UIDs, specifications, candidate and policy.
+
 Run `python3 hack/ebpf-qualification/idle_campaign.py --config <private-config>
 --output <new-evidence-directory> --acknowledge-local-idle-campaign`.
 The runner creates a frozen source copy before changing replicas, records every

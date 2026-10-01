@@ -116,7 +116,7 @@ class Campaign:
                  {'op': 'test', 'path': '/metadata/resourceVersion', 'value': current['metadata']['resourceVersion']},
                  {'op': 'replace', 'path': '/spec', 'value': desired['spec']}]
         self.confirmed = desired
-        command(runtime.kube + ['-n', runtime.cfg['namespace'], 'patch', 'deployment', 'admission-api', '--type=json', '--patch-file=/dev/stdin'], canonical(patch))
+        command(runtime.kube + ['-n', runtime.cfg['namespace'], 'patch', 'deployment', runtime.services['api'], '--type=json', '--patch-file=/dev/stdin'], canonical(patch))
         self.case = LocalCase(cfg)
         self.case.runtime.ready()
         self.case.runtime.service('api')
@@ -126,14 +126,14 @@ class Campaign:
         # specification changes. It never erases a failed campaign's evidence.
         runtime = self.case.runtime
         if self.confirmed:
-            current = runtime.get('deployment', 'admission-api')
+            current = runtime.get('deployment', runtime.services['api'])
             if (current['metadata']['uid'] != self.original['metadata']['uid'] or
                     spec_digest(current['spec']) not in (spec_digest(self.original['spec']), spec_digest(self.confirmed['spec']))):
                 raise ValueError('concurrent profile change; do not overwrite')
             patch = [{'op': 'test', 'path': '/metadata/uid', 'value': current['metadata']['uid']},
                      {'op': 'test', 'path': '/metadata/resourceVersion', 'value': current['metadata']['resourceVersion']},
                      {'op': 'replace', 'path': '/spec', 'value': self.original['spec']}]
-            command(runtime.kube + ['-n', runtime.cfg['namespace'], 'patch', 'deployment', 'admission-api', '--type=json', '--patch-file=/dev/stdin'], canonical(patch))
+            command(runtime.kube + ['-n', runtime.cfg['namespace'], 'patch', 'deployment', runtime.services['api'], '--type=json', '--patch-file=/dev/stdin'], canonical(patch))
         self.case = LocalCase(self.cfg)
         for role in ('node', 'api'):
             if self.case.runtime.deployment(role)['spec']['replicas'] == 0:
