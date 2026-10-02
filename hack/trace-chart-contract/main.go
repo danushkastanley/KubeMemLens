@@ -94,8 +94,12 @@ func verifyPod(d appsv1.Deployment, expectedImage string) {
 	}
 	verifyImage(p, expectedImage)
 	c := p.Containers[0]
-	if !reflect.DeepEqual(c.Env, []corev1.EnvVar{{Name: "GODEBUG", Value: "disablethp=1"}}) || len(c.EnvFrom) != 0 {
-		fail("trace workload runtime memory configuration changed")
+	expectedEnv := []corev1.EnvVar{{Name: "GODEBUG", Value: "disablethp=1"}}
+	if d.Spec.Template.Labels["app.kubernetes.io/component"] != "trace-api" {
+		expectedEnv = append(expectedEnv, corev1.EnvVar{Name: "GOMAXPROCS", Value: "2"})
+	}
+	if !reflect.DeepEqual(c.Env, expectedEnv) || len(c.EnvFrom) != 0 {
+		fail("trace workload runtime configuration changed")
 	}
 	policyFlags := 0
 	for _, argument := range c.Args {
@@ -110,7 +114,7 @@ func verifyPod(d appsv1.Deployment, expectedImage string) {
 	if s == nil || s.AllowPrivilegeEscalation == nil || *s.AllowPrivilegeEscalation || s.ReadOnlyRootFilesystem == nil || !*s.ReadOnlyRootFilesystem || s.Privileged != nil && *s.Privileged || s.Capabilities == nil || !reflect.DeepEqual(s.Capabilities.Drop, []corev1.Capability{"ALL"}) {
 		fail("unexpected container privilege")
 	}
-	if len(c.Resources.Limits) != 2 || c.ReadinessProbe == nil {
+	if len(c.Resources.Limits) != 2 || c.Resources.Limits.Cpu().String() != "2" || c.ReadinessProbe == nil {
 		fail("image, resource or readiness bound missing")
 	}
 	for _, m := range c.VolumeMounts {
