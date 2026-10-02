@@ -16,7 +16,6 @@ import (
 )
 
 const kernfsHandleType = 0xfe
-const maxDirectoryEntries = 256
 
 // Handle's identity is immutable. Close and Check serialise descriptor access,
 // so an expiry cannot make a concurrent check inspect a reused descriptor.
@@ -173,32 +172,6 @@ func populated(fd int) error {
 	}
 	if !found {
 		return admission.ErrUnavailable
-	}
-	return nil
-}
-
-func leaf(fd int) error {
-	directory, err := unix.Openat2(fd, ".", &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC, Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_XDEV})
-	if err != nil {
-		return admission.ErrTargetChanged
-	}
-	file := os.NewFile(uintptr(directory), "cgroup")
-	defer file.Close()
-	entries, err := file.ReadDir(maxDirectoryEntries + 1)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return admission.ErrUnavailable
-	}
-	if len(entries) > maxDirectoryEntries {
-		return admission.ErrUnavailable
-	}
-	for _, entry := range entries {
-		var stat unix.Stat_t
-		if unix.Fstatat(directory, entry.Name(), &stat, unix.AT_SYMLINK_NOFOLLOW) != nil {
-			return admission.ErrUnavailable
-		}
-		if stat.Mode&unix.S_IFMT == unix.S_IFDIR {
-			return admission.ErrUnavailable
-		}
 	}
 	return nil
 }

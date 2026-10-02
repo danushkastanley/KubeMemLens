@@ -98,6 +98,28 @@ func TestLiveAmbiguousAndReplacedCgroups(t *testing.T) {
 	}
 	defer h.Close()
 	oldID := h.Target().CgroupID
+	descriptor, err := ExportForWorker(ctx, h)
+	if err != nil {
+		t.Fatal("export owned fixture descriptor failed")
+	}
+	defer descriptor.Close()
+	nested := filepath.Join(first, "owned-child")
+	if err := os.Mkdir(nested, 0755); err != nil {
+		t.Fatal("create owned descendant failed")
+	}
+	created = append(created, nested)
+	if err := h.Check(ctx); !errors.Is(err, admission.ErrUnavailable) {
+		t.Fatal("parent accepted a visible descendant")
+	}
+	if err := VerifyWorkerDescriptor(ctx, descriptor, h.Target()); !errors.Is(err, admission.ErrUnavailable) {
+		t.Fatal("worker accepted a visible descendant")
+	}
+	if err := os.Remove(nested); err != nil {
+		t.Fatal("remove owned descendant failed")
+	}
+	if h.Check(ctx) != nil || VerifyWorkerDescriptor(ctx, descriptor, h.Target()) != nil {
+		t.Fatal("visible leaf did not recover after descendant removal")
+	}
 	if err := child.Process.Kill(); err != nil {
 		t.Fatal(err)
 	}
@@ -121,6 +143,9 @@ func TestLiveAmbiguousAndReplacedCgroups(t *testing.T) {
 	}
 	if err := h.Check(ctx); !errors.Is(err, admission.ErrTargetChanged) {
 		t.Fatalf("replacement accepted: %v", err)
+	}
+	if err := VerifyWorkerDescriptor(ctx, descriptor, h.Target()); !errors.Is(err, admission.ErrTargetChanged) {
+		t.Fatal("worker retained a removed/replaced cgroup")
 	}
 	t.Log("ambiguous layouts and same-path replacement rejected; retained old identity distinct")
 }
