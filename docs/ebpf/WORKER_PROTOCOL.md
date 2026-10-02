@@ -73,6 +73,14 @@ authorisation decision: the worker must match the digest against independently
 installed acceptance policy and revalidate inherited descriptor 3 against the
 target's exact cgroup identity. The supervisor retains its own cgroup reference.
 
+Leaf validation reads `cgroup.stat` through that same verified descriptor, with
+no symlink or mount traversal and a 4 KiB limit. It requires one explicit zero
+`nr_descendants` count; missing, duplicate, malformed or nonzero evidence fails.
+The kernel defines this counter as visible descendants. Already unlinked dying
+groups are separate and cannot receive processes. Identity, population and
+once-per-second revalidation checks remain in place. See the
+[kernel cgroup-v2 interface](https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html).
+
 The worker sends readiness before observations, then typed file/cache/OOM records,
 then exactly one result followed by EOF. Startup failure may send an engine-failed
 result without readiness. File requested/completed byte counts remain separate;
