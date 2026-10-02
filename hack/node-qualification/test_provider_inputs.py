@@ -12,7 +12,8 @@ from unittest.mock import patch
 from common import ContractError, load
 from prepare_provider import REPOSITORY
 from provider_bundle import Bundle
-from provider_inputs import ACKNOWLEDGEMENT, build_helpers, prepare
+from provider_inputs import ACKNOWLEDGEMENT, build_helpers, prepare, prepare_with
+from run_development_provider import publish_development
 from test_provider_plan import ProviderFixture
 
 
@@ -95,6 +96,21 @@ class ProviderInputsTest(ProviderFixture, unittest.TestCase):
         self.assertIn('approval',result.stderr)
         self.assertFalse(Path(self.args.output_dir).exists())
         self.assertFalse((self.root/'credential-executed').exists())
+
+    def test_development_seam_keeps_input_guards_and_wraps_artefact_receipt(self):
+        with patch('provider_inputs.validate_bundle',return_value=self.bundle), \
+             patch('provider_inputs.host_platform',return_value='linux_amd64'):
+            calls=[]
+            def verify(bundle,args,host):
+                calls.append((bundle,args,host))
+                return self.proof
+            frozen,proof,private,public=prepare_with(self.args,verify,publish_development)
+        self.assertEqual(calls,[(self.bundle,self.args,'linux_amd64')])
+        self.assertEqual(Path(frozen.configuration['cliBinary']).read_bytes(),Path(self.bundle.configuration['cliBinary']).read_bytes())
+        receipt=load(public/'artefacts.json')
+        self.assertEqual(receipt['authority'],'local-development')
+        self.assertIs(receipt['releaseQualificationGranted'],False)
+        self.assertEqual(receipt['observation']['artefacts'],self.proof)
 
 
 if __name__=='__main__':unittest.main()

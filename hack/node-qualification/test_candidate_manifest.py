@@ -73,6 +73,12 @@ class CandidateManifestTest(unittest.TestCase):
             self.check(rejected)
         self.assertEqual(len(self.commands), 1)
 
+    def test_development_label_cannot_enter_release_verifier(self):
+        self.tag = "dev"
+        with self.assertRaises(ContractError):
+            self.check()
+        self.assertEqual(self.commands, [])
+
     def test_wrong_source_or_image_is_rejected_before_network_verification(self):
         for field in ("sourceCommit", "imageDigest"):
             before = self.config[field]

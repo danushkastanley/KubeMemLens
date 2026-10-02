@@ -43,6 +43,11 @@ def failure_reason(error):
 
 def run(args):
     bundle, proof, private, public = prepare(args)
+    return run_verified(args, bundle, proof, private, public, publish)
+
+
+def run_verified(args, bundle, proof, private, public, write_evidence):
+    """Run the complete protocol after the entry point verifies its authority."""
     execution, record, failure = None, None, None
     stage, cleanup = "helpers", "not-started"
     started = utc_text()
@@ -55,7 +60,7 @@ def run(args):
         stage = "inventory"
         receipt, binding = collect_inventory(bundle)
         require(binding["runtime"]["architecture"] == proof["image"]["architecture"], "live pool architecture differs from the verified image")
-        publish(public / "provider-inventory.json", receipt)
+        write_evidence(public / "provider-inventory.json", receipt)
         stage = "preparation"
         execution = Execution(bundle, binding, KubernetesCommands(bundle.configuration["kubeconfigPath"], bundle.configuration["context"]),
                               private, str(private / "chart-inventory"), private / "api-bridge", proof["image"])
@@ -64,7 +69,7 @@ def run(args):
             stage = phase
             if phase == "enabled":
                 execution.enable()
-            publish(public / (phase + "-measurements.json"), execution.measure(phase))
+            write_evidence(public / (phase + "-measurements.json"), execution.measure(phase))
         stage = "measurement-validation"
         measured_windows_pass(execution)
         recovery = PoolRecovery(execution)
@@ -72,26 +77,26 @@ def run(args):
                               ("collectorRestart", lambda: recovery.restart("collector"))):
             stage = name
             lifecycle[name] = observe()
-            publish(public / (name + ".json"), lifecycle[name])
+            write_evidence(public / (name + ".json"), lifecycle[name])
             require(lifecycle[name]["state"] == "passed", "pool recovery check failed")
         stage = "replacement"
         replacement = ProviderReplacement(execution, receipt).run(args.replacement_slot, args.replacement_acknowledge)
         # One observed machine replacement also proves its Node UID replacement.
         lifecycle["providerNodeReplacement"] = replacement
         lifecycle["nodeIdentityReplacement"] = copy.deepcopy(replacement)
-        publish(public / "replacement.json", {"event": replacement, "observations": execution.replacement})
+        write_evidence(public / "replacement.json", {"event": replacement, "observations": execution.replacement})
         stage = "network-policy"
         network = NetworkChecks(execution).run()
-        publish(public / "network-policy.json", network)
+        write_evidence(public / "network-policy.json", network)
         require(network["passed"] is True, "provider NetworkPolicy verification failed")
         stage = "production-cli"
-        publish(public / "production-cli.json", verify_cli(execution))
+        write_evidence(public / "production-cli.json", verify_cli(execution))
         stage = "runtime-identity"
-        publish(public / "final-live-images.json", verify_images(execution, proof["image"], "enabled"))
+        write_evidence(public / "final-live-images.json", verify_images(execution, proof["image"], "enabled"))
         stage = "record"
         validate_bundle(args.proposal, bundle.profile, args.plan_digest)
         record = assemble(execution, proof, receipt, started, lifecycle, network, "completed")
-        publish(public / "qualification-observations.json", record)
+        write_evidence(public / "qualification-observations.json", record)
     except (Exception, KeyboardInterrupt) as error:
         failure = error
     finally:
@@ -99,7 +104,7 @@ def run(args):
             try:
                 if record is not None:
                     record = cleanup_cluster(execution, record)
-                    publish(public / "kubernetes-cleaned-observations.json", record)
+                    write_evidence(public / "kubernetes-cleaned-observations.json", record)
                 else:
                     execution.cleanup()
                 cleanup = "passed"
@@ -108,14 +113,14 @@ def run(args):
                 if failure is None:
                     failure, stage = error, "cleanup"
     if failure is not None:
-        publish(public / "failure.json", {"schemaVersion": 1, "scope": "provider-run-failure", "qualified": False,
+        write_evidence(public / "failure.json", {"schemaVersion": 1, "scope": "provider-run-failure", "qualified": False,
                 "planDigest": args.plan_digest, "stage": stage, "failureType": type(failure).__name__, "reason": failure_reason(failure), "ownedCleanup": cleanup,
                 "providerCleanup": "pending", "startedAt": started, "completedAt": utc_text()})
         if isinstance(failure, KeyboardInterrupt):
             raise failure
         raise ContractError("provider run failed during " + stage + "; see bounded failure evidence and private ownership receipts") from failure
     result = evaluate(bundle.profile, record)
-    publish(public / "qualification-evaluation.pending.json", result)
+    write_evidence(public / "qualification-evaluation.pending.json", result)
     checks = [c for c in result["checks"] if c["id"] != "cleanup"]
     checks += [c for node in result.get("nodeChecks", []) for c in node["checks"]]
     require(all(c["passed"] for c in checks), "provider measurements failed; cleanup confirmation cannot qualify them")
