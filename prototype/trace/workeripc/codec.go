@@ -3,7 +3,6 @@
 package workeripc
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -33,6 +32,11 @@ func encode(value any) ([]byte, error) {
 }
 
 func receive(r io.Reader, value any) (int, error) {
+	var storage [MaxMessageBytes]byte
+	return receiveBuffered(r, value, &storage)
+}
+
+func receiveBuffered(r io.Reader, value any, storage *[MaxMessageBytes]byte) (int, error) {
 	var header [4]byte
 	if _, err := io.ReadFull(r, header[:]); err != nil {
 		return 0, ErrProtocol
@@ -41,7 +45,8 @@ func receive(r io.Reader, value any) (int, error) {
 	if size == 0 || size > MaxMessageBytes {
 		return 0, ErrProtocol
 	}
-	data := make([]byte, int(size))
+	data := storage[:int(size)]
+	defer clear(data)
 	if _, err := io.ReadFull(r, data); err != nil || !utf8.Valid(data) {
 		return 0, ErrProtocol
 	}
@@ -50,8 +55,8 @@ func receive(r io.Reader, value any) (int, error) {
 	if json.Unmarshal(data, value) != nil {
 		return 0, ErrProtocol
 	}
-	canonical, err := json.Marshal(value)
-	if err != nil || !bytes.Equal(data, canonical) {
+	match := canonicalMessage{remaining: data}
+	if json.NewEncoder(&match).Encode(value) != nil || !match.complete || len(match.remaining) != 0 {
 		return 0, ErrProtocol
 	}
 	return len(data) + 4, nil
