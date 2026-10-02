@@ -148,6 +148,9 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 1
+          env:
+            - name: GODEBUG
+              value: disablethp=1
           securityContext:
             privileged: false
             readOnlyRootFilesystem: {{ .Values.security.readOnlyRootFilesystem }}

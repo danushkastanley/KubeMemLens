@@ -44,6 +44,18 @@ render_template extension-cert-bootstrap.yaml "${work_dir}/bootstrap.yaml"
 render_template networkpolicy.yaml "${work_dir}/networkpolicy.yaml"
 render_template service.yaml "${work_dir}/service.yaml"
 
+# Keep heap page behaviour explicit on both long-running standard services.
+ruby -ryaml - "${work_dir}/daemonset.yaml" "${work_dir}/deployment.yaml" <<'RUBY'
+ARGV.each do |path|
+  workload = YAML.safe_load(File.read(path), aliases: true)
+  containers = workload.dig("spec", "template", "spec", "containers")
+  service = containers.find { |container| %w[agent collector].include?(container.fetch("name")) }
+  abort "standard service missing" unless service
+  settings = service.fetch("env", []).select { |entry| entry.fetch("name") == "GODEBUG" }
+  abort "standard heap page setting differs" unless settings == [{"name" => "GODEBUG", "value" => "disablethp=1"}]
+end
+RUBY
+
 # Collector placement must preserve Linux and all unrelated workload settings.
 render_template deployment.yaml "${work_dir}/collector-without-new-value.yaml" --set collector.nodeSelector=null
 cmp "${work_dir}/deployment.yaml" "${work_dir}/collector-without-new-value.yaml" || fail 'omitted collector selector changed defaults'

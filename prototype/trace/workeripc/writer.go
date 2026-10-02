@@ -1,6 +1,7 @@
 package workeripc
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"sync"
@@ -23,6 +24,8 @@ type Writer struct {
 	limited  bool
 	events   uint64
 	bytes    uint64
+	buffer   messageBuffer
+	encoder  *json.Encoder
 }
 
 func (*Writer) Format(w fmt.State, _ rune)   { _, _ = io.WriteString(w, "[private worker writer]") }
@@ -32,7 +35,10 @@ func NewWriter(out io.Writer, request Request) (*Writer, error) {
 	if out == nil || request.Validate() != nil {
 		return nil, ErrProtocol
 	}
-	return &Writer{out: out, request: request}, nil
+	w := &Writer{out: out, request: request}
+	w.buffer.reset()
+	w.encoder = json.NewEncoder(&w.buffer)
+	return w, nil
 }
 
 func (w *Writer) write(message responseWire) error {
@@ -44,7 +50,13 @@ func (w *Writer) write(message responseWire) error {
 		w.failed = true
 		return ErrProtocol
 	}
-	data, err := encode(message)
+	w.buffer.reset()
+	defer w.buffer.reset()
+	if err := w.encoder.Encode(message); err != nil {
+		w.failed = true
+		return ErrProtocol
+	}
+	data, err := w.buffer.frame()
 	if err != nil {
 		w.failed = true
 		return err

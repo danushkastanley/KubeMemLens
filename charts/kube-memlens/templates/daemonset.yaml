@@ -51,6 +51,8 @@ spec:
             - "--metrics-listen="
 {{- end }}
           env:
+            - name: GODEBUG
+              value: disablethp=1
             - name: NODE_NAME
               valueFrom:
                 fieldRef:

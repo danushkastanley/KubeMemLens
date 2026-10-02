@@ -67,6 +67,12 @@ cgroup v1 nodes are not silently treated as supported.
 
 The collector must remain at one replica because replicas do not share state. The chart rejects other replica counts.
 
+The agent and collector set `GODEBUG=disablethp=1` to limit heap memory overhead
+on Linux nodes with transparent huge pages enabled. This process-local Go
+setting can trade CPU time for a smaller working set; it does not change host
+kernel settings. Recheck it when upgrading Go, because the runtime may remove
+this compatibility setting. See the [Go heap tuning guidance](https://go.dev/doc/gc-guide#Linux_transparent_huge_pages).
+
 To place that collector on a specific Linux node or pool, set
 `collector.nodeSelector` to matching node labels, such as
 `kubernetes.io/hostname: ip-10-0-0-1.ec2.internal`. The Linux selector remains

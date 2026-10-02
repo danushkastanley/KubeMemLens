@@ -30,7 +30,7 @@ The second command produces no Kubernetes resources. The repository's
 `make check-trace-chart-contract` verifies enabled manifests, rejected inputs,
 separate permissions and the unchanged standard chart.
 
-## Runtime memory configuration
+## Runtime resource configuration
 
 The API and binding-node containers set `GODEBUG=disablethp=1` to limit Go heap
 huge-page use on hosts that otherwise promote anonymous memory aggressively.
@@ -39,3 +39,11 @@ policy or process privilege.
 The local diagnostic and remaining qualification requirements are recorded in
 [ADR 0024](../../docs/adr/0024-limit-huge-pages-in-optional-trace-containers.md).
 This configuration does not establish a resource-qualified profile.
+
+The binding-node service and each incident worker also fix `GOMAXPROCS=2` to
+match the profile's two-CPU limit. The required host cgroup mount can prevent
+Go from discovering the container's quota automatically. This bounds Go
+execution parallelism, not the number of operating-system threads. The worker
+uses an explicit fixed value rather than inheriting caller configuration.
+Changes to the profile's CPU limit must review this setting together with the
+worker launcher. See [ADR 0025](../../docs/adr/0025-bind-runtime-settings-to-resource-profiles.md).
