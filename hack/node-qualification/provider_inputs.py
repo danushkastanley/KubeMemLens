@@ -18,6 +18,14 @@ ACKNOWLEDGEMENT = "run-reviewed-node-context-plan"
 
 
 def prepare(args):
+    def release_artifacts(bundle, options, host):
+        return verify(bundle, options.candidate_bundle, options.candidate_tag, options.image_archive, host,
+                      {"runtime": {"architecture": options.architecture}})
+    return prepare_with(args, release_artifacts, write_new)
+
+
+def prepare_with(args, verify_artifacts, write_evidence):
+    """Shared proposal guards and immutable input copies for explicit authorities."""
     require(args.acknowledge == ACKNOWLEDGEMENT and args.replacement_acknowledge == "provider-action-approved",
             "explicit run and operator-replacement approval are required")
     profile = load(args.profile)
@@ -31,8 +39,7 @@ def prepare(args):
     inventory = load(REPOSITORY / "hack/provider-profiles" / (bundle.configuration["inventoryProfile"] + ".json"))
     require(re.fullmatch(inventory["expectations"]["architecturePattern"], args.architecture), "artefact architecture differs from the profile")
     host = host_platform()
-    proof = verify(bundle, args.candidate_bundle, args.candidate_tag, args.image_archive, host,
-                   {"runtime": {"architecture": args.architecture}})
+    proof = verify_artifacts(bundle, args, host)
     root.mkdir(mode=0o700)
     private, public = root / "private", root / "evidence"
     private.mkdir(mode=0o700); public.mkdir(mode=0o700)
@@ -48,7 +55,7 @@ def prepare(args):
     # This copy changes paths only. Its bytes still match the original signed
     # proposal, which is revalidated separately before and after the live run.
     frozen = replace(bundle, configuration=configuration)
-    write_new(public / "artefacts.json", {"schemaVersion": 1, "scope": "provider-run-artefacts", "qualified": False,
+    write_evidence(public / "artefacts.json", {"schemaVersion": 1, "scope": "provider-run-artefacts", "qualified": False,
               "planDigest": args.plan_digest, "toolCommit": bundle.plan["qualificationToolCommit"], "artefacts": proof})
     return frozen, proof, private, public
 

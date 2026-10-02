@@ -20,6 +20,10 @@ reproducible OCI archive. The earlier RC2 verifier diagnostic is not a candidate
 for this feature. Candidate production and publication follow the separate
 [release process](release-process.md); this command never publishes artefacts.
 
+For an explicitly approved unpublished build, use the separate
+[development experiment command](node-context-development-experiment.md). It
+shares this protocol and emits development evidence that release finalisers reject.
+
 The host needs the existing Go toolchain, Python, Git, Helm, kubectl, cosign, gh
 and the selected provider's read-only inventory CLI. Existing credentials stay
 outside the proposal and evidence. The explicit kubeconfig may use its configured

@@ -121,6 +121,14 @@ jobs:
           make check-terminal-contract
           make check-community-contract
 
+      - name: Install development signature test verifier
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.2
+
+      - name: Verify development signatures with temporary local keys
+        run: python3 hack/node-qualification/check_development_signature.py --cosign "$(command -v cosign)"
+
       - name: Check density soak safety gate
         run: |
           if hack/soak-live-density.sh >/tmp/soak.out 2>&1; then
