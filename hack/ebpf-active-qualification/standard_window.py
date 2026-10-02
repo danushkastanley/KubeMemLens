@@ -2,6 +2,7 @@
 from activity import clock
 from samples import exact, integer, require
 from standard_metrics import AGENT_FIELDS, RESULTS
+from scan_history import history_scans, validate_history
 
 AGENT_KEYS = set(AGENT_FIELDS.values())
 AGENT_COUNTERS = {'scanSuccess', 'scanFailure', 'postSuccess', 'postFailure'}
@@ -19,10 +20,13 @@ def bounds(row):
 def standard_window(rows, seconds):
     integer(seconds, 1, 1800)
     require(type(rows) is list and len(rows) == seconds + 1, 'incomplete standard metrics window')
+    require(isinstance(rows[0], dict), 'invalid initial standard observation')
+    schema = rows[0].get('schemaVersion')
+    require(type(schema) is int and schema in (1, 2), 'unsupported standard metrics schema')
     scans, ingestions = [], []
     for index, row in enumerate(rows):
-        exact(row, ROW_KEYS)
-        require(type(row['schemaVersion']) is int and row['schemaVersion'] == 1 and
+        exact(row, ROW_KEYS | ({'agentScans'} if schema == 2 else set()))
+        require(type(row['schemaVersion']) is int and row['schemaVersion'] == schema and
                 type(row['index']) is int and row['index'] == index, 'standard metrics ordering/version changed')
         integer(row['elapsedNanos'])
         integer(row['readNanos'], 1, 100000000)
@@ -48,6 +52,8 @@ def standard_window(rows, seconds):
         require(abs(row['clock']['monotonicNanos'] - row['readNanos'] - mono_origin - row['elapsedNanos']) <= 105000000,
                 'standard metrics monotonic clock changed')
         require(row['agent']['scanCompletedUnixSeconds'] * SECOND <= end, 'scan completed in the future')
+        if schema == 2:
+            validate_history(row, end)
         if index == 0:
             require(row['elapsedNanos'] == 0, 'missing initial standard metrics observation')
             continue
@@ -61,17 +67,12 @@ def standard_window(rows, seconds):
         require(b['scanFailure'] == a['scanFailure'] and b['postFailure'] == a['postFailure'],
                 'agent failed during normal observation')
         count = b['scanSuccess'] - a['scanSuccess']
-        require(count <= 1, 'scan durations missed between polls')
         if count == 0:
             require(all(b[k] == a[k] for k in SCAN_FIELDS), 'scan gauge changed without a completed attempt')
+        if schema == 2:
+            scans.extend(history_scans(prior, row, bounds(prior)[0]))
         else:
-            lower = b['scanCompletedUnixSeconds'] * SECOND
-            upper = lower + SECOND  # Production completion timestamp has whole-second precision.
-            require(upper > bounds(prior)[0], 'new scan has an old completion timestamp')
-            require(lower >= b['scanDurationNanos'], 'invalid scan duration/completion')
-            scans.append({'pollIndex': index, 'durationNanos': b['scanDurationNanos'],
-                          'earliestStartWallNanos': lower - b['scanDurationNanos'],
-                          'latestEndWallNanos': upper})
+            scans.extend(legacy_scans(prior, row, count))
         old, new = prior['collector'], row['collector']
         require(all(new['results'][k] >= old['results'][k] for k in RESULTS), 'collector counter reset')
         require(all(new['results'][k] == old['results'][k] for k in RESULTS - {'accepted', 'duplicate'}),
@@ -87,3 +88,16 @@ def standard_window(rows, seconds):
     return {'scans': scans, 'ingestions': ingestions,
             'collectorMissingDurations': sum(r['missingDurations'] for r in ingestions),
             'scope': 'validated polling observations; latest collector durations are not a complete distribution'}
+
+
+def legacy_scans(prior, row, count):
+    require(count <= 1, 'scan durations missed between polls')
+    if count == 0:
+        return []
+    latest = row['agent']
+    lower = latest['scanCompletedUnixSeconds'] * SECOND
+    upper = lower + SECOND  # Preserve the original whole-second uncertainty.
+    require(upper > bounds(prior)[0], 'new scan has an old completion timestamp')
+    require(lower >= latest['scanDurationNanos'], 'invalid scan duration/completion')
+    return [{'pollIndex': row['index'], 'durationNanos': latest['scanDurationNanos'],
+             'earliestStartWallNanos': lower - latest['scanDurationNanos'], 'latestEndWallNanos': upper}]

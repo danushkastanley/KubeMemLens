@@ -55,20 +55,20 @@ func TestPIDFDRejectsChangedLifetimeAndExitedProcess(t *testing.T) {
 type shortWriter struct{}
 
 func (shortWriter) Write(data []byte) (int, error) { return len(data) - 1, nil }
-func sampleFixture() (map[string]uint64, collectorObservation, error) {
+func sampleFixture() (agentObservation, collectorObservation, error) {
 	a, err := parseAgent([]byte(agentFixture()))
 	c, e := parseCollector([]byte(collectorFixture()))
-	return a, c, errors.Join(err, e)
+	return agentObservation{a, []scanTiming{{1, 1790670000000000000, 3000001, "failure"}, {2, 1790670000000000000, 3000001, "success"}}}, c, errors.Join(err, e)
 }
 func TestSamplingCancellationErrorsAndShortWrites(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	called := false
-	if err := sampleSeries(ctx, io.Discard, 1, func() (map[string]uint64, collectorObservation, error) { called = true; return sampleFixture() }); err == nil || called {
+	if err := sampleSeries(ctx, io.Discard, 1, func() (agentObservation, collectorObservation, error) { called = true; return sampleFixture() }); err == nil || called {
 		t.Fatal("cancelled sampling continued")
 	}
-	if err := sampleSeries(context.Background(), io.Discard, 1, func() (map[string]uint64, collectorObservation, error) {
-		return nil, collectorObservation{}, errObservation
+	if err := sampleSeries(context.Background(), io.Discard, 1, func() (agentObservation, collectorObservation, error) {
+		return agentObservation{}, collectorObservation{}, errObservation
 	}); err == nil {
 		t.Fatal("failed metrics became a record")
 	}
@@ -91,7 +91,7 @@ func TestOneSecondSeriesHasInitialAndFinalNumericRecords(t *testing.T) {
 	if dec.Decode(&first) != nil || dec.Decode(&last) != nil || dec.Decode(new(any)) != io.EOF {
 		t.Fatal("record inventory")
 	}
-	if first.Index != 0 || first.ElapsedNanos != 0 || last.Index != 1 || last.ElapsedNanos < 1000000000 || first.Clock.Uncertainty > 5000000 || last.ObserverCPUUsec < first.ObserverCPUUsec || first.ObserverPeakRSSBytes <= 0 {
+	if first.SchemaVersion != 2 || last.SchemaVersion != 2 || len(first.AgentScans) != 2 || first.Index != 0 || first.ElapsedNanos != 0 || last.Index != 1 || last.ElapsedNanos < 1000000000 || first.Clock.Uncertainty > 5000000 || last.ObserverCPUUsec < first.ObserverCPUUsec || first.ObserverPeakRSSBytes <= 0 {
 		t.Fatal("clock or observer accounting")
 	}
 	if last.Agent["scanDurationNanos"] != 3000001 || last.Collector.DurationNanos != 1000001 {

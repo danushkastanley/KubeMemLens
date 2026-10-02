@@ -7,9 +7,14 @@ import (
 	"strings"
 )
 
-// These contracts contain objects and scalar values only. Reject aliases,
-// duplicate keys and excess nesting before allocating the typed observation.
+// Collector contracts allow objects and scalar values only.
 func unambiguousJSON(data []byte) error {
+	return boundedJSON(data, 0)
+}
+
+// Scan diagnostics additionally carry one bounded history array. Typed decoding
+// still rejects arrays at any other field or level of the schema.
+func boundedJSON(data []byte, arrayLimit int) error {
 	d := json.NewDecoder(bytes.NewReader(data))
 	var visit func(int) error
 	visit = func(depth int) error {
@@ -23,6 +28,9 @@ func unambiguousJSON(data []byte) error {
 		delim, ok := token.(json.Delim)
 		if !ok {
 			return nil
+		}
+		if delim == '[' {
+			return visitArray(d, depth, arrayLimit, visit)
 		}
 		if delim != '{' {
 			return errObservation
@@ -53,6 +61,24 @@ func unambiguousJSON(data []byte) error {
 		return errObservation
 	}
 	if _, err := d.Token(); err != io.EOF {
+		return errObservation
+	}
+	return nil
+}
+
+func visitArray(d *json.Decoder, depth, maximum int, visit func(int) error) error {
+	if maximum == 0 {
+		return errObservation
+	}
+	count := 0
+	for d.More() {
+		if count >= maximum || visit(depth+1) != nil {
+			return errObservation
+		}
+		count++
+	}
+	token, err := d.Token()
+	if err != nil || token != json.Delim(']') {
 		return errObservation
 	}
 	return nil
