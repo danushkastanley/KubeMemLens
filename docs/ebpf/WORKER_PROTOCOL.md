@@ -40,6 +40,11 @@ rejects lengths above 4,096 bytes before allocating the message payload. Unknown
 duplicate keys, omitted fields, noncanonical encodings and trailing requests fail.
 The protocol version is independent of the public trace-stream version.
 
+File observations with plain ASCII paths use a bounded encoder that produces the
+same canonical JSON bytes. Escaped and non-ASCII paths use the standard encoder.
+The reader still decodes every message and compares its complete canonical
+encoding, so this optimisation does not change accepted input or protocol version.
+
 The observation reader uses a fixed 4,100-byte read buffer to coalesce pipe reads.
 Validation and cumulative limits still apply to each message, and terminal EOF is
 checked through that same buffer so prefetched trailing data cannot be hidden.

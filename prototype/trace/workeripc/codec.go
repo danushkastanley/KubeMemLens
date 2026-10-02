@@ -3,6 +3,7 @@
 package workeripc
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -54,6 +55,16 @@ func receiveBuffered(r io.Reader, value any, storage *[MaxMessageBytes]byte) (in
 	// below rejects unknown fields as well as aliases and duplicate keys.
 	if json.Unmarshal(data, value) != nil {
 		return 0, ErrProtocol
+	}
+	if message, ok := value.(*responseWire); ok && plainFile(*message) {
+		var storage [plainFileCapacity]byte
+		canonical, err := appendPlainFile(storage[:0], *message)
+		matches := err == nil && bytes.Equal(canonical, data)
+		clear(canonical)
+		if !matches {
+			return 0, ErrProtocol
+		}
+		return len(data) + 4, nil
 	}
 	match := canonicalMessage{remaining: data}
 	if json.NewEncoder(&match).Encode(value) != nil || !match.complete || len(match.remaining) != 0 {

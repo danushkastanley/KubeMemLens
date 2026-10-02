@@ -52,7 +52,7 @@ func (w *Writer) write(message responseWire) error {
 	}
 	w.buffer.reset()
 	defer w.buffer.reset()
-	if err := w.encoder.Encode(message); err != nil {
+	if err := encodeResponse(&w.buffer, w.encoder, message); err != nil {
 		w.failed = true
 		return ErrProtocol
 	}
