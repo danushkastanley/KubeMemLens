@@ -39,6 +39,7 @@ type observation struct {
 	ReadNanos            int64                `json:"readNanos"`
 	Clock                clockPair            `json:"clock"`
 	Agent                map[string]uint64    `json:"agent"`
+	AgentScans           []scanTiming         `json:"agentScans"`
 	Collector            collectorObservation `json:"collector"`
 	ObserverCPUUsec      int64                `json:"observerCPUUsec"`
 	ObserverPeakRSSBytes int64                `json:"observerPeakRSSBytes"`
@@ -55,7 +56,7 @@ func usage() (int64, int64, error) {
 	}
 	return cpu, (self.Maxrss + children.Maxrss) * 1024, nil
 }
-func sampleSeries(ctx context.Context, out io.Writer, seconds int, sample func() (map[string]uint64, collectorObservation, error)) error {
+func sampleSeries(ctx context.Context, out io.Writer, seconds int, sample func() (agentObservation, collectorObservation, error)) error {
 	if seconds < 1 || seconds > 1800 {
 		return errObservation
 	}
@@ -88,7 +89,7 @@ func sampleSeries(ctx context.Context, out io.Writer, seconds int, sample func()
 		if err != nil {
 			return atStage("usage", err)
 		}
-		row := observation{1, index, begin.Sub(origin).Nanoseconds(), time.Since(begin).Nanoseconds(), clock, agent, collector, cpu, rss}
+		row := observation{2, index, begin.Sub(origin).Nanoseconds(), time.Since(begin).Nanoseconds(), clock, agent.Metrics, agent.Scans, collector, cpu, rss}
 		data, err := json.Marshal(row)
 		if err != nil {
 			return atStage("output-encoding", err)
@@ -130,32 +131,32 @@ func run(ctx context.Context, cfg config, out io.Writer) error {
 		return atStage("collector-client", err)
 	}
 	defer client.CloseIdleConnections()
-	return sampleSeries(ctx, out, cfg.Seconds, func() (map[string]uint64, collectorObservation, error) {
+	return sampleSeries(ctx, out, cfg.Seconds, func() (agentObservation, collectorObservation, error) {
 		if !sameBoot(cfg.BootID) {
-			return nil, collectorObservation{}, atStage("boot-binding", errObservation)
+			return agentObservation{}, collectorObservation{}, atStage("boot-binding", errObservation)
 		}
 		if err := agent.verify(); err != nil {
-			return nil, collectorObservation{}, atStage("agent-binding", err)
+			return agentObservation{}, collectorObservation{}, atStage("agent-binding", err)
 		}
 		if err := collector.verify(); err != nil {
-			return nil, collectorObservation{}, atStage("collector-binding", err)
+			return agentObservation{}, collectorObservation{}, atStage("collector-binding", err)
 		}
 		a, err := readAgent(ctx, agent)
 		if err != nil {
-			return nil, collectorObservation{}, err
+			return agentObservation{}, collectorObservation{}, err
 		}
 		c, err := readCollector(ctx, client, cfg.Server, cfg.Token)
 		if err != nil {
-			return nil, collectorObservation{}, err
+			return agentObservation{}, collectorObservation{}, err
 		}
 		if err := agent.alive(); err != nil {
-			return nil, collectorObservation{}, atStage("agent-binding", err)
+			return agentObservation{}, collectorObservation{}, atStage("agent-binding", err)
 		}
 		if err := collector.alive(); err != nil {
-			return nil, collectorObservation{}, atStage("collector-binding", err)
+			return agentObservation{}, collectorObservation{}, atStage("collector-binding", err)
 		}
 		if !sameBoot(cfg.BootID) {
-			return nil, collectorObservation{}, atStage("boot-binding", errObservation)
+			return agentObservation{}, collectorObservation{}, atStage("boot-binding", errObservation)
 		}
 		return a, c, nil
 	})

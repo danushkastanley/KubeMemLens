@@ -143,10 +143,11 @@ with synthetic inputs; this does not establish live scrape or runtime performanc
 
 The parser does not compute latency distributions. A later sampler must bind the
 exact service process and endpoint, cap transport reads, keep the existing
-loopback listener, and retain every polling interval. Deduplicate the latest scan
-gauge using its attempt counters; counter jumps mean missed durations. Bracket
-whole scans against observed attachments, including the completion timestamp's
-one-second precision. Collector duration gaps must remain explicit rather than
+loopback listener, and retain every polling interval. Historical latest-gauge
+records use attempt counters for deduplication; counter jumps mean missed
+durations. Current observations use the bounded atomic scan history described
+below. Bracket whole scans against observed attachments with the recorded
+completion precision. Collector duration gaps must remain explicit rather than
 being presented as a complete latency distribution.
 
 ## Live standard-service observation and scan comparison
@@ -156,8 +157,11 @@ process lifetimes. It reads the agent inside its pinned network namespace and th
 collector through the authenticated Kubernetes metrics resource. It retains the
 existing listener and permission boundaries and exports numeric observations only.
 
-`standard_window.py` checks every poll's fields, clocks, cadence and counters. A
-scan's latest gauge is counted only when the success counter advances once; a
+`standard_window.py` checks every poll's fields, clocks, cadence and counters.
+Schema 2 includes the agent's latest 32 scan attempts with contiguous sequences,
+individual durations and nanosecond completion times. The validator retains each
+new attempt and rejects missing or altered history. Schema 1 keeps its original
+latest-gauge rule: the success counter must advance at most once per poll; a
 jump means missing durations, not two copies of the same duration. A changed gauge
 without a counter advance, a reset, or a new scan/post/ingestion failure prevents a
 normal observation from qualifying. Collector count jumps retain the last duration

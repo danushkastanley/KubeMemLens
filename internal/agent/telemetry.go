@@ -25,6 +25,7 @@ type Telemetry struct {
 	unmapped          int
 	infrastructure    int
 	metadataCachePods int
+	recentScans       [scanHistoryLimit]scanTiming
 }
 
 func (t *Telemetry) RecordScan(at time.Time, duration time.Duration, result ScanResult, err error, metadataCachePods int) {
@@ -42,6 +43,7 @@ func (t *Telemetry) RecordScan(at time.Time, duration time.Duration, result Scan
 	t.unmapped = result.Unmapped
 	t.infrastructure = result.InfrastructureCgroups
 	t.metadataCachePods = metadataCachePods
+	t.recordTiming(at, duration, err)
 }
 
 func (t *Telemetry) RecordPost(err error) {
@@ -74,13 +76,17 @@ func (t *Telemetry) Handler() http.Handler {
 		w.Header().Set("Content-Type", MetricsContentType)
 		_, _ = w.Write([]byte(t.Render()))
 	})
+	mux.HandleFunc("/scan-observations", t.serveScanObservations)
 	return mux
 }
 
 func (t *Telemetry) Render() string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
+	return t.renderLocked()
+}
 
+func (t *Telemetry) renderLocked() string {
 	var b strings.Builder
 	writeMetricHeader(&b, "kubememlens_agent_scans_total", "KubeMemLens agent scan attempts by result.", "counter")
 	fmt.Fprintf(&b, "kubememlens_agent_scans_total{result=\"success\"} %d\n", t.scanSuccess)

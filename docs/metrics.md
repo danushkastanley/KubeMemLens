@@ -121,6 +121,16 @@ Source collection time and collector receive time are separate. Use the source t
 
 The chart binds agent metrics to `127.0.0.1:8082` inside each agent Pod. It does not declare a metrics container port or add Prometheus scrape annotations, so another workload cannot scrape node-local density counts through the Pod network by default. Set `agent.metrics.enabled=false` to disable even this loopback diagnostics endpoint.
 
+The same listener serves `GET /scan-observations` for bounded diagnostics. Its
+version 1 JSON response contains the existing metric text and the latest 32 scan
+attempts captured together. Each attempt has a sequence number, completion time
+in Unix nanoseconds, duration in nanoseconds and `success` or `failure` result.
+It contains no workload identifiers, paths or error messages. The fixed history
+uses in-memory storage only; restart resets it, and older attempts are overwritten.
+Consumers must detect missing sequences rather than infer durations from the
+latest gauge. `/metrics` remains unchanged; disabling the listener disables both
+routes. This diagnostic history is not a durable metrics backend.
+
 For an explicitly authorised local diagnostic, forward one agent Pod and inspect it locally:
 
 ```sh

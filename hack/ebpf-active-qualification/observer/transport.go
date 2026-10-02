@@ -78,7 +78,11 @@ func scrapeAgent(ctx context.Context, output io.Writer) error {
 	tr := &http.Transport{Proxy: nil, DialContext: (&net.Dialer{Timeout: time.Second}).DialContext, ResponseHeaderTimeout: time.Second, MaxResponseHeaderBytes: 16384, DisableCompression: true}
 	defer tr.CloseIdleConnections()
 	client := &http.Client{Transport: tr, Timeout: 2 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:8082/metrics", nil)
+	return readAgentObservation(ctx, client, output)
+}
+
+func readAgentObservation(ctx context.Context, client *http.Client, output io.Writer) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:8082/scan-observations", nil)
 	if err != nil {
 		return atStage("agent-transport", err)
 	}
@@ -90,11 +94,11 @@ func scrapeAgent(ctx context.Context, output io.Writer) error {
 	if response.StatusCode != http.StatusOK {
 		return atStage("agent-status", errObservation)
 	}
-	data, err := io.ReadAll(io.LimitReader(response.Body, (1<<20)+1))
-	if err != nil || len(data) > 1<<20 {
+	data, err := io.ReadAll(io.LimitReader(response.Body, 16385))
+	if err != nil || len(data) > 16384 {
 		return atStage("agent-body", errObservation)
 	}
-	value, err := parseAgent(data)
+	value, err := parseScanObservations(data)
 	if err != nil {
 		return atStage("agent-metrics", err)
 	}

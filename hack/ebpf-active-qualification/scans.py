@@ -18,6 +18,8 @@ def compare_scans(control_rows, enabled_rows, *, seconds, witness, expected_obje
                   minimum_scans, minimum_active_scans, expected_workers=1):
     before = standard_window(control_rows, seconds)
     after = standard_window(enabled_rows, seconds)
+    require(control_rows[0]['schemaVersion'] == enabled_rows[0]['schemaVersion'],
+            'paired scan observation schemas differ')
     control, enabled = before['scans'], after['scans']
     integer(minimum_scans, 1, seconds)
     integer(minimum_active_scans, 1, minimum_scans)
