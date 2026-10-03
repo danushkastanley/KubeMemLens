@@ -16,7 +16,7 @@ type observationFailure struct {
 func safeStage(stage string) string {
 	switch stage {
 	case "boot-binding", "agent-binding", "collector-binding", "collector-client",
-		"agent-child", "agent-projection", "agent-transport", "agent-status", "agent-body", "agent-metrics",
+		"agent-child", "agent-projection", "agent-transport", "agent-status", "agent-body", "agent-metrics", "agent-scan-duration",
 		"collector-transport", "collector-status", "collector-body", "collector-envelope", "collector-metrics",
 		"clock", "usage", "output-encoding", "output-budget", "output-write":
 		return stage

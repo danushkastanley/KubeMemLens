@@ -79,8 +79,10 @@ func validateScanObservations(value agentObservation) error {
 		completed = scan.CompletedUnixNanos
 	}
 	last := value.Scans[len(value.Scans)-1]
+	if uint64(last.DurationNanos) != value.Metrics["scanDurationNanos"] {
+		return atStage("agent-scan-duration", errObservation)
+	}
 	if successes > value.Metrics["scanSuccess"] || failures > value.Metrics["scanFailure"] ||
-		uint64(last.DurationNanos) != value.Metrics["scanDurationNanos"] ||
 		uint64(last.CompletedUnixNanos/1000000000) != value.Metrics["scanCompletedUnixSeconds"] {
 		return errObservation
 	}

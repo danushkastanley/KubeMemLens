@@ -65,6 +65,9 @@ numeric projections and closed scan outcomes enter stdout; failures emit a fixed
 Durations round upward to integer nanoseconds. Unknown labels within selected
 metric families, duplicate series, malformed numbers and incomplete responses
 fail. Unrelated families, including identity-labelled metrics, are omitted.
+The atomic agent duration must exactly match its retained nanosecond timing;
+inconsistency fails with the fixed `agent-scan-duration` category. No tolerance
+or response-body logging is added for this check.
 
 A rejected collector response ends the observation immediately. Its diagnostic
 includes only the fixed failure category and numeric HTTP status (100–599), never

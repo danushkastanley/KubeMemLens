@@ -125,10 +125,12 @@ The same listener serves `GET /scan-observations` for bounded diagnostics. Its
 version 1 JSON response contains the existing metric text and the latest 32 scan
 attempts captured together. Each attempt has a sequence number, completion time
 in Unix nanoseconds, duration in nanoseconds and `success` or `failure` result.
+The duration metric is emitted as exact decimal seconds, keeping its value
+consistent with the retained nanosecond timing.
 It contains no workload identifiers, paths or error messages. The fixed history
 uses in-memory storage only; restart resets it, and older attempts are overwritten.
 Consumers must detect missing sequences rather than infer durations from the
-latest gauge. `/metrics` remains unchanged; disabling the listener disables both
+latest gauge. Metric names and units are unchanged; disabling the listener disables both
 routes. This diagnostic history is not a durable metrics backend.
 
 For an explicitly authorised local diagnostic, forward one agent Pod and inspect it locally:

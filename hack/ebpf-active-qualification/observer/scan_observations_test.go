@@ -41,6 +41,34 @@ func TestProductionScanHistorySurvivesNumericProjection(t *testing.T) {
 	}
 }
 
+func TestProductionScanDurationPreservesNanosecondPrecision(t *testing.T) {
+	const duration = 1000522939 * time.Nanosecond
+	telemetry := &agent.Telemetry{}
+	telemetry.RecordScan(time.Unix(1700000000, 0), duration, agent.ScanResult{}, nil, 0)
+	response := httptest.NewRecorder()
+	telemetry.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/scan-observations", nil))
+	value, err := parseScanObservations(response.Body.Bytes())
+	if err != nil {
+		t.Fatal("valid production scan duration rejected by numeric projection", err)
+	}
+	if value.Metrics["scanDurationNanos"] != uint64(duration) || value.Scans[0].DurationNanos != int64(duration) {
+		t.Fatal("scan duration changed between atomic representations")
+	}
+}
+
+func TestScanDurationMismatchKeepsStrictCheckAndSafeFailureStage(t *testing.T) {
+	value, err := parseScanObservations(scanEnvelope(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value.Metrics["scanDurationNanos"]++
+	err = validateScanObservations(value)
+	if err == nil || failureStage(err) != "agent-scan-duration" ||
+		failureDetail(atStage("agent-metrics", err)) != "agent-scan-duration" {
+		t.Fatal("duration mismatch must retain a bounded diagnostic without accepting changed data")
+	}
+}
+
 func TestScanHistoryRejectsAmbiguousMissingAndChangedFields(t *testing.T) {
 	valid := string(scanEnvelope(t))
 	for name, invalid := range map[string]string{

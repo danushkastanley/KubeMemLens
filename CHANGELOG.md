@@ -6,6 +6,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ### Fixes
 
+- Avoid floating-point rounding in agent scan-duration metrics, keeping them consistent with the recorded scan timings.
 - Report a container once when it creates its own sub-cgroups (systemd, Docker-in-Docker). Nested cgroups were listed as extra entries with the same container ID and their memory was counted twice.
 
 ### Optional trace operations
