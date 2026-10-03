@@ -14,13 +14,19 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/cilium/ebpf/ringbuf"
-	"github.com/danushkastanley/kube-memlens/internal/trace"
 )
 
 // These opt-in tests load one unattached fixture programme and one bounded ring.
 // They require an explicitly selected disposable Linux environment with BPF
 // access. No probes, sockets, links, target paths or persistent pins are created.
-func unnotifiedRing(t *testing.T) (*ringbuf.Reader, func()) {
+type ringNotification int32
+
+const (
+	notifyOnSubmit  ringNotification = 0
+	suppressWakeups ringNotification = 1
+)
+
+func ringFixture(t *testing.T, notification ringNotification) (*ringbuf.Reader, func()) {
 	t.Helper()
 	m, err := ebpf.NewMap(&ebpf.MapSpec{Name: "kml_test_ring", Type: ebpf.RingBuf, MaxEntries: 262144})
 	if err != nil {
@@ -70,7 +76,7 @@ func unnotifiedRing(t *testing.T) (*ringbuf.Reader, func()) {
 			asm.Mov.Imm(asm.R0, 42), asm.StoreMem(asm.R10, -8, asm.R0, asm.DWord),
 			asm.LoadMapPtr(asm.R1, m.FD()),
 			asm.Mov.Reg(asm.R2, asm.R10), asm.Add.Imm(asm.R2, -8),
-			asm.Mov.Imm(asm.R3, 8), asm.Mov.Imm(asm.R4, 1), // BPF_RB_NO_WAKEUP
+			asm.Mov.Imm(asm.R3, 8), asm.Mov.Imm(asm.R4, int32(notification)),
 			asm.FnRingbufOutput.Call(), asm.Return(),
 		},
 	})
@@ -119,9 +125,10 @@ func awaitFixtureAbsence(t *testing.T, open func() (io.Closer, error)) {
 }
 
 func TestKernelSparseFileRecordWithoutNotification(t *testing.T) {
-	reader, emit := unnotifiedRing(t)
+	reader, emit := ringFixture(t, suppressWakeups)
 	now := time.Now()
-	reader.SetDeadline(ringReadDeadline(trace.Files, now, now.Add(time.Second)))
+	// Preserve the library deadline-drain contract for explicitly unnotified fixtures.
+	reader.SetDeadline(now.Add(10 * time.Millisecond))
 	emit()
 	var record ringbuf.Record
 	if err := reader.ReadInto(&record); err != nil {
@@ -136,12 +143,13 @@ func TestKernelSparseFileRecordWithoutNotification(t *testing.T) {
 }
 
 func TestKernelUnnotifiedBurstDrainsWithoutAnotherEvent(t *testing.T) {
-	reader, emit := unnotifiedRing(t)
+	reader, emit := ringFixture(t, suppressWakeups)
 	for range 128 {
 		emit()
 	}
 	now := time.Now()
-	reader.SetDeadline(ringReadDeadline(trace.Files, now, now.Add(time.Second)))
+	// Preserve the library deadline-drain contract for explicitly unnotified fixtures.
+	reader.SetDeadline(now.Add(10 * time.Millisecond))
 	var record ringbuf.Record
 	for range 128 {
 		if err := reader.ReadInto(&record); err != nil {
@@ -160,7 +168,7 @@ func TestKernelUnnotifiedBurstDrainsWithoutAnotherEvent(t *testing.T) {
 }
 
 func TestKernelCancellationFlushesIdleReader(t *testing.T) {
-	reader, _ := unnotifiedRing(t)
+	reader, _ := ringFixture(t, suppressWakeups)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	finish := interruptRead(ctx, reader)
@@ -170,7 +178,7 @@ func TestKernelCancellationFlushesIdleReader(t *testing.T) {
 		}
 	}()
 	now := time.Now()
-	reader.SetDeadline(ringReadDeadline(trace.Cache, now, now.Add(time.Second)))
+	reader.SetDeadline(now.Add(time.Second))
 	cancel()
 	var record ringbuf.Record
 	if err := reader.ReadInto(&record); !errors.Is(err, ringbuf.ErrFlushed) {
@@ -178,5 +186,64 @@ func TestKernelCancellationFlushesIdleReader(t *testing.T) {
 	}
 	if time.Since(now) >= 200*time.Millisecond {
 		t.Fatal("cancellation waited for target validation")
+	}
+}
+
+func TestKernelSparseNotifiedFileRecordCoalescesWithoutAnotherEvent(t *testing.T) {
+	reader, emit := ringFixture(t, notifyOnSubmit)
+	if reader.AvailableBytes() != 0 {
+		t.Fatal("fixture ring did not start empty")
+	}
+	now := time.Now()
+	validation := now.Add(time.Second)
+	reader.SetDeadline(validation)
+	emit()
+	var record ringbuf.Record
+	if err := reader.ReadInto(&record); err != nil {
+		t.Fatal("submission did not wake the reader", err)
+	}
+	if err := coalesceFileStart(context.Background(), validation); err != nil {
+		t.Fatal("sparse coalescing failed", err)
+	}
+	if len(record.RawSample) != 8 || binary.LittleEndian.Uint64(record.RawSample) != 42 {
+		t.Fatal("sparse record bytes changed")
+	}
+	if time.Since(now) >= 200*time.Millisecond {
+		t.Fatal("notified sparse delivery exceeded the unchanged event latency budget")
+	}
+}
+
+func TestKernelNotifiedFileBurstSurvivesCoalescing(t *testing.T) {
+	reader, emit := ringFixture(t, notifyOnSubmit)
+	now := time.Now()
+	validation := now.Add(time.Second)
+	reader.SetDeadline(validation)
+	emit()
+	var record ringbuf.Record
+	if err := reader.ReadInto(&record); err != nil {
+		t.Fatal("first record unavailable", err)
+	}
+	if len(record.RawSample) != 8 || binary.LittleEndian.Uint64(record.RawSample) != 42 {
+		t.Fatal("first record bytes changed")
+	}
+	for range 127 {
+		emit()
+	}
+	if err := coalesceFileStart(context.Background(), validation); err != nil {
+		t.Fatal("burst coalescing failed", err)
+	}
+	for range 127 {
+		if err := reader.ReadInto(&record); err != nil {
+			t.Fatal("queued burst record unavailable", err)
+		}
+		if len(record.RawSample) != 8 || binary.LittleEndian.Uint64(record.RawSample) != 42 {
+			t.Fatal("burst record bytes changed")
+		}
+	}
+	if reader.AvailableBytes() != 0 {
+		t.Fatal("burst retained unread bytes")
+	}
+	if time.Since(now) >= 200*time.Millisecond {
+		t.Fatal("notified burst exceeded the unchanged event latency budget")
 	}
 }

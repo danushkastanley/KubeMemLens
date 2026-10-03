@@ -122,16 +122,20 @@ The worker wakes its ring-buffer reader directly when its context is cancelled,
 using the reader's flush operation. The cancellation callback is joined before
 reader teardown, and a failed wake-up invalidates terminal counts.
 
-File programmes submit without ring notifications to avoid an interrupt for each
-selected read or write. Their matched reader drains queued records at a 10 ms
-deadline, including a single sparse event. This does not add an event or byte
-queue or change the once-per-second target revalidation. An earlier validation
-deadline takes precedence. Cache and OOM programmes retain submission notifications
-and wait only for target revalidation when idle. Event delivery never relies on
-the next event arriving.
+File programmes use adaptive submission notifications. After a read starts from
+an empty file ring, the worker schedules a one-millisecond coalescing interval
+for following records before forwarding the first record and draining the
+backlog. Scheduling may delay resumption; the existing delivery and lifetime
+budgets still apply. This amortises notifications during a burst without periodic idle
+polling. A single sparse event proceeds after that bounded interval; delivery
+never relies on another event arriving. Cancellation interrupts the interval,
+and an earlier target-validation deadline takes precedence. No additional event
+queue is allocated. All profiles retain once-per-second target revalidation;
+cache and OOM records do not incur the file coalescing interval.
 
 The opt-in Linux reader tests use one unattached fixture programme and a bounded
-ring to check sparse delivery, burst draining and cancellation. They verify that
+ring to check notified delivery, legacy unnotified deadline draining and
+cancellation. They verify that
 their exact kernel object IDs disappear after closing. Run only on an owned Linux
 test environment with BPF access:
 

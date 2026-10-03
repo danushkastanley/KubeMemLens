@@ -13,7 +13,6 @@ PREFIX = r'''
 #include <string.h>
 typedef uint32_t __u32;
 typedef uint64_t __u64;
-#define BPF_RB_NO_WAKEUP 1
 #ifndef __always_inline
 #define __always_inline inline __attribute__((always_inline))
 #endif
@@ -50,7 +49,7 @@ static void *bpf_ringbuf_reserve(void *map, unsigned size, unsigned flags) {
     return ring_available ? &event : NULL;
 }
 static void bpf_ringbuf_submit(void *value, unsigned flags) {
-    assert(value == &event && flags == BPF_RB_NO_WAKEUP);
+    assert(value == &event && flags == 0);
     emitted++;
 }
 '''
