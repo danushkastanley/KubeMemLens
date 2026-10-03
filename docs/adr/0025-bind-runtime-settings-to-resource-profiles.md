@@ -4,6 +4,10 @@ Date: 2 October 2026
 
 Status: implementation candidate; resource qualification remains open
 
+The worker's execution-slot setting is revised by
+[ADR 0026](0026-limit-incident-worker-parallelism.md). The Node service, API and
+standard-chart decisions below remain unchanged.
+
 ## Context
 
 The standard agent and collector did not use the heap huge-page control already

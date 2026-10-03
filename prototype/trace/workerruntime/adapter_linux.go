@@ -66,8 +66,9 @@ func (a *adapter) Run(parent context.Context, spec trace.Specification, output t
 	cmd.Args = []string{"memlens-filecache-worker"}
 	// Do not inherit loader, proxy, credential or diagnostic environment values.
 	// The host cgroup mount hides the container's CPU quota from Go's automatic
-	// discovery. Match the profile's two-CPU limit and heap policy explicitly.
-	cmd.Env = []string{"GOTRACEBACK=none", "GODEBUG=disablethp=1", "GOMAXPROCS=2"}
+	// discovery. Give the single ring reader and bounded pipe writer one Go
+	// execution slot; separate workers still share the Node's two-CPU quota.
+	cmd.Env = []string{"GOTRACEBACK=none", "GODEBUG=disablethp=1", "GOMAXPROCS=1"}
 	cmd.ExtraFiles = []*os.File{owned.target, owned.image, owned.bundle, owned.policy}
 	return workerprocess.Run(ctx, cmd, request, output)
 }
