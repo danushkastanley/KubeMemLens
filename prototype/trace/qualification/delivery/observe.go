@@ -47,6 +47,7 @@ type Result struct {
 	AlignmentUncertaintyNanos *int64             `json:"alignmentUncertaintyNanos,omitempty"`
 	Counts                    *Counts            `json:"counts,omitempty"`
 	SummaryDiagnostic         *SummaryDiagnostic `json:"summaryDiagnostic,omitempty"`
+	ClockDiagnostic           *ClockDiagnostic   `json:"clockDiagnostic,omitempty"`
 }
 
 // SummaryDiagnostic retains only validated enum and numeric fields. It explains
@@ -118,6 +119,7 @@ func Observe(input io.Reader, expected Expectation, now func() time.Time, active
 		}
 		result.ClientClockDriftNanos = max(result.ClientClockDriftNanos, drift)
 		if drift > int64(5*time.Millisecond) {
+			result.ClockDiagnostic = clockDiagnostic(started, received, now())
 			return result, ErrObservation
 		}
 		raw, err := traceframe.Encode(frame)

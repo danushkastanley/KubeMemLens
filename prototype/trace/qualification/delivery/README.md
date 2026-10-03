@@ -59,6 +59,13 @@ alignment uncertainty, end-to-receipt difference and counters even when those
 fields prevent qualification. They contain no raw frame or identity. Missing or
 invalid correlation still fails the same transport and latency criteria.
 
+A rejected wall/monotonic clock comparison retains its elapsed readings and one
+immediate follow-up reading as `clockDiagnostic`. These four numeric values can
+show whether the mismatch persisted; they do not establish its cause. The
+observer still fails on the original reading, does not retry the frame and never
+uses the follow-up to qualify transport or latency. Successful observations take
+no additional clock readings, and the 5 ms rejection bound is unchanged.
+
 ## Clock and latency meaning
 
 Run `../delivery-client` on the worker's Linux kernel. Its private configuration
