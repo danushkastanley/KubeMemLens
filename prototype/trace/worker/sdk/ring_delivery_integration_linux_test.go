@@ -189,7 +189,7 @@ func TestKernelCancellationFlushesIdleReader(t *testing.T) {
 	}
 }
 
-func TestKernelSparseNotifiedFileRecordCoalescesWithoutAnotherEvent(t *testing.T) {
+func TestKernelSparseNotifiedFileRecordWithoutAnotherEvent(t *testing.T) {
 	reader, emit := ringFixture(t, notifyOnSubmit)
 	if reader.AvailableBytes() != 0 {
 		t.Fatal("fixture ring did not start empty")
@@ -202,9 +202,6 @@ func TestKernelSparseNotifiedFileRecordCoalescesWithoutAnotherEvent(t *testing.T
 	if err := reader.ReadInto(&record); err != nil {
 		t.Fatal("submission did not wake the reader", err)
 	}
-	if err := coalesceFileStart(context.Background(), validation); err != nil {
-		t.Fatal("sparse coalescing failed", err)
-	}
 	if len(record.RawSample) != 8 || binary.LittleEndian.Uint64(record.RawSample) != 42 {
 		t.Fatal("sparse record bytes changed")
 	}
@@ -213,7 +210,7 @@ func TestKernelSparseNotifiedFileRecordCoalescesWithoutAnotherEvent(t *testing.T
 	}
 }
 
-func TestKernelNotifiedFileBurstSurvivesCoalescing(t *testing.T) {
+func TestKernelNotifiedFileBurstDrainsWithoutAnotherEvent(t *testing.T) {
 	reader, emit := ringFixture(t, notifyOnSubmit)
 	now := time.Now()
 	validation := now.Add(time.Second)
@@ -228,9 +225,6 @@ func TestKernelNotifiedFileBurstSurvivesCoalescing(t *testing.T) {
 	}
 	for range 127 {
 		emit()
-	}
-	if err := coalesceFileStart(context.Background(), validation); err != nil {
-		t.Fatal("burst coalescing failed", err)
 	}
 	for range 127 {
 		if err := reader.ReadInto(&record); err != nil {

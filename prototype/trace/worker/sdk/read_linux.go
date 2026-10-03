@@ -35,17 +35,16 @@ func readEvents(ctx context.Context, owned *resources, decoder *filecache.Decode
 			}
 			nextValidation = now.Add(time.Second)
 		}
-		// An empty file ring may start a new burst. Submission notifications
-		// wake this read; only target validation needs a timed idle wake-up.
-		emptyFileRing := owned.spec.Kind() == trace.Files && owned.reader.AvailableBytes() == 0
+		// Approved programmes notify the ring on submission. Only target
+		// revalidation needs a timed wake-up; cancellation flushes the reader.
 		owned.reader.SetDeadline(nextValidation)
 		if err := owned.reader.ReadInto(&record); err != nil {
 			if interruptedRead(ctx, err) {
 				return counts, nil
 			}
 			if errors.Is(err, os.ErrDeadlineExceeded) {
-				// epoll rounds deadlines to milliseconds. Revalidate instead
-				// of repeatedly reading with an already rounded deadline.
+				// epoll rounds deadlines to milliseconds. Revalidate immediately
+				// instead of spinning on an already elapsed/rounded deadline.
 				nextValidation = time.Time{}
 				continue
 			}
@@ -59,11 +58,6 @@ func readEvents(ctx context.Context, owned *resources, decoder *filecache.Decode
 		}
 		if ctx.Err() != nil {
 			return counts, nil
-		}
-		if emptyFileRing {
-			if coalesceFileStart(ctx, nextValidation) != nil {
-				return counts, nil
-			}
 		}
 		if err := forwardRecord(record.RawSample, owned.spec.Kind(), decoder, output, &counts); err != nil {
 			cancel()

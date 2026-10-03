@@ -49,7 +49,7 @@ static void *bpf_ringbuf_reserve(void *map, unsigned size, unsigned flags) {
     return ring_available ? &event : NULL;
 }
 static void bpf_ringbuf_submit(void *value, unsigned flags) {
-    assert(value == &event && flags == 0);
+    assert(value == &event && !flags);
     emitted++;
 }
 '''

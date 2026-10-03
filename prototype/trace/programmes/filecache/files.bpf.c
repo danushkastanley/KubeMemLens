@@ -123,8 +123,6 @@ static __always_inline int finish(struct file *file, __u64 requested,
 		e->path_length = length;
 		copy_path_prefix(e->path, p->path, length);
 	}
-	/* Adaptive notification wakes an idle reader. Its bounded coalescing
-	 * interval lets a burst accumulate instead of waking for every read. */
 	bpf_ringbuf_submit(e, 0);
 	goto discard;
 rejected:
