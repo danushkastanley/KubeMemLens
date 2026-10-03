@@ -97,7 +97,7 @@ func validateCorpus(c Corpus) error {
 			if p.Consent != "not-applicable" || p.ReceiptSHA256 != "" {
 				return errCorpus
 			}
-		case "local-cluster":
+		case "local-cluster", "managed-provider":
 			if p.Consent != "owned-fixture" || !hashID.MatchString(p.ReceiptSHA256) {
 				return errCorpus
 			}
