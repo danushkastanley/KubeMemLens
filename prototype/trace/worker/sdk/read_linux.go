@@ -35,17 +35,21 @@ func readEvents(ctx context.Context, owned *resources, decoder *filecache.Decode
 			}
 			nextValidation = now.Add(time.Second)
 		}
-		// Approved programmes notify the ring on submission. Only target
-		// revalidation needs a timed wake-up; cancellation flushes the reader.
-		owned.reader.SetDeadline(nextValidation)
+		// File programmes suppress notifications; the reader drains queued
+		// records when this deadline expires. Cancellation still flushes it.
+		deadline := ringReadDeadline(owned.spec.Kind(), now, nextValidation)
+		owned.reader.SetDeadline(deadline)
 		if err := owned.reader.ReadInto(&record); err != nil {
 			if interruptedRead(ctx, err) {
 				return counts, nil
 			}
 			if errors.Is(err, os.ErrDeadlineExceeded) {
-				// epoll rounds deadlines to milliseconds. Revalidate immediately
-				// instead of spinning on an already elapsed/rounded deadline.
-				nextValidation = time.Time{}
+				// epoll rounds deadlines to milliseconds. Advance an expired
+				// validation deadline without making file polls revalidate the
+				// target 100 times per second.
+				if deadline.Equal(nextValidation) {
+					nextValidation = time.Time{}
+				}
 				continue
 			}
 			cancel()

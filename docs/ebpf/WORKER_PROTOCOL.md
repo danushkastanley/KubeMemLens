@@ -119,11 +119,25 @@ Raw messages and callback errors must never enter logs or persisted evidence.
 ## Supervision and ownership
 
 The worker wakes its ring-buffer reader directly when its context is cancelled,
-using the reader's flush operation. Idle reads time out for the existing
-once-per-second target revalidation, rather than polling cancellation every
-100 ms. The cancellation callback is joined before reader teardown, and a failed
-wake-up invalidates terminal counts. Approved programmes notify on submission;
-event delivery does not wait for the validation timer.
+using the reader's flush operation. The cancellation callback is joined before
+reader teardown, and a failed wake-up invalidates terminal counts.
+
+File programmes submit without ring notifications to avoid an interrupt for each
+selected read or write. Their matched reader drains queued records at a 10 ms
+deadline, including a single sparse event. This does not add an event or byte
+queue or change the once-per-second target revalidation. An earlier validation
+deadline takes precedence. Cache and OOM programmes retain submission notifications
+and wait only for target revalidation when idle. Event delivery never relies on
+the next event arriving.
+
+The opt-in Linux reader tests use one unattached fixture programme and a bounded
+ring to check sparse delivery, burst draining and cancellation. They verify that
+their exact kernel object IDs disappear after closing. Run only on an owned Linux
+test environment with BPF access:
+
+```sh
+go -C prototype/trace/worker test -tags=kml_kernel_integration ./sdk -run '^TestKernel'
+```
 
 Startup is bounded at five seconds, even for a five-minute request. The supervisor
 enforces the earlier parent/request deadline, uses private OS pipes and sends
