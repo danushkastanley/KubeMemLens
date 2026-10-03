@@ -94,10 +94,17 @@ The OOM projection retains a measured pre-termination snapshot and the separate
 recorded termination age; it does not invent post-termination counters. Volume
 counters came from the owned mount's `df`, not a new kubelet or CSI validation.
 
-A local-cluster case must use only owned fixtures, the numeric allow-list and a
-SHA-256 receipt that binds the original run, authorised collection, sanitisation
-and cleanup. A consented-incident case additionally requires recorded explicit
-consent. The parser validates provenance structure; a maintainer must inspect the
+A `local-cluster` or `managed-provider` case must use only owned fixtures, the
+numeric allow-list and a SHA-256 receipt that binds the original run, authorised
+collection, sanitisation and cleanup. Use `managed-provider` for owned fixtures
+executed on a managed Kubernetes provider; do not relabel those observations as
+local-cluster evidence. Both categories require `consent: owned-fixture` and
+`sanitisation: numeric-allowlist-v1`. Reports preserve them as separate source
+categories without exporting private receipts or provider/cluster identities.
+A source category records where observations came from; accepting it does not
+establish provider qualification. The frozen corpus above still has no
+managed-provider cases. A consented-incident case additionally requires recorded
+explicit consent. The parser validates provenance structure; a maintainer must inspect the
 actual receipt and input mapping before committing that label. No consent is
 inferred from possession of data. Preserve source categories in every report.
 
