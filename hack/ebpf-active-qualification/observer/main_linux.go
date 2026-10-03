@@ -56,7 +56,7 @@ func usage() (int64, int64, error) {
 	}
 	return cpu, (self.Maxrss + children.Maxrss) * 1024, nil
 }
-func sampleSeries(ctx context.Context, out io.Writer, seconds int, sample func() (agentObservation, collectorObservation, error)) error {
+func sampleSeries(ctx context.Context, out io.Writer, seconds int, sample func() (sampledMetrics, error)) error {
 	if seconds < 1 || seconds > 1800 {
 		return errObservation
 	}
@@ -77,7 +77,7 @@ func sampleSeries(ctx context.Context, out io.Writer, seconds int, sample func()
 		if index == 0 {
 			begin = origin
 		}
-		agent, collector, err := sample()
+		value, err := sample()
 		if err != nil {
 			return err
 		}
@@ -89,7 +89,7 @@ func sampleSeries(ctx context.Context, out io.Writer, seconds int, sample func()
 		if err != nil {
 			return atStage("usage", err)
 		}
-		row := observation{2, index, begin.Sub(origin).Nanoseconds(), time.Since(begin).Nanoseconds(), clock, agent.Metrics, agent.Scans, collector, cpu, rss}
+		row := observation{2, index, begin.Sub(origin).Nanoseconds(), time.Since(begin).Nanoseconds(), clock, value.agent.Metrics, value.agent.Scans, value.collector, cpu, rss}
 		data, err := json.Marshal(row)
 		if err != nil {
 			return atStage("output-encoding", err)
@@ -108,6 +108,9 @@ func sampleSeries(ctx context.Context, out io.Writer, seconds int, sample func()
 		}
 		if n != len(data) {
 			return atStage("output-write", io.ErrShortWrite)
+		}
+		if err := checkReadSpan(index, row.ReadNanos, value.stages); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -131,34 +134,40 @@ func run(ctx context.Context, cfg config, out io.Writer) error {
 		return atStage("collector-client", err)
 	}
 	defer client.CloseIdleConnections()
-	return sampleSeries(ctx, out, cfg.Seconds, func() (agentObservation, collectorObservation, error) {
+	return sampleSeries(ctx, out, cfg.Seconds, func() (sampledMetrics, error) {
 		if !sameBoot(cfg.BootID) {
-			return agentObservation{}, collectorObservation{}, atStage("boot-binding", errObservation)
+			return sampledMetrics{}, atStage("boot-binding", errObservation)
 		}
-		if err := agent.verify(); err != nil {
-			return agentObservation{}, collectorObservation{}, atStage("agent-binding", err)
+		var stages readStages
+		started := time.Now()
+		if err := verifyBindings(agent.verify, collector.verify); err != nil {
+			return sampledMetrics{}, err
 		}
-		if err := collector.verify(); err != nil {
-			return agentObservation{}, collectorObservation{}, atStage("collector-binding", err)
-		}
+		stages.bindings = time.Since(started).Nanoseconds()
+		started = time.Now()
 		a, err := readAgent(ctx, agent)
 		if err != nil {
-			return agentObservation{}, collectorObservation{}, err
+			return sampledMetrics{}, err
 		}
+		stages.agent = time.Since(started).Nanoseconds()
+		started = time.Now()
 		c, err := readCollector(ctx, client, cfg.Server, cfg.Token)
 		if err != nil {
-			return agentObservation{}, collectorObservation{}, err
+			return sampledMetrics{}, err
 		}
+		stages.collector = time.Since(started).Nanoseconds()
+		started = time.Now()
 		if err := agent.alive(); err != nil {
-			return agentObservation{}, collectorObservation{}, atStage("agent-binding", err)
+			return sampledMetrics{}, atStage("agent-binding", err)
 		}
 		if err := collector.alive(); err != nil {
-			return agentObservation{}, collectorObservation{}, atStage("collector-binding", err)
+			return sampledMetrics{}, atStage("collector-binding", err)
 		}
 		if !sameBoot(cfg.BootID) {
-			return agentObservation{}, collectorObservation{}, atStage("boot-binding", errObservation)
+			return sampledMetrics{}, atStage("boot-binding", errObservation)
 		}
-		return a, c, nil
+		stages.final = time.Since(started).Nanoseconds()
+		return sampledMetrics{a, c, stages}, nil
 	})
 }
 func main() {

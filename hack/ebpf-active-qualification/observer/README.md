@@ -45,7 +45,11 @@ A shared kernel boot ID in kind does not replace Kubernetes Node identity.
 
 PID file descriptors remain open throughout the window. Each poll rechecks process
 lifetime, full container membership and executable digest. Process loss or changed
-identity ends the observation. The namespace and helper executable are passed to
+identity ends the observation. The two independent verifications run concurrently
+with at most one peer goroutine; both full checks finish before any metrics read.
+If both fail, the agent-binding failure remains the reported category. This does
+not cache or skip executable hashing, weaken identity checks or change read limits.
+The namespace and helper executable are passed to
 `nsenter` as pinned descriptors. Its child can only read the fixed agent URL
 `http://127.0.0.1:8082/scan-observations`; it receives no configuration or bearer token.
 The `--agent-scrape` mode is the internal numeric child operation.
@@ -80,6 +84,15 @@ parent/child peak RSS. This peak RSS is observer accounting, not a working-set
 measurement. A blocked output cannot keep the process alive past the duration
 plus ten seconds. Interrupted, missing or delayed records stay incomplete; the
 helper does not grant a performance pass or retime a missed deadline.
+
+After writing a record, the helper enforces the evaluator's existing inclusive
+1–100,000,000 ns read-span bound immediately. A rejected span stops the series
+with its original row retained, rather than spending an enabled window before
+offline validation finds the failure. The fixed numeric diagnostic includes the
+poll index, total span and elapsed binding, agent-read, collector-read and final
+binding-check costs. Stage clocks are included in the measured span; they never
+replace a sample, expose identities, retry a read or relax any evaluation gate.
+Accepted rows retain the existing schema and fields.
 
 Use `standard_window.py` to validate the complete stream before analysis. It counts
 new agent scan attempts once, checks failure/reset counters and retains collector
