@@ -125,6 +125,15 @@ once-per-second target revalidation, rather than polling cancellation every
 wake-up invalidates terminal counts. Approved programmes notify on submission;
 event delivery does not wait for the validation timer.
 
+The opt-in Linux reader tests use one unattached fixture programme and a bounded
+ring to check notified sparse/burst delivery, unnotified deadline draining and
+cancellation. They verify that their exact kernel object IDs disappear after
+closing. Run only on an owned Linux environment with BPF access:
+
+```sh
+go -C prototype/trace/worker test -tags=kml_kernel_integration ./sdk -run '^TestKernel'
+```
+
 Startup is bounded at five seconds, even for a five-minute request. The supervisor
 enforces the earlier parent/request deadline, uses private OS pipes and sends
 stderr directly to `/dev/null`. Signals use the owned process handle, avoiding

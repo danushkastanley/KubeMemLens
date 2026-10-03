@@ -97,7 +97,7 @@ func (t *Telemetry) renderLocked() string {
 	writeMetricHeader(&b, "kubememlens_agent_last_scan_timestamp_seconds", "Unix timestamp of the latest KubeMemLens agent scan attempt.", "gauge")
 	fmt.Fprintf(&b, "kubememlens_agent_last_scan_timestamp_seconds %d\n", unixOrZero(t.lastScanAt))
 	writeMetricHeader(&b, "kubememlens_agent_last_scan_duration_seconds", "Duration in seconds of the latest KubeMemLens agent scan attempt.", "gauge")
-	fmt.Fprintf(&b, "kubememlens_agent_last_scan_duration_seconds %g\n", t.lastScanDuration.Seconds())
+	fmt.Fprintf(&b, "kubememlens_agent_last_scan_duration_seconds %s\n", scanDurationSeconds(t.lastScanDuration))
 	writeMetricHeader(&b, "kubememlens_agent_last_scan_containers", "Container cgroup counts from the latest KubeMemLens agent scan.", "gauge")
 	fmt.Fprintf(&b, "kubememlens_agent_last_scan_containers{kind=\"found\"} %d\n", t.containersFound)
 	fmt.Fprintf(&b, "kubememlens_agent_last_scan_containers{kind=\"mapped\"} %d\n", t.mapped)

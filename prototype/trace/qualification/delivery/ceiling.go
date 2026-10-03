@@ -24,6 +24,8 @@ type CeilingResult struct {
 	HookCoverageIncomplete bool    `json:"hookCoverageIncomplete"`
 	Counts                 *Counts `json:"counts,omitempty"`
 	ClientClockDriftNanos  int64   `json:"clientClockDriftNanos"`
+
+	ClockDiagnostic *ClockDiagnostic `json:"clockDiagnostic,omitempty"`
 }
 
 // ObserveCeiling is separate from normal latency observation. The caller must
@@ -56,6 +58,7 @@ func observeCeiling(input io.Reader, expected Expectation, now func() time.Time,
 		}
 		result.ClientClockDriftNanos = max(result.ClientClockDriftNanos, drift)
 		if drift > int64(5*time.Millisecond) {
+			result.ClockDiagnostic = clockDiagnostic(started, received, now())
 			return result, ErrObservation
 		}
 		raw, err := traceframe.Encode(frame)
