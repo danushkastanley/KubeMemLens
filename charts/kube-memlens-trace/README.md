@@ -40,11 +40,10 @@ The local diagnostic and remaining qualification requirements are recorded in
 [ADR 0024](../../docs/adr/0024-limit-huge-pages-in-optional-trace-containers.md).
 This configuration does not establish a resource-qualified profile.
 
-The binding-node service fixes `GOMAXPROCS=2` to match the profile's two-CPU
-limit; each incident worker fixes `GOMAXPROCS=1`. The required host cgroup mount can prevent
+The binding-node service and each incident worker also fix `GOMAXPROCS=2` to
+match the profile's two-CPU limit. The required host cgroup mount can prevent
 Go from discovering the container's quota automatically. This bounds Go
 execution parallelism, not the number of operating-system threads. The worker
 uses an explicit fixed value rather than inheriting caller configuration.
 Changes to the profile's CPU limit must review this setting together with the
-worker launcher. See [ADR 0025](../../docs/adr/0025-bind-runtime-settings-to-resource-profiles.md)
-and the worker candidate in [ADR 0026](../../docs/adr/0026-limit-incident-worker-parallelism.md).
+worker launcher. See [ADR 0025](../../docs/adr/0025-bind-runtime-settings-to-resource-profiles.md).
