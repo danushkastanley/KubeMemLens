@@ -1,4 +1,4 @@
-// The local qualification client exercises production session validation without
+// The qualification client exercises production session validation without
 // retaining raw frames. It is not part of the product's release binaries.
 package main
 
@@ -44,7 +44,7 @@ func fail() { _, _ = fmt.Fprintln(os.Stderr, "local isolation qualification fail
 
 func run(ctx context.Context, c configuration, output, progress io.Writer) (resultErr error) {
 	config, err := kube.BuildConfig(c.Kubeconfig, c.Context)
-	if err != nil || localCredentials(config) != nil {
+	if err != nil || fixtureCredentials(config, c.EKS) != nil {
 		return errQualification
 	}
 	core, err := kubernetes.NewForConfig(config)

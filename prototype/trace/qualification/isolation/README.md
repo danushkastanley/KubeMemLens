@@ -1,8 +1,8 @@
-# Local tenant-isolation qualification
+# Tenant-isolation qualification
 
 These test helpers exercise the optional trace API through Kubernetes aggregation.
 They are not release binaries and do not establish provider or resource qualification.
-The administrator supplies an explicitly owned local installation and two restricted
+The administrator supplies an explicitly owned installation and two restricted
 fixture namespaces. No component discovers or deletes unrelated resources.
 
 `transport.py` accepts verified loopback HTTPS, explicit fixture bearer tokens and
@@ -22,7 +22,10 @@ For provider campaigns, `fixtures.job` puts the same bounded workload in a
 single-child Job with no retries. Kubernetes creates the child and its controller
 reference; do not fabricate an owner reference on a standalone Pod. Resolve the
 actual child against the created Job UID, then retain its original Pod UID and
-container identity for every operation. Provider images remain digest-pinned and
+container identity for every operation. Pass the observed two child names as
+`AccessCases(..., pods={"a": first_name, "b": second_name})`; the helper retains
+its distinct existing/absent probes and never assumes a generated child is named
+`target`. The orchestration layer still guards the corresponding Pod/Job UIDs. Provider images remain digest-pinned and
 may be pulled when absent. Node names accept DNS subdomains, including the dotted
 hostnames used by EKS. This fixture preparation does not qualify a provider.
 
@@ -73,3 +76,33 @@ Each campaign must restore its original API registration, remove only UID-bound 
 fixtures and grants, remove only hash-matched temporary seccomp profiles, and delete
 its local private keys/tokens. Independent review, resource qualification and managed
 provider evidence remain separate requirements.
+
+
+## Bound EKS clients
+
+The default transport and native client remain limited to loopback HTTPS and
+`kind-` contexts. The explicit EKS mode uses the separately verified provider
+campaign's exact API endpoint and SHA-256 of its decoded serving CA bytes. It
+requires context `qualification-eks` and inline-CA, token-only fixture credentials.
+It never accepts the operator's AWS exec-plugin kubeconfig as a tenant identity.
+It does not discover clusters, grant access, install workloads or qualify EKS.
+
+For Python control probes, instantiate `EKSTransport(binding, actor_config)` from
+`eks_transport.py`, where `binding` contains exactly `endpoint` and `caSHA256`,
+and `actor_config` is the already pinned synthetic actor's kubeconfig document.
+The existing route, body/response bounds, strict JSON, redaction, no-redirect and
+no-retry behaviour is shared with the local transport. The default constructor
+still rejects remote endpoints.
+
+For the native isolation client, add the same two-field object as `eks` in the
+private configuration and set `context` to `qualification-eks`. The helper checks
+that the resolved kubeconfig endpoint and inline CA match that binding before
+creating Kubernetes clients. Alternate credentials, impersonation, custom
+transports, proxy overrides, CA files and insecure TLS remain rejected. All trace
+selection, consent, duration, event and report bounds remain unchanged.
+
+Only the campaign controller can supply the approved EKS endpoint/CA after its
+AWS account/cluster/Node/boot checks. These client bindings supplement that
+controller and effective ServiceAccount/RBAC checks; possession of an endpoint
+hash is not execution approval or proof of identity. Keep credentials private and
+verify actual kernel/process cleanup separately after every active case.
