@@ -46,11 +46,12 @@ write_environment_evidence() {
 }
 
 write_lifecycle_evidence() {
-  local doctor_check_count mapped_containers upgrade_revision rollback_revision mixed_os_result
+  local doctor_check_count mapped_containers upgrade_revision rollback_revision mixed_os_result service_port
   doctor_check_count=$(jq '.checks | length' "${artifact_dir}/doctor.json")
   mapped_containers=$(jq '.mapping.mapped' "${artifact_dir}/doctor.json")
   upgrade_revision=$(jq -r '.[-2].revision | tonumber' "${work_dir}/helm-history.json")
   rollback_revision=$(jq -r '.[-1].revision | tonumber' "${work_dir}/helm-history.json")
+  service_port=$(jq -er '.ports[0].port' "${work_dir}/expected-service.json")
   mixed_os_result=not_run
   if [ "${windows_nodes}" -gt 0 ]; then
     mixed_os_result=pass
@@ -60,6 +61,7 @@ write_lifecycle_evidence() {
     --arg valuesDigest "${values_digest}" --arg probeImageDigest "${probe_image##*@}" \
     --arg sourceCommit "${source_commit}" --arg cgroupVersion "${cgroup_version}" \
     --arg cniName "${cni_name}" --arg mixedOSResult "${mixed_os_result}" \
+    --argjson servicePort "${service_port}" \
     --argjson linuxNodes "${linux_nodes}" --argjson windowsNodes "${windows_nodes}" \
     --argjson desiredAgents "${desired}" --argjson readyAgents "${ready}" \
     --argjson doctorChecks "${doctor_check_count}" --argjson mappedContainers "${mapped_containers}" \
@@ -84,7 +86,7 @@ write_lifecycle_evidence() {
          mappedContainers:$mappedContainers},
        api:{passed:true,statusHealthy:true,explanationMetadata:true,metricsAvailable:true},
        tui:{passed:true,columns:80,rows:24,cleanExit:true},
-       networkPolicy:{passed:true,cniName:$cniName,servicePort:443,
+       networkPolicy:{passed:true,cniName:$cniName,servicePort:$servicePort,
          allowedControls:2,deniedControls:1,deniedProbeExecuted:true},
        agentRestart:{passed:true,recoverySeconds:$agentSeconds},
        collectorRestart:{passed:true,recoverySeconds:$collectorSeconds},

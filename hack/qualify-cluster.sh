@@ -339,7 +339,7 @@ chmod 600 "${artifact_dir}/doctor.json"
 
 current_check=api
 "${cli}" "${cli_args[@]}" status --output json \
-  | jq '.connection.collector = "redacted" | .connection.description = "redacted"' \
+  | jq -f hack/provider-profiles/sanitise_status.jq \
   > "${artifact_dir}/status.json"
 "${cli}" "${cli_args[@]}" top pods --all-namespaces --output json > "${work_dir}/top.json"
 explanation_raw=${work_dir}/explanation.json

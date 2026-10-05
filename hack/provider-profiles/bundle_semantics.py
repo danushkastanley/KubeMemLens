@@ -126,11 +126,13 @@ def validate_supported_bundle(bundle, pending, receipt):
     tui = lifecycle_checks["tui"]
     upgrade = lifecycle_checks["upgrade"]
     uninstall = lifecycle_checks["uninstall"]
+    expected_service_port = 8443 if pending["profile"]["id"] == "eks-al2023-containerd-amd64" else 443
     strict_facts = (
         prerequisites.get("profileCanonical") is True and prerequisites.get("sourceClean") is True
         and prerequisites.get("providerReceiptBound") is True and install.get("revision") == 1
         and network.get("cniName") == pending["environment"]["cniName"]
-        and network.get("servicePort") == 443 and network.get("allowedControls") == 2
+        and type(network.get("servicePort")) is int
+        and network["servicePort"] == expected_service_port and network.get("allowedControls") == 2
         and network.get("deniedControls") == 1 and network.get("deniedProbeExecuted") is True
         and mounts.get("cgroupPath") == "/sys/fs/cgroup" and mounts.get("readOnly") is True
         and mounts.get("projectedToken") is True and security.get("nonRoot") is True

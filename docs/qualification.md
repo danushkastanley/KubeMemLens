@@ -218,7 +218,13 @@ A passing directory contains mode-`0600` JSON:
 | `recovery.json` | Install-to-explanation plus agent, collector and real-node replacement recovery seconds |
 | `lifecycle.json` | Strict, cross-checked facts for every claimed install, runtime, security, CNI, recovery, upgrade, rollback and uninstall check |
 | `doctor.json` | Strict checks with connection and node names redacted |
-| `status.json` | Bounded store state with connection identifiers redacted |
+| `status.json` | Bounded store state with connection identifiers redacted and query diagnostics omitted |
+
+The lifecycle record uses the collector Service port checked against the rendered
+provider chart. EKS requires 8443; the other supported profiles use 443. Query
+diagnostics are not part of the aggregate status proof; store counts, readiness
+and connection health remain intact, and all retained fields still pass the
+unchanged privacy validator.
 
 Validate the pending schema with `hack/provider-profiles/validate.py --pending`.
 After inspecting the complete bundle and the private provider/cleanup record,
