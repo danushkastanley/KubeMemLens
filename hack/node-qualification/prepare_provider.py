@@ -14,7 +14,7 @@ from observer_specs import ephemeral_observer, host_observer, host_policy
 from network_specs import preview as network_preview
 from provider_plan import serving_ca, validate_config, values
 from provider_source import bind_files
-from provider_probes import identities, pod as probe_pod
+from provider_probes import identities, job as probe_job
 from workload import deployment
 
 HACK = Path(__file__).resolve().parents[1]
@@ -94,7 +94,7 @@ def prepare(profile, config, output, repository=REPOSITORY):
         component: ephemeral_observer(observer_image, component) for component in ("agent", "node-context")})
     write_new(output / "probe-identities.json", {"apiVersion": "v1", "kind": "List", "items": identities(c["namespace"])})
     write_new(output / "probe-pods.preview.json", {"reviewOnly": True, "items": [
-        probe_pod(c, "<selected-node-0>", 0, case, "<selected-node-1>" if case == "wrong-node" else "<selected-node-0>")
+        probe_job(c, "<selected-node-0>", 0, case, "<selected-node-1>" if case == "wrong-node" else "<selected-node-0>")
         for case in ("allowed", "denied", "bad-ca", "wrong-node")]})
     write_new(output / "network-probes.preview.json", network_preview(c["namespace"], observer_image))
     write_new(output / "configuration.private.json", c)

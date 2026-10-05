@@ -68,6 +68,20 @@ class BundleTest(ProviderFixture, unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "fixed generator"):
             self.validate()
 
+    def test_rehashed_standalone_production_probe_is_rejected(self):
+        path = self.output / "probe-pods.preview.json"
+        preview = json.loads(path.read_text())
+        self.assertTrue(all(item['kind'] == 'Job' for item in preview['items']))
+        probe = preview['items'][0]
+        probe['kind'] = 'Pod'
+        probe['apiVersion'] = 'v1'
+        probe['spec'] = probe['spec']['template']['spec']
+        path.write_text(json.dumps(preview))
+        self.plan['files'][path.name] = file_digest(path, 2 * 1024 * 1024)
+        self.reseal()
+        with self.assertRaisesRegex(ContractError, "fixed generator"):
+            self.validate()
+
     def test_changed_bytes_or_extra_files_are_not_adopted(self):
         path = self.output / "baseline-values.json"
         path.write_text(path.read_text() + "\n")
