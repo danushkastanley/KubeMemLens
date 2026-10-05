@@ -5,6 +5,7 @@ import time
 
 from common import ContractError, require
 from owned_resources import Resource
+from job_pods import controlled_pod
 
 RBAC = "rbac.authorization.k8s.io/v1"
 PREFIX = "kube-memlens-node-qualification"
@@ -69,6 +70,38 @@ def require_no_extra_access(k, namespace, account, bindings):
             require(allowed is False, "qualification identity has an unexpected permission")
 
 
+def job(config, node, slot, case, target, timeout=90):
+    require(type(timeout) is int and 1 <= timeout <= 90, "production probe deadline exceeds its bound")
+    document = pod(config, node, slot, case, target)
+    return {"apiVersion": "batch/v1", "kind": "Job",
+            "metadata": {k: document["metadata"][k] for k in ("name", "namespace")},
+            "spec": {"backoffLimit": 0, "activeDeadlineSeconds": timeout,
+                     "template": {"metadata": {"labels": document["metadata"]["labels"]}, "spec": document["spec"]}}}
+
+
+def terminal_pod(parent, ownership, k, node, timeout):
+    resource = Resource.from_object(parent)
+    deadline = time.monotonic() + timeout
+    child = None
+    while True:
+        current_parent = ownership.verify(resource)
+        candidates = json.loads(k("get", "pods", "-n", resource.namespace, "-l",
+                                  "batch.kubernetes.io/controller-uid=" + parent["metadata"]["uid"], "-o", "json"))["items"]
+        current = controlled_pod(current_parent, candidates, node)
+        if current is not None:
+            found = Resource.from_object(current)
+            require(found.kind == "Pod" and found.api_version == "v1", "production probe child is not a Pod")
+            if child is None:
+                child = found
+                ownership.remember(child, current["metadata"]["uid"])
+            require(found == child and current["metadata"]["uid"] == ownership.owned[child],
+                    "production probe Pod was replaced")
+            if current.get("status", {}).get("phase") in {"Succeeded", "Failed"}:
+                return child, current
+        require(time.monotonic() < deadline, "production probe did not finish within its deadline")
+        time.sleep(1)
+
+
 def run_probes(config, bindings, ownership, k, timeout=90):
     require(len(bindings) >= 2, "cross-Node denial requires at least two bound Nodes")
     manifests = identities(config["namespace"])
@@ -82,18 +115,14 @@ def run_probes(config, bindings, ownership, k, timeout=90):
         for case, expected, reason in (("allowed", "Succeeded", None), ("denied", "Failed", "access-denied"),
                                        ("bad-ca", "Failed", "untrusted-tls"), ("wrong-node", "Failed", "invalid-target")):
             target = bindings[(slot + 1) % len(bindings)]["name"] if case == "wrong-node" else binding["name"]
-            manifest = pod(config, binding["name"], slot, case, target)
+            manifest = job(config, binding["name"], slot, case, target, timeout)
             created = ownership.create(manifest)
-            resource = Resource.from_object(created)
-            deadline = time.monotonic() + timeout
-            while True:
-                current = ownership.verify(resource)
-                phase = current.get("status", {}).get("phase")
-                if phase in {"Succeeded", "Failed"}:
-                    break
-                require(time.monotonic() < deadline, "production probe did not finish within its deadline")
-                time.sleep(1)
+            parent = Resource.from_object(created)
+            resource, current = terminal_pod(created, ownership, k, binding["name"], timeout)
+            phase = current["status"]["phase"]
             output = k("logs", resource.name, "-n", resource.namespace, "-c", "probe", maximum=32 * 1024)
+            require(controlled_pod(ownership.verify(parent), [ownership.verify(resource)], binding["name"]) is not None,
+                    "production probe changed during its log read")
             if case == "allowed" and phase == "Failed" and output.strip() in PROBE_FAILURES:
                 raise ContractError(PROBE_FAILURES[output.strip()])
             require(phase == expected, "production probe reached the wrong terminal state")
@@ -107,5 +136,6 @@ def run_probes(config, bindings, ownership, k, timeout=90):
                 require(observation["nodeName"] == binding["name"] and observation["availability"] == "available"
                         and observation["evidence"]["freshness"] == "fresh", "production probe target or freshness differs")
                 observations.append(observation)
+            ownership.delete(parent)
             ownership.delete(resource)
     return observations

@@ -1,18 +1,22 @@
 import json
 import unittest
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from common import ContractError
 from kubernetes_commands import KubernetesCommands
-from provider_probes import identities, pod, run_probes
+from provider_probes import identities, job, run_probes, terminal_pod
+from owned_resources import Resource
 
 
 class ProbeContractTest(unittest.TestCase):
     def test_api_and_kubelet_tokens_have_separate_audiences_and_mounts(self):
         config = {"namespace": "fixture", "imageRepository": "registry.example/image", "imageDigest": "sha256:" + "a" * 64,
                   "kubeletAudience": "kubelet-fixture"}
-        spec = pod(config, "assigned", 0, "wrong-node", "different")["spec"]
+        manifest = job(config, "assigned", 0, "wrong-node", "different", 90)
+        self.assertEqual(manifest['kind'], 'Job')
+        self.assertEqual((manifest['spec']['backoffLimit'], manifest['spec']['activeDeadlineSeconds']), (0, 90))
+        spec = manifest['spec']['template']['spec']
         self.assertFalse(spec["automountServiceAccountToken"])
         self.assertEqual(spec["nodeName"], "assigned")
         self.assertIn("--node-name=different", spec["containers"][0]["args"])
@@ -47,13 +51,24 @@ class ProbeContractTest(unittest.TestCase):
     def test_failed_allowed_probe_retains_only_the_fixed_producer_reason(self):
         config = {"namespace": "fixture", "imageRepository": "registry.example/image", "imageDigest": "sha256:" + "a" * 64,
                   "kubeletAudience": "kubelet-fixture"}
-        owner = SimpleNamespace(require_absent=Mock(), create=lambda document: document,
-                                verify=lambda resource: {"status": {"phase": "Failed"}})
+        objects, owned = {}, {}
+        def create(document):
+            document['metadata']['uid'] = document['metadata']['name'] + '-uid'
+            objects[Resource.from_object(document)] = document
+            return document
+        owner = SimpleNamespace(require_absent=Mock(), create=create,
+                                verify=lambda resource: objects[resource], owned=owned,
+                                remember=lambda resource, uid: owned.update({resource: uid}))
         class Reader:
             def allowed(self, *args):
                 return False
             def __call__(self, *args, **kwargs):
-                return self.output
+                if args[0] == 'logs':
+                    return self.output
+                parent = next(d for d in objects.values() if d['kind'] == 'Job')
+                child = probe_child(parent, 'Failed')
+                objects[Resource.from_object(child)] = child
+                return json.dumps({'items': [child]})
         reader = Reader()
         reader.output = "node-context read failed: access-denied"
         with self.assertRaisesRegex(ContractError, "production stats probe failed: access-denied"):
@@ -63,11 +78,42 @@ class ProbeContractTest(unittest.TestCase):
             run_probes(config, [{"name": "first"}, {"name": "second"}], owner, reader)
         self.assertNotIn("private-credential-data", str(caught.exception))
 
+    def test_replaced_generated_pod_is_rejected_before_log_read(self):
+        parent = {'apiVersion': 'batch/v1', 'kind': 'Job',
+                  'metadata': {'name': 'probe', 'namespace': 'fixture', 'uid': 'job-uid'},
+                  'spec': {'template': {'spec': {'nodeName': 'first'}}}}
+        first = probe_child(parent, 'Pending')
+        second = probe_child(parent, 'Succeeded')
+        second['metadata']['uid'] = 'replacement-pod'
+        owned = {}
+        owner = SimpleNamespace(verify=lambda resource: parent, owned=owned,
+                                remember=lambda resource, uid: owned.update({resource: uid}))
+        reader = Mock(side_effect=[json.dumps({'items': [first]}), json.dumps({'items': [second]})])
+        with patch('provider_probes.time.sleep'), self.assertRaisesRegex(ContractError, 'Pod was replaced'):
+            terminal_pod(parent, owner, reader, 'first', 90)
+        for call in reader.call_args_list:
+            self.assertIn('batch.kubernetes.io/controller-uid=job-uid', call.args)
+
+    def test_probe_job_cannot_exceed_existing_deadline(self):
+        for timeout in (0, 91, True):
+            with self.subTest(timeout=timeout), self.assertRaises(ContractError):
+                job({}, 'node', 0, 'allowed', 'node', timeout)
+
     def test_authorisation_error_does_not_count_as_denied(self):
         for status in ({}, {"allowed": False, "evaluationError": "unavailable"}, {"allowed": "false"}):
             k = KubernetesCommands("/private", "selected", lambda *args, **kwargs: json.dumps({"status": status}))
             with self.assertRaises(ContractError):
                 k.allowed("system:serviceaccount:fixture:probe", "get", "nodes", "proxy")
+
+
+def probe_child(parent, phase):
+    meta = parent['metadata']
+    return {'apiVersion': 'v1', 'kind': 'Pod',
+            'metadata': {'name': 'generated-probe', 'namespace': meta['namespace'], 'uid': 'pod-uid',
+                         'ownerReferences': [{'apiVersion': 'batch/v1', 'kind': 'Job', 'controller': True,
+                                              'name': meta['name'], 'uid': meta['uid']}]},
+            'spec': {'nodeName': parent['spec']['template']['spec']['nodeName']},
+            'status': {'phase': phase}}
 
 
 if __name__ == "__main__":

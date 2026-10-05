@@ -65,22 +65,32 @@ wait_for_probe_phase() {
   local expected=$2
   local phase=
   local probe_json=${work_dir}/${name}.json
+  local job_uid
+  job_uid=$(k get job "${name}" -n "${namespace}" -o jsonpath='{.metadata.uid}')
+  [ -n "${job_uid}" ] || fail "NetworkPolicy probe Job has no UID"
   for _ in $(seq 1 30); do
-    phase=$(k get pod "${name}" -n "${namespace}" -o jsonpath='{.status.phase}' 2>/dev/null || true)
+    k get pods -n "${namespace}" --selector "batch.kubernetes.io/controller-uid=${job_uid}" -o json \
+      > "${probe_json}.list"
+    jq -e --arg uid "${job_uid}" '
+      (.items | length) <= 1 and all(.items[];
+        any(.metadata.ownerReferences[]?; .uid == $uid and .kind == "Job" and .controller == true))
+    ' "${probe_json}.list" >/dev/null || fail "NetworkPolicy probe Pod ownership differs"
+    jq '.items[0] // {}' "${probe_json}.list" > "${probe_json}"
+    phase=$(jq -r '.status.phase // "Pending"' "${probe_json}")
     case "${phase}" in
       Succeeded|Failed) break ;;
     esac
     sleep 2
   done
   [ "${phase}" = "${expected}" ] || fail "NetworkPolicy probe ${name} ended ${phase:-unknown}, expected ${expected}"
-  k get pod "${name}" -n "${namespace}" -o json > "${probe_json}"
   if [ "${expected}" = Succeeded ]; then
     jq -e '.status.containerStatuses[0].state.terminated as $term |
       $term.exitCode == 0 and ($term.startedAt | length > 0) and ($term.finishedAt | length > 0)' \
       "${probe_json}" >/dev/null || fail "allowed NetworkPolicy probe did not execute successfully"
   else
     jq -e '.status.containerStatuses[0].state.terminated as $term |
-      $term.reason == "Error" and $term.exitCode != 0 and
+      $term.reason == "Error" and $term.exitCode > 0 and $term.exitCode < 128 and
+      ($term.signal // 0) == 0 and
       ($term.startedAt | length > 0) and ($term.finishedAt | length > 0)' \
       "${probe_json}" >/dev/null || fail "denied NetworkPolicy probe did not execute to a connection failure"
   fi
@@ -94,7 +104,8 @@ apply_policy_probe() {
   local access=$2
   jq -n --arg name "${name}" --arg namespace "${namespace}" --arg image "${probe_image}" \
     --arg access "${access}" --arg node "${policy_node}" '
-    {apiVersion:"v1", kind:"Pod", metadata:{name:$name, namespace:$namespace,
+    {apiVersion:"batch/v1", kind:"Job", metadata:{name:$name, namespace:$namespace},
+     spec:{backoffLimit:0, activeDeadlineSeconds:60, template:{metadata:{
       labels:{"app.kubernetes.io/name":"kube-memlens-qualification-policy-client",
               "qualification.kubememlens.io/access":$access}},
      spec:{restartPolicy:"Never", automountServiceAccountToken:false,
@@ -105,11 +116,20 @@ apply_policy_probe() {
        containers:[{name:"probe", image:$image,
          command:["/bin/sh","-c","wget -T 5 -qO- http://qualification-policy-target:8080/"],
          securityContext:{allowPrivilegeEscalation:false, readOnlyRootFilesystem:true,
-                          capabilities:{drop:["ALL"]}}}]}}
+                          capabilities:{drop:["ALL"]}}}]}}}}
   ' | k apply -f - >/dev/null
 }
 
 assert_live_network_resources() {
+  helm template "${release}" "${chart_archive}" --namespace "${namespace}" \
+    --values "${values_path}" --set-string namespace.name="${namespace}" \
+    --show-only templates/service.yaml > "${work_dir}/expected-service.yaml"
+  ruby -ryaml -rjson -e '
+    docs = YAML.load_stream(File.read(ARGV.fetch(0))).compact
+    services = docs.select { |d| d["kind"] == "Service" && d.dig("metadata", "name") == "kube-memlens-collector" }
+    abort "expected exactly one rendered collector Service" unless services.length == 1
+    puts JSON.generate(services.first.fetch("spec"))
+  ' "${work_dir}/expected-service.yaml" > "${work_dir}/expected-service.json"
   k get networkpolicy kube-memlens-collector -n "${namespace}" -o json |
     jq -e '
       .spec.podSelector.matchLabels["app.kubernetes.io/name"] == "kube-memlens-collector" and
@@ -117,8 +137,10 @@ assert_live_network_resources() {
       ([.spec.ingress[].ports[]?.port] | sort) == ["extension","http"]
     ' >/dev/null || fail "installed collector NetworkPolicy differs from the standard profile"
   k get service kube-memlens-collector -n "${namespace}" -o json |
-    jq -e '
-      (.spec.ports | length) == 1 and .spec.ports[0].port == 443 and
+    jq -e --slurpfile expected "${work_dir}/expected-service.json" '
+      .spec.type == "ClusterIP" and ($expected[0].ports | length) == 1 and
+      (.spec.ports | length) == 1 and .spec.ports[0].port == $expected[0].ports[0].port and
+      .spec.ports[0].name == $expected[0].ports[0].name and
       .spec.ports[0].targetPort == "extension"
     ' >/dev/null || fail "installed collector Service exposes an unexpected port"
 }
@@ -140,6 +162,10 @@ verify_network_policy_enforcement() {
                           capabilities:{drop:["ALL"]}},
          volumeMounts:[{name:"www",mountPath:"/www"}]}],
        volumes:[{name:"www",emptyDir:{}}]}}
+  ' | jq '. as $pod |
+    {apiVersion:"apps/v1", kind:"Deployment", metadata:$pod.metadata,
+     spec:{replicas:1, selector:{matchLabels:$pod.metadata.labels},
+       template:{metadata:{labels:$pod.metadata.labels}, spec:($pod.spec | .restartPolicy="Always")}}}
   ' | k apply -f - >/dev/null
   jq -n --arg namespace "${namespace}" '
     {apiVersion:"v1", kind:"Service", metadata:{name:"qualification-policy-target",namespace:$namespace},
@@ -154,8 +180,17 @@ verify_network_policy_enforcement() {
              "qualification.kubememlens.io/access":"allowed"}}}],
              ports:[{protocol:"TCP",port:8080}]}]}}
   ' | k apply -f - >/dev/null
-  k wait --for=condition=Ready pod/qualification-policy-target -n "${namespace}" --timeout=2m >/dev/null
-  policy_node=$(k get pod qualification-policy-target -n "${namespace}" -o jsonpath='{.spec.nodeName}')
+  # Select outbound-only probe Jobs explicitly for strict CNI startup. The
+  # server policy still independently distinguishes allowed and denied clients.
+  jq -n --arg namespace "${namespace}" '
+    {apiVersion:"networking.k8s.io/v1",kind:"NetworkPolicy",
+     metadata:{name:"qualification-policy-clients",namespace:$namespace},
+     spec:{podSelector:{matchLabels:{"app.kubernetes.io/name":"kube-memlens-qualification-policy-client"}},
+           policyTypes:["Ingress"],ingress:[]}}
+  ' | k apply -f - >/dev/null
+  k rollout status deployment/qualification-policy-target -n "${namespace}" --timeout=2m >/dev/null
+  policy_node=$(k get pods -n "${namespace}" -l app.kubernetes.io/name=kube-memlens-qualification-policy-target -o json |
+    jq -er 'if (.items | length) == 1 then .items[0].spec.nodeName else error("expected one policy target Pod") end')
   sleep 5
   apply_policy_probe qualification-policy-allowed-before allowed
   wait_for_probe_phase qualification-policy-allowed-before Succeeded
@@ -163,11 +198,11 @@ verify_network_policy_enforcement() {
   wait_for_probe_phase qualification-policy-denied Failed
   apply_policy_probe qualification-policy-allowed-after allowed
   wait_for_probe_phase qualification-policy-allowed-after Succeeded
-  k delete pod qualification-policy-allowed-before qualification-policy-denied \
-    qualification-policy-allowed-after qualification-policy-target \
-    -n "${namespace}" --wait=true >/dev/null
+  k delete job qualification-policy-allowed-before qualification-policy-denied \
+    qualification-policy-allowed-after -n "${namespace}" --cascade=foreground --wait=true >/dev/null
+  k delete deployment qualification-policy-target -n "${namespace}" --cascade=foreground --wait=true >/dev/null
   k delete service qualification-policy-target -n "${namespace}" >/dev/null
-  k delete networkpolicy qualification-policy-target -n "${namespace}" >/dev/null
+  k delete networkpolicy qualification-policy-target qualification-policy-clients -n "${namespace}" >/dev/null
 }
 
 verify_tui_path() {
