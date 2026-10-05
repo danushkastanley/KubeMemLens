@@ -26,7 +26,7 @@ do not promote an existing cgroup receipt into a Node-context result.
   read-only security posture;
 - strict `doctor`, status, mapping, explanation privacy and collector metrics;
 - a real 80x24 TUI launch and clean exit;
-- elapsed seconds from Helm installation start to the first schema-valid explanation with severity, confidence, caveats and evidence-window metadata;
+- elapsed seconds from Helm installation start to the first schema-v3 explanation with severity, confidence, caveats and evidence-window metadata;
 - CNI enforcement through a denied Pod-to-Pod NetworkPolicy probe between two
   allowed probes, with controller-owned Pods and explicit client startup policies;
 - independent agent and collector restart recovery;

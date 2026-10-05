@@ -353,10 +353,8 @@ for _ in $(seq 1 36); do
   sleep 5
 done
 [ "${explanation_ok}" = true ] || fail "collector Pod did not become available for explanation"
-jq -e '.schemaVersion == 1 and (.finding.severity | length > 0) and
-  (.finding.confidence | length > 0) and (.finding.caveats | length > 0) and
-  (.finding.evidenceWindow | type == "object")' "${explanation_raw}" >/dev/null ||
-  fail "machine explanation is missing required diagnosis metadata"
+jq -e -f hack/provider-profiles/validate_explanation.jq "${explanation_raw}" >/dev/null ||
+  fail "machine explanation does not match schema v3 or required diagnosis metadata"
 for sensitive_field in containerID cgroupPath labels podUID; do
   if grep -q "\"${sensitive_field}\"" "${explanation_raw}"; then
     fail "machine explanation contains sensitive field: ${sensitive_field}"
