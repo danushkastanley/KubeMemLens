@@ -82,6 +82,25 @@ class BundleTest(ProviderFixture, unittest.TestCase):
         with self.assertRaisesRegex(ContractError, "fixed generator"):
             self.validate()
 
+    def test_rehashed_probe_policy_removal_or_widening_is_rejected(self):
+        path = self.output / "probe-identities.json"
+        original = path.read_text()
+        for change in ("remove", "all-pods", "all-egress"):
+            with self.subTest(change=change):
+                document = json.loads(original)
+                policy = next(m for m in document["items"] if m["kind"] == "NetworkPolicy")
+                if change == "remove":
+                    document["items"].remove(policy)
+                elif change == "all-pods":
+                    policy["spec"]["podSelector"] = {}
+                else:
+                    policy["spec"]["egress"] = [{}]
+                path.write_text(json.dumps(document))
+                self.plan["files"][path.name] = file_digest(path, 2 * 1024 * 1024)
+                self.reseal()
+                with self.assertRaisesRegex(ContractError, "fixed generator"):
+                    self.validate()
+
     def test_changed_bytes_or_extra_files_are_not_adopted(self):
         path = self.output / "baseline-values.json"
         path.write_text(path.read_text() + "\n")

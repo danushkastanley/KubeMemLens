@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 
 from common import ContractError
 from kubernetes_commands import KubernetesCommands
-from provider_probes import identities, job, run_probes, terminal_pod
+from provider_probes import PROBE_LABEL, identities, job, resources, run_probes, terminal_pod
 from owned_resources import Resource
 
 
@@ -33,6 +33,26 @@ class ProbeContractTest(unittest.TestCase):
         self.assertEqual({r for role in roles for rule in role["rules"] for r in rule["resources"]}, {"nodes", "nodes/stats"})
         self.assertTrue(all(rule["verbs"] == ["get"] for role in roles for rule in role["rules"]))
 
+    def test_probe_policy_limits_routes_and_excludes_product_pods(self):
+        config = {"namespace": "fixture", "apiServerCIDRs": ["10.0.0.2/32", "172.20.0.1/32"],
+                  "nodeCIDRs": ["10.0.1.2/32", "10.0.2.3/32"],
+                  "imageRepository": "registry.example/image", "imageDigest": "sha256:" + "a" * 64,
+                  "kubeletAudience": "kubelet-fixture"}
+        policy = next(m for m in resources(config) if m["kind"] == "NetworkPolicy")
+        spec = policy["spec"]
+        self.assertEqual(spec["policyTypes"], ["Ingress", "Egress"])
+        self.assertEqual(spec["ingress"], [])
+        self.assertEqual(spec["podSelector"], {"matchLabels": {PROBE_LABEL: "true"}})
+        self.assertEqual(spec["egress"], [
+            {"to": [{"ipBlock": {"cidr": "10.0.0.2/32"}}, {"ipBlock": {"cidr": "172.20.0.1/32"}}],
+             "ports": [{"protocol": "TCP", "port": 443}, {"protocol": "TCP", "port": 6443}]},
+            {"to": [{"ipBlock": {"cidr": "10.0.1.2/32"}}, {"ipBlock": {"cidr": "10.0.2.3/32"}}],
+             "ports": [{"protocol": "TCP", "port": 10250}]},
+        ])
+        for case in ("allowed", "denied", "bad-ca", "wrong-node"):
+            labels = job(config, "first", 0, case, "first")["spec"]["template"]["metadata"]["labels"]
+            self.assertEqual(labels[PROBE_LABEL], "true")
+
     def test_authorisation_decision_uses_typed_review_and_exact_target(self):
         calls = []
         def run(args, **kwargs):
@@ -50,9 +70,13 @@ class ProbeContractTest(unittest.TestCase):
 
     def test_failed_allowed_probe_retains_only_the_fixed_producer_reason(self):
         config = {"namespace": "fixture", "imageRepository": "registry.example/image", "imageDigest": "sha256:" + "a" * 64,
-                  "kubeletAudience": "kubelet-fixture"}
+                  "kubeletAudience": "kubelet-fixture", "apiServerCIDRs": ["10.0.0.2/32"],
+                  "nodeCIDRs": ["10.0.1.2/32", "10.0.2.3/32"]}
         objects, owned = {}, {}
         def create(document):
+            if document['kind'] == 'Job':
+                self.assertTrue(any(d['kind'] == 'NetworkPolicy' for d in objects.values()),
+                                'strict-CNI egress must exist before the first probe')
             document['metadata']['uid'] = document['metadata']['name'] + '-uid'
             objects[Resource.from_object(document)] = document
             return document

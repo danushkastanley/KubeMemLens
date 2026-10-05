@@ -12,7 +12,7 @@ from kubernetes_runtime import KubernetesRuntime
 from live_images import verify as verify_images
 from owned_resources import OwnedResources, Resource
 from provider_install import Installer
-from provider_probes import identities, require_no_extra_access, run_probes
+from provider_probes import resources as probe_resources, require_no_extra_access, run_probes
 from sample_nodes import measure_nodes
 from window_contract import join_windows
 
@@ -44,8 +44,7 @@ class Execution:
 
     def preflight(self):
         self.installer.preflight()
-        namespace = self.bundle.configuration["namespace"]
-        self.ownership.require_absent([Resource.from_object(m) for m in identities(namespace)])
+        self.ownership.require_absent([Resource.from_object(m) for m in probe_resources(self.bundle.configuration)])
         authentication = json.loads(self.k("get", "configmap", "extension-apiserver-authentication", "-n", "kube-system", "-o", "json"))
         names = json.loads(authentication.get("data", {}).get("requestheader-allowed-names", "[]"))
         require(isinstance(names, list) and names and all(isinstance(n, str) and n for n in names),
