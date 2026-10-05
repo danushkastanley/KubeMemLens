@@ -9,6 +9,7 @@ from job_pods import controlled_pod
 
 RBAC = "rbac.authorization.k8s.io/v1"
 PREFIX = "kube-memlens-node-qualification"
+PROBE_LABEL = "qualification.kubememlens.io/producer-probe"
 # Only the producer's fixed reason vocabulary may leave its private log stream.
 PROBE_FAILURES = {"node-context read failed: " + reason: "production stats probe failed: " + reason
                   for reason in ("unsupported-profile", "invalid-target", "untrusted-tls", "authentication-failed",
@@ -32,12 +33,28 @@ def identities(namespace):
     return result
 
 
+def resources(config):
+    # Probes run before the chart is installed. Strict default-deny CNIs need
+    # their own policy; its selector must never grant the later producer access.
+    policy = {"apiVersion": "networking.k8s.io/v1", "kind": "NetworkPolicy",
+              "metadata": {"name": PREFIX + "-probe", "namespace": config["namespace"]},
+              "spec": {"podSelector": {"matchLabels": {PROBE_LABEL: "true"}},
+                       "policyTypes": ["Ingress", "Egress"], "ingress": [],
+                       "egress": [
+                           {"to": [{"ipBlock": {"cidr": route}} for route in config["apiServerCIDRs"]],
+                            "ports": [{"protocol": "TCP", "port": 443}, {"protocol": "TCP", "port": 6443}]},
+                           {"to": [{"ipBlock": {"cidr": route}} for route in config["nodeCIDRs"]],
+                            "ports": [{"protocol": "TCP", "port": 10250}]},
+                       ]}}
+    return identities(config["namespace"]) + [policy]
+
+
 def pod(config, node, slot, case, target):
     namespace = config["namespace"]
     account = "deny" if case == "denied" else "allow"
     trust = PREFIX + "-invalid-trust" if case == "bad-ca" else "node-context-trust"
     return {"apiVersion": "v1", "kind": "Pod", "metadata": {"name": f"qualification-{case}-{slot}", "namespace": namespace,
-            "labels": {"app.kubernetes.io/name": "kube-memlens-node-context"}},
+            "labels": {"app.kubernetes.io/name": "kube-memlens-node-context", PROBE_LABEL: "true"}},
             "spec": {"nodeName": node, "serviceAccountName": PREFIX + "-" + account, "automountServiceAccountToken": False,
                      "restartPolicy": "Never", "securityContext": {"runAsNonRoot": True, "runAsUser": 65532, "runAsGroup": 65532,
                      "fsGroup": 65532, "seccompProfile": {"type": "RuntimeDefault"}},
@@ -104,7 +121,7 @@ def terminal_pod(parent, ownership, k, node, timeout):
 
 def run_probes(config, bindings, ownership, k, timeout=90):
     require(len(bindings) >= 2, "cross-Node denial requires at least two bound Nodes")
-    manifests = identities(config["namespace"])
+    manifests = resources(config)
     ownership.require_absent([Resource.from_object(m) for m in manifests])
     for manifest in manifests:
         ownership.create(manifest)

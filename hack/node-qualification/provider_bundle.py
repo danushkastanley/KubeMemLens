@@ -12,7 +12,7 @@ from network_specs import preview as network_preview
 from prepare_provider import REPOSITORY, local_command
 from provider_plan import file_digest, serving_ca, validate_config, values
 from provider_source import bind_files
-from provider_probes import identities, job as probe_job
+from provider_probes import resources as probe_resources, job as probe_job
 from verify_chart_archive import verify_archive, verify_chart_metadata
 from workload import deployment
 
@@ -109,7 +109,7 @@ def validate_resources(root, profile, config, plan):
         "workload.json": deployment(profile["workload"], namespace, {"nodeSelector": selector}),
         "host-observers.json": {"apiVersion": "v1", "kind": "List", "items": [host_policy(namespace), host_observer(namespace, image, selector)]},
         "ephemeral-observers.json": {component: ephemeral_observer(image, component) for component in ("agent", "node-context")},
-        "probe-identities.json": {"apiVersion": "v1", "kind": "List", "items": identities(namespace)},
+        "probe-identities.json": {"apiVersion": "v1", "kind": "List", "items": probe_resources(config)},
         "network-probes.preview.json": network_preview(namespace, image),
     }
     for name, document in expected.items():
