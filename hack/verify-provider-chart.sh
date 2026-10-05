@@ -44,6 +44,61 @@ render_template extension-cert-bootstrap.yaml "${work_dir}/bootstrap.yaml"
 render_template networkpolicy.yaml "${work_dir}/networkpolicy.yaml"
 render_template service.yaml "${work_dir}/service.yaml"
 
+for mode in enabled disabled agent-only collector-only; do
+  options=(--namespace chart-owner --set-string namespace.name=workloads)
+  case "${mode}" in
+    disabled) options+=(--set networkPolicy.enabled=false) ;;
+    agent-only) options+=(--set collector.enabled=false) ;;
+    collector-only) options+=(--set agent.enabled=false) ;;
+  esac
+  helm template strict-policy-owner "${chart}" "${options[@]}" > "${work_dir}/${mode}-policies.yaml"
+done
+
+ruby -ryaml - "${work_dir}" <<'RUBY'
+def documents(path)
+  File.read(path).split(/^---[ \t]*$/).map { |part| YAML.safe_load(part, aliases: true) }.compact
+end
+expected = {
+  "enabled" => %w[kube-memlens-agent kube-memlens-cert-bootstrap kube-memlens-test],
+  "disabled" => [],
+  "agent-only" => %w[kube-memlens-agent],
+  "collector-only" => %w[kube-memlens-cert-bootstrap kube-memlens-test]
+}
+expected.each do |mode, names|
+  docs = documents(File.join(ARGV.first, "#{mode}-policies.yaml"))
+  policies = docs.select { |doc| doc["kind"] == "NetworkPolicy" }
+  components = policies.reject { |doc| doc.dig("metadata", "name") == "kube-memlens-collector" }
+  abort "component policies differ for #{mode}" unless components.map { |doc| doc.dig("metadata", "name") }.sort == names.sort
+  pods = docs.select { |doc| %w[DaemonSet Deployment Job].include?(doc["kind"]) }
+  components.each do |policy|
+    name = policy.dig("metadata", "name")
+    spec = policy.fetch("spec")
+    abort "component policy changes egress isolation" unless spec["policyTypes"] == ["Ingress"] && !spec.key?("egress")
+    abort "component policy permits unsolicited ingress" unless spec["ingress"] == []
+    selector = spec.fetch("podSelector").fetch("matchLabels")
+    selected = pods.select do |pod|
+      labels = pod.dig("spec", "template", "metadata", "labels")
+      selector.all? { |key, value| labels[key] == value }
+    end
+    workload_name = {"kube-memlens-test" => "strict-policy-owner-test-connection"}.fetch(name, name)
+    abort "component policy selects the wrong workload" unless selected.map { |pod| pod.dig("metadata", "name") } == [workload_name]
+    abort "component policy namespace differs" unless policy.dig("metadata", "namespace") == "workloads"
+  end
+  abort "disabled network policy still renders policies" if mode == "disabled" && !policies.empty?
+end
+hooks = documents(File.join(ARGV.first, "enabled-policies.yaml")).select do |doc|
+  doc.dig("metadata", "name") == "kube-memlens-cert-bootstrap" && doc.dig("metadata", "annotations", "helm.sh/hook")
+end
+abort "certificate hooks missing" if hooks.empty?
+hooks.each do |hook|
+  annotations = hook.fetch("metadata").fetch("annotations")
+  abort "hook ownership cannot be verified during cleanup" unless annotations["meta.helm.sh/release-name"] == "strict-policy-owner" && annotations["meta.helm.sh/release-namespace"] == "chart-owner"
+  deletion = annotations.fetch("helm.sh/hook-delete-policy").split(",")
+  abort "failed certificate hooks lose their diagnostics" if deletion.include?("hook-failed")
+  abort "certificate hook cleanup lifecycle differs" unless deletion.sort == %w[before-hook-creation hook-succeeded]
+end
+RUBY
+
 # Keep heap page behaviour explicit on both long-running standard services.
 ruby -ryaml - "${work_dir}/daemonset.yaml" "${work_dir}/deployment.yaml" <<'RUBY'
 ARGV.each do |path|

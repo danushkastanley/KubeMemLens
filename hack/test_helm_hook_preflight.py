@@ -11,16 +11,19 @@ IMAGE = 'public.ecr.aws/docker/library/busybox@sha256:' + 'a' * 64
 
 
 def hook(image=IMAGE):
-    return {'kind': 'Pod', 'metadata': {'labels': {'app.kubernetes.io/name': 'kube-memlens-test'}},
-            'spec': {'automountServiceAccountToken': False, 'restartPolicy': 'Never',
-                     'securityContext': {'runAsNonRoot': True, 'runAsUser': 65532,
-                                         'runAsGroup': 65532, 'seccompProfile': {'type': 'RuntimeDefault'}},
-                     'containers': [{'name': 'connection', 'image': image,
-                                     'resources': {'requests': {'cpu': '1m', 'memory': '4Mi'},
-                                                   'limits': {'memory': '16Mi'}},
-                                     'securityContext': {'privileged': False, 'readOnlyRootFilesystem': True,
-                                                         'allowPrivilegeEscalation': False,
-                                                         'capabilities': {'drop': ['ALL']}}}]}}
+    labels = {'app.kubernetes.io/name': 'kube-memlens-test'}
+    spec = {'automountServiceAccountToken': False, 'restartPolicy': 'Never',
+            'securityContext': {'runAsNonRoot': True, 'runAsUser': 65532,
+                                'runAsGroup': 65532, 'seccompProfile': {'type': 'RuntimeDefault'}},
+            'containers': [{'name': 'connection', 'image': image,
+                            'resources': {'requests': {'cpu': '1m', 'memory': '4Mi'},
+                                          'limits': {'memory': '16Mi'}},
+                            'securityContext': {'privileged': False, 'readOnlyRootFilesystem': True,
+                                                'allowPrivilegeEscalation': False,
+                                                'capabilities': {'drop': ['ALL']}}}]}
+    return {'kind': 'Job', 'metadata': {'labels': labels},
+            'spec': {'backoffLimit': 0, 'activeDeadlineSeconds': 300,
+                     'template': {'metadata': {'labels': dict(labels)}, 'spec': spec}}}
 
 
 class HookPreflightTests(unittest.TestCase):
@@ -101,7 +104,32 @@ if os.environ['HOOK_PULL_FAIL']=='1':
 
     def test_multiple_hook_containers_are_rejected_before_docker(self):
         document = hook()
-        document['spec']['containers'].append(document['spec']['containers'][0].copy())
+        containers = document['spec']['template']['spec']['containers']
+        containers.append(containers[0].copy())
+        self.fixture.write_text(json.dumps(document))
+        result, calls = self.run_preflight()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(calls, [])
+
+    def test_standalone_pod_is_rejected_before_docker(self):
+        document = hook()
+        document.update(kind='Pod', spec=document['spec']['template']['spec'])
+        self.fixture.write_text(json.dumps(document))
+        result, calls = self.run_preflight()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(calls, [])
+
+    def test_job_retries_deadline_and_policy_selector_are_required(self):
+        for field, value in [('backoffLimit', 1), ('activeDeadlineSeconds', 0)]:
+            with self.subTest(field=field):
+                document = hook()
+                document['spec'][field] = value
+                self.fixture.write_text(json.dumps(document))
+                result, calls = self.run_preflight()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertEqual(calls, [])
+        document = hook()
+        document['spec']['template']['metadata']['labels'] = {}
         self.fixture.write_text(json.dumps(document))
         result, calls = self.run_preflight()
         self.assertNotEqual(result.returncode, 0)

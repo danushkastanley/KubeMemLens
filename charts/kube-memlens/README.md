@@ -67,6 +67,17 @@ cgroup v1 nodes are not silently treated as supported.
 
 The collector must remain at one replica because replicas do not share state. The chart rejects other replica counts.
 
+With `networkPolicy.enabled`, the agent, certificate-bootstrap Job and test Job have
+explicit ingress-only policies that deny incoming Pod traffic. Their listeners
+are loopback-only or absent. These policies also cover their startup on CNIs
+that require an explicit policy, such as Amazon VPC CNI in strict mode.
+Administrator-defined egress restrictions still apply: permit their Kubernetes
+API requests and, for certificate rotation, DNS and the collector's TLS Service.
+
+Failed certificate hooks retain their Jobs and logs for diagnosis until the next
+hook attempt or namespace removal. Their RBAC objects carry the Helm release's
+ownership annotations so interrupted-install cleanup can verify their owner.
+
 The agent and collector set `GODEBUG=disablethp=1` to limit heap memory overhead
 on Linux nodes with transparent huge pages enabled. This process-local Go
 setting can trade CPU time for a smaller working set; it does not change host
@@ -80,7 +91,7 @@ mandatory; a conflicting OS value is rejected. An unmatched selector leaves the
 collector Pending until a matching node is available. This does not change the
 agent DaemonSet's separate `agent.nodeSelector`.
 
-The chart ships a strict values schema and a `helm test` hook that checks the collector's TLS Service from a non-root, capability-free Pod. Run it after install, upgrade and rollback:
+The chart ships a strict values schema and a `helm test` Job that checks the collector's TLS Service from a non-root, capability-free Pod. The Job provides controller ownership for network-policy enforcement, with no Job retry and a five-minute deadline. Run it after install, upgrade and rollback:
 
 ```sh
 helm test kube-memlens --namespace kube-memlens
