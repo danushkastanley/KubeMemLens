@@ -202,4 +202,11 @@ kubectl get all -n kube-memlens
 kubectl delete namespace kube-memlens
 ```
 
-The chart installs no CRDs or persistent volumes. Uninstall removes the workloads, Services, ServiceAccounts, RBAC objects and NetworkPolicy managed by the release. RoleBindings or ClusterRoleBindings created separately by an administrator are not Helm-owned; remove them before uninstall. If an uninstall was interrupted, verify that the agent, namespace-viewer, cluster-viewer and metrics-reader ClusterRoles are absent and that `kube-system/kube-memlens-extension-authentication-reader` no longer exists.
+The chart installs no CRDs or persistent volumes. Uninstall removes the workloads, Services, ServiceAccounts, RBAC objects and NetworkPolicies managed by the release. RoleBindings or ClusterRoleBindings created separately by an administrator are not Helm-owned; remove them before uninstall. If an uninstall was interrupted, verify that the agent, namespace-viewer, cluster-viewer and metrics-reader ClusterRoles are absent and that `kube-system/kube-memlens-extension-authentication-reader` no longer exists.
+
+After a certificate-bootstrap failure, inspect the retained Job logs before
+cleanup. The next hook attempt replaces its previous hook resources. If removing
+the failed installation instead, also check the `kube-memlens-cert-bootstrap`
+ClusterRole and ClusterRoleBinding; verify their `meta.helm.sh/release-name` and
+`meta.helm.sh/release-namespace` annotations before deleting them. Failed hook
+resources are retained for diagnosis and are not ordinary Helm-managed objects.

@@ -4,12 +4,18 @@ require 'yaml'
 
 documents = YAML.load_stream(File.read(ARGV.fetch(0))).compact
 hooks = documents.select do |document|
-  document['kind'] == 'Pod' &&
+  document['kind'] == 'Job' &&
     document.dig('metadata', 'labels', 'app.kubernetes.io/name') == 'kube-memlens-test'
 end
 abort 'expected exactly one connection test hook' unless hooks.length == 1
 
-spec = hooks.first.fetch('spec')
+job = hooks.first.fetch('spec')
+abort 'connection hook must have one bounded Job attempt' unless
+  job.fetch('backoffLimit') == 0 && job.fetch('activeDeadlineSeconds') == 300
+template = job.fetch('template')
+abort 'connection hook Pod must match its network policy' unless
+  template.dig('metadata', 'labels', 'app.kubernetes.io/name') == 'kube-memlens-test'
+spec = template.fetch('spec')
 containers = spec.fetch('containers')
 abort 'expected exactly one connection test container' unless containers.length == 1
 container = containers.fetch(0)

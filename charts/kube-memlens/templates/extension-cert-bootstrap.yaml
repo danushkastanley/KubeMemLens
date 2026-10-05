@@ -1,7 +1,9 @@
 {{- if .Values.collector.enabled }}
 {{- $hookAnnotations := dict
+      "meta.helm.sh/release-name" .Release.Name
+      "meta.helm.sh/release-namespace" .Release.Namespace
       "helm.sh/hook" "post-install,post-upgrade,post-rollback"
-      "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded,hook-failed" -}}
+      "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded" -}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
