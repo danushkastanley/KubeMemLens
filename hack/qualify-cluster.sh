@@ -134,7 +134,7 @@ for output in qualification-summary.json provider-qualification.pending.json pro
   [ ! -e "${artifact_dir}/${output}" ] || fail "refusing to overwrite ${artifact_dir}/${output}"
 done
 
-for command in expect go helm jq kubectl python3; do
+for command in expect go helm jq kubectl python3 ruby; do
   command -v "${command}" >/dev/null 2>&1 || fail "required command not found: ${command}"
 done
 
