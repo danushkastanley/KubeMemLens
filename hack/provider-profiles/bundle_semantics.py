@@ -14,6 +14,18 @@ from evidence_manifest import (
 from profile_contract import CHECK_IDS
 
 
+# The archived alpha.3 EKS run predates the explicit EKS Service-port override.
+LEGACY_EKS_VALUES_DIGEST = "sha256:ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+
+
+def expected_service_port(pending):
+    if pending["profile"]["id"] != "eks-al2023-containerd-amd64":
+        return 443
+    if pending["artefacts"]["valuesDigest"] == LEGACY_EKS_VALUES_DIGEST:
+        return 443
+    return 8443
+
+
 def _non_negative_integers(value, names):
     return isinstance(value, dict) and all(
         type(value.get(name)) is int and value[name] >= 0 for name in names
@@ -130,7 +142,8 @@ def validate_supported_bundle(bundle, pending, receipt):
         prerequisites.get("profileCanonical") is True and prerequisites.get("sourceClean") is True
         and prerequisites.get("providerReceiptBound") is True and install.get("revision") == 1
         and network.get("cniName") == pending["environment"]["cniName"]
-        and network.get("servicePort") == 443 and network.get("allowedControls") == 2
+        and type(network.get("servicePort")) is int
+        and network["servicePort"] == expected_service_port(pending) and network.get("allowedControls") == 2
         and network.get("deniedControls") == 1 and network.get("deniedProbeExecuted") is True
         and mounts.get("cgroupPath") == "/sys/fs/cgroup" and mounts.get("readOnly") is True
         and mounts.get("projectedToken") is True and security.get("nonRoot") is True

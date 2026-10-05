@@ -3,6 +3,7 @@
 import json
 
 from evidence_manifest import create_manifest
+from bundle_semantics import expected_service_port
 
 
 def lifecycle_document(pending, measurement=12):
@@ -35,7 +36,8 @@ def lifecycle_document(pending, measurement=12):
                     "metricsAvailable": True},
             "tui": {"passed": True, "columns": 80, "rows": 24, "cleanExit": True},
             "networkPolicy": {"passed": True, "cniName": environment["cniName"],
-                              "servicePort": 443, "allowedControls": 2, "deniedControls": 1,
+                              "servicePort": expected_service_port(pending),
+                              "allowedControls": 2, "deniedControls": 1,
                               "deniedProbeExecuted": True},
             "agentRestart": {"passed": True, "recoverySeconds": 8},
             "collectorRestart": {"passed": True, "recoverySeconds": 9},
