@@ -221,7 +221,9 @@ A passing directory contains mode-`0600` JSON:
 | `status.json` | Bounded store state with connection identifiers redacted and query diagnostics omitted |
 
 The lifecycle record uses the collector Service port checked against the rendered
-provider chart. EKS requires 8443; the other supported profiles use 443. Query
+provider chart. The current EKS profile requires 8443; the other supported
+profiles use 443. Archived EKS receipts retain port 443 only when bound to their
+original values digest. Query
 diagnostics are not part of the aggregate status proof; store counts, readiness
 and connection health remain intact, and all retained fields still pass the
 unchanged privacy validator.

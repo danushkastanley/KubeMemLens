@@ -51,6 +51,12 @@ class LifecyclePortTests(unittest.TestCase):
             with self.subTest(profile=profile):
                 self.validate_port(profile, port)
 
+    def test_archived_eks_receipt_keeps_its_original_port_contract(self):
+        root = REPO / 'docs/qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/eks-al2023-containerd-amd64'
+        pending = json.loads((root / 'provider-qualification.pending.json').read_text())
+        receipt = json.loads((root / 'provider-inventory.json').read_text())
+        validate_supported_bundle(root, pending, receipt)
+
     def test_wrong_and_non_integer_ports_are_rejected(self):
         for profile, port in [('eks-al2023-containerd-amd64', 443),
                               ('gke-cos-containerd-amd64', 8443),

@@ -3,6 +3,7 @@
 import json
 
 from evidence_manifest import create_manifest
+from bundle_semantics import expected_service_port
 
 
 def lifecycle_document(pending, measurement=12):
@@ -35,7 +36,7 @@ def lifecycle_document(pending, measurement=12):
                     "metricsAvailable": True},
             "tui": {"passed": True, "columns": 80, "rows": 24, "cleanExit": True},
             "networkPolicy": {"passed": True, "cniName": environment["cniName"],
-                              "servicePort": 8443 if pending["profile"]["id"] == "eks-al2023-containerd-amd64" else 443,
+                              "servicePort": expected_service_port(pending),
                               "allowedControls": 2, "deniedControls": 1,
                               "deniedProbeExecuted": True},
             "agentRestart": {"passed": True, "recoverySeconds": 8},
