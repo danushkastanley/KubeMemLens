@@ -33,7 +33,7 @@ type SampleSource interface {
 func (s *Source) volumeBatch(ctx context.Context, data []byte, nodeName, nodeUID string, at time.Time) (*volumecontext.Batch, error) {
 	records, omitted, err := decodeVolumes(ctx, data, nodeUID)
 	state := volumecontext.SourceState(volumehealth.Reported, "")
-	batch, validationErr := volumecontext.NewBatch(nodeName, nodeUID, at, state, records, at)
+	batch, expired, validationErr := volumecontext.NewSourceBatch(nodeName, nodeUID, at, state, records, at)
 	if err != nil || validationErr != nil {
 		s.opts.Telemetry.recordVolumes(0, omitted, errors.Join(err, validationErr))
 		// Identity and report time came from the successful Node source. A
@@ -45,7 +45,7 @@ func (s *Source) volumeBatch(ctx context.Context, data []byte, nodeName, nodeUID
 		}
 		return &batch, nil
 	}
-	s.opts.Telemetry.recordVolumes(len(records), omitted, nil)
+	s.opts.Telemetry.recordVolumes(batch.Len(), omitted+expired, nil)
 	return &batch, nil
 }
 
