@@ -1,16 +1,19 @@
 # Support and compatibility contract
 
-The [RC2 preparation](release-preparation-rc2.md) changes the TUI, gRPC and Go
-toolchain. Historical qualification rows below retain their original artefact
-bindings and do not constitute RC2 qualification or widen its provider claims.
-
 This is the canonical support contract for KubeMemLens. Other documents link here instead of defining their own provider, runtime, availability or retention promises.
 
-[`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public evaluation candidate for `v1.0.0`. It is an immutable prerelease, not a stable production-support promise. Stable `v1.0.0` is not approved or published. Provider support below is limited to the immutable artefacts and environment versions in the one-time reviewed evidence; it is not a promise that every later provider or KubeMemLens version has been rerun.
+The standard `v1.0.0` release provides read-only memory inspection with
+authenticated agent writes and tenant-scoped reads. Essential AWS EKS testing
+covered inspection, capture/replay, access isolation, recovery and cleanup.
+[Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
+
+Historical provider, scale and terminal evidence remains bound to its recorded
+artefacts and environment. Optional profiles retain their specific contracts;
+standard release publication does not promote the separate eBPF extension.
 
 ## Current provider scope
 
-`v1.0.0-rc.1` was tested on AWS EKS. Current provider support is focused on EKS
+Current provider support is focused on EKS
 managed Linux nodes with AL2023, containerd and amd64. Other providers and
 self-managed environments are outside the current support scope. The historical
 results below retain their original version and environment boundaries.
