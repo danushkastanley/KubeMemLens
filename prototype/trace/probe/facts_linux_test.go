@@ -135,6 +135,8 @@ func TestLSMInventoryDoesNotExposeLabelsOrAssumeMissingMeansDisabled(t *testing.
 		reason p.Reason
 	}{
 		{map[string]string{"/sys/kernel/security/lsm": "capability,bpf,landlock"}, p.Supported, p.Available},
+		{map[string]string{"/sys/kernel/security/lsm": "lockdown,capability,landlock,yama,safesetid,selinux,bpf,ima"}, p.Supported, p.Available},
+		{map[string]string{"/sys/kernel/security/lsm": "capability,ima,unknown-module"}, p.Degraded, p.PolicyUnreported},
 		{map[string]string{"/proc/self/attr/current": "private-tenant-label (enforce)"}, p.Supported, p.Available},
 		{map[string]string{"/proc/self/attr/current": "private-tenant-label (complain)"}, p.Degraded, p.PolicyUnreported},
 		{map[string]string{"/sys/kernel/security/lsm": "unknown-module"}, p.Degraded, p.PolicyUnreported},
