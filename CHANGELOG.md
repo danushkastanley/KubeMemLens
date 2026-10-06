@@ -6,6 +6,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ### Fixes
 
+- Preserve current volume measurements when another kubelet filesystem sample has expired; count expired source records as omissions without changing their timestamps or ingestion limits.
 - Match provider qualification to the rendered Service port and use controller-owned, bounded network-policy probes on strict CNIs.
 - Give agent and Helm-hook Pods explicit ingress policies for strict CNI startup, while preserving namespace egress restrictions. Run the connection probe as a bounded Job so its Pod has controller ownership.
 - Retain failed certificate-hook diagnostics and annotate hook resources with their Helm release identity for verified cleanup after interrupted installation.
