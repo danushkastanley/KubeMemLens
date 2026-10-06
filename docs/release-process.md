@@ -2,6 +2,16 @@
 
 KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer review.
 
+## v1.0.0 maintainer decision — 6 October 2026
+
+For `v1.0.0`, the maintainer accepted the completed project and essential EKS
+testing and authorised the existing release workflows and their built-in
+checks. User feedback is collected through GitHub issues after release. This
+release-specific decision replaces the three-adopter requirement below.
+Protected GitHub environment approval, signed artefact verification,
+reproducibility and exact-byte promotion remain unchanged. Use
+`v1.0.0-rc.3` to freeze the current source before promoting it to `v1.0.0`.
+
 ## Pre-release gate
 
 1. Start from a clean, reviewed commit on `main`.

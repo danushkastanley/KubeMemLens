@@ -1,17 +1,13 @@
 # Installation, Upgrade, and Uninstall
 
-`v1.0.0-rc.2` is in preparation and has no published image or chart digest.
-Follow [the preparation record](release-preparation-rc2.md) for its gates.
-The commands below install RC1; do not substitute an RC2 repository path
-until its signed candidate manifest is published.
+Install KubeMemLens `v1.0.0` and use the terminal dashboard to inspect workload
+memory. Essential EKS testing covered the core inspection and incident paths,
+access isolation, recovery and cleanup.
+[Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
 
-[`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public evaluation candidate for `v1.0.0`. It is an immutable prerelease, not a supported production release. Stable `v1.0.0` is not approved or published. Use exact versions and digests, and review the [support and compatibility contract](compatibility.md) and release assets before installation.
-
-Do not turn the local tenant-isolation result into a generic shared-cluster
-support claim. Exact provider and enforcing-CNI evidence still bounds that
-claim. The candidate chart routes agent writes
-and operator reads through the authenticated Kubernetes aggregated API and
-denies direct workload reads in its secure profile.
+Use the [support and compatibility contract](compatibility.md) for environment
+and permission requirements. The standard chart uses the authenticated
+Kubernetes aggregated API for agent writes and operator reads.
 
 ## Requirements
 
@@ -59,66 +55,30 @@ by default. Follow the [Node-context enablement guide](node-context.md#enablemen
 for CA, audience, network ranges, explicit collector sizing and the separate
 Node-only viewer role. Managed-provider support remains unqualified.
 
-## Candidate and stable install
-
-### Candidate prerelease
-
-Install the published `v1.0.0-rc.1` chart from the version-scoped candidate
-repositories and pin the image digest from the signed
-`candidate-manifest.json`. The candidate chart carries prospective stable
-metadata:
-
-```sh
-helm upgrade --install kube-memlens \
-  oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.1/charts/kube-memlens \
-  --version 1.0.0 \
-  --namespace kube-memlens \
-  --create-namespace \
-  --set-string image.repository=ghcr.io/danushkastanley/candidates/1.0.0-rc.1/kube-memlens \
-  --set-string image.digest=sha256:a5963f8bb8e68359cd3648cf9c6064309772b3794a5bf51547ff314ba559e809
-```
-
-Both overrides are required because candidate chart bytes must remain identical
-to the later stable chart. The manifest digest already includes its `sha256:`
-prefix. Do not substitute the stable image repository before promotion. Release
-archives, checksums, SBOMs, signatures and provenance are attached to the
-immutable candidate release.
-
-### Prepared RC2 (not published)
-
-RC2 is still under review. Its planned chart location is
-`oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.2/charts/kube-memlens`
-with `--version 1.0.0`; its image repository is
-`ghcr.io/danushkastanley/candidates/1.0.0-rc.2/kube-memlens`.
-Do not install these locations until publication. Use the exact image digest
-from RC2's signed `candidate-manifest.json`, never the RC1 digest above.
-
-### Stable release (not published)
-
-The production repositories are not valid yet. Stable `v1.0.0` requires a
-separate decision and exact-tag approval. If it is later published, it must
-contain the same chart and image bytes as the candidate:
+## Install v1.0.0
 
 ```sh
 helm upgrade --install kube-memlens \
   oci://ghcr.io/danushkastanley/charts/kube-memlens \
   --version 1.0.0 \
   --namespace kube-memlens \
-  --create-namespace \
-  --set-string image.digest=sha256:<promoted-image-digest>
+  --create-namespace
 ```
 
-For qualification or policy-controlled installations, pin the workload artefact independently of the chart version:
+The chart selects the version-matched standard image. To pin its immutable
+digest, set `image.digest` to the complete `sha256:` value from the signed
+`promotion-subjects.txt` in the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0).
 
-```sh
-helm upgrade --install kube-memlens ./charts/kube-memlens \
-  --namespace kube-memlens \
-  --create-namespace \
-  --set-string image.repository=ghcr.io/danushkastanley/kube-memlens \
-  --set-string image.digest=sha256:<64-lowercase-hex-characters>
-```
+### Release candidate artefacts
 
-`image.digest` takes precedence over `image.tag` and rejects anything other than an exact SHA-256 value. Use [the existing-cluster qualification runbook](qualification.md) before adding a provider/runtime combination to the support contract.
+The `v1.0.0-rc.3` candidate uses
+`oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.3/charts/kube-memlens`
+with `--version 1.0.0` and image repository
+`ghcr.io/danushkastanley/candidates/1.0.0-rc.3/kube-memlens`.
+Candidate installs override the image repository and pin the image digest from
+its signed `candidate-manifest.json`. Stable promotion preserves those exact
+archive, image and chart bytes.
+
 
 ## Verify an install
 

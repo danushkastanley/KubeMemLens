@@ -1,5 +1,11 @@
 # v1 candidate evidence and blocker register
 
+Current release decision: the maintainer approved `v1.0.0` on 6 October 2026
+using completed project/EKS testing and the protected release workflow.
+[The release process](release-process.md#v100-maintainer-decision--6-october-2026)
+records this decision. The earlier pre-freeze snapshot below is historical;
+workflow manifests and publication records identify the current artefacts.
+
 Status: **`v1.0.0-rc.1` published as the first immutable public candidate; stable `v1.0.0` deferred and not approved**
 
 Post-freeze result: the authoritative candidate identities, successful workflow

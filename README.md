@@ -14,56 +14,49 @@ Instead of showing one scary memory number, KubeMemLens partitions pod/container
 
 The goal is to make incidents like "kubectl top says memory is high, but the app heap is stable" easier to understand.
 
-## Status
+## v1.0.0
 
-`v1.0.0-rc.2` is being prepared. Its [preparation record](docs/release-preparation-rc2.md)
-tracks the reviewed dependency updates, TUI fixes and publication gates.
-The installation commands below still refer to the published RC1.
+KubeMemLens provides read-only Kubernetes memory inspection through its CLI,
+terminal dashboard and standard agent/collector chart. Essential AWS EKS tests
+covered memory inspection, capture and replay, access isolation, recovery and
+cleanup. [Get KubeMemLens](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0) and
+[send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
 
-[`v1.0.0-rc.1`](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) is the first public candidate for `v1.0.0`. It is an immutable prerelease for evaluation on disposable or explicitly authorised clusters, not a production stability or support guarantee. Stable `v1.0.0` is not approved or published. The v1 code authenticates node-bound writes and tenant-scoped reads through the Kubernetes aggregation layer and has passed the local adversarial isolation gate. The legacy `v0.0.1-alpha.3` release is not suitable for shared multi-tenant clusters. Provider claims remain limited to the exact reviewed combinations below. The sample CLI works without Kubernetes, and the Helm chart deploys a Linux node-local agent plus an in-memory collector for real cgroup snapshots. The CLI uses the caller's kubeconfig and the aggregated API by default. Conservative Prometheus/OpenMetrics output is available through a separately authorised metrics resource.
+The standard profile uses authenticated, tenant-scoped Kubernetes APIs and
+keeps optional features opt-in. The separate eBPF extension retains its
+[development profile](docs/ebpf/SUPPORT.md).
+The legacy `v0.0.1-alpha.3` release is not suitable for shared multi-tenant clusters.
 
-The required lifecycle gate targets the current upstream-supported Kubernetes 1.35, 1.36 and 1.37 minors. Runtime-sensitive changes run all three lanes. A documentation-only release alignment may reuse the latest green result for the same runtime, chart and image inputs. The [local `rc-5000` result](docs/qualification-results/rc-5000-local-kind-2026-08-26.md) passed for 5,000 containers over 30 minutes on the recorded four-Node kind `v1.35.5` environment. `v1.0.0-rc.1` was tested on AWS EKS. Current provider support is focused on EKS managed Linux nodes with AL2023, containerd and amd64. Earlier provider results remain in the [historical qualification record](docs/qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md). Configured store ceilings above the measured profile remain rejection bounds, not live-scale claims.
+The [support and compatibility contract](docs/compatibility.md) defines the
+supported AWS EKS managed Linux profile: AL2023, containerd and amd64.
+Local lifecycle checks cover Kubernetes 1.35, 1.36 and 1.37. The
+[5,000-container local result](docs/qualification-results/rc-5000-local-kind-2026-08-26.md)
+records its exact environment and duration; configured ceilings remain rejection
+bounds rather than additional scale claims.
 
-## Install candidate or stable
-
-### Candidate prerelease
-
-Use the published candidate's version-scoped repository and exact chart version. Review the [installation guide](docs/installation.md), [support and compatibility contract](docs/compatibility.md), and [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) before installing it.
-
-```sh
-helm upgrade --install kube-memlens \
-  oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.1/charts/kube-memlens \
-  --version 1.0.0 \
-  --namespace kube-memlens \
-  --create-namespace \
-  --set-string image.repository=ghcr.io/danushkastanley/candidates/1.0.0-rc.1/kube-memlens \
-  --set-string image.digest=sha256:a5963f8bb8e68359cd3648cf9c6064309772b3794a5bf51547ff314ba559e809
-```
-
-The candidate chart uses prospective stable metadata but the candidate workflow publishes it only under the version-scoped candidate repository. Candidate installs must override both the image repository and digest with the values in the signed `candidate-manifest.json`. The digest value already includes its `sha256:` prefix. `release-subjects.txt` records the same immutable image and chart subjects.
-
-### Prepared RC2 (not published)
-
-RC2 is still under review. Its planned chart location is
-`oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.2/charts/kube-memlens`
-with `--version 1.0.0`; its image repository is
-`ghcr.io/danushkastanley/candidates/1.0.0-rc.2/kube-memlens`.
-Do not install these locations until publication. Use the exact image digest
-from RC2's signed `candidate-manifest.json`, never the RC1 digest above.
-
-### Stable release (not published)
-
-Do not use the production repositories yet. Stable `v1.0.0` requires a separate
-decision and exact-tag approval before this command becomes valid:
+## Install
 
 ```sh
 helm upgrade --install kube-memlens \
   oci://ghcr.io/danushkastanley/charts/kube-memlens \
   --version 1.0.0 \
   --namespace kube-memlens \
-  --create-namespace \
-  --set-string image.digest=<complete-promoted-image-digest>
+  --create-namespace
 ```
+
+Download the CLI from the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0), or follow the
+[installation guide](docs/installation.md). For digest-pinned installation,
+use the production image digest in the signed `promotion-subjects.txt`.
+
+### Release candidate artefacts
+
+The `v1.0.0-rc.3` candidate uses
+`oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.3/charts/kube-memlens`
+with `--version 1.0.0` and image repository
+`ghcr.io/danushkastanley/candidates/1.0.0-rc.3/kube-memlens`.
+Candidate installs override the image repository and pin the image digest from
+its signed `candidate-manifest.json`. Stable promotion preserves those exact
+archive, image and chart bytes.
 
 ## TUI 2.0
 
