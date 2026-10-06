@@ -356,6 +356,7 @@
       ]
     },
     {"names": ["clone"], "action": "SCMP_ACT_ALLOW", "args": [{"index": 0, "value": 331520, "op": "SCMP_CMP_EQ"}]},
+    {"names": ["clone"], "action": "SCMP_ACT_ALLOW", "args": [{"index": 0, "value": 855808, "op": "SCMP_CMP_EQ"}]},
     {"names": ["clone"], "action": "SCMP_ACT_ALLOW", "args": [{"index": 0, "value": 16657, "op": "SCMP_CMP_EQ"}]},
     {"names": ["clone"], "action": "SCMP_ACT_ALLOW", "args": [{"index": 0, "value": 20753, "op": "SCMP_CMP_EQ"}]}
   ]

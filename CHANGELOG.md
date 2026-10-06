@@ -6,6 +6,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ### Fixes
 
+- Permit the exact amd64 Go runtime thread flags in the optional trace node seccomp profile, preserving restrictions on namespace creation and worker processes.
 - Recognise the Linux IMA module in optional trace preflight without accepting unknown security modules.
 - Preserve current volume measurements when another kubelet filesystem sample has expired; count expired source records as omissions without changing their timestamps or ingestion limits.
 - Match provider qualification to the rendered Service port and use controller-owned, bounded network-policy probes on strict CNIs.
