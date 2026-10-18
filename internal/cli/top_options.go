@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 	"github.com/spf13/cobra"
@@ -46,6 +47,10 @@ type topRow struct {
 	Confidence    explain.Confidence `json:"confidence"`
 	LargestName   string             `json:"largestPodName,omitempty"`
 	LargestBytes  uint64             `json:"largestPodBytes,omitempty"`
+
+	CapturedAt   time.Time                `json:"capturedAt"`
+	Freshness    api.EvidenceFreshness    `json:"freshness"`
+	Completeness api.EvidenceCompleteness `json:"completeness"`
 }
 
 func addTopFlags(cmd *cobra.Command, opts *topOptions, selectors bool) {
@@ -180,10 +185,10 @@ func writeTopRows(w io.Writer, rows []topRow, opts topOptions, table func(io.Wri
 	case "csv":
 		writer := csv.NewWriter(w)
 		if !opts.NoHeaders {
-			_ = writer.Write([]string{"namespace", "kind", "name", "pod", "node", "count", "total_bytes", "limit_bytes", "anon_bytes", "file_cache_bytes", "shmem_bytes", "kernel_bytes", "residual_bytes", "diagnosis", "confidence"})
+			_ = writer.Write([]string{"namespace", "kind", "name", "pod", "node", "count", "total_bytes", "limit_bytes", "anon_bytes", "file_cache_bytes", "shmem_bytes", "kernel_bytes", "residual_bytes", "diagnosis", "confidence", "captured_at", "freshness", "completeness"})
 		}
 		for _, row := range rows {
-			_ = writer.Write([]string{row.Namespace, row.Kind, row.Name, row.Pod, row.Node, strconv.Itoa(row.Count), strconv.FormatUint(row.TotalBytes, 10), strconv.FormatUint(row.LimitBytes, 10), strconv.FormatUint(row.AnonBytes, 10), strconv.FormatUint(row.CacheBytes, 10), strconv.FormatUint(row.ShmemBytes, 10), strconv.FormatUint(row.KernelBytes, 10), strconv.FormatUint(row.ResidualBytes, 10), string(row.Diagnosis), string(row.Confidence)})
+			_ = writer.Write([]string{row.Namespace, row.Kind, row.Name, row.Pod, row.Node, strconv.Itoa(row.Count), strconv.FormatUint(row.TotalBytes, 10), strconv.FormatUint(row.LimitBytes, 10), strconv.FormatUint(row.AnonBytes, 10), strconv.FormatUint(row.CacheBytes, 10), strconv.FormatUint(row.ShmemBytes, 10), strconv.FormatUint(row.KernelBytes, 10), strconv.FormatUint(row.ResidualBytes, 10), string(row.Diagnosis), string(row.Confidence), row.CapturedAt.UTC().Format(time.RFC3339Nano), string(row.Freshness), string(row.Completeness)})
 		}
 		writer.Flush()
 		return writer.Error()
