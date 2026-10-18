@@ -2,6 +2,12 @@
 
 All notable changes will be documented here. KubeMemLens intends to follow [Semantic Versioning](https://semver.org/) after its first public release.
 
+## Unreleased
+
+### Security
+
+- Update Go builders and trace executable validation to 1.27.2, and align `golang.org/x/net` on 0.60.0 across all three modules to address HTTP and HTTP/2 security advisories.
+
 ## 1.0.0 - 2026-10-06
 
 Read-only memory inspection, incident capture/replay, access isolation, recovery
