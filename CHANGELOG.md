@@ -4,6 +4,10 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Dependencies
+
+- Align Kubernetes client and API libraries on 0.37.1 across the standard, trace and worker modules.
+
 ### Fixes
 
 - Measure volume qualification recovery durations with monotonic sub-second precision, avoiding zero-second records for fast recovery.
