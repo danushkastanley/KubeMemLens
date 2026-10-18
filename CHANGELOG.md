@@ -4,6 +4,10 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Fixes
+
+- Measure volume qualification recovery durations with monotonic sub-second precision, avoiding zero-second records for fast recovery.
+
 ### Security
 
 - Update Go builders and trace executable validation to 1.27.2, and align `golang.org/x/net` on 0.60.0 across all three modules to address HTTP and HTTP/2 security advisories.
