@@ -50,6 +50,8 @@ volume_stats_lifecycle() {
   volume_wait 'd["context"]["volumes"][0]["usage"]["availability"]=="disabled" and "filesystem" not in d["context"]["volumes"][0]["usage"] and "lastGood" not in d["context"]["volumes"][0]["usage"]' volume-disabled.json
   node_context_wait_read "${work_dir}" admin /clusterstatus/current 'd["store"].get("nodeContext",{}).get("freshRecords",0)==1 and d["store"]["totalContainers"]>0' volume-disabled-node-fresh.json
   helm "${helm_args[@]}" --set nodeContext.enabled=true > "${work_dir}/helm-volume-rollback.log" 2>&1
+  # Helm readiness can precede aggregation readiness after the collector changes.
+  node_context_wait_read "${work_dir}" admin /clusterstatus/current 'd["store"]["totalContainers"]>0' volume-rollback-ready.json
   node_context_expect_status "${work_dir}" admin "${volume_path}" 404 4
   python3 - "${work_dir}" "${collector_seconds}" "${producer_seconds}" "${source_seconds}" "${pod_seconds}" <<'PY'
 import json,pathlib,sys

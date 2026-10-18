@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 class RecoveryClockTests(unittest.TestCase):
-    def test_subsecond_recovery_survives_the_lifecycle_receipt(self):
+    def test_lifecycle_preserves_recovery_and_waits_for_rollback_readiness(self):
         script = Path(__file__).resolve().parents[1] / 'lib/volume-stats-lifecycle.sh'
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -38,11 +38,22 @@ namespace=fixture
 volume_path=/fixture
 helm_args=(fixture)
 volume_args=(fixture)
+rollback_pending=0
 kctl() { :; }
-helm() { :; }
+helm() {
+  # Helm can finish before the aggregation layer serves the new collector.
+  if [[ "$*" == *"nodeContext.enabled=true"* ]]; then rollback_pending=1; fi
+}
 volume_wait() { :; }
-node_context_expect_status() { :; }
-node_context_wait_read() { :; }
+node_context_expect_status() {
+  if [[ "$2" == admin && "$rollback_pending" == 1 ]]; then
+    echo 'rollback aggregation is unavailable, not a route 404' >&2
+    return 1
+  fi
+}
+node_context_wait_read() {
+  if [[ "$2" == admin && "$3" == /clusterstatus/current ]]; then rollback_pending=0; fi
+}
 volume_stats_lifecycle
 ''', 'recovery-clock', str(script), str(root)], env=environment,
                            check=True, capture_output=True, text=True, timeout=10)
