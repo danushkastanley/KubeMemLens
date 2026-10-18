@@ -1,7 +1,7 @@
 # Incident worker dependency inventory
 
 Date: 15 September 2026. Scope: the candidate
-`prototype/trace/worker/cmd/memlens-filecache-worker` entrypoint, with Go 1.27.1,
+`prototype/trace/worker/cmd/memlens-filecache-worker` entrypoint, with Go 1.27.2,
 Inspektor Gadget v0.56.0 and the recorded SDK policy patch. This inventory is not
 maintainer acceptance, an independent security review or a distribution approval.
 

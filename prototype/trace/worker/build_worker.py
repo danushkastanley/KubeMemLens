@@ -15,7 +15,7 @@ from worker_dependencies import verify as verify_dependencies
 
 ROOT = Path(__file__).resolve().parents[3]
 WORKER = ROOT / "prototype/trace/worker"
-BUILDER = "golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125"
+BUILDER = "golang:1.27.2-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d"
 BUILD_FLAGS = ["-mod=readonly", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid="]
 
 
