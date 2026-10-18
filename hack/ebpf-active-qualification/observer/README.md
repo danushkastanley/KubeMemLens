@@ -45,9 +45,13 @@ A shared kernel boot ID in kind does not replace Kubernetes Node identity.
 
 PID file descriptors remain open throughout the window. Each poll rechecks process
 lifetime, full container membership and executable digest. Process loss or changed
-identity ends the observation. The namespace and helper executable are passed to
+identity ends the observation. The two independent verifications run concurrently
+with at most one peer goroutine; both full checks finish before any metrics read.
+If both fail, the agent-binding failure remains the reported category. This does
+not cache or skip executable hashing, weaken identity checks or change read limits.
+The namespace and helper executable are passed to
 `nsenter` as pinned descriptors. Its child can only read the fixed agent URL
-`http://127.0.0.1:8082/metrics`; it receives no configuration or bearer token.
+`http://127.0.0.1:8082/scan-observations`; it receives no configuration or bearer token.
 The `--agent-scrape` mode is the internal numeric child operation.
 
 Collector reads use the authenticated route
@@ -61,10 +65,13 @@ allow-list grants no cloud execution authority.
 
 Transport, headers, bodies, subprocess time and output are bounded. Raw metric
 text and Kubernetes metadata are parsed in memory and discarded. Only the closed
-numeric projections enter stdout; failures emit a fixed diagnostic category.
+numeric projections and closed scan outcomes enter stdout; failures emit a fixed diagnostic category.
 Durations round upward to integer nanoseconds. Unknown labels within selected
 metric families, duplicate series, malformed numbers and incomplete responses
 fail. Unrelated families, including identity-labelled metrics, are omitted.
+The atomic agent duration must exactly match its retained nanosecond timing;
+inconsistency fails with the fixed `agent-scan-duration` category. No tolerance
+or response-body logging is added for this check.
 
 A rejected collector response ends the observation immediately. Its diagnostic
 includes only the fixed failure category and numeric HTTP status (100–599), never
@@ -78,13 +85,31 @@ measurement. A blocked output cannot keep the process alive past the duration
 plus ten seconds. Interrupted, missing or delayed records stay incomplete; the
 helper does not grant a performance pass or retime a missed deadline.
 
+After writing a record, the helper enforces the evaluator's existing inclusive
+1–100,000,000 ns read-span bound immediately. A rejected span stops the series
+with its original row retained, rather than spending an enabled window before
+offline validation finds the failure. The fixed numeric diagnostic includes the
+poll index, total span and elapsed binding, agent-read, collector-read and final
+binding-check costs. Stage clocks are included in the measured span; they never
+replace a sample, expose identities, retry a read or relax any evaluation gate.
+Accepted rows retain the existing schema and fields.
+
 Use `standard_window.py` to validate the complete stream before analysis. It counts
 new agent scan attempts once, checks failure/reset counters and retains collector
-requests whose individual durations were missed between polls. `scans.py` brackets
-whole scans using the production completion timestamp's one-second precision and
-the separate owned-attachment witness. Its p95 comparison is strictly below 5%.
+requests whose individual durations were missed between polls. Schema 2 records
+carry the agent's latest 32 attempts, atomically bound to its metric counters.
+Every new sequence must be present; changed prior entries, overwritten history,
+counter/gauge disagreement or mixed row schemas fail. Back-to-back completions
+retain their individual durations instead of copying the latest gauge.
+`scans.py` brackets whole scans using each retained nanosecond completion time,
+its duration and the separate owned-attachment witness. Its p95 comparison is
+strictly below 5%. The existing cadence, read-time and output limits are unchanged.
 
-A bounded local integration verified 21 records, four new successful scans and
+Historical schema 1 records still use one-second completion precision and reject
+counter jumps. The new observer requires the corresponding agent endpoint and
+does not fall back to incomplete latest-gauge observations.
+
+An earlier schema 1 local integration verified 21 records, four new successful scans and
 four accepted ingestions through the real namespace/TLS/authorisation paths. It
 also verified unchanged service lifetimes and removed the owned installation,
 reader grant and private Node configuration. That integration is not a steady-state

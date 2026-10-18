@@ -91,12 +91,15 @@ class Observation:
 
 class Transport:
     def __init__(self, endpoint, tls, token):
-        self.host, self.port = local_endpoint(endpoint)
+        self._configure(local_endpoint(endpoint), tls, token)
+
+    def _configure(self, address, tls, token):
         if not tls.check_hostname or tls.verify_mode != ssl.CERT_REQUIRED:
             raise QualificationError('verified TLS required')
         if (not isinstance(token, str) or not 1 <= len(token) <= 16384 or
                 any(ord(c) < 33 or ord(c) > 126 for c in token)):
             raise QualificationError('valid fixture credential required')
+        self.host, self.port = address
         self.tls, self.token = tls, token
 
     def __repr__(self):

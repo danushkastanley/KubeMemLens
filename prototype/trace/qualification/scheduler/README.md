@@ -39,6 +39,11 @@ event identifiers. Every CPU is drained before the command advances its fixed
 Counter coverage/loss errors include the zero-based owned descriptor ordinal,
 following the CPU/format opening order. They expose no raw descriptor or task
 identity, preserve the original error category and return no usable counts.
+After an enabled/running mismatch, one immediate read retains numeric follow-up
+coverage/loss totals, or its byte count and failure flag if incomplete. The
+original rejection remains decisive even if the follow-up totals match. This
+diagnostic neither retries a window nor establishes why coverage differed.
+Successful observations make no additional reads; the equality gate is unchanged.
 The command checks boot/topology bindings and emits one-second aggregates with
 its own CPU/RSS. Runtime/output are bounded and descriptors/mappings are closed
 on return. The parent controller must verify process/resource cleanup. Raw perf buffers contain kernel task names and

@@ -144,6 +144,15 @@ Failure or missing evidence never becomes a
 passing support row. Local chart identity hashes the sorted chart tree, including
 paths and contents; provider evidence must identify the immutable chart archive.
 
+Provider failures retain the completed stages and cleanup outcome in `failure.json`.
+Final proposal validation uses stage `proposal-revalidation`; assembling the
+observation record uses `record`. When available, `failureLocation` identifies
+the nearest qualification caller with a source-file SHA-256 digest and line
+number. Match the digest against files in the recorded qualification-tool commit
+to inspect that line. The shared assertion helper is omitted; no traceback paths,
+exception messages or local values are exported. An unavailable location is `null`
+and does not replace the original failure.
+
 Evidence schema 1 contains exact environment fields, source availability,
 explicit provenance, bounded samples, lifecycle outcomes, cleanup and privacy
 assertions. The encoded file is limited to 512 KiB. Unknown or duplicate fields,

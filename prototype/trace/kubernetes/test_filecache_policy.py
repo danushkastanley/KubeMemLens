@@ -18,12 +18,13 @@ class FileCachePolicyTests(unittest.TestCase):
         for rule in baseline["syscalls"][1:]:
             self.assertIn(rule, candidate["syscalls"])
         extra = candidate["syscalls"][len(baseline["syscalls"]):]
-        self.assertEqual(len(extra), 14)
+        self.assertEqual(len(extra), 15)
         expected = {
             "bpf": {(0, value) for value in (1, 2, 18, 22, 28)},
             "memfd_create": {(1, 11), (1, 19)},
             "fchmod": {(1, 0o400), (1, 0o500)},
-            "clone": {(0, 0x50f00), (0, 0x4111), (0, 0x5111)},
+            # amd64 Go threads also set CLONE_SETTLS; keep every clone rule exact.
+            "clone": {(0, 0x50f00), (0, 0xd0f00), (0, 0x4111), (0, 0x5111)},
         }
         for syscall, arguments in expected.items():
             rules = [rule for rule in extra if rule["names"] == [syscall]]

@@ -27,9 +27,10 @@ func ReadStream(in io.Reader, request Request, output trace.Output, onReady func
 	}
 	ready := false
 	var events, bytes uint64
+	var storage [MaxMessageBytes]byte
 	for {
 		var message responseWire
-		size, err := receive(stream, &message)
+		size, err := receiveBuffered(stream, &message, &storage)
 		if err != nil || message.validate(request) != nil {
 			return fail(ErrProtocol)
 		}

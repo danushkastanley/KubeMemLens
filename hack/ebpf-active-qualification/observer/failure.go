@@ -16,7 +16,7 @@ type observationFailure struct {
 func safeStage(stage string) string {
 	switch stage {
 	case "boot-binding", "agent-binding", "collector-binding", "collector-client",
-		"agent-child", "agent-projection", "agent-transport", "agent-status", "agent-body", "agent-metrics",
+		"agent-child", "agent-projection", "agent-transport", "agent-status", "agent-body", "agent-metrics", "agent-scan-duration",
 		"collector-transport", "collector-status", "collector-body", "collector-envelope", "collector-metrics",
 		"clock", "usage", "output-encoding", "output-budget", "output-write":
 		return stage
@@ -47,6 +47,10 @@ func atStage(stage string, err error) error {
 }
 
 func failureStage(err error) string {
+	var span readSpanFailure
+	if errors.As(err, &span) {
+		return "read-span"
+	}
 	var failure observationFailure
 	if errors.As(err, &failure) {
 		return safeStage(failure.stage)
@@ -55,6 +59,10 @@ func failureStage(err error) string {
 }
 
 func failureDetail(err error) string {
+	var span readSpanFailure
+	if errors.As(err, &span) {
+		return span.detail()
+	}
 	var failure observationFailure
 	if errors.As(err, &failure) {
 		return failure.Error()

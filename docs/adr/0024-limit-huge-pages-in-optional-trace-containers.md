@@ -4,6 +4,10 @@ Date: 1 October 2026
 
 Status: accepted configuration change; resource qualification remains open
 
+The later standard-chart extension and explicit trace parallelism are recorded
+in [ADR 0025](0025-bind-runtime-settings-to-resource-profiles.md). The decisions
+and failed measurements below retain their original scope.
+
 ## Context
 
 The latest optional trace candidate failed its five-pair local idle qualification:

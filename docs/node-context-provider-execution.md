@@ -70,7 +70,12 @@ The command performs these steps:
    source, without inherited build overlays or cross-compilation settings.
 3. Recheck source cleanliness before target access. Collect current provider
    inventory and bind the exact two-Node pool to the approved routes and runtime.
-4. Run preflight and production transport probes, install the baseline profile
+4. Run preflight and production transport probes as bounded Jobs with verified
+   parent/Pod identities. A separate owned NetworkPolicy permits only their
+   approved API host routes on TCP 443/6443 and kubelet host routes on TCP 10250,
+   including before chart installation on a strict default-deny CNI. Its selector
+   excludes product Pods; the permission and TLS denial probes keep the same
+   network access. Install the baseline profile
    and workload, then collect the fixed baseline and enabled windows. A failed
    measurement check stops before asking the operator to replace a machine.
 5. Verify source-loss, agent-restart and collector-restart recovery.

@@ -7,6 +7,7 @@ import sys
 
 from common import ContractError, load, privacy, require, utc_text, write_new
 from evaluate import evaluate
+from failure_location import locate
 from kubernetes_commands import KubernetesCommands
 from kubernetes_runtime import API_FAILURE_CODES
 from lifecycle import event
@@ -93,8 +94,9 @@ def run_verified(args, bundle, proof, private, public, write_evidence):
         write_evidence(public / "production-cli.json", verify_cli(execution))
         stage = "runtime-identity"
         write_evidence(public / "final-live-images.json", verify_images(execution, proof["image"], "enabled"))
-        stage = "record"
+        stage = "proposal-revalidation"
         validate_bundle(args.proposal, bundle.profile, args.plan_digest)
+        stage = "record"
         record = assemble(execution, proof, receipt, started, lifecycle, network, "completed")
         write_evidence(public / "qualification-observations.json", record)
     except (Exception, KeyboardInterrupt) as error:
@@ -114,7 +116,8 @@ def run_verified(args, bundle, proof, private, public, write_evidence):
                     failure, stage = error, "cleanup"
     if failure is not None:
         write_evidence(public / "failure.json", {"schemaVersion": 1, "scope": "provider-run-failure", "qualified": False,
-                "planDigest": args.plan_digest, "stage": stage, "failureType": type(failure).__name__, "reason": failure_reason(failure), "ownedCleanup": cleanup,
+                "planDigest": args.plan_digest, "stage": stage, "failureType": type(failure).__name__, "reason": failure_reason(failure),
+                "failureLocation": locate(failure), "ownedCleanup": cleanup,
                 "providerCleanup": "pending", "startedAt": started, "completedAt": utc_text()})
         if isinstance(failure, KeyboardInterrupt):
             raise failure

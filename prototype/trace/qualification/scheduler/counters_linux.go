@@ -49,6 +49,9 @@ func readCounters(fds []int, read func(int, []byte) (int, error)) (Counters, err
 		}
 		next, err := decodeCounters(raw[:])
 		if err != nil {
+			if errors.Is(err, ErrCoverage) {
+				err = coverageDiagnostic(err, fd, read)
+			}
 			return Counters{}, fmt.Errorf("descriptor=%d: %w", ordinal, err)
 		}
 		if next.EnabledNanos > math.MaxUint64-result.EnabledNanos || next.RunningNanos > math.MaxUint64-result.RunningNanos {
@@ -61,6 +64,19 @@ func readCounters(fds []int, read func(int, []byte) (int, error)) (Counters, err
 		}
 	}
 	return result, nil
+}
+
+// The rejected reading remains decisive. One numeric follow-up helps investigate
+// intermittent coverage failures without retrying or replacing an observation.
+func coverageDiagnostic(cause error, fd int, read func(int, []byte) (int, error)) error {
+	var raw [32]byte
+	n, err := read(fd, raw[:])
+	if err != nil || n != len(raw) {
+		return fmt.Errorf("%w; follow_read_bytes=%d follow_read_failed=%t", cause, n, err != nil)
+	}
+	return fmt.Errorf("%w; follow_enabled=%d follow_running=%d follow_lost=%d", cause,
+		binary.LittleEndian.Uint64(raw[8:16]), binary.LittleEndian.Uint64(raw[16:24]),
+		binary.LittleEndian.Uint64(raw[24:32]))
 }
 
 // CheckCounters detects losses even when the kernel has not emitted a LOST
