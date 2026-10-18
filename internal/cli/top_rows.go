@@ -21,6 +21,7 @@ func podRows(pods []api.PodSnapshot, labelSelector labels.Selector, fieldSelecto
 		row := rowForMemory(pod.Namespace, "Pod", pod.PodName, "", pod.NodeName, 0, pod.Memory)
 		result := explain.AnalyzePod(pod)
 		row.Diagnosis, row.Confidence = result.Diagnosis, result.Confidence
+		row.CapturedAt, row.Freshness, row.Completeness = pod.CapturedAt, pod.Freshness, pod.Completeness
 		row.LimitBytes = finiteLimit(pod.Memory)
 		rows = append(rows, row)
 	}
@@ -34,6 +35,7 @@ func containerRows(containers []api.ContainerSnapshot, labelSelector labels.Sele
 			continue
 		}
 		row := rowForMemory(container.Namespace, "Container", container.ContainerName, container.PodName, container.NodeName, 0, container.Memory)
+		row.CapturedAt, row.Freshness, row.Completeness = container.CapturedAt, container.Freshness, container.Completeness
 		row.LimitBytes = finiteLimit(container.Memory)
 		rows = append(rows, row)
 	}
@@ -48,6 +50,7 @@ func workloadRows(workloads []api.WorkloadSnapshot, labelSelector labels.Selecto
 		}
 		row := rowForMemory(workload.Namespace, workload.Kind, workload.Name, "", "", workload.PodCount, workload.Memory)
 		row.LargestName, row.LargestBytes = workload.LargestPodName, workload.LargestPodBytes
+		row.CapturedAt, row.Freshness, row.Completeness = workload.CapturedAt, workload.Freshness, workload.Completeness
 		rows = append(rows, row)
 	}
 	return rows
@@ -68,7 +71,9 @@ func namespaceRows(namespaces []api.NamespaceSnapshot, fieldSelector fields.Sele
 		if !fieldSelector.Matches(fieldValues(namespace.Namespace, namespace.Namespace, "", "", "Namespace", "")) {
 			continue
 		}
-		rows = append(rows, rowForMemory(namespace.Namespace, "Namespace", namespace.Namespace, "", "", namespace.PodCount, namespace.Memory))
+		row := rowForMemory(namespace.Namespace, "Namespace", namespace.Namespace, "", "", namespace.PodCount, namespace.Memory)
+		row.CapturedAt, row.Freshness, row.Completeness = namespace.CapturedAt, namespace.Freshness, namespace.Completeness
+		rows = append(rows, row)
 	}
 	return rows
 }
@@ -83,10 +88,10 @@ func finiteLimit(memory model.MemoryBreakdown) uint64 {
 func printPodRows(w io.Writer, rows []topRow, noHeaders bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	if !noHeaders {
-		fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE")
+		fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
 	}
 	for _, row := range rows {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Name, row.Node, compact(row.TotalBytes), compactLimit(row.LimitBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Name, row.Node, compact(row.TotalBytes), compactLimit(row.LimitBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
 	}
 	_ = tw.Flush()
 }
@@ -94,10 +99,10 @@ func printPodRows(w io.Writer, rows []topRow, noHeaders bool) {
 func printContainerRows(w io.Writer, rows []topRow, noHeaders bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	if !noHeaders {
-		fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE")
+		fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
 	}
 	for _, row := range rows {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Pod, row.Name, row.Node, compact(row.TotalBytes), compactLimit(row.LimitBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Pod, row.Name, row.Node, compact(row.TotalBytes), compactLimit(row.LimitBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
 	}
 	_ = tw.Flush()
 }
@@ -105,10 +110,10 @@ func printContainerRows(w io.Writer, rows []topRow, noHeaders bool) {
 func printWorkloadRows(w io.Writer, rows []topRow, noHeaders bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	if !noHeaders {
-		fmt.Fprintln(tw, "NAMESPACE\tKIND\tWORKLOAD\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tLARGEST POD\tMAX POD\tDIAGNOSIS\tCONFIDENCE")
+		fmt.Fprintln(tw, "NAMESPACE\tKIND\tWORKLOAD\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tLARGEST POD\tMAX POD\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
 	}
 	for _, row := range rows {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Kind, row.Name, row.Count, compact(row.TotalBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.LargestName, compact(row.LargestBytes), row.Diagnosis, row.Confidence)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Kind, row.Name, row.Count, compact(row.TotalBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.LargestName, compact(row.LargestBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
 	}
 	_ = tw.Flush()
 }
@@ -116,10 +121,10 @@ func printWorkloadRows(w io.Writer, rows []topRow, noHeaders bool) {
 func printNamespaceRows(w io.Writer, rows []topRow, noHeaders bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	if !noHeaders {
-		fmt.Fprintln(tw, "NAMESPACE\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE")
+		fmt.Fprintln(tw, "NAMESPACE\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
 	}
 	for _, row := range rows {
-		fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Count, compact(row.TotalBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence)
+		fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Count, compact(row.TotalBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
 	}
 	_ = tw.Flush()
 }
