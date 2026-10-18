@@ -1,7 +1,7 @@
 # Incident worker dependency inventory
 
 Date: 15 September 2026. Scope: the candidate
-`prototype/trace/worker/cmd/memlens-filecache-worker` entrypoint, with Go 1.27.2,
+`prototype/trace/worker/cmd/memlens-filecache-worker` entrypoint, with Go 1.27.1,
 Inspektor Gadget v0.56.0 and the recorded SDK policy patch. This inventory is not
 maintainer acceptance, an independent security review or a distribution approval.
 
@@ -154,3 +154,16 @@ optional tracer, SDK and BPF library. The prepared SDK source and its policy pat
 are unchanged. These are source-level dependency corrections, not a cluster
 runtime upgrade or a revision of the previously measured image. Rebuild and
 requalify the new worker before accepting another trace candidate.
+
+## Security baseline update — 18 October 2026
+
+[PR #216](https://github.com/danushkastanley/KubeMemLens/pull/216) updated the
+standard, trace and worker modules to Go 1.27.2 and `golang.org/x/net` 0.60.0,
+along with the required transitive updates. The pinned builder and trace
+executable compiler checks were updated together. Linux amd64 symbol scans of
+all three modules at commit `1ea0152` reported no reachable vulnerabilities;
+non-reachable dependency findings remained visible. These checks do not replace
+the dated inventories or establish new kernel or provider qualification.
+
+[PR #213](https://github.com/danushkastanley/KubeMemLens/pull/213) subsequently
+updated the worker module to `github.com/moby/sys/user` 0.4.1.
