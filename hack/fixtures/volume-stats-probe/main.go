@@ -49,13 +49,13 @@ func run(path, tokenPath string) error {
 	defer cancel()
 	response, err := reader.PodVolumes(ctx, "kube-memlens-csi-e2e", "persistent", "")
 	if err != nil {
-		return errors.New("production volume reader failed")
+		return fmt.Errorf("production volume reader failed: %w", err)
 	}
 	if len(response.Context.Volumes) != 1 || response.Context.Volumes[0].Usage.Availability != volumehealth.Reported || response.Context.Volumes[0].Usage.Filesystem == nil {
 		return errors.New("fixture measurement unavailable")
 	}
 	if _, err := reader.PodVolumes(ctx, "kube-memlens-csi-e2e", "persistent", string(response.UID)); err != nil {
-		return errors.New("selected Pod binding failed")
+		return fmt.Errorf("selected Pod binding failed: %w", err)
 	}
 	if _, err := reader.PodVolumes(ctx, "kube-memlens-csi-e2e", "persistent", "retired-fixture-uid"); err == nil {
 		return errors.New("replaced Pod binding accepted")
