@@ -2,6 +2,20 @@
 
 All notable changes will be documented here. KubeMemLens intends to follow [Semantic Versioning](https://semver.org/) after its first public release.
 
+## Unreleased
+
+### Dependencies
+
+- Align Kubernetes client and API libraries on 0.37.1 across the standard, trace and worker modules.
+
+### Fixes
+
+- Measure volume qualification recovery durations with monotonic sub-second precision, avoiding zero-second records for fast recovery.
+
+### Security
+
+- Update Go builders and trace executable validation to 1.27.2, and align `golang.org/x/net` on 0.60.0 across all three modules to address HTTP and HTTP/2 security advisories.
+
 ## 1.0.0 - 2026-10-06
 
 Read-only memory inspection, incident capture/replay, access isolation, recovery
