@@ -36,8 +36,8 @@ source "$1"
 work_dir=$2
 namespace=fixture
 volume_path=/fixture
-helm_args=()
-volume_args=()
+helm_args=(fixture)
+volume_args=(fixture)
 kctl() { :; }
 helm() { :; }
 volume_wait() { :; }
