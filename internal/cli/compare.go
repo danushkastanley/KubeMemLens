@@ -84,7 +84,11 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 					if !ok {
 						return fmt.Errorf("Pod %s was not found in the after bundle", incidentPodRef)
 					}
-					printPodComparison(cmd.OutOrStdout(), "Incident comparison: "+incidentPodRef, beforePod, afterPod, after.CapturedAt.Sub(before.CapturedAt))
+					elapsed := podComparisonInterval(beforePod, afterPod)
+					if elapsed <= 0 {
+						fmt.Fprintln(cmd.OutOrStdout(), "Pod identity or a forward source interval is unconfirmed, or evidence is stale; values describe separate observations and no change rate is inferred.")
+					}
+					printPodComparison(cmd.OutOrStdout(), "Incident comparison: "+incidentPodRef, beforePod, afterPod, elapsed)
 					return nil
 				}
 				beforeWorkload, ok := incidentWorkload(before, incidentWorkloadRef)
@@ -95,7 +99,8 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				if !ok {
 					return fmt.Errorf("workload %s was not found in the after bundle", incidentWorkloadRef)
 				}
-				printPodComparison(cmd.OutOrStdout(), "Workload incident comparison: "+incidentWorkloadRef, beforeWorkload, afterWorkload, after.CapturedAt.Sub(before.CapturedAt))
+				fmt.Fprintln(cmd.OutOrStdout(), "Workload totals may span different Pod instances and sample times; no change rate is inferred.")
+				printPodComparison(cmd.OutOrStdout(), "Workload incident comparison: "+incidentWorkloadRef, beforeWorkload, afterWorkload, 0)
 				printWorkloadResourceComparison(cmd.OutOrStdout(), before, after, incidentWorkloadRef)
 				return nil
 			}
@@ -182,6 +187,16 @@ func findPod(pods []api.PodSnapshot, namespace, name string) (api.PodSnapshot, b
 		}
 	}
 	return api.PodSnapshot{}, false
+}
+
+func podComparisonInterval(before, after api.PodSnapshot) time.Duration {
+	if before.PodUID == "" || before.PodUID != after.PodUID || before.Namespace != after.Namespace || before.PodName != after.PodName || before.NodeName != after.NodeName {
+		return 0
+	}
+	if before.CapturedAt.IsZero() || after.CapturedAt.IsZero() || !after.CapturedAt.After(before.CapturedAt) || before.Freshness == api.EvidenceFreshnessStale || after.Freshness == api.EvidenceFreshnessStale {
+		return 0
+	}
+	return after.CapturedAt.Sub(before.CapturedAt)
 }
 
 func printPodComparison(w interface{ Write([]byte) (int, error) }, title string, before, after api.PodSnapshot, elapsed time.Duration) {

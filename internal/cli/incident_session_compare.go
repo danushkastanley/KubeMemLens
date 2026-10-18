@@ -80,13 +80,9 @@ func renderSessionComparison(before, after incidentsession.CapturedEvidence) (st
 			return "", incidentsession.ErrInvalid
 		}
 		a, b := left.Pods[0], right.Pods[0]
-		elapsed := b.CapturedAt.Sub(a.CapturedAt)
-		if a.Namespace != b.Namespace || a.PodName != b.PodName || a.PodUID != b.PodUID || a.NodeName != b.NodeName {
-			fmt.Fprintln(&output, "Different Pod instances or selections; values describe separate observations.")
-			elapsed = 0
-		}
+		elapsed := podComparisonInterval(a, b)
 		if elapsed <= 0 {
-			fmt.Fprintln(&output, "No forward source interval is established; no change rate is inferred.")
+			fmt.Fprintln(&output, "Pod identity or a forward source interval is unconfirmed, or evidence is stale; values describe separate observations and no change rate is inferred.")
 		}
 		fmt.Fprintf(&output, "Before evidence: freshness %q, completeness %q\nAfter evidence: freshness %q, completeness %q\n", a.Freshness, a.Completeness, b.Freshness, b.Completeness)
 		for i := range a.Containers {
