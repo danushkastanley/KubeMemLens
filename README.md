@@ -217,6 +217,8 @@ go run ./cmd/kubectl-memlens compare --before before.json --after after.json --w
 
 `top pods`, `top containers`, and `top workloads` accept Kubernetes Pod label selectors with `-l`, safe field selectors, `--sort-by`, `--no-headers`, and `-o table|json|yaml|csv`. Add `--watch` for a two-second terminal refresh, or set a bounded interval with `--watch-interval`.
 
+Deep Pod comparisons across captures calculate rates from source sample times only when the Pod UID and selection match, both sample times are known and increasing, and neither observation is stale. Redacted captures omit Pod UIDs, so their values are shown without rates. Workload capture comparisons also omit rates because their totals can span different Pod instances and sample times.
+
 Restricted mode also supports [private capture, offline replay and working-set comparison](docs/restricted-incidents.md), with schema 3 and explicit partial-evidence caveats.
 
 Development builds include optional [memory trends](docs/memory-history.md) from
