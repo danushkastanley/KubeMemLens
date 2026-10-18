@@ -4,8 +4,26 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Security
+
+- Update Go builders and trace executable validation to 1.27.2, and align `golang.org/x/net` on 0.60.0 across all three modules to address HTTP and HTTP/2 security advisories.
+
+## 1.0.0 - 2026-10-06
+
+Read-only memory inspection, incident capture/replay, access isolation, recovery
+and cleanup have been exercised on AWS EKS. Install KubeMemLens and
+[send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
+
+
 ### Fixes
 
+- Permit the exact amd64 Go runtime thread flags in the optional trace node seccomp profile, preserving restrictions on namespace creation and worker processes.
+- Recognise the Linux IMA module in optional trace preflight without accepting unknown security modules.
+- Preserve current volume measurements when another kubelet filesystem sample has expired; count expired source records as omissions without changing their timestamps or ingestion limits.
+- Match provider qualification to the rendered Service port and use controller-owned, bounded network-policy probes on strict CNIs.
+- Give agent and Helm-hook Pods explicit ingress policies for strict CNI startup, while preserving namespace egress restrictions. Run the connection probe as a bounded Job so its Pod has controller ownership.
+- Retain failed certificate-hook diagnostics and annotate hook resources with their Helm release identity for verified cleanup after interrupted installation.
+- Avoid floating-point rounding in agent scan-duration metrics, keeping them consistent with the recorded scan timings.
 - Report a container once when it creates its own sub-cgroups (systemd, Docker-in-Docker). Nested cgroups were listed as extra entries with the same container ID and their memory was counted twice.
 
 ### Optional trace operations
@@ -169,7 +187,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Adapt the extension authoriser to the 1.37 interface. Both authorisation entry points retain agent identity validation, one delegated access review and bounded audit output; unsupported condition evaluation fails closed.
 - Exercise older 1.35/1.36 Pod response shapes through the production client and mapper, preserving resource availability when Pod budgets, allocated resources and volume-health fields are absent.
 
-### Prepared for v1.0.0-rc.2
+### Included from v1.0.0-rc.2
 
 - Give the Helm connection-test hook a tested 16 MiB startup allowance instead of 8 MiB, which could OOM-kill container initialisation before the connectivity test ran. Keep its security settings, retry policy and application resource limits unchanged.
 - Repair the unavailable Skopeo container pin using upstream's digest-pinned immutable tag. Check tool availability/version before release builds and registry operations, and distinguish a tool-pull failure from a missing destination image.
@@ -182,11 +200,9 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Align every release SBOM validator with the installed Syft version and document the unpublished RC2 repository destinations.
 - Update the etcd API/client modules to 3.6.14 for bounded TLS handshakes and x/crypto to 0.56.0 for SSH denial-of-service fixes, following the whole-dependency release-gate review.
 
-RC2 is prepared, not published. Chart and archive metadata remain prospective
-1.0.0 under the existing candidate promotion contract. See [RC2 preparation](docs/release-preparation-rc2.md)
-for PR decisions and outstanding publication gates.
+RC2 was published on 9 September 2026 with prospective 1.0.0 chart and archive metadata. Its [preparation record](docs/release-preparation-rc2.md) preserves the original decisions and evidence.
 
-## 1.0.0 - first public candidate published as v1.0.0-rc.1 on 2026-08-29
+## 1.0.0-rc.1 - 2026-08-29
 
 ### Added
 

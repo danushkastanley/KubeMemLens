@@ -115,7 +115,9 @@ The new directory uses mode `0700`; each file uses `0600`:
 - `probe-pods.preview.json`: review-only examples of the production producer's
   positive, denied-stats, bad-CA and cross-Node checks. Node placeholders are
   bound to the selected live pool at execution. API and kubelet projections
-  have separate audiences.
+  have separate audiences. Each check uses a zero-retry Job with a 90-second
+  deadline. Generated Pods are bound to the original Job UID and selected Node;
+  a replacement Pod cannot supply the original check's logs.
 - `network-probes.preview.json`: the token-free controlled targets, clients and
   temporary allow rules for ingress and egress verification. Node aliases are
   replaced only with the bound live Node names. All six targets and clients use

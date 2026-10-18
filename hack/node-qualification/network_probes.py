@@ -9,6 +9,7 @@ from network_specs import APP, MARKER, PORT, PREFIX, manifests
 from observer_specs import IDENTITY_OBSERVER
 from owned_mutations import suspended_network_rule
 from owned_resources import Resource
+from job_pods import controlled_pod
 from provider_execution import wait_until
 from provider_recovery import PoolRecovery
 
@@ -27,23 +28,6 @@ def policy_spec(spec):
     # The Kubernetes API omits empty direction arrays on serialisation. With
     # explicit policyTypes, an omitted direction and [] have identical meaning.
     return {"ingress": [], "egress": [], **spec}
-
-
-def controlled_pod(parent, candidates, node):
-    live = [p for p in candidates if not p["metadata"].get("deletionTimestamp")]
-    require(len(live) <= 1, "network probe has multiple live Pods")
-    if not live:
-        return None
-    pod = live[0]
-    controller = {"apiVersion": "batch/v1", "kind": "Job", "controller": True,
-                  "name": parent["metadata"]["name"], "uid": parent["metadata"]["uid"]}
-    owners = [r for r in pod["metadata"].get("ownerReferences", []) if r.get("controller") is True]
-    require(len(owners) == 1 and controller.items() <= owners[0].items()
-            and pod["metadata"]["namespace"] == parent["metadata"]["namespace"],
-            "probe Pod has a different controller")
-    require(pod["spec"]["nodeName"] == node and pod["spec"].get("hostNetwork", False) is False,
-            "probe Pod moved outside the bound network")
-    return pod
 
 
 class NetworkChecks:

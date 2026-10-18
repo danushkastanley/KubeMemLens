@@ -80,3 +80,33 @@ func TestProvenanceAndLabelsAreBounded(t *testing.T) {
 		})
 	}
 }
+
+func TestManagedProviderProvenanceRequiresOwnedSanitisedReceipt(t *testing.T) {
+	for _, kind := range []string{"valid", "missing-receipt", "invalid-receipt", "incident-consent", "assumed-ownership", "unsanitised"} {
+		t.Run(kind, func(t *testing.T) {
+			corpus, _, _ := fixtures(t)
+			provenance := Provenance{Source: "managed-provider", Consent: "owned-fixture", Sanitisation: "numeric-allowlist-v1", ReceiptSHA256: strings.Repeat("a", 64)}
+			switch kind {
+			case "missing-receipt":
+				provenance.ReceiptSHA256 = ""
+			case "invalid-receipt":
+				provenance.ReceiptSHA256 = "not-a-digest"
+			case "incident-consent":
+				provenance.Consent = "explicit-recorded"
+			case "assumed-ownership":
+				provenance.Consent = "assumed"
+			case "unsanitised":
+				provenance.Sanitisation = "raw"
+			}
+			corpus.Cases[0].Provenance = provenance
+			raw, err := json.Marshal(corpus)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = loadCorpus(bytes.NewReader(raw))
+			if (err == nil) != (kind == "valid") {
+				t.Fatalf("provider provenance acceptance differs: %v", err)
+			}
+		})
+	}
+}

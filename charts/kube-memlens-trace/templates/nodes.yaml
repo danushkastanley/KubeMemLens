@@ -43,6 +43,7 @@ spec:
           imagePullPolicy: {{ $.Values.image.pullPolicy }}
           env:
             - {name: GODEBUG, value: "disablethp=1"}
+            - {name: GOMAXPROCS, value: "2"}
           args:
             - binding-node
             - {{ printf "--node-uid=%s" .uid | quote }}

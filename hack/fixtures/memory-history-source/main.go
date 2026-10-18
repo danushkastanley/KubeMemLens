@@ -46,6 +46,7 @@ func main() {
 	cert := flag.String("cert", "", "fixture serving certificate")
 	key := flag.String("key", "", "fixture private key")
 	tokenFile := flag.String("token", "", "fixture-only bearer credential")
+	listen := flag.String("listen", ":9443", "fixture listen address; use loopback for host checks")
 	flag.Parse()
 	token, err := os.ReadFile(*tokenFile)
 	if err != nil || len(strings.TrimSpace(string(token))) == 0 {
@@ -54,6 +55,7 @@ func main() {
 	f := &fixture{path: *config, token: strings.TrimSpace(string(token))}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/query_range", f.query)
+	mux.HandleFunc("/metrics", f.metrics)
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("/stats", func(w http.ResponseWriter, r *http.Request) {
 		config, err := f.configuration()
@@ -64,7 +66,7 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"mode": config.Mode, "revision": config.revision, "requests": f.requests.Load(), "active": f.active.Load(), "cancelled": f.cancelled.Load()})
 	})
-	server := &http.Server{Addr: ":9443", Handler: mux, ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 15 * time.Second, MaxHeaderBytes: 16 << 10, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12}}
+	server := &http.Server{Addr: *listen, Handler: mux, ReadHeaderTimeout: 2 * time.Second, ReadTimeout: 5 * time.Second, WriteTimeout: 10 * time.Second, IdleTimeout: 15 * time.Second, MaxHeaderBytes: 16 << 10, TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12}}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go func() {

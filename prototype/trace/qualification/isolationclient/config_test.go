@@ -84,7 +84,7 @@ func localConfig() *rest.Config {
 	return &rest.Config{Host: "https://127.0.0.1:6443", BearerToken: "fixture-token", TLSClientConfig: rest.TLSClientConfig{CAData: []byte("fixture trust")}}
 }
 func TestQualificationRejectsCloudAndAlternateCredentials(t *testing.T) {
-	if localCredentials(localConfig()) != nil {
+	if fixtureCredentials(localConfig(), nil) != nil {
 		t.Fatal("local token fixture rejected")
 	}
 	changes := []func(*rest.Config){
@@ -100,7 +100,7 @@ func TestQualificationRejectsCloudAndAlternateCredentials(t *testing.T) {
 	for _, change := range changes {
 		c := localConfig()
 		change(c)
-		if localCredentials(c) == nil {
+		if fixtureCredentials(c, nil) == nil {
 			t.Fatal("remote endpoint or alternate credential accepted")
 		}
 	}

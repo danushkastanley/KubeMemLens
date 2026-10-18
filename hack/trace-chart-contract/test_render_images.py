@@ -44,6 +44,19 @@ def main():
     if aggregated == original:
         raise SystemExit("expected a trace cluster role")
     cases.append((aggregated, b"trace role does not match reviewed permissions\n"))
+    parallelism = '            - {name: GOMAXPROCS, value: "2"}'
+    if original.count(parallelism) != 2:
+        raise SystemExit("expected fixed parallelism on both node services")
+    for replacement in ("", parallelism.replace('"2"', '"14"')):
+        cases.append((original.replace(parallelism, replacement, 1),
+                      b"trace workload runtime configuration changed\n"))
+    node_start = original.index(parallelism)
+    node = original[node_start:]
+    cpu_limit = 'limits: {cpu: "2", memory: 512Mi}'
+    if cpu_limit not in node:
+        raise SystemExit("expected a fixed two-CPU node limit")
+    cases.append((original[:node_start] + node.replace(cpu_limit, cpu_limit.replace('"2"', '"4"'), 1),
+                  b"image, resource or readiness bound missing\n"))
     for content, error in cases:
         mutated = folder / "substituted.yaml"
         mutated.write_text(content)
@@ -55,6 +68,7 @@ def main():
         if result.returncode != 1 or result.stderr != error:
             raise SystemExit("resource inventory substitution was not rejected")
     print("hidden workload, wrong namespace, duplicate resource and widened RBAC rejected")
+    print("missing or overridden parallelism and mismatched CPU limits rejected")
 
 
 if __name__ == "__main__":

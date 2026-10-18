@@ -134,7 +134,7 @@ for output in qualification-summary.json provider-qualification.pending.json pro
   [ ! -e "${artifact_dir}/${output}" ] || fail "refusing to overwrite ${artifact_dir}/${output}"
 done
 
-for command in expect go helm jq kubectl python3; do
+for command in expect go helm jq kubectl python3 ruby; do
   command -v "${command}" >/dev/null 2>&1 || fail "required command not found: ${command}"
 done
 
@@ -339,7 +339,7 @@ chmod 600 "${artifact_dir}/doctor.json"
 
 current_check=api
 "${cli}" "${cli_args[@]}" status --output json \
-  | jq '.connection.collector = "redacted" | .connection.description = "redacted"' \
+  | jq -f hack/provider-profiles/sanitise_status.jq \
   > "${artifact_dir}/status.json"
 "${cli}" "${cli_args[@]}" top pods --all-namespaces --output json > "${work_dir}/top.json"
 explanation_raw=${work_dir}/explanation.json
@@ -353,10 +353,8 @@ for _ in $(seq 1 36); do
   sleep 5
 done
 [ "${explanation_ok}" = true ] || fail "collector Pod did not become available for explanation"
-jq -e '.schemaVersion == 1 and (.finding.severity | length > 0) and
-  (.finding.confidence | length > 0) and (.finding.caveats | length > 0) and
-  (.finding.evidenceWindow | type == "object")' "${explanation_raw}" >/dev/null ||
-  fail "machine explanation is missing required diagnosis metadata"
+jq -e -f hack/provider-profiles/validate_explanation.jq "${explanation_raw}" >/dev/null ||
+  fail "machine explanation does not match schema v3 or required diagnosis metadata"
 for sensitive_field in containerID cgroupPath labels podUID; do
   if grep -q "\"${sensitive_field}\"" "${explanation_raw}"; then
     fail "machine explanation contains sensitive field: ${sensitive_field}"

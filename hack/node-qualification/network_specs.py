@@ -51,6 +51,10 @@ def manifests(namespace, image, node_names):
         policy(namespace, "ingress", {**APP, LABEL: "ingress"}, "ingress",
                [{"podSelector": {"matchLabels": {LABEL: "control"}}}]),
         policy(namespace, "egress", APP, "egress", [{"podSelector": {"matchLabels": {LABEL: "egress"}}}]),
+        # Strict CNIs also need an explicit policy for the responder Pods.
+        # Keep this separate so suspending producer egress still tests denial.
+        policy(namespace, "egress-target", {LABEL: "egress"}, "ingress",
+               [{"podSelector": {"matchLabels": APP}}]),
         policy(namespace, "control", {LABEL: "control"}, "egress", [{"podSelector": {"matchExpressions": [
             {"key": LABEL, "operator": "In", "values": ["ingress", "egress"]}]}}]),
     ]

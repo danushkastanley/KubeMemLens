@@ -3,7 +3,7 @@ import json
 import re
 from datetime import datetime, timezone
 
-from transport import QualificationError, pod_path, resource_path
+from transport import QualificationError, fixture_name, pod_path, resource_path
 
 
 STATUS_KEYS = {'kind', 'apiVersion', 'metadata', 'status', 'message', 'reason', 'details', 'code'}
@@ -54,7 +54,7 @@ def intent(pod='target'):
 
 
 class AccessCases:
-    def __init__(self, actors, namespaces, engine, protected):
+    def __init__(self, actors, namespaces, engine, protected, *, pods=None):
         if set(actors) != {'a', 'b', 'colleague', 'admin', 'none'} or set(namespaces) != {'a', 'b'}:
             raise QualificationError('complete actor and tenant fixtures required')
         if namespaces['a'] == namespaces['b']:
@@ -62,6 +62,9 @@ class AccessCases:
         if not isinstance(engine, str) or not re.fullmatch(r'sha256:[a-f0-9]{64}', engine):
             raise QualificationError('pinned engine digest required')
         self.actors, self.namespaces, self.engine = actors, namespaces, engine
+        self.pods = dict(pods) if pods is not None else {'a': 'target', 'b': 'target'}
+        if set(self.pods) != {'a', 'b'} or any(not fixture_name(p) or p == 'absent-fixture' for p in self.pods.values()):
+            raise QualificationError('two exact existing fixture Pod names required')
         self.protected = tuple(protected)
         self.checks, self.pending, self.expiries = [], [], {}
 
@@ -76,7 +79,7 @@ class AccessCases:
 
     def create(self, actor, tenant):
         namespace = self.namespaces[tenant]
-        observation = self.actors[actor].call('POST', resource_path(namespace), intent())
+        observation = self.actors[actor].call('POST', resource_path(namespace), intent(self.pods[tenant]))
         metadata = observation.body.get('metadata')
         candidate = metadata.get('name') if isinstance(metadata, dict) else None
         # A malformed success may still have created a reservation. Keep the
@@ -139,12 +142,12 @@ class AccessCases:
         try:
             for actor, peer in [('a', 'b'), ('b', 'a')]:
                 namespace = self.namespaces[peer]
-                for pod in ['target', 'absent-fixture']:
+                for pod in [self.pods[peer], 'absent-fixture']:
                     self.reject(actor+'-peer-pod-'+pod, actor, 'GET', pod_path(namespace, pod), 403)
                     for resource in ['tracepreflights', 'traces']:
                         self.reject(actor+'-peer-'+resource+'-'+pod, actor, 'POST', resource_path(namespace, resource), 403, intent(pod))
             for resource in ['tracepreflights', 'traces']:
-                self.reject('unbound-'+resource, 'none', 'POST', resource_path(self.namespaces['a'], resource), 403, intent())
+                self.reject('unbound-'+resource, 'none', 'POST', resource_path(self.namespaces['a'], resource), 403, intent(self.pods['a']))
             for owner, tenant in [('a', 'a'), ('b', 'b'), ('admin', 'a')]:
                 namespace = self.namespaces[tenant]
                 name = self.create(owner, tenant)
@@ -157,7 +160,7 @@ class AccessCases:
                 self.owner_read(owner, namespace, name)
                 self.cancel(owner, namespace, name)
                 self.reject(owner+'-deleted-absent', owner, 'GET', resource_path(namespace, name=name), 404)
-            return {'scope': 'local trace access controls', 'checks': self.checks,
+            return {'scope': 'trace access controls', 'checks': self.checks,
                     'rawResponsesRetained': False, 'kernelCleanupVerified': False}
         finally:
             failures = []

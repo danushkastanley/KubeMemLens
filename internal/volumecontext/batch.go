@@ -23,6 +23,22 @@ type Batch struct {
 // NewBatch validates cardinality and identity before copying pointer-rich data.
 // Authenticating Node ownership and ordering is the ingestion adapter's job.
 func NewBatch(nodeName, nodeUID string, at time.Time, state Usage, records []RawUsage, now time.Time) (Batch, error) {
+	batch, err := newValidatedBatch(nodeName, nodeUID, at, state, records, now)
+	if err != nil {
+		return Batch{}, err
+	}
+	cutoff := now.Add(-ExpireAfter)
+	for _, raw := range batch.records {
+		if raw.Filesystem.CapturedAt.Before(cutoff) {
+			return Batch{}, ErrInvalid
+		}
+	}
+	return batch, nil
+}
+
+// Validate the complete input before an acquisition adapter can omit expired
+// measurements. Ingestion additionally rejects them in NewBatch.
+func newValidatedBatch(nodeName, nodeUID string, at time.Time, state Usage, records []RawUsage, now time.Time) (Batch, error) {
 	if !validName(nodeName) || !validUID(nodeUID) || at.IsZero() || at.Before(now.Add(-ExpireAfter)) || at.After(now.Add(FutureSkew)) ||
 		len(records) > MaxBatchRecords {
 		return Batch{}, ErrInvalid
@@ -46,7 +62,7 @@ func NewBatch(nodeName, nodeUID string, at time.Time, state Usage, records []Raw
 		if err := validateFilesystem(raw.Filesystem, now); err != nil {
 			return Batch{}, err
 		}
-		if raw.Filesystem.CapturedAt.After(at.Add(FutureSkew)) || raw.Filesystem.CapturedAt.Before(now.Add(-ExpireAfter)) {
+		if raw.Filesystem.CapturedAt.After(at.Add(FutureSkew)) {
 			return Batch{}, ErrInvalid
 		}
 		pod := raw.Namespace + "\x00" + raw.PodUID

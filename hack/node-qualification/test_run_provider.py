@@ -41,12 +41,13 @@ class ProviderCommandTest(unittest.TestCase):
         self.replacer=SimpleNamespace(run=Mock(side_effect=replacement))
         self.network=SimpleNamespace(run=Mock(return_value=self.fixture.network))
         self.helpers=Mock()
+        self.revalidate=Mock()
 
     def run_command(self):
         with ExitStack() as stack:
             patches={
                 'prepare':Mock(return_value=(self.e.bundle,self.fixture.proof,self.private,self.public)),
-                'build_helpers':self.helpers,'validate_bundle':Mock(),
+                'build_helpers':self.helpers,'validate_bundle':self.revalidate,
                 'collect_inventory':Mock(return_value=(self.fixture.receipt,self.e.binding)),
                 'Execution':Mock(return_value=self.e),'PoolRecovery':Mock(return_value=self.recovery),
                 'ProviderReplacement':Mock(return_value=self.replacer),'NetworkChecks':Mock(return_value=self.network),
@@ -83,7 +84,19 @@ class ProviderCommandTest(unittest.TestCase):
         failure=load(self.public/'failure.json')
         self.assertEqual(failure['stage'],'enabled');self.assertEqual(failure['ownedCleanup'],'passed')
         self.assertNotIn('private-credential',str(caught.exception)+json.dumps(failure))
+        self.assertIsNotNone(failure['failureLocation'])
         self.replacer.run.assert_not_called()
+
+    def test_final_proposal_revalidation_is_distinct_from_record_assembly(self):
+        self.revalidate.side_effect=[None, ContractError('qualification requires a clean checkout')]
+        with self.assertRaises(ContractError):self.run_command()
+        failure=load(self.public/'failure.json')
+        self.assertEqual(failure['stage'],'proposal-revalidation')
+        self.assertEqual(failure['ownedCleanup'],'passed')
+        self.assertIsNotNone(failure['failureLocation'])
+        self.assertTrue((self.public/'final-live-images.json').exists())
+        self.assertFalse((self.public/'qualification-observations.json').exists())
+        self.e.cleanup.assert_called_once_with()
 
     def test_api_failure_category_is_retained_without_unknown_exception_text(self):
         self.e.enable.side_effect=ContractError('qualification API read failed: rate-limited')

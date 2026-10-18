@@ -4,7 +4,7 @@ This runbook turns managed-provider and runtime compatibility into repeatable ev
 
 This is a maintainer-owned, one-time, opt-in qualification workflow for creating or widening a provider-support claim. It is not scheduled, run in CI or required before each release. Ordinary pull requests use proportionate local and CI checks described in [CONTRIBUTING.md](../CONTRIBUTING.md); contributors do not need managed-provider accounts. A provider-sensitive change narrows the affected claim unless maintainers separately approve another live run.
 
-Use only a disposable cluster or a cluster whose owner has authorised installation of a read-only hostPath DaemonSet, cluster-scoped read RBAC, a NetworkPolicy and two short-lived probe Pods. Do not treat an alpha qualification run as shared multi-tenant authorisation evidence.
+Use only a disposable cluster or a cluster whose owner has authorised installation of a read-only hostPath DaemonSet, cluster-scoped read RBAC, NetworkPolicies, a single-replica probe Deployment and three short-lived probe Jobs. Do not treat an alpha qualification run as shared multi-tenant authorisation evidence.
 
 ## Scope
 
@@ -26,9 +26,9 @@ do not promote an existing cgroup receipt into a Node-context result.
   read-only security posture;
 - strict `doctor`, status, mapping, explanation privacy and collector metrics;
 - a real 80x24 TUI launch and clean exit;
-- elapsed seconds from Helm installation start to the first schema-valid explanation with severity, confidence, caveats and evidence-window metadata;
-- CNI enforcement through one denied and one explicitly allowed Pod-to-Pod
-  NetworkPolicy probe;
+- elapsed seconds from Helm installation start to the first schema-v3 explanation with severity, confidence, caveats and evidence-window metadata;
+- CNI enforcement through a denied Pod-to-Pod NetworkPolicy probe between two
+  allowed probes, with controller-owned Pods and explicit client startup policies;
 - independent agent and collector restart recovery;
 - recovery after one real provider-triggered Linux node replacement;
 - one Helm upgrade, rollback and post-rollback strict diagnosis;
@@ -53,7 +53,7 @@ These environments must be reported as unsupported without a privileged or weake
 
 ## Prerequisites
 
-- `expect`, `go`, `helm`, `jq`, `kubectl` and `python3` on the operator workstation.
+- `expect`, `go`, `helm`, `jq`, `kubectl`, `python3` and `ruby` on the operator workstation.
 - `gcloud`, `aws` or `az` for its corresponding managed-provider profile, with
   read-only inventory access in addition to the separately approved lifecycle actions.
 - `ssh` with a dedicated, least-privilege key and pinned known-hosts file for
@@ -69,6 +69,8 @@ These environments must be reported as unsupported without a privileged or weake
   repository and digest are source-bound and its digest must match every
   supported row. It contains `/bin/sh`, `wget` and `httpd`.
 - A NetworkPolicy-capable CNI with policy enforcement enabled.
+- The collector's live Service must match the exact chart rendered with the
+  selected provider values. The EKS profile uses port 8443; the default is 443.
 - No existing KubeMemLens installation in the target cluster. The chart's current cluster-scoped RBAC names intentionally prevent overlapping qualification.
 - Explicit approval and a separate provider cleanup plan for the real node
   replacement and any cloud resources.
@@ -216,7 +218,15 @@ A passing directory contains mode-`0600` JSON:
 | `recovery.json` | Install-to-explanation plus agent, collector and real-node replacement recovery seconds |
 | `lifecycle.json` | Strict, cross-checked facts for every claimed install, runtime, security, CNI, recovery, upgrade, rollback and uninstall check |
 | `doctor.json` | Strict checks with connection and node names redacted |
-| `status.json` | Bounded store state with connection identifiers redacted |
+| `status.json` | Bounded store state with connection identifiers redacted and query diagnostics omitted |
+
+The lifecycle record uses the collector Service port checked against the rendered
+provider chart. The current EKS profile requires 8443; the other supported
+profiles use 443. Archived EKS receipts retain port 443 only when bound to their
+original values digest. Query
+diagnostics are not part of the aggregate status proof; store counts, readiness
+and connection health remain intact, and all retained fields still pass the
+unchanged privacy validator.
 
 Validate the pending schema with `hack/provider-profiles/validate.py --pending`.
 After inspecting the complete bundle and the private provider/cleanup record,

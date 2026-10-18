@@ -14,7 +14,7 @@ func TestExecutableRequiresThePinnedGoCompiler(t *testing.T) {
 	directory := t.TempDir()
 	module := "github.com/danushkastanley/kube-memlens/prototype/trace/worker/cmd/memlens-filecache-worker"
 	for name, data := range map[string]string{
-		"go.mod":  "module " + module + "\n\ngo 1.27.1\n",
+		"go.mod":  "module " + module + "\n\ngo 1.27.2\n",
 		"main.go": "package main\nfunc main() {}\n",
 	} {
 		if err := os.WriteFile(filepath.Join(directory, name), []byte(data), 0600); err != nil {
@@ -32,7 +32,7 @@ func TestExecutableRequiresThePinnedGoCompiler(t *testing.T) {
 	if err != nil || ValidateExecutable(raw, "amd64", "memlens-filecache-worker") != nil {
 		t.Fatal("pinned compiler fixture refused", err)
 	}
-	changed := bytes.ReplaceAll(raw, []byte("go1.27.1"), []byte("go1.26.4"))
+	changed := bytes.ReplaceAll(raw, []byte("go1.27.2"), []byte("go1.26.4"))
 	if bytes.Equal(raw, changed) {
 		t.Fatal("fixture compiler metadata was not changed")
 	}
