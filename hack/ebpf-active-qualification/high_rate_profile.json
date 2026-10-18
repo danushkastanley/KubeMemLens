@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "case": "high-rate-mixed-files",
+  "pairs": 5,
+  "windowSeconds": 1350,
+  "warmupSeconds": 60,
+  "workloadContainers": 32,
+  "minimumActiveSeconds": 900,
+  "minimumActiveOperationsPerMode": 3000,
+  "minimumScans": 240,
+  "minimumActiveScans": 120,
+  "workload": {
+    "mode": "mixed",
+    "count": 13200,
+    "periodMilliseconds": 100,
+    "fileBytes": 8388608
+  },
+  "trace": {
+    "count": 36,
+    "firstOffsetSeconds": 30,
+    "periodSeconds": 35,
+    "durationSeconds": 30,
+    "maxEvents": 10000,
+    "maxOutputBytes": 8388608,
+    "maxMapBytes": 8388608,
+    "maxPathBytes": 64,
+    "kind": "files",
+    "rawPaths": true,
+    "objects": {
+      "map": 7,
+      "prog": 5,
+      "link": 5
+    }
+  }
+}

@@ -31,6 +31,9 @@ func SupportedSnapshotSchema(version int) bool {
 
 func AgentSnapshotForSchema(snapshot AgentSnapshot, version int) AgentSnapshot {
 	snapshot.SchemaVersion = version
+	if version < TopologySnapshotSchemaVersion {
+		snapshot.Topology = nil
+	}
 	if version < VolumeSnapshotSchemaVersion {
 		snapshot.VolumeBatch = nil
 	}

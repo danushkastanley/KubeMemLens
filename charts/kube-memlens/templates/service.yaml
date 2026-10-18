@@ -11,7 +11,7 @@ spec:
   selector:
     app.kubernetes.io/name: kube-memlens-collector
   ports:
-    - name: https-extension
-      port: 443
+    - name: {{ .Values.collector.service.extensionPortName | quote }}
+      port: {{ .Values.collector.service.extensionPort }}
       targetPort: extension
 {{- end }}

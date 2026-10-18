@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "scope": "maintainer-run local incident-session functional qualification",
+  "date": "2026-09-30",
+  "environment": {
+    "provider": "kind",
+    "nodes": 2,
+    "kubernetes": "1.37.0",
+    "kernel": "7.0.12-linuxkit",
+    "runtime": "containerd 2.3.4",
+    "architecture": "arm64"
+  },
+  "candidate": {
+    "baseCommit": "94867253343e7aa624ae0f3109816326d16b1319",
+    "state": "uncommitted development source",
+    "sourceFileMapSHA256": "83b65916cc37b5e99a024d5b56eb0c2a758b94042ae5f1b0726011927842d7c8",
+    "sourceHashMethod": "SHA-256 of compact sorted-key JSON mapping go.mod, go.sum and every file under cmd/ and internal/ to its byte SHA-256",
+    "imageDigest": "sha256:a0d9689cc6c8cc13ff2547485a8fb7368a42d8db925cd71a2900f28093e09763",
+    "published": false
+  },
+  "expiry": {
+    "observations": 114,
+    "openedAt": "2026-09-30T20:44:57.554484966Z",
+    "expiresAt": "2026-09-30T21:44:57.554484966Z",
+    "verifiedAt": "2026-09-30T21:45:02.188339+00:00",
+    "sameCollectorProcess": true,
+    "expiredStatusAndExportUnavailable": true,
+    "credentialsAndNewSessionStillWork": true
+  },
+  "checks": {
+    "authenticatedCLIWalkthrough": true,
+    "realPodCaptureAndComparison": true,
+    "localAgentHistoryAndKubernetesMarkers": true,
+    "disabledSourceGap": true,
+    "retainedTraceReferenceAndOfflineVerification": true,
+    "sameNamespaceDifferentOwnerDenied": true,
+    "differentTenantDenied": true,
+    "tracePermissionRevocationWithWorkingReads": true,
+    "deniedAttachmentPreservesState": true,
+    "sanitisedAndAuthorisedExportPrivacy": true,
+    "publishedRC1ToCurrentUpgrade": true,
+    "publishedCaptureBytePreservingReplay": true,
+    "priorDevelopmentTimelineSchema1Replay": true,
+    "nonTraceSchema1AndTraceSchema2": true,
+    "terminalSessionFlows80x24And160x35": true,
+    "terminalTraceProvenanceAndRedaction": true,
+    "mode0600Exports": true,
+    "ownedReleaseNamespacesAndCredentialsRemoved": true,
+    "originalTracingInstallationHealthy": true
+  },
+  "notEstablished": [
+    "independent review",
+    "resource qualification",
+    "managed-provider qualification",
+    "prior released incident-session support",
+    "live-session restoration after collector restart",
+    "new kernel tracing from these incident walkthroughs",
+    "Windows runtime qualification"
+  ],
+  "rawEvidence": "private maintainer evidence retained; no credentials, session identifiers or tenant captures included"
+}

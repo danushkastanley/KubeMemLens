@@ -95,7 +95,7 @@ func TestAggregateProxyPinsVersionAndPreservesTerminalOnTruncation(t *testing.T)
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := &streamFixture{version: tc.version, truncated: tc.truncated, target: trace.TargetIdentity{Namespace: "tenant", PodName: "pod", PodUID: "uid", ContainerName: "worker", ContainerID: strings.Repeat("a", 64), ContainerStartedAt: time.Unix(10, 0).UTC(), NodeUID: "node", CgroupID: 42}}
-			manager, err := admission.NewManager(context.Background(), admission.Dependencies{Authorizer: f, Resolver: f, Binder: f, Audit: func(admission.AuditEvent) {}}, admission.DefaultPolicy())
+			manager, err := admission.NewManager(context.Background(), admission.Dependencies{Authorizer: f, Resolver: f, Binder: f, AuditReferences: testAuditReferences(t), Audit: func(context.Context, admission.AuditEvent) error { return nil }}, admission.DefaultPolicy())
 			if err != nil {
 				t.Fatal(err)
 			}

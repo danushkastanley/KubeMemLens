@@ -95,6 +95,13 @@ func (i *nodeWireInspector) value(d *json.Decoder, t reflect.Type, field string,
 				}
 			}
 		}
+		if t == reflect.TypeFor[TopologyBundle]() {
+			for _, name := range []string{"schemaVersion", "capturedAt", "redacted", "node", "caveats"} {
+				if !seen[name] {
+					return fmt.Errorf("required topology incident field is missing")
+				}
+			}
+		}
 		_, err = d.Token()
 		return err
 	case reflect.Slice:
@@ -157,6 +164,8 @@ func (i *nodeWireInspector) objectFields(t reflect.Type) map[string]reflect.Type
 
 func nodeArrayLimit(field string) int {
 	switch field {
+	case "items", "pools", "numa", "nodes":
+		return 8
 	case "series":
 		return MaxNodeInstances
 	case "points":

@@ -1,0 +1,17 @@
+{{- if and .Values.agent.enabled .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: kube-memlens-agent
+  namespace: {{ .Values.namespace.name | quote }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kube-memlens-agent
+  # The agent exposes diagnostics only on loopback. An explicit ingress policy
+  # also lets strict-startup CNIs resolve its policy before outbound requests.
+  # Namespace egress restrictions remain the administrator's responsibility.
+  policyTypes:
+    - Ingress
+  ingress: []
+{{- end }}

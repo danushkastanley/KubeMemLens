@@ -37,6 +37,7 @@ PY
   python3 - "${work_dir}" <<'PY'
 import hashlib,json,pathlib,stat,sys
 root=pathlib.Path(sys.argv[1])
+target_uid=json.loads((root/'cli-node-only-capture.json').read_text())['evidence']['record']['nodeUID']
 for name in ('cli-node-only-capture.json','cli-node-revoked.json'):
     b=json.loads((root/name).read_text());a=b['evidence']['analysis']
     assert b['schemaVersion']==4 and a['contributorAccess']=='node-only'
@@ -46,6 +47,7 @@ for name in ('cli-node-full-capture.json','pty-80.json','pty-160.json'):
     p=root/name;b=json.loads(p.read_text());a=b['evidence']['analysis']
     assert b['schemaVersion']==4 and b['redacted'] and stat.S_IMODE(p.stat().st_mode)==0o600
     assert b['evidence']['record']['nodeUID'].startswith('sha256-')
+    assert b['evidence']['record']['nodeUID']==target_uid, 'capture selected a different Node'
     assert a['contributorAccess']=='cluster-pods' and a['rankings']['pods']
     if name.startswith('pty-'): assert a['rankings']['metric']=='anon'
     assert b['history']['series']

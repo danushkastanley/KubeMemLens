@@ -94,6 +94,9 @@ spec:
 {{- if .Values.nodeContext.volumeStats }}
             - "--volume-stats"
 {{- end }}
+{{- if .Values.nodeContext.topology.enabled }}
+            - "--topology"
+{{- end }}
             - "--node-name=$(NODE_NAME)"
             - "--kubelet-ca=/var/run/kubelet-trust/ca.crt"
             - "--kubelet-token-file=/var/run/kubelet-token/token"
@@ -111,6 +114,17 @@ spec:
           resources:
 {{ toYaml .Values.nodeContext.resources | nindent 12 }}
           volumeMounts:
+{{- if .Values.nodeContext.topology.enabled }}
+            - name: topology-system
+              mountPath: /host/topology/system
+              readOnly: true
+            - name: topology-mm
+              mountPath: /host/topology/mm
+              readOnly: true
+            - name: topology-cgroup
+              mountPath: /host/topology/cgroup
+              readOnly: true
+{{- end }}
             - name: kubernetes-api-access
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
@@ -121,6 +135,20 @@ spec:
               mountPath: /var/run/kubelet-token
               readOnly: true
       volumes:
+{{- if .Values.nodeContext.topology.enabled }}
+        - name: topology-system
+          hostPath:
+            path: /sys/devices/system
+            type: Directory
+        - name: topology-mm
+          hostPath:
+            path: /sys/kernel/mm
+            type: Directory
+        - name: topology-cgroup
+          hostPath:
+            path: {{ .Values.nodeContext.topology.cgroupRoot | quote }}
+            type: Directory
+{{- end }}
         - name: kubernetes-api-access
           projected:
             defaultMode: 0440

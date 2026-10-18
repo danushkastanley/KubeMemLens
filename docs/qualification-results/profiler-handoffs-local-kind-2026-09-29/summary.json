@@ -1,0 +1,63 @@
+{
+  "scope": "local verification of static Go heap-profile handoffs; not EKS qualification",
+  "checks": {
+    "labelledAppOnly": true,
+    "sidecarAbstained": true,
+    "formats": [
+      "text",
+      "json",
+      "yaml"
+    ],
+    "defaultSchema1": true,
+    "deniedReadNoGuidance": true,
+    "capturePrivateAndDeclarationRedacted": true
+  },
+  "terminals": [
+    {
+      "columns": 80,
+      "rows": 24,
+      "passed": true
+    },
+    {
+      "columns": 160,
+      "rows": 35,
+      "passed": true
+    }
+  ],
+  "rollback": {
+    "declarationRemovalRemovedHandoff": true,
+    "grantRevocationDeniedRead": true
+  },
+  "cleanup": {
+    "namespaceRemoved": true,
+    "apiServiceRemoved": true,
+    "fixtureContainersRemoved": true,
+    "nodesReady": 2,
+    "cloudActions": false
+  },
+  "profileCommands": [
+    {
+      "command": "go tool pprof -top -sample_index=inuse_space ./heap.pprof",
+      "exitCode": 0,
+      "expectedAllocationFound": true
+    },
+    {
+      "command": "go tool pprof -top -sample_index=alloc_space ./heap.pprof",
+      "exitCode": 0,
+      "expectedAllocationFound": true
+    },
+    {
+      "command": "go tool pprof -top -sample_index=inuse_space -base ./baseline.pprof ./heap.pprof",
+      "exitCode": 0,
+      "expectedAllocationFound": true
+    }
+  ],
+  "receiptsSHA256": {
+    "final-host-checks.log": "530c1a19d30cdcabf27d1f0f96c3b73d0ce9e513d04e8e3a0eefbfe359678ed4",
+    "linux-validation.log": "e8845bdb6d125ac15c2bd2f079bde002fd2b9d40420778b310eeab4be1ab4ae7",
+    "local-runtime-final/checks.json": "02026c976f31316539e3fbb1c17e7578acf98ff442afa72823480f9570288cbf",
+    "local-runtime-final/terminal-checks.json": "bf376fc056407f574d1b2c4a69c8eb2ac2d4f8d89f17c13d267a9dee472ae409",
+    "local-runtime-final/rollback-checks.json": "6ad86ef9c524cd2a6ca07cc738189915f0446335bd359a38c41a29db8c865f34",
+    "local-runtime-final/cleanup.json": "a803c74205a7b6f9ee3c025fbfe8034d9288ad684046d7a3e298ee003ff13fa1"
+  }
+}

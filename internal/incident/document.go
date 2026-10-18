@@ -25,10 +25,12 @@ type RestrictedBundle struct {
 
 // Document keeps incompatible memory domains separate at the decoding boundary.
 type Document struct {
+	Topology   *TopologyBundle
 	Deep       *api.IncidentBundle
 	Restricted *RestrictedBundle
 	Node       *NodeBundle
 	Volume     *VolumeBundle
+	History    *HistoryBundle
 }
 
 func Read(path string) (Document, error) {
@@ -49,6 +51,20 @@ func Read(path string) (Document, error) {
 	}
 	if err := json.Unmarshal(data, &header); err != nil {
 		return Document{}, fmt.Errorf("decode incident bundle: %w", err)
+	}
+	if header.SchemaVersion == TopologySchemaVersion {
+		bundle, err := decodeTopology(data)
+		if err != nil {
+			return Document{}, err
+		}
+		return Document{Topology: &bundle}, nil
+	}
+	if header.SchemaVersion == HistorySchemaVersion {
+		bundle, err := decodeHistory(data)
+		if err != nil {
+			return Document{}, err
+		}
+		return Document{History: &bundle}, nil
 	}
 	if header.SchemaVersion == VolumeSchemaVersion {
 		bundle, err := decodeVolume(data)

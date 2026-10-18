@@ -17,6 +17,8 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/incidentsessionapi"
+	"github.com/danushkastanley/kube-memlens/internal/memorytopology"
 	"github.com/danushkastanley/kube-memlens/internal/nodeanalysis"
 	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 	"github.com/danushkastanley/kube-memlens/internal/volumecontext"
@@ -33,9 +35,13 @@ const (
 )
 
 type HandlerOptions struct {
+	IncidentSessions       *IncidentSessionOptions
+	MemoryHistory          *MemoryHistoryOptions
+	Replicas               *ReplicaOptions
 	NodeAccounting         map[string]nodeanalysis.Qualification
 	AgentUsername          string
 	NodeContextUsername    string
+	TopologyEnabled        bool
 	VolumeStatsEnabled     bool
 	VolumeHealthEnabled    bool
 	VolumeWorkloadsEnabled bool
@@ -50,12 +56,13 @@ type HandlerOptions struct {
 }
 
 type Handler struct {
-	coordinator *Coordinator
-	reads       *ReadHandler
-	opts        HandlerOptions
-	concurrent  chan struct{}
-	limiterMu   sync.Mutex
-	limiters    map[string]identityLimiter
+	incidentSessions *incidentsessionapi.Handler
+	coordinator      *Coordinator
+	reads            *ReadHandler
+	opts             HandlerOptions
+	concurrent       chan struct{}
+	limiterMu        sync.Mutex
+	limiters         map[string]identityLimiter
 }
 
 type identityLimiter struct {
@@ -64,6 +71,15 @@ type identityLimiter struct {
 }
 
 func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error) {
+	if err := opts.IncidentSessions.Validate(); err != nil {
+		return nil, err
+	}
+	if err := opts.MemoryHistory.Validate(); err != nil {
+		return nil, err
+	}
+	if err := opts.Replicas.Validate(); err != nil {
+		return nil, err
+	}
 	if coordinator == nil {
 		return nil, fmt.Errorf("ingestion coordinator is required")
 	}
@@ -75,6 +91,9 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	}
 	if opts.VolumeStatsEnabled && opts.NodeContextUsername == "" {
 		return nil, fmt.Errorf("volume statistics require the separate Node-context producer")
+	}
+	if opts.TopologyEnabled && opts.NodeContextUsername == "" {
+		return nil, fmt.Errorf("topology requires the separate Node-context producer")
 	}
 	namespaces, err := VolumeNamespaces(strings.Join(opts.VolumeNamespaces, ","))
 	if err != nil {
@@ -105,6 +124,7 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	}
 	reads := NewReadHandler(coordinator.store, coordinator.opts.Handler)
 	reads.nodeContextEnabled = opts.NodeContextUsername != ""
+	reads.topologyEnabled = opts.TopologyEnabled
 	reads.volumeStatsEnabled = opts.VolumeStatsEnabled
 	reads.volumeWorkloadsEnabled = opts.VolumeWorkloadsEnabled
 	reads.volumeNamespaces = map[string]bool{}
@@ -134,7 +154,7 @@ func (h *Handler) Register(mux routeMux) {
 	mux.HandleFunc(groupVersion, h.discovery)
 	mux.HandleFunc(groupVersion+"/ingestionepochs/current", h.epoch)
 	mux.HandleFunc(groupVersion+"/nodesnapshots", h.snapshot)
-	mux.HandlePrefix(groupVersion+"/", h.reads)
+	mux.HandlePrefix(groupVersion+"/", http.HandlerFunc(h.serveResource))
 }
 
 func (h *Handler) discovery(w http.ResponseWriter, r *http.Request) {
@@ -230,6 +250,9 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 	maxBytes := h.opts.MaxSnapshotBytes
 	if claims.Role == NodeContextProducer {
 		nodeLimit := int64(nodecontext.MaxObservationBytes + 8192)
+		if h.opts.TopologyEnabled {
+			nodeLimit += memorytopology.MaxObservationBytes
+		}
 		if h.opts.VolumeStatsEnabled {
 			nodeLimit += volumecontext.MaxBatchBytes
 		}
@@ -290,6 +313,11 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 	if len(request.Snapshot.VolumeBatch) > 0 && !h.opts.VolumeStatsEnabled {
 		result = "invalid_snapshot"
 		writeAPIError(w, http.StatusForbidden, "producer_scope", "volume statistics are disabled")
+		return
+	}
+	if len(request.Snapshot.Topology) > 0 && !h.opts.TopologyEnabled {
+		result = "invalid_snapshot"
+		writeAPIError(w, http.StatusForbidden, "producer_scope", "topology is disabled")
 		return
 	}
 	response, duplicate, err := h.coordinator.Accept(claims, request)

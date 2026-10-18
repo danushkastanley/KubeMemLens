@@ -1,0 +1,40 @@
+[
+  {
+    "namespace": "test",
+    "pod": "app-1",
+    "container": "app",
+    "state": "available",
+    "reason": "Anonymous memory is dominant; the owner declares a Go heap-profile workflow. This does not establish heap growth or a leak.",
+    "handoff": {
+      "profile": "go-heap-pprof-v1",
+      "runtime": "Go",
+      "basis": "Explicit owner declaration in the matching container's Pod label; no process inspection.",
+      "prerequisites": [
+        "Ask the workload owner to confirm this container runs Go and already has an approved heap-profile collection workflow.",
+        "Obtain permission to collect and read profiles through that workflow; KubeMemLens grants no endpoint, exec, attach or port-forward access.",
+        "Place the approved binary heap profile at ./heap.pprof in a private local directory. For comparison, place an earlier comparable profile at ./baseline.pprof.",
+        "Use the trusted Go toolchain and profiles from the intended process and build. Review these POSIX-shell commands before running them yourself."
+      ],
+      "risks": [
+        "Collection can affect workload latency and memory. Agree its budget with the owner; do not enable endpoints, force GC or change sampling rates from this guidance.",
+        "Profiles can expose internal function names, source paths and labels. Restrict local file access, follow retention policy and do not upload them with incident captures."
+      ],
+      "commands": [
+        "go tool pprof -top -sample_index=inuse_space ./heap.pprof",
+        "go tool pprof -top -sample_index=alloc_space ./heap.pprof",
+        "go tool pprof -top -sample_index=inuse_space -base ./baseline.pprof ./heap.pprof"
+      ],
+      "verification": [
+        "Confirm profile timestamps, process continuity, build and comparable workload demand before using the baseline command.",
+        "inuse_space estimates retained sampled Go allocations at the last completed GC; alloc_space measures cumulative allocation, not retained memory.",
+        "Compare repeated profiles with the cgroup observation window. One profile or anonymous-memory dominance cannot prove a leak.",
+        "Go heap samples do not explain all RSS, native allocations, stacks, mappings or cgroup charges; a gap is not an attribution result."
+      ],
+      "references": [
+        "https://go.dev/doc/diagnostics",
+        "https://pkg.go.dev/runtime/pprof",
+        "https://pkg.go.dev/net/http/pprof"
+      ]
+    }
+  }
+]

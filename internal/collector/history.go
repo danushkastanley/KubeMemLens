@@ -35,6 +35,7 @@ type historyStore struct {
 }
 
 type historyCoverage struct {
+	replica         replicaContinuity
 	firstRecordedAt time.Time
 	lastRecordedAt  time.Time
 	lastLossAt      time.Time
@@ -73,7 +74,7 @@ func newHistoryStore(opts HistoryOptions) *historyStore {
 	}
 }
 
-func (h *historyStore) record(capturedAt time.Time, containers []api.ContainerSnapshot) {
+func (h *historyStore) record(capturedAt time.Time, containers []api.ContainerSnapshot, nodeUID string) {
 	h.prune(capturedAt)
 	byPod := map[string][]api.ContainerSnapshot{}
 	for _, container := range containers {
@@ -110,6 +111,7 @@ func (h *historyStore) record(capturedAt time.Time, containers []api.ContainerSn
 			h.coverage[key] = coverage
 		}
 		coverage := h.coverage[key]
+		coverage.replica.record(capturedAt, replicaFingerprint(nodeUID, containers), coverage.lastRecordedAt, h.opts.ContinuityGap)
 		if !coverage.lastRecordedAt.IsZero() && capturedAt.Sub(coverage.lastRecordedAt) > h.opts.ContinuityGap {
 			coverage.firstRecordedAt = capturedAt
 		}

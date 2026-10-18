@@ -2,7 +2,6 @@ package traceadmission
 
 import (
 	"context"
-	"github.com/danushkastanley/kube-memlens/internal/trace"
 	"k8s.io/apiserver/pkg/authentication/user"
 	"time"
 )
@@ -12,17 +11,25 @@ func (m *Manager) Get(ctx context.Context, info user.Info, namespace, id string)
 		return result, ErrUnavailable
 	}
 	defer m.inflight.Done()
-	var kind trace.Kind
-	principalClass := "unauthenticated"
-	defer func() { m.record(Read, principalClass, kind, err) }()
+	event := m.auditEvent(Read, Request{})
+	defer func() {
+		if m.record(event, err) != nil {
+			result, err = Admission{}, ErrUnavailable
+		}
+	}()
+	if m.AuditHealthy() != nil {
+		return result, ErrUnavailable
+	}
 	principal, owner, err := snapshotPrincipal(info)
 	if err != nil {
+		return result, err
+	}
+	if err = m.identifyAudit(&event, principal, namespace, id); err != nil {
 		return result, err
 	}
 	if !validNamespace(namespace) {
 		return result, ErrInvalidRequest
 	}
-	principalClass = principalCategory(principal)
 	ctx, stop := m.operationContext(ctx)
 	defer stop()
 	if err = m.deps.Authorizer.Trace(ctx, principal, Read, namespace, id); err != nil {
@@ -33,7 +40,7 @@ func (m *Manager) Get(ctx context.Context, info user.Info, namespace, id string)
 	if err != nil {
 		return result, err
 	}
-	kind = e.request.kind
+	auditEntry(&event, e)
 	if err = m.deps.Authorizer.Pod(ctx, principal, e.request.namespace, e.request.pod); err != nil {
 		m.discardWithCause(id, safeDependencyError(err))
 		return result, safeDependencyError(err)
@@ -71,17 +78,22 @@ func (m *Manager) Cancel(ctx context.Context, info user.Info, namespace, id stri
 		return ErrUnavailable
 	}
 	defer m.inflight.Done()
-	var kind trace.Kind
-	principalClass := "unauthenticated"
-	defer func() { m.record(Cancel, principalClass, kind, err) }()
+	event := m.auditEvent(Cancel, Request{})
+	defer func() {
+		if m.record(event, err) != nil {
+			err = ErrUnavailable
+		}
+	}()
 	principal, owner, err := snapshotPrincipal(info)
 	if err != nil {
+		return err
+	}
+	if err = m.identifyAudit(&event, principal, namespace, id); err != nil {
 		return err
 	}
 	if !validNamespace(namespace) {
 		return ErrInvalidRequest
 	}
-	principalClass = principalCategory(principal)
 	ctx, stop := m.operationContext(ctx)
 	defer stop()
 	if err = m.deps.Authorizer.Trace(ctx, principal, Cancel, namespace, id); err != nil {
@@ -91,7 +103,7 @@ func (m *Manager) Cancel(ctx context.Context, info user.Info, namespace, id stri
 	if err != nil {
 		return err
 	}
-	kind = e.request.kind
+	auditEntry(&event, e)
 	if err = m.deps.Authorizer.Pod(ctx, principal, e.request.namespace, e.request.pod); err != nil {
 		return safeDependencyError(err)
 	}

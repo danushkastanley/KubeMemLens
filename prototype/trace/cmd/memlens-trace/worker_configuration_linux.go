@@ -12,16 +12,16 @@ import (
 	"github.com/danushkastanley/kube-memlens/prototype/trace/workerruntime"
 )
 
-func configureWorker(ctx context.Context, acceptance, executable, bundle string) (installedRuntime, error) {
-	policy, err := workerinstall.ReadFile(acceptance)
+func configureWorker(ctx context.Context, acceptance, digest, executable, bundle string) (installedRuntime, error) {
+	policy, err := readInstallationPolicy(acceptance, digest)
 	if err != nil {
 		return nil, err
 	}
 	return workerruntime.New(ctx, policy, executable, bundle)
 }
 
-func configureStream(acceptance string, base admission.Policy) (*admissionapi.StreamProxy, admission.Policy, error) {
-	policy, err := workerinstall.ReadFile(acceptance)
+func configureStream(acceptance, digest string, base admission.Policy) (*admissionapi.StreamProxy, admission.Policy, error) {
+	policy, err := readInstallationPolicy(acceptance, digest)
 	if err != nil {
 		return nil, base, err
 	}
@@ -43,4 +43,11 @@ func configureStream(acceptance string, base admission.Policy) (*admissionapi.St
 	}
 	base.EngineDigest = policy.EngineDigest()
 	return proxy, base, nil
+}
+
+func readInstallationPolicy(path, digest string) (*workerinstall.Policy, error) {
+	if digest == "" {
+		return workerinstall.ReadFile(path)
+	}
+	return workerinstall.ReadPinnedFile(path, digest)
 }

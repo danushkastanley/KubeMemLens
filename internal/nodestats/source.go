@@ -22,6 +22,7 @@ type NodeStatsSource interface {
 }
 
 type Options struct {
+	Topology    TopologySource
 	VolumeStats VolumeStatsMode
 	NodeName    string
 	CAFile      string
@@ -135,7 +136,9 @@ func (s *Source) ReadSample(ctx context.Context) (report Sample, err error) {
 	if err != nil {
 		return report, &Error{Reason: nodecontext.InvalidResponse}
 	}
+	report.Topology = s.topology(ctx, node.name, node.uid)
 	report.Node = observation(node, parsed, s.opts.Now().UTC())
+	report.stampTopology(report.Node.ReportedAt)
 	encoded, err := json.Marshal(report.Node)
 	if err != nil || len(encoded) > nodecontext.MaxObservationBytes {
 		return Sample{}, &Error{Reason: nodecontext.ResponseTooLarge}

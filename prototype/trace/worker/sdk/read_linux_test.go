@@ -1,7 +1,11 @@
 package sdk
 
 import (
+	"context"
+	"errors"
+	"github.com/cilium/ebpf/ringbuf"
 	"math"
+	"os"
 	"testing"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
@@ -40,6 +44,24 @@ func TestInconsistentCountsRemainUnknown(t *testing.T) {
 		result, err := reconcileCounts(item.counts, item.reads)
 		if err == nil || result.Produced != nil || result.Rejected != nil {
 			t.Fatal("inconsistent accounting became a known count")
+		}
+	}
+}
+
+func TestCancellationDoesNotHideUnrelatedReaderFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for _, err := range []error{ringbuf.ErrFlushed, os.ErrDeadlineExceeded} {
+		if !interruptedRead(ctx, err) {
+			t.Fatal("expected cancellation wake rejected")
+		}
+		if interruptedRead(context.Background(), err) {
+			t.Fatal("unsolicited wake treated as cancellation")
+		}
+	}
+	for _, err := range []error{os.ErrClosed, errors.New("fixture read failure"), nil} {
+		if interruptedRead(ctx, err) {
+			t.Fatal("cancellation hid unrelated failure")
 		}
 	}
 }

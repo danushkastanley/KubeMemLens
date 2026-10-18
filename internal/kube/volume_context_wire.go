@@ -12,12 +12,16 @@ import (
 // The collector may read hostile namespace-owned Pod/PVC objects. Bound their
 // arrays before decoding Kubernetes structs with large per-element footprints.
 func boundedVolumeObject(body []byte) error {
+	return boundedObjectItems(body, volumecontext.MaxWorkloadPods+1)
+}
+
+func boundedObjectItems(body []byte, items int) error {
 	if len(body) > maxHealthResponse {
 		return invalidHealth()
 	}
 	d := json.NewDecoder(bytes.NewReader(body))
 	d.UseNumber()
-	if err := volumeObjectValue(d, "", 0); err != nil {
+	if err := volumeObjectValue(d, "", 0, items); err != nil {
 		return err
 	}
 	if _, err := d.Token(); err != io.EOF {
@@ -26,7 +30,7 @@ func boundedVolumeObject(body []byte) error {
 	return nil
 }
 
-func volumeObjectValue(d *json.Decoder, field string, depth int) error {
+func volumeObjectValue(d *json.Decoder, field string, depth, items int) error {
 	if depth > 32 {
 		return invalidHealth()
 	}
@@ -52,7 +56,7 @@ func volumeObjectValue(d *json.Decoder, field string, depth int) error {
 				return invalidHealth()
 			}
 			seen[key] = true
-			if err := volumeObjectValue(d, key, depth+1); err != nil {
+			if err := volumeObjectValue(d, key, depth+1, items); err != nil {
 				return err
 			}
 		}
@@ -60,7 +64,7 @@ func volumeObjectValue(d *json.Decoder, field string, depth int) error {
 		limit := 1024
 		switch field {
 		case "items":
-			limit = volumecontext.MaxWorkloadPods + 1
+			limit = items
 		case "volumes", "volumemounts", "volumehealth", "ownerreferences":
 			limit = volumecontext.MaxVolumesPerPod
 		case "containers", "initcontainers", "ephemeralcontainers", "containerstatuses", "initcontainerstatuses", "ephemeralcontainerstatuses":
@@ -74,7 +78,7 @@ func volumeObjectValue(d *json.Decoder, field string, depth int) error {
 			if count >= limit {
 				return invalidHealth()
 			}
-			if err := volumeObjectValue(d, "", depth+1); err != nil {
+			if err := volumeObjectValue(d, "", depth+1, items); err != nil {
 				return err
 			}
 		}

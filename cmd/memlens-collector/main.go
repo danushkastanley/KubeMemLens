@@ -31,6 +31,9 @@ type serverResult struct {
 }
 
 func main() {
+	remoteHistoryFlags := registerMemoryHistoryFlags(flag.CommandLine)
+	replicaFlags := registerReplicaFlags(flag.CommandLine)
+	incidentFlags := registerIncidentSessionFlags(flag.CommandLine)
 	listenAddr := flag.String("listen", ":8080", "HTTP listen address for collector reads, metrics, and health checks")
 	ingestListenAddr := flag.String("ingest-listen", ":8081", "HTTP listen address for agent snapshot ingestion")
 	ingestionMode := flag.String("ingestion-mode", ingestionLegacy, "snapshot ingestion mode: legacy or authenticated")
@@ -44,6 +47,7 @@ func main() {
 	nodeContextUsername := flag.String("node-context-username", "", "optional distinct Node-context producer ServiceAccount username")
 	volumeNamespacesText := flag.String("volume-context-namespaces", "", "comma-separated namespaces for optional volume context reads")
 	volumeStatsEnabled := flag.Bool("volume-stats-enabled", false, "accept bounded volume statistics from the optional Node-context producer")
+	topologyEnabled := flag.Bool("topology-enabled", false, "accept and serve optional Node-only NUMA and HugeTLB context")
 	volumeHealthEnabled := flag.Bool("volume-health-enabled", false, "read source-separated CSI health for configured volume namespaces")
 	volumeWorkloadsEnabled := flag.Bool("volume-workloads-enabled", false, "read bounded live workload ownership for configured volume namespaces")
 	agentUsername := flag.String("agent-username", "system:serviceaccount:kube-memlens:kube-memlens-agent", "exact Kubernetes agent ServiceAccount username")
@@ -106,9 +110,28 @@ func main() {
 		fmt.Fprintln(os.Stderr, "Node context requires authenticated ingestion")
 		os.Exit(2)
 	}
+	if *topologyEnabled && (*ingestionMode != ingestionAuthenticated || *nodeContextUsername == "") {
+		fmt.Fprintln(os.Stderr, "topology requires authenticated ingestion and the separate Node-context producer")
+		os.Exit(2)
+	}
 	volumeNamespaces, err := extension.VolumeNamespaces(*volumeNamespacesText)
 	if err != nil || ((len(volumeNamespaces) > 0 || *volumeStatsEnabled || *volumeHealthEnabled || *volumeWorkloadsEnabled) && *ingestionMode != ingestionAuthenticated) {
 		fmt.Fprintln(os.Stderr, "volume context requires valid namespaces and authenticated ingestion")
+		os.Exit(2)
+	}
+	remoteHistory, err := remoteHistoryFlags.resolve(*ingestionMode)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	replicas, err := replicaFlags.resolve(*ingestionMode)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	sessions, err := incidentFlags.resolve(*ingestionMode)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 	accounting, err := extension.LoadNodeAccounting(*nodeAccountingFile)
@@ -156,8 +179,11 @@ func main() {
 			os.Exit(1)
 		}
 		handler, err := extension.NewHandler(coordinator, extension.HandlerOptions{
+			MemoryHistory:    remoteHistory,
+			IncidentSessions: sessions,
+			Replicas:         replicas,
 			VolumeNamespaces: volumeNamespaces, VolumeStatsEnabled: *volumeStatsEnabled, VolumeHealthEnabled: *volumeHealthEnabled, VolumeWorkloadsEnabled: *volumeWorkloadsEnabled,
-			NodeAccounting: accounting, AgentUsername: *agentUsername, NodeContextUsername: *nodeContextUsername, MaxSnapshotBytes: handlerOpts.MaxSnapshotBytes,
+			NodeAccounting: accounting, AgentUsername: *agentUsername, NodeContextUsername: *nodeContextUsername, TopologyEnabled: *topologyEnabled, MaxSnapshotBytes: handlerOpts.MaxSnapshotBytes,
 			MaxConcurrent: *ingestionMaxConcurrent, RequestsPerSec: *ingestionRequestsPerSecond,
 			Burst: *ingestionBurst, MaxIdentities: storeLimits.MaxNodes,
 			Logf: func(format string, args ...any) { fmt.Printf(format+"\n", args...) },

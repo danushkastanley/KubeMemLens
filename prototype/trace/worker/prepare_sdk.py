@@ -12,6 +12,8 @@ import shutil
 import subprocess
 import tempfile
 
+from sdk_download import download
+
 ROOT = Path(__file__).resolve().parent
 MODULE = "github.com/inspektor-gadget/inspektor-gadget@v0.56.0"
 SUM = "h1:Ps4HXfpq4qUMrWlCSqdxl3ldP1LMF+tn9VHip637pAg="
@@ -40,8 +42,7 @@ def prepare():
         return
     stage = Path(tempfile.mkdtemp(prefix=".sdk-stage-", dir=ROOT))
     environment = dict(os.environ, GOWORK="off", GO111MODULE="on")
-    result = json.loads(subprocess.check_output(["go", "mod", "download", "-json", MODULE],
-                                               cwd=stage, env=environment, timeout=180))
+    result = download(MODULE, stage, environment)
     if result.get("Sum") != SUM or result.get("Version") != "v0.56.0":
         raise ValueError("SDK module does not match the accepted checksum")
     source = stage / "source"

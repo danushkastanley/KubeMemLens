@@ -25,6 +25,7 @@ type Telemetry struct {
 	unmapped          int
 	infrastructure    int
 	metadataCachePods int
+	recentScans       [scanHistoryLimit]scanTiming
 }
 
 func (t *Telemetry) RecordScan(at time.Time, duration time.Duration, result ScanResult, err error, metadataCachePods int) {
@@ -42,6 +43,7 @@ func (t *Telemetry) RecordScan(at time.Time, duration time.Duration, result Scan
 	t.unmapped = result.Unmapped
 	t.infrastructure = result.InfrastructureCgroups
 	t.metadataCachePods = metadataCachePods
+	t.recordTiming(at, duration, err)
 }
 
 func (t *Telemetry) RecordPost(err error) {
@@ -74,13 +76,17 @@ func (t *Telemetry) Handler() http.Handler {
 		w.Header().Set("Content-Type", MetricsContentType)
 		_, _ = w.Write([]byte(t.Render()))
 	})
+	mux.HandleFunc("/scan-observations", t.serveScanObservations)
 	return mux
 }
 
 func (t *Telemetry) Render() string {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
+	return t.renderLocked()
+}
 
+func (t *Telemetry) renderLocked() string {
 	var b strings.Builder
 	writeMetricHeader(&b, "kubememlens_agent_scans_total", "KubeMemLens agent scan attempts by result.", "counter")
 	fmt.Fprintf(&b, "kubememlens_agent_scans_total{result=\"success\"} %d\n", t.scanSuccess)
@@ -91,7 +97,7 @@ func (t *Telemetry) Render() string {
 	writeMetricHeader(&b, "kubememlens_agent_last_scan_timestamp_seconds", "Unix timestamp of the latest KubeMemLens agent scan attempt.", "gauge")
 	fmt.Fprintf(&b, "kubememlens_agent_last_scan_timestamp_seconds %d\n", unixOrZero(t.lastScanAt))
 	writeMetricHeader(&b, "kubememlens_agent_last_scan_duration_seconds", "Duration in seconds of the latest KubeMemLens agent scan attempt.", "gauge")
-	fmt.Fprintf(&b, "kubememlens_agent_last_scan_duration_seconds %g\n", t.lastScanDuration.Seconds())
+	fmt.Fprintf(&b, "kubememlens_agent_last_scan_duration_seconds %s\n", scanDurationSeconds(t.lastScanDuration))
 	writeMetricHeader(&b, "kubememlens_agent_last_scan_containers", "Container cgroup counts from the latest KubeMemLens agent scan.", "gauge")
 	fmt.Fprintf(&b, "kubememlens_agent_last_scan_containers{kind=\"found\"} %d\n", t.containersFound)
 	fmt.Fprintf(&b, "kubememlens_agent_last_scan_containers{kind=\"mapped\"} %d\n", t.mapped)

@@ -4,6 +4,111 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Dependencies
+
+- Align Kubernetes client and API libraries on 0.37.1 across the standard, trace and worker modules.
+
+### Fixes
+
+- Measure volume qualification recovery durations with monotonic sub-second precision, avoiding zero-second records for fast recovery.
+
+### Security
+
+- Update Go builders and trace executable validation to 1.27.2, and align `golang.org/x/net` on 0.60.0 across all three modules to address HTTP and HTTP/2 security advisories.
+
+## 1.0.0 - 2026-10-06
+
+Read-only memory inspection, incident capture/replay, access isolation, recovery
+and cleanup have been exercised on AWS EKS. Install KubeMemLens and
+[send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
+
+
+### Fixes
+
+- Permit the exact amd64 Go runtime thread flags in the optional trace node seccomp profile, preserving restrictions on namespace creation and worker processes.
+- Recognise the Linux IMA module in optional trace preflight without accepting unknown security modules.
+- Preserve current volume measurements when another kubelet filesystem sample has expired; count expired source records as omissions without changing their timestamps or ingestion limits.
+- Match provider qualification to the rendered Service port and use controller-owned, bounded network-policy probes on strict CNIs.
+- Give agent and Helm-hook Pods explicit ingress policies for strict CNI startup, while preserving namespace egress restrictions. Run the connection probe as a bounded Job so its Pod has controller ownership.
+- Retain failed certificate-hook diagnostics and annotate hook resources with their Helm release identity for verified cleanup after interrupted installation.
+- Avoid floating-point rounding in agent scan-duration metrics, keeping them consistent with the recorded scan timings.
+- Report a container once when it creates its own sub-cgroups (systemd, Docker-in-Docker). Nested cgroups were listed as extra entries with the same container ID and their memory was counted twice.
+
+### Optional trace operations
+
+- Add an operator walkthrough, incident playbooks and diagnostic-sharing guidance for the separate development extension. Document expiry and cancellation outcomes without equating a missing admission with confirmed cleanup.
+- Exercise the documented CLI, bounded redacted reports, metadata-only audit policy and installation removal locally. Resource and managed-provider qualification remain open.
+
+### Optional incident timelines
+
+- Add explicitly created, owner-only incident sessions with bounded in-memory retention, Pod captures, comparisons, change markers, private annotations and visible evidence gaps through the CLI and TUI.
+- Reference local trace reports by exact-byte digest and typed outcomes without uploading report text. Keep operator-supplied references distinct from verified measurements; offline verification proves file agreement only.
+- Separate sanitised and authorised exports, preserve schema-1 timelines and use schema 2 for trace references. Enforce current namespace and operation permissions; sessions expire after one hour and disappear on collector restart.
+
+### Optional trace compatibility
+
+- Negotiate an explicit trace contract before admission and guard activation against extension downgrades. Previous development clients retain their existing response shapes and server-enforced limits; incompatible current clients fail before tracing starts.
+- Read bounded trace exports in schemas 1 and 2 without rewriting retained files. New schema-2 exports distinguish acknowledged and unknown contract versions; imported evidence remains untrusted.
+- Verify previous/current development binaries locally and document upgrade order and deprecation windows. Resource, provider and release qualification remain incomplete.
+
+### Optional trace audit and retention
+
+- Add bounded, versioned audit records with keyed actor, tenant, session and immutable target references, frozen quotas and separate terminal/cleanup outcomes. Trace payloads remain outside routine audit logs.
+- Require an administrator-owned audit key and exact digest for optional trace installations. Fail closed on uncertain audit delivery while preserving physical cleanup.
+- Document zero server result retention and verify local quota rejection, expiry, cancellation, path redaction and kernel cleanup. Resource and provider qualification remain incomplete.
+
+### Optional trace development packaging
+
+- Add a separate, disabled-by-default trace chart with pinned images, policy bytes, TLS peers and node profiles. Keep standard installations unchanged and require explicit acknowledgement of unqualified development use.
+- Validate installation trust and host prerequisites before workloads start. Reject node profile drift during admission and active revalidation; document administrator-owned prerequisites and verified removal.
+- Exercise local Helm installation, upgrade, rollback, tenant/network isolation and active kernel teardown. Resource and provider qualification remain incomplete; no supported trace profile is declared.
+
+### Optional worker attachment scope
+
+- Restrict the constrained SDK to the tracepoint and fentry/fexit classes already permitted by signed file/cache/OOM objects, rejecting other classes before map loading.
+- Remove unused discovery and network/TC/uprobe backend dependencies from the worker, with both-architecture dependency checks and non-loading object-preparation regressions. Preserve sealed execution and all resource gates; a new matched candidate still needs kernel qualification.
+
+### Optional NUMA and HugeTLB context
+
+- Add bounded read-only NUMA and HugeTLB sources, a named Node topology endpoint and a separate section in Node detail. Keep ordinary memory totals and Pod views unchanged.
+- Keep pool total, outstanding reservations, current use, cgroup byte limits and cumulative allocation-limit failures separate. Missing topology never establishes balance or pressure.
+- Add explicit schema-7 capture with source clocks, caveats and default Node/domain aliases. Keep ordinary Node captures at schema 4 and require a separate, unbound read role for the opt-in profile.
+
+### Language-profiler handoffs
+
+- Add opt-in recommendation schema 4 and terminal guidance for explicitly declared Go heap-profile workflows. Commands analyse existing local profiles and are never executed by KubeMemLens.
+- Require fresh, complete container evidence; abstain on unknown declarations, sidecars, stale data and unsupported diagnoses. Public captures continue to strip profiler metadata.
+
+### Replica memory baselines
+
+- Add opt-in Pod and workload comparisons against four other authorised replicas with matching revision, immutable images and memory resource layout.
+- Show robust peer distributions, outlier magnitude, confidence and explicit exclusions through `replicas` commands and the TUI's B panel. Current charge, available composition, retained growth, limit use, PSI and known local event rates remain separate evidence.
+- Recheck named permissions and current membership before disclosure. Keep the profile disabled by default, with namespace source roles, an unbound viewer role, bounded local retention and no remote provider requirement.
+
+### Workload change markers
+
+- Add opt-in Pod, container and workload history context with exact instance/owner identity, bounded structured events, source timestamps and explicit retention and clock caveats.
+- Add CLI/TUI marker selection and schema-6 capture, replay and comparison. Default captures use local aliases; comparisons never infer identity continuity across alias sets or splice memory across Pod UIDs.
+- Keep existing history responses and viewer roles unchanged. Optional namespace event/owner roles, named context permissions and disclosure-time rechecks govern the additional reads.
+
+### Optional memory trends
+
+- Add named Pod, container, workload and Node history reads from a fixed, verified-TLS Prometheus source, with immutable instance labels, bounded queries and explicit source, freshness and gap semantics.
+- Add CLI and TUI source selection with cancellation and explicit local fallback. Provider waits use a separate read gate; existing local history and incident formats remain unchanged.
+- Keep the chart profile disabled by default, with separate acquisition and unbound viewer roles. Verify local installation, reader isolation, revocation, bounded queries, terminal source switching and rollback. Managed-provider qualification remains separate.
+
+### Optional dependency notices
+
+- Retain notices from compiled package directories and their module ancestors, including vendored forks. Keep their relative paths, exclude Go source files from the notice inventory and reject package directories outside their module.
+
+### Optional admission idle cost
+
+- Suspend expiry timers while the optional API and node service hold no state. Resume the existing 100 ms cadence for reservations, leases and replay records, including failed-cleanup retries. Resource qualification remains pending.
+
+### Optional worker startup
+
+- Remove unused socket-probe initialisation from the constrained SDK and strip worker debug sections from reproducible builds. Bind the updated SDK patch into signed acceptance and retain executable sealing and attachment/cleanup checks. Fresh kernel and resource qualification remains required.
+
 ### Dependency security
 
 - Update OpenTelemetry to v1.45.0 for the exporter-configuration logging advisory, with its required transitive dependencies.
@@ -90,7 +195,7 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Adapt the extension authoriser to the 1.37 interface. Both authorisation entry points retain agent identity validation, one delegated access review and bounded audit output; unsupported condition evaluation fails closed.
 - Exercise older 1.35/1.36 Pod response shapes through the production client and mapper, preserving resource availability when Pod budgets, allocated resources and volume-health fields are absent.
 
-### Prepared for v1.0.0-rc.2
+### Included from v1.0.0-rc.2
 
 - Give the Helm connection-test hook a tested 16 MiB startup allowance instead of 8 MiB, which could OOM-kill container initialisation before the connectivity test ran. Keep its security settings, retry policy and application resource limits unchanged.
 - Repair the unavailable Skopeo container pin using upstream's digest-pinned immutable tag. Check tool availability/version before release builds and registry operations, and distinguish a tool-pull failure from a missing destination image.
@@ -103,11 +208,9 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 - Align every release SBOM validator with the installed Syft version and document the unpublished RC2 repository destinations.
 - Update the etcd API/client modules to 3.6.14 for bounded TLS handshakes and x/crypto to 0.56.0 for SSH denial-of-service fixes, following the whole-dependency release-gate review.
 
-RC2 is prepared, not published. Chart and archive metadata remain prospective
-1.0.0 under the existing candidate promotion contract. See [RC2 preparation](docs/release-preparation-rc2.md)
-for PR decisions and outstanding publication gates.
+RC2 was published on 9 September 2026 with prospective 1.0.0 chart and archive metadata. Its [preparation record](docs/release-preparation-rc2.md) preserves the original decisions and evidence.
 
-## 1.0.0 - first public candidate published as v1.0.0-rc.1 on 2026-08-29
+## 1.0.0-rc.1 - 2026-08-29
 
 ### Added
 

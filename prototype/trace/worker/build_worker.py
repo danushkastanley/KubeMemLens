@@ -11,9 +11,12 @@ import os
 from pathlib import Path
 import subprocess
 
+from worker_dependencies import verify as verify_dependencies
+
 ROOT = Path(__file__).resolve().parents[3]
 WORKER = ROOT / "prototype/trace/worker"
-BUILDER = "golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125"
+BUILDER = "golang:1.27.2-alpine@sha256:f92b6ef800e499660581efdabdf25d9d817a9d124eaf900924f0504e7e27e12d"
+BUILD_FLAGS = ["-mod=readonly", "-trimpath", "-buildvcs=false", "-ldflags=-s -w -buildid="]
 
 
 def sha(path):
@@ -34,6 +37,7 @@ def verify_sdk():
 
 def inputs():
     files = [ROOT / name for name in ("go.mod", "go.sum", "LICENSE", "NOTICE")]
+    files += [WORKER / name for name in ("build_worker.py", "prepare_sdk.py", "sdk_download.py", "worker_dependencies.py")]
     for directory in (ROOT / "internal", ROOT / "prototype/trace"):
         for p in directory.rglob("*"):
             if not p.is_file() or ".sdk" in p.parts:
@@ -65,24 +69,28 @@ def build(output, modules):
                 "sh", "-ec", '''
 go mod verify
 for architecture in arm64 amd64; do
+  GOARCH="$architecture" go list -mod=readonly -deps ./cmd/memlens-filecache-worker > "/output/dependencies-$architecture.txt"
   for attempt in 1 2; do
-    GOARCH="$architecture" go build -mod=readonly -trimpath -buildvcs=false -ldflags=-buildid= -o "/output/worker-$architecture-$attempt" ./cmd/memlens-filecache-worker
+    GOARCH="$architecture" go build "$@" -o "/output/worker-$architecture-$attempt" ./cmd/memlens-filecache-worker
   done
 done
-''']
+''', "worker-build", *BUILD_FLAGS]
     with (output / "build.log").open("xb") as log:
         subprocess.run(command, stdout=log, stderr=subprocess.STDOUT, check=True)
     if inputs() != source or verify_sdk() != receipt:
         raise ValueError("source changed during worker build")
     workers = {}
     for architecture in ("arm64", "amd64"):
+        dependencies = output / f"dependencies-{architecture}.txt"
+        verify_dependencies(dependencies.read_text())
         first, second = output / f"worker-{architecture}-1", output / f"worker-{architecture}-2"
         digest = sha(first)
         if sha(second) != digest or not 0 < first.stat().st_size <= 128 << 20:
             raise ValueError("worker reproduction or executable size failed")
         workers[architecture] = {"sha256": digest, "bytes": first.stat().st_size,
-                                 "first": first.name, "repeat": second.name}
-    record = {"status": "unapproved build candidate", "builder": BUILDER,
+                                 "first": first.name, "repeat": second.name,
+                                 "dependenciesSHA256": sha(dependencies)}
+    record = {"status": "unapproved build candidate", "builder": BUILDER, "buildFlags": BUILD_FLAGS,
               "sdkReceiptSHA256": receipt, "sourceSHA256": source, "workers": workers}
     (output / "build.json").write_text(json.dumps(record, indent=2) + "\n")
     print("Reproduced Linux arm64 and amd64 workers; no programme was loaded.")

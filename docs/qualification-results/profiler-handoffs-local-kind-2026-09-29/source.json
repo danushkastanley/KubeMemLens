@@ -1,0 +1,16 @@
+{
+  "baseCommit": "e075636f25fa52fcb450c920ba3564dcaca136d3",
+  "files": {
+    "internal/cli/recommend.go": "6f5fa522753848926bc9852be303ae2f802c2e1df4842f2dd4a3e139361b573a",
+    "internal/profiler/go_heap.go": "b7a5f39cb8cde6dd43972b03b13daa93d71a3ea975065926d0add8922b73ca8a",
+    "internal/profiler/handoff.go": "f3b79a310ff4d8770e0882de537f1c065d9ddbc55a561ae7c663df29c3d0f51c",
+    "internal/profiler/render.go": "5dc69aaad28fffcfd38d65291161bcb8d48b078e3f16e191220c6afbe097b2ca",
+    "internal/tui/action_model.go": "54a38cfa1ab8268a6402c9e510e785417e62beccc15e6d752ae60648e4ccc355",
+    "internal/tui/action_result_view.go": "d9c601e99aa61e7e873b2c455ced44721ae9bf37f0945a6b3fb25b4aeb3e2fbb",
+    "internal/tui/actions.go": "e840f2ed869713a0758ba92b5c1fcfbd321ffb8fa9b8dc5a6a3810441c4aa593",
+    "internal/tui/render_actions.go": "5f9695a85db1b64e9f4fc744a3c5f01d2837f0293ee05e4e98f8b0643b75f685"
+  },
+  "liveClientSHA256": "1f953fcba8c1fa6ddbfb8b353b8ea1ff28dd7524350bf73f20cae259c62582dd",
+  "collectorImage": "kml-topology:a13ff9b33367218e",
+  "fixtureImage": "kml-profiler-fixture:d7e120dc38813090"
+}

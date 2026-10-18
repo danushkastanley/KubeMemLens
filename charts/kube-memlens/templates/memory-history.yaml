@@ -1,0 +1,97 @@
+{{- $history := .Values.memoryHistory }}
+{{- if not $history.enabled }}
+{{- if or $history.url $history.cluster $history.namespaces $history.nodes $history.workloads $history.markers $history.credentialsSecret $history.caKey $history.tokenKey }}
+{{- fail "memoryHistory configuration requires memoryHistory.enabled" }}
+{{- end }}
+{{- else }}
+{{- if not .Values.collector.enabled }}
+{{- fail "memoryHistory requires the authenticated collector" }}
+{{- end }}
+{{- if or (empty $history.url) (empty $history.cluster) (empty $history.caKey) }}
+{{- fail "memoryHistory requires a fixed HTTPS URL, CA key and exact cluster label" }}
+{{- end }}
+{{- if and (empty $history.namespaces) (not $history.nodes) }}
+{{- fail "memoryHistory requires explicit namespaces or Node scope" }}
+{{- end }}
+{{- if and $history.workloads (empty $history.namespaces) }}
+{{- fail "memoryHistory.workloads requires configured namespaces" }}
+{{- end }}
+{{- if ne (not (empty $history.credentialsSecret)) (or (not (empty $history.caKey)) (not (empty $history.tokenKey))) }}
+{{- fail "memoryHistory credentialsSecret and selected trust keys must be configured together" }}
+{{- end }}
+{{- if $history.namespaces }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-history-viewer
+rules:
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["pods", "pods/trends"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get"]
+{{- range $history.namespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kube-memlens-history-source
+  namespace: {{ . | quote }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kube-memlens-history-source
+  namespace: {{ . | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kube-memlens-history-source
+subjects:
+  - kind: ServiceAccount
+    name: kube-memlens-collector
+    namespace: {{ $.Values.namespace.name | quote }}
+{{- end }}
+{{- end }}
+{{- if $history.nodes }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-history-node-source
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-memlens-history-node-source
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-memlens-history-node-source
+subjects:
+  - kind: ServiceAccount
+    name: kube-memlens-collector
+    namespace: {{ $.Values.namespace.name | quote }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-history-node-viewer
+rules:
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["nodes/trends"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get"]
+{{- end }}
+{{- end }}

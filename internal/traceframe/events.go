@@ -15,6 +15,9 @@ func SafeText(value string, maxBytes uint64) (string, error) {
 	if maxBytes == 0 || maxBytes > 512 || uint64(len(value)) > maxBytes || !utf8.ValidString(value) {
 		return "", ErrInvalid
 	}
+	if plainASCII(value) {
+		return value, nil
+	}
 	var out strings.Builder
 	for _, r := range value {
 		if r == '\\' {

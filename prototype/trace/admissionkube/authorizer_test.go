@@ -62,6 +62,31 @@ func TestAccessReviewsPreservePrincipalAndExactResourceAttributes(t *testing.T) 
 	}
 }
 
+func TestPreflightUsesFreshExplicitCreatePermission(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	calls := 0
+	client.PrependReactor("create", "subjectaccessreviews", func(action ktesting.Action) (bool, runtime.Object, error) {
+		calls++
+		r := action.(ktesting.CreateAction).GetObject().(*authorizationv1.SubjectAccessReview)
+		expected := &authorizationv1.ResourceAttributes{Namespace: "tenant-a", Verb: "create", Group: admission.APIGroup, Version: admission.APIVersion, Resource: "tracepreflights"}
+		if !reflect.DeepEqual(r.Spec.ResourceAttributes, expected) {
+			t.Fatal("preflight permission changed")
+		}
+		return true, &authorizationv1.SubjectAccessReview{Status: authorizationv1.SubjectAccessReviewStatus{Allowed: calls == 1}}, nil
+	})
+	a := NewAuthorizer(client.AuthorizationV1().SubjectAccessReviews())
+	p := &user.DefaultInfo{Name: "operator"}
+	if err := a.Trace(context.Background(), p, admission.Inspect, "tenant-a", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Trace(context.Background(), p, admission.Inspect, "tenant-a", ""); !errors.Is(err, admission.ErrDenied) {
+		t.Fatal("revocation was ignored", err)
+	}
+	if err := a.Trace(context.Background(), p, admission.Inspect, "tenant-a", "named"); !errors.Is(err, admission.ErrInvalidRequest) || calls != 2 {
+		t.Fatal("named inspection reached policy")
+	}
+}
+
 func TestRevocationIsNotCachedAndIndeterminatePolicyFailsClosed(t *testing.T) {
 	for _, scenario := range []string{"denied", "conflicting", "evaluation-error", "transport-error"} {
 		t.Run(scenario, func(t *testing.T) {

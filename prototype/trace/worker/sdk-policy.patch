@@ -1,6 +1,206 @@
 --- a/pkg/operators/ebpf/ebpf.go
 +++ b/pkg/operators/ebpf/ebpf.go
-@@ -789,6 +789,9 @@
+@@ -32,7 +32,6 @@
+ 	"time"
+ 
+ 	"github.com/cilium/ebpf"
+-	"github.com/cilium/ebpf/asm"
+ 	"github.com/cilium/ebpf/btf"
+ 	"github.com/cilium/ebpf/link"
+ 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+@@ -41,22 +40,16 @@
+ 	"oras.land/oras-go/v2"
+ 
+ 	"github.com/inspektor-gadget/inspektor-gadget/internal/version"
+-	containercollection "github.com/inspektor-gadget/inspektor-gadget/pkg/container-collection"
+ 	"github.com/inspektor-gadget/inspektor-gadget/pkg/datasource"
+ 	"github.com/inspektor-gadget/inspektor-gadget/pkg/gadget-service/api"
+ 	apihelpers "github.com/inspektor-gadget/inspektor-gadget/pkg/gadget-service/api-helpers"
+ 	"github.com/inspektor-gadget/inspektor-gadget/pkg/gadgets"
+-	libpcap_compiler "github.com/inspektor-gadget/inspektor-gadget/pkg/libpcap-compiler"
+ 	"github.com/inspektor-gadget/inspektor-gadget/pkg/logger"
+-	"github.com/inspektor-gadget/inspektor-gadget/pkg/networktracer"
+ 	"github.com/inspektor-gadget/inspektor-gadget/pkg/oci"
+ 	"github.com/inspektor-gadget/inspektor-gadget/pkg/operators"
+ 	ebpftypes "github.com/inspektor-gadget/inspektor-gadget/pkg/operators/ebpf/types"
+ 	"github.com/inspektor-gadget/inspektor-gadget/pkg/params"
+-	"github.com/inspektor-gadget/inspektor-gadget/pkg/socketenricher"
+ 	"github.com/inspektor-gadget/inspektor-gadget/pkg/symbolizer"
+-	"github.com/inspektor-gadget/inspektor-gadget/pkg/tchandler"
+-	"github.com/inspektor-gadget/inspektor-gadget/pkg/uprobetracer"
+ 	ebpfutils "github.com/inspektor-gadget/inspektor-gadget/pkg/utils/ebpf"
+ )
+ 
+@@ -134,16 +127,10 @@
+ 		iterTargetMaps: make(map[string]string),
+ 		skTargetMaps:   make(map[string]string),
+ 
+-		containers: make(map[string]*containercollection.Container),
+-
+ 		enums:      make([]*enum, 0),
+ 		formatters: make(map[datasource.DataSource][]func(ds datasource.DataSource, data datasource.Data) error),
+ 
+ 		vars: make(map[string]*ebpfVar),
+-
+-		networkTracers: make(map[string]*networktracer.Tracer[api.GadgetData]),
+-		tcHandlers:     make(map[string]*tchandler.Handler),
+-		uprobeTracers:  make(map[string]*uprobetracer.Tracer[api.GadgetData]),
+ 
+ 		paramValues: paramValues,
+ 	}
+@@ -170,7 +157,6 @@
+ }
+ 
+ type ebpfInstance struct {
+-	mu          sync.Mutex
+ 	bpfOperator *ebpfOperator
+ 
+ 	config *viper.Viper
+@@ -194,10 +180,6 @@
+ 	params       map[string]*param
+ 	paramValues  map[string]string
+ 
+-	networkTracers map[string]*networktracer.Tracer[api.GadgetData]
+-	tcHandlers     map[string]*tchandler.Handler
+-	uprobeTracers  map[string]*uprobetracer.Tracer[api.GadgetData]
+-
+ 	// map from ebpf variable name to ebpfVar struct
+ 	vars map[string]*ebpfVar
+ 
+@@ -208,8 +190,6 @@
+ 	// (sk_skb stream_parser/verdict). Run on Stop().
+ 	rawDetachers []func() error
+ 
+-	containers map[string]*containercollection.Container
+-
+ 	enums      []*enum
+ 	formatters map[datasource.DataSource][]func(ds datasource.DataSource, data datasource.Data) error
+ 
+@@ -234,6 +214,11 @@
+ 		return fmt.Errorf("missing types in ebpf spec")
+ 	}
+ 
++	for _, programme := range spec.Programs {
++		if err := ValidateConstrainedAttachment(programme); err != nil {
++			return err
++		}
++	}
+ 	i.collectionSpec = spec
+ 	return nil
+ }
+@@ -291,8 +276,8 @@
+ 				if s == gadgets.MntNsFilterMapName {
+ 					return gadgets.MntNsFilterMapName, true
+ 				}
+-				if s == socketenricher.SocketsMapName {
+-					return socketenricher.SocketsMapName, true
++				if s == constrainedSocketsMapName {
++					return constrainedSocketsMapName, true
+ 				}
+ 				if s == symbolizer.OtelGenericParamsMapName {
+ 					return symbolizer.OtelGenericParamsMapName, true
+@@ -394,100 +379,6 @@
+ 
+ 	if err := i.evaluateMapParams(i.paramValues); err != nil {
+ 		return fmt.Errorf("evaluating map params: %w", err)
+-	}
+-
+-	// Create network tracers, one for each socket filter program
+-	// The same applies to uprobe / uretprobe as well.
+-	for _, p := range i.collectionSpec.Programs {
+-		switch p.Type {
+-		case ebpf.Kprobe:
+-			if strings.HasPrefix(p.SectionName, "uprobe/") ||
+-				strings.HasPrefix(p.SectionName, "uretprobe/") ||
+-				strings.HasPrefix(p.SectionName, "usdt/") {
+-				uprobeTracer, err := uprobetracer.NewTracer[api.GadgetData](gadgetCtx.Logger())
+-				if err != nil {
+-					return fmt.Errorf("creating uprobe tracer: %w", err)
+-				}
+-				i.uprobeTracers[p.Name] = uprobeTracer
+-			}
+-		case ebpf.SocketFilter:
+-			if strings.HasPrefix(p.SectionName, "socket") {
+-				networkTracer, err := networktracer.NewTracer[api.GadgetData]()
+-				if err != nil {
+-					return fmt.Errorf("creating network tracer: %w", err)
+-				}
+-				i.networkTracers[p.Name] = networkTracer
+-			}
+-		case ebpf.SchedCLS:
+-			parts := strings.Split(p.SectionName, "/")
+-			if len(parts) != 3 {
+-				return fmt.Errorf("invalid section name %q", p.SectionName)
+-			}
+-
+-			for idx := 0; idx < len(p.Instructions); idx++ {
+-				inst := p.Instructions[idx]
+-				name, ok := strings.CutPrefix(inst.Symbol(), packetFilterPrefix)
+-				if !ok {
+-					continue
+-				}
+-				filter := i.paramValues[packetFilterParam+"-"+name]
+-
+-				// If the name is empty, we'll use `pf` as the parameter name directly
+-				if name == "" {
+-					filter = i.paramValues[packetFilterParam]
+-				}
+-				if filter == "" {
+-					i.logger.Debugf("skipping pcap filter %q at %d: no filter set", filter, idx)
+-					continue
+-				}
+-				injectIdx := idx
+-				i.logger.Debugf("injecting pcap filter %q at %d", filter, idx)
+-				insns := p.Instructions
+-				filterInsns, err := libpcap_compiler.CompileEbpf(filter, inst.Symbol())
+-				if err != nil {
+-					return fmt.Errorf("adding filter: %w", err)
+-				}
+-				filterInsns[0] = filterInsns[0].WithMetadata(insns[injectIdx].Metadata)
+-				insns[injectIdx] = insns[injectIdx].WithMetadata(asm.Metadata{})
+-				p.Instructions = append(insns[:injectIdx], append(filterInsns, insns[injectIdx:]...)...)
+-
+-				idx = injectIdx
+-			}
+-
+-			switch parts[0] {
+-			default:
+-				return fmt.Errorf("invalid section name %q (nclass)", p.SectionName)
+-			case "classifier":
+-				var direction tchandler.AttachmentDirection
+-
+-				switch parts[1] {
+-				case "ingress":
+-					direction = tchandler.AttachmentDirectionIngress
+-				case "egress":
+-					direction = tchandler.AttachmentDirectionEgress
+-				default:
+-					return fmt.Errorf("unsupported hook type %q", parts[1])
+-				}
+-
+-				handler, err := tchandler.NewHandler(direction)
+-				if err != nil {
+-					return fmt.Errorf("creating tc network tracer: %w", err)
+-				}
+-
+-				i.tcHandlers[p.Name] = handler
+-			}
+-		}
+-	}
+-
+-	if len(i.tcHandlers) > 0 {
+-		// For now, override enrichment
+-		gadgetCtx.SetVar("NeedContainerEvents", true)
+-		i.params["iface"] = &param{
+-			Param: &api.Param{
+-				Key:         ParamIface,
+-				Description: "Network interface to attach to",
+-			},
+-		}
+ 	}
+ 
+ 	i.params[ParamTraceKernel] = &param{
+@@ -789,6 +680,9 @@
  		},
  	}
  
@@ -10,7 +210,16 @@
  	if seBtfSpecI, ok := gadgetCtx.GetVar("socketEnricherbtf"); ok {
  		gadgetCtx.Logger().Debugf("using socket enricher BTF spec from context")
  		// Load the programs with the spec from the socket enricher and the
-@@ -1001,8 +1004,17 @@
+@@ -808,7 +702,7 @@
+ 		if !ok {
+ 			return fmt.Errorf("invalid socket enricher struct: expected *btf.Struct, got %T", bpfStructI)
+ 		}
+-		mapSpec := i.collectionSpec.Maps[socketenricher.SocketsMapName]
++		mapSpec := i.collectionSpec.Maps[constrainedSocketsMapName]
+ 
+ 		mapSpec.ValueSize = btfStruct.Size
+ 	}
+@@ -1001,8 +895,17 @@
  		}
  	}
  
@@ -30,7 +239,7 @@
  		l, err := i.attachProgram(gadgetCtx, p, i.collection.Programs[progName])
  		if err != nil {
  			return fmt.Errorf("attaching eBPF program %q: %w", progName, err)
-@@ -1071,6 +1083,7 @@
+@@ -1071,6 +974,7 @@
  }
  
  func (i *ebpfInstance) Stop(gadgetCtx operators.GadgetContext) error {
@@ -38,7 +247,7 @@
  	for _, t := range i.tracers {
  		t.close()
  	}
-@@ -1079,7 +1092,9 @@
+@@ -1079,7 +983,9 @@
  	i.detachRawPrograms()
  
  	for _, l := range i.links {
@@ -49,7 +258,7 @@
  	}
  	i.links = nil
  
-@@ -1087,17 +1102,18 @@
+@@ -1087,17 +993,18 @@
  		// Disable perf event.
  		err := unix.IoctlSetInt(fd, unix.PERF_EVENT_IOC_DISABLE, 0)
  		if err != nil {
@@ -74,9 +283,91 @@
  }
  
  func (i *ebpfInstance) Close(gadgetCtx operators.GadgetContext) error {
+@@ -1108,16 +1015,6 @@
+ 		i.collection = nil
+ 	}
+ 
+-	for _, networkTracer := range i.networkTracers {
+-		networkTracer.Close()
+-	}
+-	for _, handler := range i.tcHandlers {
+-		handler.Close()
+-	}
+-	for _, uprobeTracer := range i.uprobeTracers {
+-		uprobeTracer.Close()
+-	}
+-
+ 	i.bpfOperator.mu.Lock()
+ 	delete(i.bpfOperator.gadgetObjs, gadgetCtx)
+ 	i.bpfOperator.mu.Unlock()
+@@ -1125,64 +1022,6 @@
+ 	return nil
+ }
+ 
+-// Using Attacher interface for network tracers for now
+-
+-func (i *ebpfInstance) AttachContainer(container *containercollection.Container) error {
+-	i.mu.Lock()
+-	i.containers[container.Runtime.ContainerID] = container
+-	i.mu.Unlock()
+-
+-	for _, networkTracer := range i.networkTracers {
+-		if err := networkTracer.AttachContainer(container); err != nil {
+-			return err
+-		}
+-	}
+-
+-	if ifaceName := i.paramValues[ParamIface]; ifaceName == "" {
+-		for _, handler := range i.tcHandlers {
+-			if err := handler.AttachContainer(container); err != nil {
+-				return err
+-			}
+-		}
+-	}
+-
+-	for _, handler := range i.uprobeTracers {
+-		if err := handler.AttachContainer(container); err != nil {
+-			return err
+-		}
+-	}
+-
+-	return nil
+-}
+-
+-func (i *ebpfInstance) DetachContainer(container *containercollection.Container) error {
+-	i.mu.Lock()
+-	delete(i.containers, container.Runtime.ContainerID)
+-	i.mu.Unlock()
+-
+-	for _, networkTracer := range i.networkTracers {
+-		if err := networkTracer.DetachContainer(container); err != nil {
+-			return err
+-		}
+-	}
+-
+-	if ifaceName := i.paramValues[ParamIface]; ifaceName == "" {
+-		for _, handler := range i.tcHandlers {
+-			if err := handler.DetachContainer(container); err != nil {
+-				return err
+-			}
+-		}
+-	}
+-
+-	for _, uTracer := range i.uprobeTracers {
+-		if err := uTracer.DetachContainer(container); err != nil {
+-			return err
+-		}
+-	}
+-
+-	return nil
+-}
+-
+ var ebpfOp = &ebpfOperator{
+ 	btfCache: btf.NewCache(),
+ }
 --- /dev/null
 +++ b/pkg/operators/ebpf/constrained.go
-@@ -0,0 +1,34 @@
+@@ -0,0 +1,37 @@
 +// SPDX-License-Identifier: Apache-2.0
 +// KubeMemLens worker policy additions to the pinned SDK.
 +package ebpfoperator
@@ -92,6 +383,9 @@
 +
 +// ConstrainedWorkerPolicyVersion identifies the mandatory worker-only policy.
 +const ConstrainedWorkerPolicyVersion = 1
++
++// Keep the pinned map name without importing unused socket probe initialisers.
++const constrainedSocketsMapName = "gadget_sockets"
 +
 +type constrainedAttachValidator interface {
 +	BeforeAttach(map[string]*ebpf.Map) error
@@ -111,3 +405,509 @@
 +func constrainedProgrammeNames(programmes map[string]*ebpf.ProgramSpec) []string {
 +	return slices.Sorted(maps.Keys(programmes))
 +}
+--- a/pkg/operators/ebpf/attach.go
++++ b/pkg/operators/ebpf/attach.go
+@@ -16,277 +16,51 @@
+ 
+ import (
+ 	"fmt"
+-	"net"
+-	"runtime"
+-	"strconv"
+-	"strings"
+-
+ 	"github.com/cilium/ebpf"
+ 	"github.com/cilium/ebpf/link"
+-	"golang.org/x/sys/unix"
+-
+-	"github.com/inspektor-gadget/inspektor-gadget/pkg/container-utils/cgroups"
+ 	"github.com/inspektor-gadget/inspektor-gadget/pkg/operators"
+-	"github.com/inspektor-gadget/inspektor-gadget/pkg/uprobetracer"
++	"strings"
+ )
+ 
+-const (
+-	kprobePrefix    = "kprobe/"
+-	kretprobePrefix = "kretprobe/"
+-	iterPrefix      = "iter/"
+-	fentryPrefix    = "fentry/"
+-	fexitPrefix     = "fexit/"
+-	perfEventPrefix = "perf_event/"
+-	tpBtfPrefix     = "tp_btf/"
+-	uprobePrefix    = "uprobe/"
+-	uretprobePrefix = "uretprobe/"
+-	usdtPrefix      = "usdt/"
+-)
++// Retained for metadata interpretation; iterator programmes are rejected.
++const iterPrefix = "iter/"
+ 
+-const (
+-	disabledProgram = "gadget_program_disabled"
+-)
++// ValidateConstrainedAttachment rejects unsupported classes before any map load.
++// The worker separately validates signed object identity, exact hooks and helpers.
++func ValidateConstrainedAttachment(p *ebpf.ProgramSpec) error {
++	if p == nil || p.AttachTo == "" {
++		return fmt.Errorf("missing constrained attachment")
++	}
++	switch p.Type {
++	case ebpf.TracePoint:
++		category, name, ok := strings.Cut(p.AttachTo, "/")
++		if !ok || category == "" || name == "" || strings.Contains(name, "/") || p.SectionName != "tracepoint/"+p.AttachTo || p.AttachType != ebpf.AttachNone {
++			return fmt.Errorf("invalid constrained tracepoint")
++		}
++	case ebpf.Tracing:
++		if (p.AttachType == ebpf.AttachTraceFEntry && p.SectionName == "fentry/"+p.AttachTo) || (p.AttachType == ebpf.AttachTraceFExit && p.SectionName == "fexit/"+p.AttachTo) {
++			return nil
++		}
++		return fmt.Errorf("unsupported constrained tracing attachment")
++	default:
++		return fmt.Errorf("unsupported constrained programme type")
++	}
++	return nil
++}
+ 
+ func (i *ebpfInstance) attachProgram(gadgetCtx operators.GadgetContext, p *ebpf.ProgramSpec, prog *ebpf.Program) (link.Link, error) {
+-	attachTo := p.AttachTo
+-
+-	if attachToCfg := i.config.GetString("programs." + p.Name + ".attach_to"); attachToCfg != "" {
+-		i.logger.Debugf("Overriding attachTo with %q for program %q", attachToCfg, p.Name)
+-		attachTo = attachToCfg
++	if err := ValidateConstrainedAttachment(p); err != nil {
++		return nil, err
+ 	}
+-
+-	if attachTo == disabledProgram {
+-		i.logger.Debugf("Skipping program %q as it is disabled", p.Name)
+-		return nil, nil
++	if err := gadgetCtx.Context().Err(); err != nil {
++		return nil, err
+ 	}
+-
+-	switch p.Type {
+-	case ebpf.Kprobe:
+-		switch {
+-		case strings.HasPrefix(p.SectionName, kprobePrefix):
+-			i.logger.Debugf("Attaching kprobe %q to %q", p.Name, attachTo)
+-			return link.Kprobe(attachTo, prog, nil)
+-		case strings.HasPrefix(p.SectionName, kretprobePrefix):
+-			i.logger.Debugf("Attaching kretprobe %q to %q", p.Name, attachTo)
+-			return link.Kretprobe(attachTo, prog, nil)
+-		case strings.HasPrefix(p.SectionName, uprobePrefix) ||
+-			strings.HasPrefix(p.SectionName, uretprobePrefix) ||
+-			strings.HasPrefix(p.SectionName, usdtPrefix):
+-			uprobeTracer := i.uprobeTracers[p.Name]
+-			switch strings.Split(p.SectionName, "/")[0] {
+-			case "uprobe":
+-				return nil, uprobeTracer.AttachProg(p.Name, uprobetracer.ProgUprobe, attachTo, prog)
+-			case "uretprobe":
+-				return nil, uprobeTracer.AttachProg(p.Name, uprobetracer.ProgUretprobe, attachTo, prog)
+-			case "usdt":
+-				return nil, uprobeTracer.AttachProg(p.Name, uprobetracer.ProgUSDT, attachTo, prog)
+-			}
+-		}
+-		return nil, fmt.Errorf("unsupported section name %q for program %q", p.SectionName, p.Name)
+-	case ebpf.TracePoint:
+-		i.logger.Debugf("Attaching tracepoint %q to %q", p.Name, attachTo)
+-		parts := strings.Split(attachTo, "/")
+-		return link.Tracepoint(parts[0], parts[1], prog, nil)
+-	case ebpf.SocketFilter:
+-		i.logger.Debugf("Attaching socket filter %q to %q", p.Name, attachTo)
+-		networkTracer := i.networkTracers[p.Name]
+-		return nil, networkTracer.AttachProg(prog)
+-	case ebpf.Tracing:
+-		switch {
+-		case strings.HasPrefix(p.SectionName, iterPrefix):
+-			i.logger.Debugf("Attaching iter %q to %q", p.Name, attachTo)
+-			switch attachTo {
+-			case "task", "task_file", "tcp", "udp", "ksym":
+-				return link.AttachIter(link.IterOptions{
+-					Program: prog,
+-				})
+-			case "bpf_map_elem":
+-				mapName, ok := i.iterTargetMaps[p.Name]
+-				if !ok {
+-					return nil, fmt.Errorf("iter/bpf_map_elem program %q has no target map; declare GADGET_ITER_TARGET_MAP(%s, <map_name>) in the BPF source",
+-						p.Name, p.Name)
+-				}
+-				targetMap, ok := i.collection.Maps[mapName]
+-				if !ok {
+-					return nil, fmt.Errorf("iter target map %q for program %q not found in loaded collection",
+-						mapName, p.Name)
+-				}
+-				i.logger.Debugf("Attaching iter/bpf_map_elem %q to map %q (fd=%d)",
+-					p.Name, mapName, targetMap.FD())
+-				return link.AttachIter(link.IterOptions{
+-					Program: prog,
+-					Map:     targetMap,
+-				})
+-			}
+-			return nil, fmt.Errorf("unsupported iter type %q", attachTo)
+-		case strings.HasPrefix(p.SectionName, fentryPrefix):
+-			i.logger.Debugf("Attaching fentry %q to %q", p.Name, attachTo)
+-			return link.AttachTracing(link.TracingOptions{
+-				Program:    prog,
+-				AttachType: ebpf.AttachTraceFEntry,
+-			})
+-		case strings.HasPrefix(p.SectionName, fexitPrefix):
+-			i.logger.Debugf("Attaching fexit %q to %q", p.Name, attachTo)
+-			return link.AttachTracing(link.TracingOptions{
+-				Program:    prog,
+-				AttachType: ebpf.AttachTraceFExit,
+-			})
+-		case strings.HasPrefix(p.SectionName, tpBtfPrefix):
+-			i.logger.Debugf("Attaching tp_btf %q to %q", p.Name, p.AttachTo)
+-			return link.AttachTracing(link.TracingOptions{
+-				Program:    prog,
+-				AttachType: ebpf.AttachTraceRawTp,
+-			})
+-		}
+-		return nil, fmt.Errorf("unsupported section name %q for program %q as type ebpf.Tracing", p.SectionName, p.Name)
+-	case ebpf.RawTracepoint:
+-		i.logger.Debugf("Attaching raw tracepoint %q to %q", p.Name, attachTo)
+-		return link.AttachRawTracepoint(link.RawTracepointOptions{
+-			Name:    attachTo,
+-			Program: prog,
+-		})
+-	case ebpf.SockOps:
+-		cgroupPath, err := cgroups.GetCgroupV2Mountpoint()
+-		if err != nil {
+-			return nil, fmt.Errorf("attaching sock_ops program %q: %w", p.Name, err)
+-		}
+-		i.logger.Debugf("Attaching sock_ops %q to cgroup %q", p.Name, cgroupPath)
+-		return link.AttachCgroup(link.CgroupOptions{
+-			Path:    cgroupPath,
+-			Attach:  ebpf.AttachCGroupSockOps,
+-			Program: prog,
+-		})
+-	case ebpf.SkSKB, ebpf.SkMsg:
+-		sockMapName, ok := i.skTargetMaps[p.Name]
+-		if !ok {
+-			return nil, fmt.Errorf("%s program %q has no target map; declare GADGET_SK_TARGET_MAP(%s, <map_name>) in the BPF source",
+-				p.Type, p.Name, p.Name)
+-		}
+-		sockMap, ok := i.collection.Maps[sockMapName]
+-		if !ok {
+-			return nil, fmt.Errorf("sk target map %q for program %q not found in loaded collection",
+-				sockMapName, p.Name)
+-		}
+-		i.logger.Debugf("Attaching %s %q (%s) to sockmap %q", p.Type, p.Name, p.AttachType, sockMapName)
+-		if err := link.RawAttachProgram(link.RawAttachProgramOptions{
+-			Target:  sockMap.FD(),
+-			Program: prog,
+-			Attach:  p.AttachType,
+-		}); err != nil {
+-			return nil, fmt.Errorf("attaching %s program %q to sockmap %q: %w", p.Type, p.Name, sockMapName, err)
+-		}
+-		// sk_skb/sk_msg attachments predate bpf_link, so RawAttachProgram returns
+-		// no Link. Record a detacher run on Stop() while the collection (and thus
+-		// the program and map FDs) is still open.
+-		targetFD := sockMap.FD()
+-		attachType := p.AttachType
+-		i.rawDetachers = append(i.rawDetachers, func() error {
+-			return link.RawDetachProgram(link.RawDetachProgramOptions{
+-				Target:  targetFD,
+-				Program: prog,
+-				Attach:  attachType,
+-			})
+-		})
+-		return nil, nil
+-	case ebpf.SchedCLS:
+-		handler := i.tcHandlers[p.Name]
+-
+-		ifaceName := i.paramValues[ParamIface]
+-		if ifaceName != "" {
+-			iface, err := net.InterfaceByName(ifaceName)
+-			if err != nil {
+-				return nil, fmt.Errorf("getting interface %q: %w", ifaceName, err)
+-			}
+-
+-			if err := handler.AttachIface(iface); err != nil {
+-				return nil, fmt.Errorf("attaching iface %q: %w", ifaceName, err)
+-			}
+-		}
+-
+-		i.logger.Debugf("Attaching sched_cls %q", p.Name)
+-		return nil, handler.AttachProg(prog)
+-	case ebpf.LSM:
+-		i.logger.Debugf("Attaching LSM %q to %q", p.Name, attachTo)
+-		return link.AttachLSM(link.LSMOptions{
+-			Program: prog,
+-		})
+-	case ebpf.PerfEvent:
+-		perfType := uint32(unix.PERF_TYPE_SOFTWARE)
+-		perfConfig := uint64(unix.PERF_COUNT_SW_CPU_CLOCK)
+-		perfSampleType := uint64(unix.PERF_SAMPLE_RAW)
+-		frequency := uint64(0)
+-		name, ok := strings.CutPrefix(p.SectionName, perfEventPrefix)
+-		if !ok {
+-			return nil, fmt.Errorf("perf_event programs require a name")
+-		}
+-
+-		switch tmp := i.config.GetString("programs." + name + ".perf.type"); tmp {
+-		case "":
+-			return nil, fmt.Errorf("perf.type not specified for program %q", name)
+-		case "software":
+-			perfType = unix.PERF_TYPE_SOFTWARE
+-		default:
+-			return nil, fmt.Errorf("unsupported perf.type %q", tmp)
+-		}
+-		switch tmp := i.config.GetString("programs." + name + ".perf.config"); tmp {
+-		case "":
+-			return nil, fmt.Errorf("perf.config not specified for program %q", name)
+-		case "count_sw_cpu_clock":
+-			perfConfig = unix.PERF_COUNT_SW_CPU_CLOCK
+-		default:
+-			return nil, fmt.Errorf("unsupported perf.config %q", tmp)
+-		}
+-		switch tmp := i.config.GetString("programs." + name + ".perf.sampleType"); tmp {
+-		case "":
+-			return nil, fmt.Errorf("perf.sampleType not specified for program %q", name)
+-		case "sample_raw":
+-			perfSampleType = unix.PERF_SAMPLE_RAW
+-		default:
+-			return nil, fmt.Errorf("unsupported perf.sampleType %q", tmp)
+-		}
+-		if tmpFrequency := i.config.GetString("programs." + name + ".sampler.frequency"); tmpFrequency != "" {
+-			var err error
+-			frequency, err = strconv.ParseUint(tmpFrequency, 10, 64)
+-			if err != nil {
+-				return nil, fmt.Errorf("parsing frequency %q for program %q: %w", tmpFrequency, name, err)
+-			}
+-		} else {
+-			return nil, fmt.Errorf("sampler.frequency not specified for program %q", name)
+-		}
+-		if frequency == 0 {
+-			return nil, fmt.Errorf("sampler.frequency is zero for program %q", name)
+-		}
+-		for cpu := 0; cpu < runtime.NumCPU(); cpu++ {
+-			fd, err := unix.PerfEventOpen(
+-				&unix.PerfEventAttr{
+-					Type:        perfType,
+-					Config:      perfConfig,
+-					Sample_type: perfSampleType,
+-					Sample:      frequency,
+-					Bits:        unix.PerfBitFreq,
+-				},
+-				-1,
+-				cpu,
+-				-1,
+-				unix.PERF_FLAG_FD_CLOEXEC,
+-			)
+-			if err != nil {
+-				return nil, fmt.Errorf("opening perf event: %w", err)
+-			}
+-			i.perfFds = append(i.perfFds, fd)
+-
+-			// Attach program to perf event.
+-			if err := unix.IoctlSetInt(fd, unix.PERF_EVENT_IOC_SET_BPF, prog.FD()); err != nil {
+-				return nil, fmt.Errorf("attaching eBPF program to perf fd: %w", err)
+-			}
+-
+-			// Start perf event.
+-			if err := unix.IoctlSetInt(fd, unix.PERF_EVENT_IOC_ENABLE, 0); err != nil {
+-				return nil, fmt.Errorf("enabling perf fd: %w", err)
+-			}
+-		}
+-		return nil, nil
+-	default:
+-		return nil, fmt.Errorf("unsupported program %q of type %q", p.Name, p.Type)
++	if i.config.GetString("programs."+p.Name+".attach_to") != "" {
++		return nil, fmt.Errorf("constrained attachment overrides are disabled")
+ 	}
++	if p.Type == ebpf.TracePoint {
++		category, name, _ := strings.Cut(p.AttachTo, "/")
++		return link.Tracepoint(category, name, prog, nil)
++	}
++	return link.AttachTracing(link.TracingOptions{Program: prog, AttachType: p.AttachType})
+ }
+--- a/pkg/operators/ebpf/iter.go
++++ b/pkg/operators/ebpf/iter.go
+@@ -17,8 +17,6 @@
+ import (
+ 	"errors"
+ 	"fmt"
+-	"io"
+-	"os"
+ 	"strings"
+ 	"time"
+ 
+@@ -27,8 +25,6 @@
+ 	"github.com/cilium/ebpf/link"
+ 
+ 	"github.com/inspektor-gadget/inspektor-gadget/pkg/datasource"
+-	bpfiterns "github.com/inspektor-gadget/inspektor-gadget/pkg/utils/bpf-iter-ns"
+-	"github.com/inspektor-gadget/inspektor-gadget/pkg/utils/nsenter"
+ )
+ 
+ type linkIterator struct {
+@@ -131,144 +127,8 @@
+ }
+ 
+ func (i *ebpfInstance) runIterators() error {
+-	for sName, iter := range i.iterators {
+-		fetch := func() error {
+-			i.logger.Debugf("Running iterator %q", sName)
+-
+-			pArray, err := iter.ds.NewPacketArray()
+-			if err != nil {
+-				return fmt.Errorf("creating new packet: %w", err)
+-			}
+-
+-			for pName, l := range iter.links {
+-				i.logger.Debugf("Running iterator program %q", pName)
+-
+-				if !isIteratorKindSupported(l.typ) {
+-					return fmt.Errorf("iterator kind %q is not supported", l.typ)
+-				}
+-
+-				// appendBuf splits the raw iterator output into fixed-size
+-				// records and appends them to the packet array.
+-				appendBuf := func(buf []byte) error {
+-					size := iter.accessor.Size()
+-					if uint32(len(buf))%size != 0 {
+-						return fmt.Errorf("iter %q returned an invalid buffer's size %d, expected multiple of %d",
+-							pName, len(buf), size)
+-					}
+-
+-					for i := uint32(0); i < uint32(len(buf)); i += size {
+-						data := pArray.New()
+-						if err := iter.accessor.Set(data, buf[i:i+size]); err != nil {
+-							pArray.Release(data)
+-							return fmt.Errorf("setting data element %d: %w", i, err)
+-						}
+-						pArray.Append(data)
+-					}
+-					return nil
+-				}
+-
+-				switch {
+-				case isIteratorKindPerNetNs(l.typ):
+-					// Network namespace iterators (tcp, udp) must be run once
+-					// per network namespace using setns.
+-					visitedNetNs := make(map[uint64]struct{})
+-					for _, container := range i.containers {
+-						_, visited := visitedNetNs[container.Netns]
+-						if visited {
+-							continue
+-						}
+-						visitedNetNs[container.Netns] = struct{}{}
+-
+-						err := nsenter.NetnsEnter(int(container.ContainerPid()), func() error {
+-							reader, err := l.link.Open()
+-							if err != nil {
+-								return err
+-							}
+-							defer reader.Close()
+-
+-							buf, err := io.ReadAll(reader)
+-							if err != nil {
+-								return fmt.Errorf("reading iterator %q: %w", pName, err)
+-							}
+-
+-							return appendBuf(buf)
+-						})
+-						if err != nil && !errors.Is(err, os.ErrNotExist) {
+-							return fmt.Errorf("entering container %q's netns to run iterator %q: %w",
+-								container.Runtime.ContainerName, pName, err)
+-						}
+-					}
+-				case isIteratorKindPerPidNs(l.typ):
+-					// Task iterators (task, task_file) must enumerate the host's
+-					// processes, so when running inside a pod they are read from
+-					// the host pid namespace. bpfiterns.Read handles that by
+-					// pinning the iterator on the host bpffs when needed.
+-					buf, err := bpfiterns.Read(l.link)
+-					if err != nil {
+-						return fmt.Errorf("reading iterator %q: %w", pName, err)
+-					}
+-					if err := appendBuf(buf); err != nil {
+-						return err
+-					}
+-				default:
+-					// Namespace-agnostic iterators (bpf_map_elem, ksym) return
+-					// the same data regardless of the pid or network namespace,
+-					// so read them directly without any setns or pinning.
+-					buf, err := bpfiterns.ReadOnCurrentPidNs(l.link)
+-					if err != nil {
+-						return fmt.Errorf("reading iterator %q: %w", pName, err)
+-					}
+-					if err := appendBuf(buf); err != nil {
+-						return err
+-					}
+-				}
+-			}
+-
+-			if err := iter.ds.EmitAndRelease(pArray); err != nil {
+-				return fmt.Errorf("emitting iter %q data: %w", sName, err)
+-			}
+-			return nil
+-		}
+-		i.wg.Add(1)
+-		go func() {
+-			defer i.wg.Done()
+-			if iter.interval == 0 && iter.count == 1 {
+-				// Only a single time if interval is zero and count is 1
+-				err := fetch()
+-				if err != nil {
+-					i.logger.Warnf("error running iterator %q: %v", sName, err)
+-				}
+-				return
+-			}
+-			ctr := 0
+-			tickerChan := make(<-chan time.Time)
+-			if iter.interval > 0 {
+-				tickerChan = time.NewTicker(iter.interval).C
+-			}
+-			for {
+-				select {
+-				case <-i.done:
+-					if iter.fetchOnStop {
+-						i.logger.Debugf("fetching on stop")
+-						err := fetch()
+-						if err != nil {
+-							i.logger.Warnf("error running iterator %q: %v", sName, err)
+-						}
+-					}
+-					return
+-				case <-tickerChan:
+-					err := fetch()
+-					if err != nil {
+-						i.logger.Warnf("error running iterator %q: %v", sName, err)
+-					}
+-					ctr++
+-					if iter.count > 0 && ctr >= iter.count {
+-						// TODO: close DS
+-						return
+-					}
+-				}
+-			}
+-		}()
++	if len(i.iterators) != 0 {
++		return fmt.Errorf("iterators are not available in the constrained worker")
+ 	}
+ 	return nil
+ }
+--- a/pkg/operators/ebpf/formatters.go
++++ b/pkg/operators/ebpf/formatters.go
+@@ -232,6 +232,12 @@
+ }
+ 
+ func (i *ebpfInstance) initFormatters(gadgetCtx operators.GadgetContext) error {
++	// Raw-record workers have no SDK data sources to format. Avoid loading
++	// kernel BTF solely for display converters that cannot be used.
++	if len(gadgetCtx.GetDataSources()) == 0 {
++		return nil
++	}
++
+ 	if err := i.initEnumFormatter(gadgetCtx); err != nil {
+ 		return fmt.Errorf("initializing enum formatter: %w", err)
+ 	}
+--- a/pkg/gadget-service/api/api_grpc.pb.go
++++ b/pkg/gadget-service/api/api_grpc.pb.go
+@@ -2,3 +2,5 @@
+ 
++//go:build ignore
++
+ package api
+ 

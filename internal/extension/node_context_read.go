@@ -17,6 +17,10 @@ func (h *ReadHandler) serveNodeContexts(w http.ResponseWriter, r *http.Request, 
 		h.serveNodeAnalysis(w, r, info)
 		return
 	}
+	if info.Subresource == "topology" {
+		h.serveNodeTopology(w, r, info, schema)
+		return
+	}
 	if info.Subresource == "history" && info.Name != "" && info.Verb == "get" && len(info.Parts) == 3 {
 		result, err := h.store.PageNodeContextHistory(info.Name, h.now(), r.URL.Query(), h.nestedReadBudget())
 		if writeReadPageError(w, err) {
@@ -61,7 +65,12 @@ func nodeContextResource(record api.NodeContextRecord) api.NodeContextResource {
 }
 
 func (h *Handler) discoveryResources() []metav1.APIResource {
-	resources := discoveryResources()
+	resources := append(discoveryResources(), h.historyResources()...)
+	resources = append(resources, h.replicaResources()...)
+	resources = append(resources, h.incidentSessionResources()...)
+	if h.opts.TopologyEnabled {
+		resources = append(resources, metav1.APIResource{Name: "nodecontexts/topology", Namespaced: false, Kind: "NodeMemoryTopology", Verbs: metav1.Verbs{"get"}})
+	}
 	if h.opts.VolumeWorkloadsEnabled {
 		resources = append(resources, metav1.APIResource{Name: "workloads/volumes", Namespaced: true, Kind: "WorkloadVolumeContext", Verbs: metav1.Verbs{"get"}})
 	}

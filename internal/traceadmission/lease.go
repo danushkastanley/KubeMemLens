@@ -14,6 +14,7 @@ import (
 // specification cannot change. The node must separately activate its pending
 // binding under this upper deadline before running an approved engine.
 type Lease struct {
+	audit      *auditLifecycle
 	manager    *Manager
 	principal  *user.DefaultInfo
 	admission  Admission
@@ -36,11 +37,34 @@ func (m *Manager) Claim(parent context.Context, info user.Info, namespace, id st
 		return nil, ErrUnavailable
 	}
 	defer m.inflight.Done()
+	event := m.auditEvent(Attach, Request{})
+	defer func() {
+		if m.record(event, err) != nil {
+			err = ErrUnavailable
+		}
+		if err == nil && lease != nil && lease.ctx.Err() != nil {
+			err = safeLeaseCause(context.Cause(lease.ctx))
+		}
+		if err == nil {
+			return
+		}
+		if lease != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			_ = lease.Close(ctx)
+			lease = nil
+		}
+	}()
+	if m.AuditHealthy() != nil {
+		return nil, ErrUnavailable
+	}
 	principal, owner, err := snapshotPrincipal(info)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { m.record(Attach, principalCategory(principal), "", err) }()
+	if err = m.identifyAudit(&event, principal, namespace, id); err != nil {
+		return nil, err
+	}
 	if !validNamespace(namespace) {
 		return nil, ErrInvalidRequest
 	}
@@ -59,6 +83,7 @@ func (m *Manager) Claim(parent context.Context, info user.Info, namespace, id st
 	if e == nil || e.owner != owner || e.request.namespace != namespace {
 		return nil, ErrNotFound
 	}
+	auditEntry(&event, e)
 	if e.stage != admitted || e.initializing {
 		return nil, ErrCapacity
 	}
@@ -70,6 +95,7 @@ func (m *Manager) Claim(parent context.Context, info user.Info, namespace, id st
 	lifetime, cancel := context.WithCancelCause(lifetime)
 	e.cancelActive = func(cause error) { cancel(cause); deadlineCancel() }
 	e.expires = expires
+	m.wakeExpiry()
 	e.stage = active
 	e.consumerRunning = true
 	e.consumerDone = make(chan struct{})
@@ -81,7 +107,7 @@ func (m *Manager) Claim(parent context.Context, info user.Info, namespace, id st
 		m.endConsumer(id)
 		_ = m.discardWithCause(id, context.Canceled)
 	})
-	return &Lease{manager: m, principal: principal, admission: admission, binding: e.binding, workload: e.workload, namespace: namespace, ctx: lifetime, stopParent: stopParent}, nil
+	return &Lease{audit: e.audit, manager: m, principal: principal, admission: admission, binding: e.binding, workload: e.workload, namespace: namespace, ctx: lifetime, stopParent: stopParent}, nil
 }
 func (l *Lease) Revalidate(ctx context.Context) error {
 	if l.ctx.Err() != nil {
@@ -113,6 +139,9 @@ func safeLeaseCause(err error) error {
 // Buffered frames may drain for at most two seconds after normal expiry, while
 // current Kubernetes authority and immutable workload identity remain required.
 func (l *Lease) RevalidateStream(ctx context.Context) error {
+	if l.manager.AuditHealthy() != nil {
+		return ErrUnavailable
+	}
 	if l.ctx.Err() != nil && !errors.Is(context.Cause(l.ctx), ErrExpired) {
 		return safeLeaseCause(context.Cause(l.ctx))
 	}

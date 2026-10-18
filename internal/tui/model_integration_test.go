@@ -294,7 +294,7 @@ func TestLoadingEmptyErrorHelpAndActionFrames(t *testing.T) {
 	}
 	m.help = false
 	m.action.mode = actionMenu
-	if frame := m.viewString(); !strings.Contains(frame, "Incident actions") || !strings.Contains(frame, "No action mutates") {
+	if frame := m.viewString(); !strings.Contains(frame, "Incident actions") || !strings.Contains(frame, "Session actions write explicitly created incident records.") {
 		t.Fatalf("action frame:\n%s", frame)
 	}
 }

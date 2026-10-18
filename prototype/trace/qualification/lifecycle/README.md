@@ -80,3 +80,42 @@ incident worker, API, standard agent or chart. Retain failed and inconclusive
 attempts, captured IDs and the first-link stop clock. Verify teardown and the
 unrelated control after every attempt. No programme bytes, map contents, security
 profiles or incident limits are changed by this operation.
+
+## Bounded active observation
+
+`--mode watch --watch-seconds N` records an initial sample plus N one-second observations,
+with N from 1 to 1,800. It uses the same explicit parent/container/start/hash and
+target bindings as `snapshot`. Each sample repeats the accepted parent executable,
+CRI membership, worker executable, target and object-ownership checks. Hashing and
+census CPU/peak RSS are recorded as observer cost. They are not part of the service
+cgroup CPU, but remain visible in Node/control comparisons; do not subtract or hide
+them. The helper holds no BPF object handles between samples.
+
+A worker transition that prevents a consistent snapshot is `unavailable`, with no
+numeric object substitute. Loss of the verified parent aborts the observation.
+Partial attachment inventories remain explicit. SIGINT/SIGTERM cancels the run.
+Output is bounded to 32 KiB per record and 16 MiB total; write failure aborts.
+Records contain only counters, owned object IDs and bounded clock alignment.
+
+The separate active evaluator brackets complete resource-read intervals with
+unchanged observed object inventories. Missing, partial, inactive, excluded or
+replaced-worker evidence cannot count as active time. This is sampled attachment
+evidence, not syscall tracing or proof of unsampled event delivery. The watch mode
+never signals a worker, loads BPF or changes the production trace duration.
+Native Linux tests and a read-only runtime smoke are required before freezing it
+for a campaign. Building the helper alone does not establish qualification.
+
+`--mode watch-targets --watch-seconds N` uses a separate schema-2 record and
+requires exactly two frozen target cgroup IDs. It reads each verified worker's
+target descriptor before and after the object census; changed assignments make
+that sample unavailable. `targetWorkers` contains two counts, ordered by ascending
+input cgroup ID, without exposing those IDs. Empty observed coverage is `[0, 0]`;
+unavailable coverage is omitted. Two workers on one target remain `[2, 0]` or
+`[0, 2]`, so a replay requiring one per target cannot count them as simultaneous
+two-target activity. Legacy `watch` retains its schema-1 format and checks.
+
+The target-aware mode has the same duration, output, ownership, cancellation and
+read-only boundaries. Its aggregate object inventory still requires exact
+candidate-specific counts. Native tests and real two-target ownership verification
+are required before a concurrency campaign; per-target counts alone do not prove
+event delivery or every teardown path.

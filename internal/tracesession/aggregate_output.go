@@ -48,18 +48,27 @@ func (o *output) aggregateCache(event trace.CacheActivity) error {
 }
 
 func (o *output) aggregateWindow(observed time.Time) error {
+	if err := o.checkAggregateWindow(observed, o.aggregates.Observations()); err != nil {
+		if o.closed {
+			return err
+		}
+		return o.rejectAggregate(trace.Termination(reason(err)))
+	}
+	return nil
+}
+
+func (o *output) checkAggregateWindow(observed time.Time, observations uint64) error {
 	if o.closed {
 		return Stop(trace.Cancelled)
 	}
 	if o.ctx.Err() != nil {
-		o.rejected++
 		return reason(context.Cause(o.ctx))
 	}
 	if observed.Before(o.started) || observed.After(o.deadline) {
-		return o.rejectAggregate(trace.EngineFailed)
+		return Stop(trace.EngineFailed)
 	}
-	if o.aggregates.Observations() >= o.spec.Bounds().Events {
-		return o.rejectAggregate(trace.EventLimit)
+	if observations >= o.spec.Bounds().Events {
+		return Stop(trace.EventLimit)
 	}
 	return nil
 }

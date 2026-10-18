@@ -3,6 +3,7 @@ package nodeproducer
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math/rand/v2"
 	"time"
@@ -94,6 +95,13 @@ func Run(ctx context.Context, source nodestats.SampleSource, publisher Publisher
 
 func sourceSnapshot(sample nodestats.Sample) (api.AgentSnapshot, error) {
 	result := api.AgentSnapshot{SchemaVersion: api.CurrentSnapshotSchemaVersion, NodeName: sample.Node.NodeName, CapturedAt: sample.Node.ReportedAt, NodeContext: &sample.Node}
+	if sample.Topology != nil {
+		body, err := json.Marshal(sample.Topology)
+		if err != nil {
+			return api.AgentSnapshot{}, errors.New("cannot encode bounded topology observation")
+		}
+		result.Topology = body
+	}
 	if sample.Volumes != nil {
 		body, err := sample.Volumes.EncodePrivate()
 		if err != nil {

@@ -33,7 +33,9 @@ jobs:
             prototype/trace/worker/go.sum
 
       - name: Prepare checksum-verified SDK source
-        run: python3 prototype/trace/worker/prepare_sdk.py
+        run: |
+          python3 -m unittest discover -s prototype/trace/worker -p 'test_*.py'
+          python3 prototype/trace/worker/prepare_sdk.py
 
       - name: Download isolated worker dependencies
         run: |

@@ -131,6 +131,19 @@ attaches in stable order, and returns link/perf-descriptor cleanup failures.
 The signed programme manifest includes the patch digest; changing the patch
 invalidates previously accepted manifests. Compilation checks its policy version.
 
+The constrained patch also retains the fixed `gadget_sockets` map-name constant
+without importing the unused socket-enrichment package. That package otherwise
+parses networking probe metadata at process initialisation even when no socket
+operator is selected. File/cache and OOM attachment and validation are unchanged.
+The worker builder rejects that package in both architecture dependency lists.
+
+Worker builds omit symbol tables and DWARF debug information with `-s -w` while
+retaining static ELF validation and whole-executable hashing and sealing. Both
+architectures must reproduce twice. The build receipt records the exact flags,
+builder scripts, SDK receipt and dependency-list digests. A smaller build still
+requires fresh runtime and resource qualification; it does not supersede the
+recorded no-go result by itself.
+
 `prepare_sdk.py` materialises that source in an ignored directory without editing
 the Go module cache. The standard image context excludes it. The worker imports
 only the selected image operator, supplies an empty fixed configuration and a

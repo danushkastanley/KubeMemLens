@@ -34,7 +34,7 @@ func (n noTarget) Bind(context.Context, string, admission.Workload, admission.Re
 	return nil, admission.ErrUnavailable
 }
 func TestHandlerRejectsDirectHeadersAndRetargeting(t *testing.T) {
-	manager, err := admission.NewManager(context.Background(), admission.Dependencies{Authorizer: denied{}, Resolver: noTarget{t}, Binder: noTarget{t}, Audit: func(admission.AuditEvent) {}}, admission.DefaultPolicy())
+	manager, err := admission.NewManager(context.Background(), admission.Dependencies{Authorizer: denied{}, Resolver: noTarget{t}, Binder: noTarget{t}, AuditReferences: testAuditReferences(t), Audit: func(context.Context, admission.AuditEvent) error { return nil }}, admission.DefaultPolicy())
 	if err != nil {
 		t.Fatal(err)
 	}

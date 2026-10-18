@@ -1,0 +1,37 @@
+{{- if .Values.enabled }}
+{{- $name := include "trace.name" . }}
+{{- $endpoints := list }}
+{{- range .Values.nodes }}
+{{- $url := printf "https://%s-node-%s.%s.svc:9443" $name .id $.Release.Namespace }}
+{{- $profile := dict "nodeUID" .uid "nodeName" .name "architecture" .architecture "kernelVersion" .kernelVersion "runtimeVersion" .runtimeVersion }}
+{{- $endpoint := dict "nodeUID" .uid "nodeName" .name "url" $url "caFile" "/tls/node-ca.crt" "certificateSHA256" .certificateSHA256 "profile" $profile }}
+{{- $endpoints = append $endpoints $endpoint }}
+{{- end }}
+{{- $data := toJson $endpoints }}
+{{- if gt (len $data) 65536 }}{{ fail "node registry exceeds runtime byte limit" }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $name }}-registry
+  namespace: {{ .Release.Namespace | quote }}
+data:
+  nodes.json: {{ $data | quote }}
+---
+apiVersion: apiregistration.k8s.io/v1
+kind: APIService
+metadata:
+  name: v1alpha1.tracing.kubememlens.io
+  annotations:
+    tracing.kubememlens.io/qualification: unqualified-development
+spec:
+  group: tracing.kubememlens.io
+  version: v1alpha1
+  groupPriorityMinimum: 1000
+  versionPriority: 15
+  insecureSkipTLSVerify: false
+  caBundle: {{ .Values.apiCABundle | quote }}
+  service:
+    namespace: {{ .Release.Namespace | quote }}
+    name: {{ $name }}-api
+    port: 8443
+{{- end }}

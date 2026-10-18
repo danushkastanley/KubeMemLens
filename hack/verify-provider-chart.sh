@@ -29,10 +29,11 @@ require_text() {
 render_template() {
   local template=$1
   local output=$2
-  helm template kube-memlens "${chart}" --show-only "templates/${template}" > "${output}"
+  shift 2
+  helm template kube-memlens "${chart}" --show-only "templates/${template}" "$@" > "${output}"
 }
 
-for command in grep helm; do
+for command in grep helm ruby cmp; do
   command -v "${command}" >/dev/null 2>&1 || fail "required command not found: ${command}"
 done
 
@@ -42,6 +43,104 @@ render_template deployment.yaml "${work_dir}/deployment.yaml"
 render_template extension-cert-bootstrap.yaml "${work_dir}/bootstrap.yaml"
 render_template networkpolicy.yaml "${work_dir}/networkpolicy.yaml"
 render_template service.yaml "${work_dir}/service.yaml"
+
+for mode in enabled disabled agent-only collector-only; do
+  options=(--namespace chart-owner --set-string namespace.name=workloads)
+  case "${mode}" in
+    disabled) options+=(--set networkPolicy.enabled=false) ;;
+    agent-only) options+=(--set collector.enabled=false) ;;
+    collector-only) options+=(--set agent.enabled=false) ;;
+  esac
+  helm template strict-policy-owner "${chart}" "${options[@]}" > "${work_dir}/${mode}-policies.yaml"
+done
+
+ruby -ryaml - "${work_dir}" <<'RUBY'
+def documents(path)
+  File.read(path).split(/^---[ \t]*$/).map { |part| YAML.safe_load(part, aliases: true) }.compact
+end
+expected = {
+  "enabled" => %w[kube-memlens-agent kube-memlens-cert-bootstrap kube-memlens-test],
+  "disabled" => [],
+  "agent-only" => %w[kube-memlens-agent],
+  "collector-only" => %w[kube-memlens-cert-bootstrap kube-memlens-test]
+}
+expected.each do |mode, names|
+  docs = documents(File.join(ARGV.first, "#{mode}-policies.yaml"))
+  policies = docs.select { |doc| doc["kind"] == "NetworkPolicy" }
+  components = policies.reject { |doc| doc.dig("metadata", "name") == "kube-memlens-collector" }
+  abort "component policies differ for #{mode}" unless components.map { |doc| doc.dig("metadata", "name") }.sort == names.sort
+  pods = docs.select { |doc| %w[DaemonSet Deployment Job].include?(doc["kind"]) }
+  components.each do |policy|
+    name = policy.dig("metadata", "name")
+    spec = policy.fetch("spec")
+    abort "component policy changes egress isolation" unless spec["policyTypes"] == ["Ingress"] && !spec.key?("egress")
+    abort "component policy permits unsolicited ingress" unless spec["ingress"] == []
+    selector = spec.fetch("podSelector").fetch("matchLabels")
+    selected = pods.select do |pod|
+      labels = pod.dig("spec", "template", "metadata", "labels")
+      selector.all? { |key, value| labels[key] == value }
+    end
+    workload_name = {"kube-memlens-test" => "strict-policy-owner-test-connection"}.fetch(name, name)
+    abort "component policy selects the wrong workload" unless selected.map { |pod| pod.dig("metadata", "name") } == [workload_name]
+    abort "component policy namespace differs" unless policy.dig("metadata", "namespace") == "workloads"
+  end
+  abort "disabled network policy still renders policies" if mode == "disabled" && !policies.empty?
+end
+hooks = documents(File.join(ARGV.first, "enabled-policies.yaml")).select do |doc|
+  doc.dig("metadata", "name") == "kube-memlens-cert-bootstrap" && doc.dig("metadata", "annotations", "helm.sh/hook")
+end
+abort "certificate hooks missing" if hooks.empty?
+hooks.each do |hook|
+  annotations = hook.fetch("metadata").fetch("annotations")
+  abort "hook ownership cannot be verified during cleanup" unless annotations["meta.helm.sh/release-name"] == "strict-policy-owner" && annotations["meta.helm.sh/release-namespace"] == "chart-owner"
+  deletion = annotations.fetch("helm.sh/hook-delete-policy").split(",")
+  abort "failed certificate hooks lose their diagnostics" if deletion.include?("hook-failed")
+  abort "certificate hook cleanup lifecycle differs" unless deletion.sort == %w[before-hook-creation hook-succeeded]
+end
+RUBY
+
+# Keep heap page behaviour explicit on both long-running standard services.
+ruby -ryaml - "${work_dir}/daemonset.yaml" "${work_dir}/deployment.yaml" <<'RUBY'
+ARGV.each do |path|
+  workload = YAML.safe_load(File.read(path), aliases: true)
+  containers = workload.dig("spec", "template", "spec", "containers")
+  service = containers.find { |container| %w[agent collector].include?(container.fetch("name")) }
+  abort "standard service missing" unless service
+  settings = service.fetch("env", []).select { |entry| entry.fetch("name") == "GODEBUG" }
+  abort "standard heap page setting differs" unless settings == [{"name" => "GODEBUG", "value" => "disablethp=1"}]
+end
+RUBY
+
+# Collector placement must preserve Linux and all unrelated workload settings.
+render_template deployment.yaml "${work_dir}/collector-without-new-value.yaml" --set collector.nodeSelector=null
+cmp "${work_dir}/deployment.yaml" "${work_dir}/collector-without-new-value.yaml" || fail 'omitted collector selector changed defaults'
+collector_placement=(--set-string 'collector.nodeSelector.kubernetes\.io/hostname=ip-10-0-0-1.ec2.internal'
+                     --set-string 'collector.nodeSelector.qualification=true')
+render_template deployment.yaml "${work_dir}/collector-placement.yaml" "${collector_placement[@]}"
+render_template daemonset.yaml "${work_dir}/agent-placement.yaml" "${collector_placement[@]}"
+cmp "${work_dir}/daemonset.yaml" "${work_dir}/agent-placement.yaml" || fail 'collector placement changed agent configuration'
+ruby -ryaml - "${work_dir}/deployment.yaml" "${work_dir}/collector-placement.yaml" <<'RUBY'
+normal, placed = ARGV.map { |path| YAML.safe_load(File.read(path), aliases: true) }
+expected = {"kubernetes.io/os" => "linux", "kubernetes.io/hostname" => "ip-10-0-0-1.ec2.internal", "qualification" => "true"}
+abort "collector selector differs from requested string labels" unless placed.dig("spec", "template", "spec", "nodeSelector") == expected
+placed.fetch("spec").fetch("template").fetch("spec")["nodeSelector"] = normal.dig("spec", "template", "spec", "nodeSelector")
+abort "collector placement changed unrelated configuration" unless placed == normal
+RUBY
+for validation in schema template; do
+  options=(--set-string 'collector.nodeSelector.kubernetes\.io/os=windows')
+  if [[ "${validation}" == template ]]; then options+=(--skip-schema-validation); fi
+  if helm template kube-memlens "${chart}" "${options[@]}" >"${work_dir}/placement-rejected.log" 2>&1; then
+    fail 'collector placement accepted a non-Linux selector'
+  fi
+  # Helm 3.22 uses JSON pointers; earlier versions use dotted schema paths.
+  require_text "${work_dir}/placement-rejected.log" 'nodeSelector'
+  require_text "${work_dir}/placement-rejected.log" 'linux'
+done
+if helm template kube-memlens "${chart}" --set collector.nodeSelector.qualification=true >"${work_dir}/placement-rejected.log" 2>&1; then
+  fail 'collector placement accepted a non-string label value'
+fi
+require_text "${work_dir}/placement-rejected.log" 'nodeSelector'
+require_text "${work_dir}/placement-rejected.log" 'string'
 
 for workload in daemonset deployment bootstrap; do
   manifest="${work_dir}/${workload}.yaml"
@@ -70,10 +169,43 @@ require_text "${work_dir}/networkpolicy.yaml" "- Ingress"
 require_text "${work_dir}/networkpolicy.yaml" "port: http"
 require_text "${work_dir}/networkpolicy.yaml" "port: extension"
 require_text "${work_dir}/service.yaml" "port: 443"
+require_text "${work_dir}/service.yaml" 'name: "https-extension"'
 require_text "${work_dir}/service.yaml" "targetPort: extension"
 if grep -Eq 'port: (8080|8081)' "${work_dir}/service.yaml"; then
   fail "collector Service exposes a plaintext port"
 fi
+
+# Provider mappings must agree across the listener, Service, aggregation route
+# and the actual connectivity probe, without exposing the plaintext listener.
+for mapping in eks custom; do
+  port=8443
+  options=(--values hack/provider-values/eks-al2023-containerd-amd64.yaml)
+  if [ "${mapping}" = custom ]; then
+    port=9443
+    options+=(--set collector.ingestion.extensionPort=9443 --set collector.service.extensionPort=9443)
+  fi
+  for template in service.yaml deployment.yaml extension-tls.yaml tests/test-connection.yaml; do
+    render_template "${template}" "${work_dir}/${mapping}-${template##*/}" "${options[@]}"
+  done
+  require_text "${work_dir}/${mapping}-service.yaml" 'name: "extension"'
+  require_text "${work_dir}/${mapping}-service.yaml" "port: ${port}"
+  require_text "${work_dir}/${mapping}-service.yaml" "targetPort: extension"
+  require_text "${work_dir}/${mapping}-deployment.yaml" "--extension-port=${port}"
+  require_text "${work_dir}/${mapping}-deployment.yaml" "containerPort: ${port}"
+  require_text "${work_dir}/${mapping}-extension-tls.yaml" "port: ${port}"
+  require_text "${work_dir}/${mapping}-test-connection.yaml" ".svc ${port}; do"
+done
+
+# A valid port name that YAML also recognises as a boolean must remain a string.
+render_template service.yaml "${work_dir}/string-port-name.yaml" --set-string collector.service.extensionPortName=true
+require_text "${work_dir}/string-port-name.yaml" 'name: "true"'
+
+for setting in collector.service.extensionPort=0 collector.service.extensionPort=65536 \
+  collector.service.extensionPortName=bad.name collector.service.extensionPortName=; do
+  if helm template kube-memlens "${chart}" --set "${setting}" >/dev/null 2>&1; then
+    fail "invalid authenticated Service setting rendered: ${setting}"
+  fi
+done
 
 if helm template kube-memlens "${chart}" --set security.privileged=true >/dev/null 2>&1; then
   fail "privileged standard profile rendered"

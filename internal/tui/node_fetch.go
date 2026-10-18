@@ -56,11 +56,22 @@ func (m *appModel) nodeRefreshCmd() tea.Cmd {
 	}
 	ctx, cancel := context.WithTimeout(m.ctx, 10*time.Second)
 	m.nodeCancel = cancel
+	topologyReader, hasTopology := m.client.(client.NodeTopologyReader)
 	return func() tea.Msg {
 		defer cancel()
 		msg := nodeMsg{request: request}
 		var wait sync.WaitGroup
-		wait.Add(2)
+		wait.Add(3)
+		go func() {
+			defer wait.Done()
+			if hasTopology {
+				value, err := topologyReader.NodeTopology(ctx, request.name)
+				msg.topologyErr = err
+				if err == nil {
+					msg.topology = &value
+				}
+			}
+		}()
 		go func() {
 			defer wait.Done()
 			evidence, err := client.ReadNodeEvidence(ctx, reader, request.name, request.rank, nodeanalysis.DefaultContributors)

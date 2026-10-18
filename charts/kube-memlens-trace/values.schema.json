@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "enabled",
+    "profile",
+    "acknowledgeUnqualifiedDevelopment",
+    "image",
+    "acceptancePolicyConfigMap",
+    "apiTLSSecret",
+    "apiCABundle",
+    "controlCertificateSHA256",
+    "nodes",
+    "allowConfirmedPaths",
+    "maxNodeTraces",
+    "acceptancePolicySHA256",
+    "preflightServiceAccount",
+    "auditReferenceKeySecret",
+    "auditReferenceKeySHA256"
+  ],
+  "properties": {
+    "enabled": {
+      "type": "boolean"
+    },
+    "profile": {
+      "enum": [
+        "",
+        "development-linux-containerd"
+      ]
+    },
+    "acknowledgeUnqualifiedDevelopment": {
+      "type": "boolean"
+    },
+    "image": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "digest",
+        "pullPolicy"
+      ],
+      "properties": {
+        "repository": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^$|^[a-zA-Z0-9][a-zA-Z0-9./:_-]*$"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^$|^sha256:[a-f0-9]{64}$"
+        },
+        "pullPolicy": {
+          "enum": [
+            "IfNotPresent",
+            "Never"
+          ]
+        }
+      }
+    },
+    "acceptancePolicyConfigMap": {
+      "type": "string"
+    },
+    "apiTLSSecret": {
+      "type": "string"
+    },
+    "apiCABundle": {
+      "type": "string",
+      "maxLength": 90000
+    },
+    "controlCertificateSHA256": {
+      "type": "string"
+    },
+    "nodes": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "uid",
+          "architecture",
+          "kernelVersion",
+          "tlsSecret",
+          "certificateSHA256",
+          "kubeletCgroupRoot",
+          "runtimeVersion"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 20,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 253,
+            "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+          },
+          "uid": {
+            "type": "string",
+            "maxLength": 128,
+            "pattern": "^[a-z0-9-]+$"
+          },
+          "architecture": {
+            "enum": [
+              "amd64",
+              "arm64"
+            ]
+          },
+          "kernelVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "pattern": "^[A-Za-z0-9._+-]+$"
+          },
+          "tlsSecret": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "certificateSHA256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "kubeletCgroupRoot": {
+            "type": "string",
+            "maxLength": 256,
+            "pattern": "^/([a-z0-9]+(-[a-z0-9]+)*(/[a-z0-9]+(-[a-z0-9]+)*){0,3})?$"
+          },
+          "runtimeVersion": {
+            "type": "string",
+            "pattern": "^containerd://[A-Za-z0-9._+-]{1,128}$"
+          }
+        }
+      }
+    },
+    "allowConfirmedPaths": {
+      "type": "boolean"
+    },
+    "maxNodeTraces": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2
+    },
+    "acceptancePolicySHA256": {
+      "type": "string",
+      "pattern": "^$|^[a-f0-9]{64}$"
+    },
+    "preflightServiceAccount": {
+      "type": "string"
+    },
+    "auditReferenceKeySecret": {
+      "type": "string"
+    },
+    "auditReferenceKeySHA256": {
+      "type": "string",
+      "pattern": "^$|^[a-f0-9]{64}$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "enabled": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "enabled": {
+            "const": true
+          },
+          "profile": {
+            "const": "development-linux-containerd"
+          },
+          "acknowledgeUnqualifiedDevelopment": {
+            "const": true
+          },
+          "image": {
+            "properties": {
+              "repository": {
+                "minLength": 1
+              },
+              "digest": {
+                "minLength": 71
+              }
+            }
+          },
+          "acceptancePolicyConfigMap": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "apiTLSSecret": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "apiCABundle": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9+/]+={0,2}$"
+          },
+          "controlCertificateSHA256": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "nodes": {
+            "minItems": 1
+          },
+          "acceptancePolicySHA256": {
+            "minLength": 64
+          },
+          "preflightServiceAccount": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "auditReferenceKeySecret": {
+            "type": "string",
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "auditReferenceKeySHA256": {
+            "minLength": 64
+          }
+        }
+      }
+    }
+  ]
+}

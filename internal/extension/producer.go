@@ -50,7 +50,7 @@ func (c AgentClaims) nodeKey() string {
 func validateProducerSnapshot(claims AgentClaims, snapshot api.AgentSnapshot) error {
 	switch claims.Role {
 	case CgroupProducer:
-		if snapshot.NodeContext != nil || len(snapshot.VolumeBatch) > 0 {
+		if snapshot.NodeContext != nil || len(snapshot.VolumeBatch) > 0 || len(snapshot.Topology) > 0 {
 			return fmt.Errorf("cgroup producers cannot submit Node observations")
 		}
 	case NodeContextProducer:

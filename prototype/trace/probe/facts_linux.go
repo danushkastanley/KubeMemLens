@@ -139,7 +139,7 @@ func (l *Local) bpffs() p.Check {
 func (l *Local) lsm() p.Check {
 	data, err := l.read("/sys/kernel/security/lsm", 1024)
 	if err == nil {
-		known := map[string]bool{"capability": true, "landlock": true, "lockdown": true, "yama": true, "integrity": true, "apparmor": true, "selinux": true, "bpf": true, "smack": true, "tomoyo": true, "safesetid": true, "ipe": true}
+		known := map[string]bool{"capability": true, "landlock": true, "lockdown": true, "yama": true, "integrity": true, "ima": true, "apparmor": true, "selinux": true, "bpf": true, "smack": true, "tomoyo": true, "safesetid": true, "ipe": true}
 		for _, name := range strings.Split(strings.TrimSpace(string(data)), ",") {
 			if !known[name] {
 				return result(p.LSM, p.Degraded, p.PolicyUnreported, "")

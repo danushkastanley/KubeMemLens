@@ -34,3 +34,18 @@ func (o activeOutput) OOMDecision(event trace.OOMDecision) error {
 }
 
 func (o activeOutput) active() bool { return o.ctx.Err() == nil && time.Now().Before(o.deadline) }
+
+func (o activeOutput) FileActivities(events []trace.FileActivity) error {
+	if len(events) == 0 || len(events) > trace.MaxFileBatch || !o.active() {
+		return ErrWorker
+	}
+	if output, ok := o.target.(trace.FileBatchOutput); ok {
+		return output.FileActivities(events)
+	}
+	for _, event := range events {
+		if err := o.FileActivity(event); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -20,11 +20,15 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	var schemaVersion int
 	var includeHistory, includeSensitive, force bool
 	var includeVolumes bool
+	var includeTopology bool
 	cmd := &cobra.Command{
 		Use:   "capture",
 		Short: "Write a redacted incident bundle for offline replay",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if includeTopology || schemaVersion == incident.TopologySchemaVersion {
+				return captureTopology(cmd, collectorOptions, nodeName, output, includeHistory, includeSensitive, force)
+			}
 			if includeVolumes || schemaVersion == incident.VolumeSchemaVersion {
 				return captureVolume(cmd, collectorOptions, namespace, podName, output, schemaVersion, includeHistory, includeSensitive, force)
 			}
@@ -121,20 +125,26 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	cmd.Flags().StringVar(&podName, "pod", "", "capture only this Pod; requires --namespace")
 	cmd.Flags().StringVar(&nodeName, "node", "", "capture one Node with incident schema 4")
 	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include bounded recent history for the captured Pods or Node")
+	cmd.Flags().BoolVar(&includeTopology, "include-topology", false, "capture optional NUMA and HugeTLB evidence with schema 7; requires --node")
 	cmd.Flags().BoolVar(&includeVolumes, "volumes", false, "capture one Pod with volume evidence using schema 5; requires --pod and --namespace")
 	cmd.Flags().BoolVar(&includeSensitive, "include-sensitive", false, "include raw Node/Pod identities; deep Pod captures also include container IDs and cgroup paths")
 	cmd.Flags().BoolVar(&force, "force", false, "replace an existing output file")
-	cmd.Flags().IntVar(&schemaVersion, "schema-version", 0, "incident schema: 0 automatic; 1/2 deep Pod; 3 restricted; 4 Node; 5 volume Pod")
+	cmd.Flags().IntVar(&schemaVersion, "schema-version", 0, "incident schema: 0 automatic; 1/2 deep Pod; 3 restricted; 4 Node; 5 volume Pod; 7 Node topology")
 	cmd.PreRunE = func(_ *cobra.Command, _ []string) error {
-		if schemaVersion < 0 || schemaVersion > incident.VolumeSchemaVersion {
-			return fmt.Errorf("--schema-version must be between 0 and 5")
+		if schemaVersion < 0 || (schemaVersion > incident.VolumeSchemaVersion && schemaVersion != incident.TopologySchemaVersion) {
+			return fmt.Errorf("--schema-version must be between 0 and 5, or 7 for Node topology")
+		}
+		if includeTopology || schemaVersion == incident.TopologySchemaVersion {
+			if nodeName == "" || namespace != "" || podName != "" || includeVolumes || (schemaVersion != 0 && schemaVersion != incident.TopologySchemaVersion) {
+				return fmt.Errorf("topology capture requires --node, schema 7 or automatic schema, and no Pod or volume scope")
+			}
 		}
 		if includeVolumes || schemaVersion == incident.VolumeSchemaVersion {
 			if namespace == "" || podName == "" || nodeName != "" || schemaVersion == 3 || schemaVersion == 4 {
 				return fmt.Errorf("volume capture requires --namespace and --pod, with schema 5 or an explicit legacy schema 1/2")
 			}
 		}
-		if nodeName != "" && (namespace != "" || podName != "" || (schemaVersion != 0 && schemaVersion != incident.NodeSchemaVersion)) {
+		if nodeName != "" && (namespace != "" || podName != "" || (schemaVersion != 0 && schemaVersion != incident.NodeSchemaVersion && schemaVersion != incident.TopologySchemaVersion)) {
 			return fmt.Errorf("--node cannot be combined with --namespace, --pod or incident schemas 1/2/3")
 		}
 		if schemaVersion == incident.NodeSchemaVersion && nodeName == "" {
@@ -148,6 +158,7 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 		}
 		return nil
 	}
+	cmd.AddCommand(newCaptureTrendsCommand(collectorOptions))
 	return cmd
 }
 

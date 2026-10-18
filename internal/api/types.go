@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const CurrentSnapshotSchemaVersion = IOPressureSnapshotSchemaVersion
+const CurrentSnapshotSchemaVersion = TopologySnapshotSchemaVersion
 const CurrentIncidentSchemaVersion = 2
 const CurrentExplanationSchemaVersion = 3
 const CurrentRecommendationSchemaVersion = 1
@@ -28,6 +28,7 @@ type AgentSnapshot struct {
 	// VolumeBatch is the explicitly private producer wire format. Node-only
 	// responses and history use NodeContext and never include this batch.
 	VolumeBatch json.RawMessage `json:"volumeBatch,omitempty"`
+	Topology    json.RawMessage `json:"topology,omitempty"`
 }
 
 type NodeEnvironment struct {

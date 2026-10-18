@@ -4,6 +4,41 @@
   "additionalProperties": false,
   "required": ["image", "namespace", "agent", "collector", "extensionTLS", "metrics", "security", "networkPolicy"],
   "properties": {
+    "incidentSessions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "namespaces"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "namespaces": {"type": "array", "maxItems": 64, "uniqueItems": true,
+          "items": {"type": "string", "maxLength": 63, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"}}
+      }
+    },
+    "replicaBaselines": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "namespaces"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "namespaces": {"type": "array", "maxItems": 64, "uniqueItems": true,
+          "items": {"type": "string", "maxLength": 63, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"}}
+      }
+    },
+    "memoryHistory": {
+      "type": "object", "additionalProperties": false,
+      "required": ["enabled", "url", "cluster", "namespaces", "nodes", "workloads", "credentialsSecret", "caKey", "tokenKey"],
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "url": {"type": "string", "maxLength": 2048, "pattern": "^(|https://[^@?#]+)$"},
+        "cluster": {"type": "string", "maxLength": 128, "pattern": "^[!-~]*$"},
+        "namespaces": {"type": "array", "maxItems": 64, "uniqueItems": true,
+          "items": {"type": "string", "maxLength": 63, "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"}},
+        "nodes": {"type": "boolean"},
+        "workloads": {"type": "boolean"},
+        "markers": {"type": "boolean"},
+        "credentialsSecret": {"type": "string", "maxLength": 253, "pattern": "^$|^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"},
+        "caKey": {"type": "string", "maxLength": 253, "pattern": "^[-._a-zA-Z0-9]*$"},
+        "tokenKey": {"type": "string", "maxLength": 253, "pattern": "^[-._a-zA-Z0-9]*$"}
+      }
+    },
     "volumeContext": {
       "type": "object", "additionalProperties": false,
       "required": ["enabled", "namespaces"],
@@ -29,6 +64,14 @@
       ],
       "properties": {
         "volumeStats": {"type": "boolean"},
+        "topology": {
+          "type": "object", "additionalProperties": false,
+          "required": ["enabled", "cgroupRoot"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "cgroupRoot": {"type": "string", "maxLength": 512, "pattern": "^/sys/fs/cgroup(/[a-zA-Z0-9_-][a-zA-Z0-9_.-]*)*$"}
+          }
+        },
         "enabled": {
           "type": "boolean"
         },
@@ -131,6 +174,11 @@
       "required": ["enabled", "replicas", "snapshotTTL", "read", "history", "ingestion", "store", "maxResponseBytes", "resources", "service"],
       "properties": {
         "enabled": {"type": "boolean"},
+        "nodeSelector": {
+          "type": "object",
+          "additionalProperties": {"type": "string"},
+          "properties": {"kubernetes.io/os": {"const": "linux"}}
+        },
         "replicas": {"const": 1},
         "snapshotTTL": {"$ref": "#/definitions/duration"},
         "read": {
@@ -179,8 +227,12 @@
         "service": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["port"],
-          "properties": {"port": {"type": "integer", "minimum": 1, "maximum": 65535}}
+          "required": ["port", "extensionPort", "extensionPortName"],
+          "properties": {
+            "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+            "extensionPort": {"type": "integer", "minimum": 1, "maximum": 65535},
+            "extensionPortName": {"type": "string", "minLength": 1, "maxLength": 63, "pattern": "^[a-z]([-a-z0-9]*[a-z0-9])?$"}
+          }
         }
       }
     },

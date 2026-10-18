@@ -19,7 +19,10 @@ type module struct {
 	Path, Version, Dir string
 	Replace            *module
 }
-type dependency struct{ Module *module }
+type dependency struct {
+	Dir    string
+	Module *module
+}
 
 func main() {
 	output := flag.String("output", "", "new licence output directory")
@@ -51,6 +54,7 @@ func runPackage(output, entrypoint string) error {
 		return err
 	}
 	modules := map[string]module{}
+	packageDirs := map[string][]string{}
 	decoder := json.NewDecoder(stream)
 	for {
 		var pkg dependency
@@ -65,6 +69,7 @@ func runPackage(output, entrypoint string) error {
 		}
 		if pkg.Module != nil {
 			modules[pkg.Module.Path] = *pkg.Module
+			packageDirs[pkg.Module.Path] = append(packageDirs[pkg.Module.Path], pkg.Dir)
 		}
 	}
 	if err := command.Wait(); err != nil {
@@ -84,7 +89,7 @@ func runPackage(output, entrypoint string) error {
 		if m.Replace != nil {
 			m.Dir = m.Replace.Dir
 		}
-		names, err := notices(m.Dir)
+		names, err := moduleNoticePaths(m.Dir, packageDirs[key])
 		if err != nil {
 			return fmt.Errorf("licence notices for %s: %w", key, err)
 		}
@@ -97,7 +102,11 @@ func runPackage(output, entrypoint string) error {
 			if err != nil {
 				return err
 			}
-			if err := os.WriteFile(filepath.Join(directory, name), data, 0644); err != nil {
+			target := filepath.Join(directory, name)
+			if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(target, data, 0644); err != nil {
 				return err
 			}
 		}
@@ -110,23 +119,32 @@ func runPackage(output, entrypoint string) error {
 	return os.WriteFile(filepath.Join(output, "inventory.json"), append(data, '\n'), 0644)
 }
 func notices(directory string) ([]string, error) {
-	entries, err := os.ReadDir(directory)
+	result, hasLicence, err := noticeFiles(directory)
 	if err != nil {
 		return nil, err
-	}
-	var result []string
-	hasLicence := false
-	for _, entry := range entries {
-		name := strings.ToUpper(entry.Name())
-		if entry.Type().IsRegular() && (strings.HasPrefix(name, "LICENSE") || strings.HasPrefix(name, "LICENCE") || strings.HasPrefix(name, "COPYING")) {
-			hasLicence = true
-		}
-		if entry.Type().IsRegular() && (strings.HasPrefix(name, "LICENSE") || strings.HasPrefix(name, "LICENCE") || strings.HasPrefix(name, "COPYING") || strings.HasPrefix(name, "NOTICE") || strings.HasPrefix(name, "PATENTS")) {
-			result = append(result, entry.Name())
-		}
 	}
 	if !hasLicence {
 		return nil, errors.New("no module licence file found")
 	}
 	return result, nil
+}
+
+func noticeFiles(directory string) ([]string, bool, error) {
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		return nil, false, err
+	}
+	var result []string
+	hasLicence := false
+	for _, entry := range entries {
+		if !entry.Type().IsRegular() || !noticeFilename(entry.Name()) {
+			continue
+		}
+		name := strings.ToUpper(entry.Name())
+		if strings.HasPrefix(name, "LICENSE") || strings.HasPrefix(name, "LICENCE") || strings.HasPrefix(name, "COPYING") {
+			hasLicence = true
+		}
+		result = append(result, entry.Name())
+	}
+	return result, hasLicence, nil
 }

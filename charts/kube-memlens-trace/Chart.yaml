@@ -1,0 +1,9 @@
+apiVersion: v2
+name: kube-memlens-trace
+description: Separate administrator-installed bounded tracing extension
+type: application
+version: 0.1.0-dev.0
+appVersion: "development"
+home: https://github.com/danushkastanley/KubeMemLens
+sources:
+  - https://github.com/danushkastanley/KubeMemLens

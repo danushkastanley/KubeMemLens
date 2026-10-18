@@ -102,6 +102,11 @@ scanned Pod/volume entries and retained records; omitted measurements still coun
 towards input ceilings. Malformed volume data produces an independent source
 failure while a valid Node memory observation remains usable.
 
+After validating the complete acquisition, the adapter omits filesystem samples
+already older than two minutes and counts them as omissions. An expired source
+record does not discard another Pod's current measurement. Source timestamps are
+unchanged; private ingestion still rejects batches containing expired records.
+
 The collector retains current and last-good volume batches separately from Node
 latest/history data. Last-good measurements keep their original source time and
 appear only as `usage.lastGood`, labelled stale, after omission or source failure.

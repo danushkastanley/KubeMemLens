@@ -1,0 +1,69 @@
+{
+  "scope": "non-loading validation; kernel and resource qualification pending",
+  "upstreamModule": "github.com/inspektor-gadget/inspektor-gadget@v0.56.0",
+  "upstreamSum": "h1:Ps4HXfpq4qUMrWlCSqdxl3ldP1LMF+tn9VHip637pAg=",
+  "patchSHA256": "6166b777f9df21335887fefaef35dda52a6cb2b94462da9171de0eb2c1c6b61e",
+  "sdkReceiptSHA256": "fd43362d86081e72a25b8c29ff7b70ec4da99897d80623cf618e6ad6ad51ad34",
+  "builder": "golang:1.27.1-alpine@sha256:cf6fca6641884b8433441b2b0652976f975e1d0fdd26d177eaaf8596087f3125",
+  "buildFlags": [
+    "-mod=readonly",
+    "-trimpath",
+    "-buildvcs=false",
+    "-ldflags=-s -w -buildid="
+  ],
+  "workers": {
+    "arm64": {
+      "sha256": "ac227abc06ffd4923dad33d0e9450caf928a2e6eac7a96c7bbe38539792e1167",
+      "bytes": 18874492,
+      "first": "worker-arm64-1",
+      "repeat": "worker-arm64-2",
+      "dependenciesSHA256": "dc544f4d26d8a6311c15425a85817351df7807af03468a5dbdf345004e4e9079"
+    },
+    "amd64": {
+      "sha256": "2c4cd8d54a81cc6f1676fc42fb246e54116f002bb64bfc12f069ac0eabc3bf48",
+      "bytes": 20226172,
+      "first": "worker-amd64-1",
+      "repeat": "worker-amd64-2",
+      "dependenciesSHA256": "845b1d02e55c697c2237887d66f76e9ec7afe46ec80d17b204a3403a107dfc4a"
+    }
+  },
+  "sourceManifestSHA256": "1fb4ff88566e9918a24214c4ab82091e504882a3bfd9685018c6c6a220a6a5ae",
+  "nativeChecks": {
+    "attachmentVocabulary": true,
+    "filesObjectPreparation": true,
+    "cacheObjectPreparation": true,
+    "oomObjectPreparation": true,
+    "workerRaceAndVet": true,
+    "filecacheInstallRuntimeRaceAndVet": true,
+    "linuxArchitectures": [
+      "arm64",
+      "amd64"
+    ]
+  },
+  "receiptsSHA256": {
+    "linux-validation.log": "1630ac61e493ca25c3aa6626927c5e255acba0b893a02cb93b9ecc483f054b61",
+    "host-checks.log": "c11fb70dc1d5eb9a19f29cd4c5bdc027ce91a627a6b25bfe3f58d3ffca894612",
+    "reproduced-workers/build.json": "191b1f206af3f397ba1b1ad754057efde114dca8f0d24cc24920285a13ae1252",
+    "reproduced-workers/build.log": "b4537ed75f533f993f371954de47e42a793b8e5b0587577de7e27fb3e50696bd",
+    "worker-vuln.json": "4667027bd97add5471fd9ac33f150b80b528e3c22b6fe2bef03d240d52d8b284",
+    "final-workers/build.json": "897280e48541d4b0f07551218eea110571e1a776f63892690d07668b5742a17a"
+  },
+  "vulnerabilityScan": {
+    "configuration": {
+      "protocol_version": "v1.0.0",
+      "scanner_name": "govulncheck",
+      "scanner_version": "v1.7.0",
+      "db": "https://vuln.go.dev",
+      "db_last_modified": "2026-09-28T16:43:40Z",
+      "go_version": "go1.27.1",
+      "scan_level": "symbol",
+      "scan_mode": "source"
+    },
+    "findings": {
+      "GO-2026-5932": [
+        "module"
+      ]
+    }
+  },
+  "integratedMainReproductionUnchanged": true
+}

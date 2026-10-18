@@ -28,6 +28,13 @@ class NetworkSpecsTest(unittest.TestCase):
 
     def test_ingress_targets_have_a_controller_and_match_the_real_policy(self):
         jobs = [d for d in self.documents if d["kind"] == "Job"]
+        self.assertEqual(len(jobs), 6)
+        self.assertFalse(any(d["kind"] == "Pod" for d in self.documents))
+        for job in jobs:
+            self.assertEqual(job["spec"]["backoffLimit"], 0)
+            self.assertEqual(job["spec"]["activeDeadlineSeconds"], 600)
+            self.assertEqual(job["spec"]["template"]["spec"]["restartPolicy"], "Never")
+            self.assertNotIn("ownerReferences", job["spec"]["template"]["metadata"])
         ingress = [j for j in jobs if j["spec"]["template"]["metadata"]["labels"][LABEL] == "ingress"]
         self.assertEqual(len(ingress), 2)
         for job in ingress:
@@ -38,7 +45,7 @@ class NetworkSpecsTest(unittest.TestCase):
 
     def test_temporary_allows_are_limited_to_same_namespace_probe_traffic(self):
         policies = [d for d in self.documents if d["kind"] == "NetworkPolicy"]
-        self.assertEqual(len(policies), 3)
+        self.assertEqual(len(policies), 4)
         for policy in policies:
             self.assertEqual(policy["spec"]["policyTypes"], ["Ingress", "Egress"])
             for direction, peer_key in (("ingress", "from"), ("egress", "to")):
@@ -47,6 +54,23 @@ class NetworkSpecsTest(unittest.TestCase):
                     self.assertTrue(all(set(peer) == {"podSelector"} for peer in rule[peer_key]))
         resources = [Resource.from_object(d) for d in self.documents]
         self.assertEqual(len(set(resources)), len(resources))
+
+    def test_every_probe_role_has_an_explicit_policy(self):
+        selectors = [d["spec"]["podSelector"]["matchLabels"] for d in self.documents
+                     if d["kind"] == "NetworkPolicy"]
+        for job in (d for d in self.documents if d["kind"] == "Job"):
+            labels = job["spec"]["template"]["metadata"]["labels"]
+            with self.subTest(role=labels[LABEL]):
+                self.assertTrue(any(selector.items() <= labels.items() for selector in selectors))
+
+    def test_egress_targets_accept_only_selected_producers_on_the_probe_port(self):
+        policies = [d["spec"] for d in self.documents if d["kind"] == "NetworkPolicy"
+                    and d["spec"]["podSelector"] == {"matchLabels": {LABEL: "egress"}}]
+        self.assertEqual(len(policies), 1)
+        self.assertEqual(policies[0]["ingress"], [{"from": [{"podSelector": {"matchLabels": APP}}],
+                                                  "ports": [{"protocol": "TCP", "port": PORT}]}])
+        self.assertEqual(policies[0]["egress"], [])
+        self.assertFalse(policies[0]["podSelector"]["matchLabels"].items() <= APP.items())
 
     def test_missing_or_repeated_nodes_are_rejected(self):
         for nodes in ([], ["node-a"], ["node-a", "node-a"], ["node-a", "../escape"]):

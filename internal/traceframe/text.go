@@ -13,6 +13,12 @@ func DecodeText(value string, maxBytes uint64) (string, error) {
 	if maxBytes == 0 || maxBytes > 512 || len(value) > 4096 || !utf8.ValidString(value) {
 		return "", ErrInvalid
 	}
+	if plainASCII(value) {
+		if uint64(len(value)) > maxBytes {
+			return "", ErrInvalid
+		}
+		return value, nil
+	}
 	var original strings.Builder
 	for i := 0; i < len(value); {
 		if value[i] != '\\' {
@@ -50,4 +56,15 @@ func DecodeText(value string, maxBytes uint64) (string, error) {
 		return "", ErrInvalid
 	}
 	return raw, nil
+}
+
+// Printable ASCII without a backslash is already canonical visible text.
+// Controls, escape syntax and every non-ASCII byte use the full Unicode path.
+func plainASCII(value string) bool {
+	for i := 0; i < len(value); i++ {
+		if value[i] < ' ' || value[i] >= 0x7f || value[i] == '\\' {
+			return false
+		}
+	}
+	return true
 }

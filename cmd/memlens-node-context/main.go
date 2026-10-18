@@ -17,6 +17,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 	"github.com/danushkastanley/kube-memlens/internal/nodeproducer"
 	"github.com/danushkastanley/kube-memlens/internal/nodestats"
+	"github.com/danushkastanley/kube-memlens/internal/topologysource"
 	"k8s.io/client-go/rest"
 )
 
@@ -41,6 +42,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	output := flags.String("output", "", "new private observation file; empty writes JSON to stdout")
 	metricsListen := flags.String("metrics-listen", "127.0.0.1:8083", "Pod-local operational metrics for --publish; empty disables the listener")
 	volumeStats := flags.Bool("volume-stats", false, "collect bounded volume filesystem statistics in the same Summary request")
+	topology := flags.Bool("topology", false, "publish optional read-only NUMA and HugeTLB context from fixed host mounts")
 	metrics := flags.String("metrics-output", "", "optional new private file for operational metrics")
 	version := flags.Bool("version", false, "print build information and exit")
 	if err := flags.Parse(args); err != nil {
@@ -55,6 +57,9 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	}
 	if *once == *publish {
 		return errors.New("select exactly one of --once or --publish")
+	}
+	if *topology && !*publish {
+		return errors.New("topology requires --publish; use an authorised topology capture for export")
 	}
 	if *publish && (*output != "" || *metrics != "") {
 		return errors.New("private diagnostic output files require --once")
@@ -75,7 +80,14 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	if *volumeStats {
 		volumeMode = nodestats.VolumeStatsEnabled
 	}
-	source, err := nodestats.New(config, nodestats.Options{NodeName: *node, CAFile: *ca, TokenFile: *token, Timeout: *timeout, Telemetry: telemetry, VolumeStats: volumeMode})
+	var topologyReader nodestats.TopologySource
+	if *topology {
+		topologyReader, err = topologysource.New(topologysource.Paths{System: "/host/topology/system", Memory: "/host/topology/mm", Cgroup: "/host/topology/cgroup"}, nil)
+		if err != nil {
+			return err
+		}
+	}
+	source, err := nodestats.New(config, nodestats.Options{NodeName: *node, CAFile: *ca, TokenFile: *token, Timeout: *timeout, Telemetry: telemetry, VolumeStats: volumeMode, Topology: topologyReader})
 	if err != nil {
 		return err
 	}

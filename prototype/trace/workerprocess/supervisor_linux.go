@@ -120,7 +120,7 @@ func Run(parent context.Context, cmd *exec.Cmd, request workeripc.Request, outpu
 		case <-ctx.Done():
 			stopped = true
 			response.err = ErrWorker
-			naturalExpiry = errors.Is(ctx.Err(), context.DeadlineExceeded) && !time.Now().Before(request.Deadline)
+			naturalExpiry = requestDeadlineExpired(ctx.Err(), eventDeadline, request.Deadline)
 		}
 	}
 	// A terminal message is not authority to return before the process exits.
@@ -153,6 +153,14 @@ func Run(parent context.Context, cmd *exec.Cmd, request workeripc.Request, outpu
 		return failed, ErrWorker
 	}
 	return response.result, nil
+}
+
+func requestDeadlineExpired(err error, effective, requested time.Time) bool {
+	// The context timer establishes expiry. Request timestamps cross UTC/IPC
+	// boundaries and have no monotonic reading, so a new wall-clock comparison
+	// can contradict that timer. Match its deadline instead: earlier parent
+	// deadlines and explicit cancellation must still interrupt the worker.
+	return errors.Is(err, context.DeadlineExceeded) && effective.Equal(requested)
 }
 
 func pipes() (input, childInput, childOutput, output *os.File, err error) {

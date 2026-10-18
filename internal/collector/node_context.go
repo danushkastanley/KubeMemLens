@@ -15,6 +15,7 @@ var ErrNodeIdentityUnavailable = errors.New("current Node identity is unavailabl
 // Encoded records are immutable, bound retained bytes, and prevent caller
 // mutation through pointer-rich observations. History shares accepted bytes.
 type nodeContextEntry struct {
+	topology   topologyEntry
 	uid        string
 	report     []byte
 	good       []byte
@@ -55,6 +56,12 @@ func (s *Store) ReplaceNodeContext(value nodecontext.Observation) error {
 }
 
 func (s *Store) ReplaceNodeContextWithVolumes(value nodecontext.Observation, volumes []byte) error {
+	return s.ReplaceNodeEvidence(value, volumes, nil)
+}
+
+// ReplaceNodeEvidence atomically validates optional evidence against the same
+// authenticated Node identity. Only the ordinary observation enters history.
+func (s *Store) ReplaceNodeEvidence(value nodecontext.Observation, volumes, topology []byte) error {
 	data, err := json.Marshal(value)
 	if err != nil || len(data) > nodecontext.MaxObservationBytes {
 		return nodecontext.ErrInvalidObservation
@@ -87,8 +94,12 @@ func (s *Store) ReplaceNodeContextWithVolumes(value nodecontext.Observation, vol
 	if err != nil {
 		return err
 	}
+	topologyValue, err := prepareTopologyEntry(value, topology, previous.topology, now)
+	if err != nil {
+		return err
+	}
 	entry := nodeContextEntry{clock: clock.retainingMissing(previous.clock), uid: value.NodeUID, report: data, good: previous.good,
-		reportedAt: value.ReportedAt, capturedAt: previous.capturedAt, receivedAt: now, failed: value.Availability != capability.Available}
+		reportedAt: value.ReportedAt, capturedAt: previous.capturedAt, receivedAt: now, failed: value.Availability != capability.Available, topology: topologyValue}
 	if value.Stats != nil {
 		entry.good = data
 		entry.capturedAt = value.Evidence.CapturedAt

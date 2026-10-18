@@ -1,0 +1,13 @@
+{{- if .Values.nodeContext.topology.enabled }}
+{{- if not .Values.nodeContext.enabled }}
+{{- fail "nodeContext.topology requires nodeContext.enabled" }}
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-node-topology-viewer
+rules:
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["nodecontexts/topology"]
+    verbs: ["get"]
+{{- end }}

@@ -1,0 +1,1638 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    {
+      "id": "memory-recent-oom",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "oom-risk",
+        "confidence": "high",
+        "checks": [
+          "investigate-oom-evidence",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [
+          "observe-bounded-history"
+        ],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "oomKill": 1,
+        "deltasKnown": true
+      }
+    },
+    {
+      "id": "memory-cumulative-oom",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "oom-risk",
+        "confidence": "medium",
+        "checks": [
+          "investigate-oom-evidence",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [
+          "observe-bounded-history"
+        ],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "oom": 1
+      }
+    },
+    {
+      "id": "memory-hard-limit-event",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "oom-risk",
+        "confidence": "high",
+        "checks": [
+          "investigate-oom-evidence",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [
+          "observe-bounded-history"
+        ],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "maxEvents": 1,
+        "deltasKnown": true
+      }
+    },
+    {
+      "id": "memory-recent-termination",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "oom-risk",
+        "confidence": "high",
+        "checks": [
+          "investigate-oom-evidence",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [
+          "observe-bounded-history"
+        ],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "terminationAgeSeconds": 60
+      }
+    },
+    {
+      "id": "memory-old-termination",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "normal",
+        "confidence": "low",
+        "checks": [
+          "observe-bounded-history",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "terminationAgeSeconds": 901
+      }
+    },
+    {
+      "id": "memory-future-termination",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "normal",
+        "confidence": "low",
+        "checks": [
+          "observe-bounded-history",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "terminationAgeSeconds": -1
+      }
+    },
+    {
+      "id": "memory-pressure-some",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "memory-pressure",
+        "confidence": "high",
+        "checks": [
+          "investigate-reclaim-impact",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "psiSome": 1,
+        "psiFull": 0
+      }
+    },
+    {
+      "id": "memory-pressure-full",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "memory-pressure",
+        "confidence": "high",
+        "checks": [
+          "investigate-reclaim-impact",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "psiSome": 0.5,
+        "psiFull": 0.1
+      }
+    },
+    {
+      "id": "memory-recent-high",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "memory-pressure",
+        "confidence": "high",
+        "checks": [
+          "investigate-reclaim-impact",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "highEvents": 1,
+        "deltasKnown": true,
+        "localEvents": true
+      }
+    },
+    {
+      "id": "memory-cumulative-high",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "normal",
+        "confidence": "low",
+        "checks": [
+          "observe-bounded-history",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "highEvents": 100
+      }
+    },
+    {
+      "id": "memory-limit-boundary",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "limit-risk",
+        "confidence": "medium",
+        "checks": [
+          "validate-limit-headroom",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 94371840,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "max": 104857600
+      }
+    },
+    {
+      "id": "memory-below-limit-boundary",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "normal",
+        "confidence": "low",
+        "checks": [
+          "observe-bounded-history",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 93323264,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "max": 104857600
+      }
+    },
+    {
+      "id": "memory-anonymous-dominant",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "rss-heavy",
+        "confidence": "medium",
+        "checks": [
+          "profile-anonymous-memory",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 68157440,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "memory-below-anonymous-boundary",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "normal",
+        "confidence": "low",
+        "checks": [
+          "observe-bounded-history",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 67108864,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "memory-cache-dominant",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "cache-heavy",
+        "confidence": "medium",
+        "checks": [
+          "inspect-file-cache",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 31457280,
+        "file": 41943040,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "memory-below-cache-boundary",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "normal",
+        "confidence": "low",
+        "checks": [
+          "observe-bounded-history",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 31457280,
+        "file": 40894464,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "memory-tmpfs-dominant",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "tmpfs-heavy",
+        "confidence": "medium",
+        "checks": [
+          "bound-memory-backed-storage",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 31457280,
+        "file": 52428800,
+        "slab": 5242880,
+        "shmem": 31457280
+      }
+    },
+    {
+      "id": "memory-kernel-dominant",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "slab-heavy",
+        "confidence": "medium",
+        "checks": [
+          "inspect-kernel-facing-behaviour",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 31457280,
+        "file": 20971520,
+        "slab": 20971520
+      }
+    },
+    {
+      "id": "memory-socket-dominant",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "slab-heavy",
+        "confidence": "medium",
+        "checks": [
+          "inspect-kernel-facing-behaviour",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "socket": 10485760
+      }
+    },
+    {
+      "id": "memory-writeback-dominant",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "dirty-writeback-heavy",
+        "confidence": "medium",
+        "checks": [
+          "inspect-writeback-path",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "dirty": 10485760
+      }
+    },
+    {
+      "id": "memory-mixed-cache-kernel",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "mixed",
+        "confidence": "medium",
+        "checks": [
+          "observe-bounded-history",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 20971520,
+        "file": 47185920,
+        "slab": 26214400
+      }
+    },
+    {
+      "id": "memory-balanced",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "normal",
+        "confidence": "low",
+        "checks": [
+          "observe-bounded-history",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "memory-zero-observation",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "normal",
+        "confidence": "low",
+        "checks": [
+          "observe-bounded-history",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 0,
+        "anon": 0,
+        "file": 0,
+        "slab": 0
+      }
+    },
+    {
+      "id": "memory-oom-precedes-cache",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "oom-risk",
+        "confidence": "high",
+        "checks": [
+          "investigate-oom-evidence",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [
+          "observe-bounded-history"
+        ],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 20971520,
+        "file": 68157440,
+        "slab": 5242880,
+        "oomKill": 1,
+        "deltasKnown": true
+      }
+    },
+    {
+      "id": "memory-pressure-precedes-cache",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "memory-pressure",
+        "confidence": "high",
+        "checks": [
+          "investigate-reclaim-impact",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 20971520,
+        "file": 68157440,
+        "slab": 5242880,
+        "psiSome": 5,
+        "psiFull": 0
+      }
+    },
+    {
+      "id": "qos-complete-quiet",
+      "family": "qos",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "observed",
+        "confidence": "medium",
+        "checks": [],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "min": 0,
+        "low": 0,
+        "high": 94371840,
+        "max": 125829120
+      }
+    },
+    {
+      "id": "qos-recent-crossing",
+      "family": "qos",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "observed",
+        "confidence": "high",
+        "checks": [
+          "inspect-memory-qos-evidence"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "min": 0,
+        "low": 0,
+        "high": 94371840,
+        "max": 125829120,
+        "highEvents": 2,
+        "deltasKnown": true,
+        "localEvents": true,
+        "psiSome": 2,
+        "psiFull": 0
+      }
+    },
+    {
+      "id": "qos-cumulative-high",
+      "family": "qos",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "observed",
+        "confidence": "medium",
+        "checks": [],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "min": 0,
+        "low": 0,
+        "high": 94371840,
+        "max": 125829120,
+        "highEvents": 100,
+        "localEvents": true
+      }
+    },
+    {
+      "id": "qos-missing-controls",
+      "family": "qos",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "unavailable",
+        "confidence": "low",
+        "checks": [
+          "inspect-memory-qos-evidence"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "qos-stale-controls",
+      "family": "qos",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "stale",
+        "confidence": "low",
+        "checks": [
+          "inspect-memory-qos-evidence"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "min": 0,
+        "low": 0,
+        "high": 94371840,
+        "max": 125829120,
+        "stale": true
+      }
+    },
+    {
+      "id": "qos-inconsistent-controls",
+      "family": "qos",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "potentially-stale-or-inconsistent",
+        "confidence": "low",
+        "checks": [
+          "inspect-memory-qos-evidence"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "min": 0,
+        "low": 0,
+        "high": 157286400,
+        "max": 125829120
+      }
+    },
+    {
+      "id": "volume-missing",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "unreported",
+        "ageSeconds": 0,
+        "memoryBacked": false
+      },
+      "expected": {
+        "diagnosis": "storage-info",
+        "confidence": "not-assessed",
+        "checks": [],
+        "prohibited": [
+          "inspect-filesystem-headroom",
+          "inspect-source-health",
+          "inspect-tmpfs-attribution"
+        ],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "volume-filesystem-full",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "unreported",
+        "ageSeconds": 0,
+        "memoryBacked": false,
+        "capacity": 1000,
+        "used": 950,
+        "available": 50
+      },
+      "expected": {
+        "diagnosis": "storage-high",
+        "confidence": "not-assessed",
+        "checks": [
+          "inspect-filesystem-headroom"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "volume-filesystem-room",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "unreported",
+        "ageSeconds": 0,
+        "memoryBacked": false,
+        "capacity": 1000,
+        "used": 500,
+        "available": 500
+      },
+      "expected": {
+        "diagnosis": "storage-info",
+        "confidence": "not-assessed",
+        "checks": [],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "volume-inode-pressure",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "unreported",
+        "ageSeconds": 0,
+        "memoryBacked": false,
+        "inodes": 1000,
+        "inodesFree": 0
+      },
+      "expected": {
+        "diagnosis": "storage-high",
+        "confidence": "not-assessed",
+        "checks": [
+          "inspect-filesystem-headroom"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "volume-historical-pressure",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "unreported",
+        "ageSeconds": 60,
+        "memoryBacked": false,
+        "capacity": 1000,
+        "used": 950,
+        "available": 50
+      },
+      "expected": {
+        "diagnosis": "storage-info",
+        "confidence": "not-assessed",
+        "checks": [
+          "inspect-filesystem-headroom"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "volume-health-adverse",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "adverse",
+        "ageSeconds": 0,
+        "memoryBacked": false
+      },
+      "expected": {
+        "diagnosis": "storage-high",
+        "confidence": "not-assessed",
+        "checks": [
+          "inspect-source-health"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "volume-health-conflicting",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "conflicting",
+        "ageSeconds": 0,
+        "memoryBacked": false
+      },
+      "expected": {
+        "diagnosis": "storage-high",
+        "confidence": "not-assessed",
+        "checks": [
+          "inspect-source-health"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "volume-health-healthy",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "healthy",
+        "ageSeconds": 0,
+        "memoryBacked": false
+      },
+      "expected": {
+        "diagnosis": "storage-info",
+        "confidence": "not-assessed",
+        "checks": [],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "volume-tmpfs-charge",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "unreported",
+        "ageSeconds": 0,
+        "memoryBacked": true
+      },
+      "expected": {
+        "diagnosis": "storage-info",
+        "confidence": "not-assessed",
+        "checks": [
+          "inspect-tmpfs-attribution"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 52428800,
+        "slab": 5242880,
+        "shmem": 36700160
+      }
+    },
+    {
+      "id": "volume-tmpfs-configuration-only",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "unreported",
+        "ageSeconds": 0,
+        "memoryBacked": true
+      },
+      "expected": {
+        "diagnosis": "storage-info",
+        "confidence": "not-assessed",
+        "checks": [],
+        "prohibited": [
+          "inspect-tmpfs-attribution"
+        ],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880
+      }
+    },
+    {
+      "id": "volume-writeback-window",
+      "family": "volume",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "volume": {
+        "health": "unreported",
+        "ageSeconds": 0,
+        "memoryBacked": false
+      },
+      "expected": {
+        "diagnosis": "storage-info",
+        "confidence": "not-assessed",
+        "checks": [
+          "inspect-storage-memory-window"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 57671680,
+        "file": 31457280,
+        "slab": 5242880,
+        "writeback": 20971520
+      }
+    },
+    {
+      "id": "replica-higher",
+      "family": "replica",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "replica": {
+        "charges": [
+          67108864,
+          67108864,
+          67108864,
+          67108864,
+          268435456
+        ],
+        "referenceState": "current",
+        "changeHistory": "current-stable"
+      },
+      "expected": {
+        "diagnosis": "replica-higher",
+        "confidence": "current-peers",
+        "checks": [],
+        "prohibited": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "replica-equal",
+      "family": "replica",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "replica": {
+        "charges": [
+          67108864,
+          67108864,
+          67108864,
+          67108864,
+          67108864
+        ],
+        "referenceState": "current",
+        "changeHistory": "current-stable"
+      },
+      "expected": {
+        "diagnosis": "replica-none",
+        "confidence": "current-peers",
+        "checks": [],
+        "prohibited": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "replica-effect-boundary",
+      "family": "replica",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "replica": {
+        "charges": [
+          67108864,
+          67108864,
+          67108864,
+          67108864,
+          83886080
+        ],
+        "referenceState": "current",
+        "changeHistory": "current-stable"
+      },
+      "expected": {
+        "diagnosis": "replica-none",
+        "confidence": "current-peers",
+        "checks": [],
+        "prohibited": [],
+        "abstain": false
+      }
+    },
+    {
+      "id": "replica-too-few",
+      "family": "replica",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "replica": {
+        "charges": [
+          67108864,
+          67108864,
+          67108864,
+          268435456
+        ],
+        "referenceState": "current",
+        "changeHistory": "current-stable"
+      },
+      "expected": {
+        "diagnosis": "replica-insufficient-peers",
+        "confidence": "insufficient",
+        "checks": [],
+        "prohibited": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "replica-stale-peer",
+      "family": "replica",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "replica": {
+        "charges": [
+          67108864,
+          67108864,
+          67108864,
+          67108864,
+          268435456
+        ],
+        "referenceState": "stale",
+        "changeHistory": "current-stable"
+      },
+      "expected": {
+        "diagnosis": "replica-insufficient-peers",
+        "confidence": "insufficient",
+        "checks": [],
+        "prohibited": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "replica-revision-mismatch",
+      "family": "replica",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "replica": {
+        "charges": [
+          67108864,
+          67108864,
+          67108864,
+          67108864,
+          268435456
+        ],
+        "referenceState": "revision-mismatch",
+        "changeHistory": "current-stable"
+      },
+      "expected": {
+        "diagnosis": "replica-insufficient-peers",
+        "confidence": "insufficient",
+        "checks": [],
+        "prohibited": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "replica-partial-peer",
+      "family": "replica",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "replica": {
+        "charges": [
+          67108864,
+          67108864,
+          67108864,
+          67108864,
+          268435456
+        ],
+        "referenceState": "partial",
+        "changeHistory": "current-stable"
+      },
+      "expected": {
+        "diagnosis": "replica-insufficient-peers",
+        "confidence": "insufficient",
+        "checks": [],
+        "prohibited": [],
+        "abstain": true
+      }
+    },
+    {
+      "id": "memory-local-anonymous",
+      "family": "memory",
+      "memory": {
+        "charge": 37134336,
+        "anon": 35143680,
+        "file": 28672,
+        "shmem": 0,
+        "slab": 257136,
+        "slabUnreclaimable": 136656,
+        "dirty": 28672,
+        "writeback": 0,
+        "socket": 0,
+        "pageTables": 245760,
+        "localEvents": true,
+        "deltasKnown": true,
+        "oom": 0,
+        "oomKill": 0,
+        "maxEvents": 0,
+        "highEvents": 0,
+        "psiSome": 0,
+        "psiFull": 0,
+        "min": 0,
+        "low": 0,
+        "max": 134217728
+      },
+      "expected": {
+        "diagnosis": "rss-heavy",
+        "confidence": "medium",
+        "checks": [
+          "profile-anonymous-memory",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "provenance": {
+        "source": "local-cluster",
+        "consent": "owned-fixture",
+        "sanitisation": "numeric-allowlist-v1",
+        "receiptSHA256": "f10ba8005c0dbb502bac5c2b366383eedbe9eaabf81966e339d2fc41b4d14989"
+      }
+    },
+    {
+      "id": "replica-local-outlier",
+      "family": "replica",
+      "replica": {
+        "charges": [
+          1024000,
+          987136,
+          995328,
+          2682880,
+          69931008
+        ],
+        "referenceState": "current",
+        "changeHistory": "unreported"
+      },
+      "expected": {
+        "diagnosis": "replica-higher",
+        "confidence": "limited-change-history",
+        "checks": [],
+        "prohibited": [],
+        "abstain": false
+      },
+      "provenance": {
+        "source": "local-cluster",
+        "consent": "owned-fixture",
+        "sanitisation": "numeric-allowlist-v1",
+        "receiptSHA256": "63d9cd397a05061f3d9e297e9445e6f0717151809f55a32ef56b78c265dda22e"
+      }
+    },
+    {
+      "id": "memory-local-cache",
+      "family": "memory",
+      "provenance": {
+        "source": "local-cluster",
+        "consent": "owned-fixture",
+        "sanitisation": "numeric-allowlist-v1",
+        "receiptSHA256": "10ac194f0bab8c7d78d4ae0c14afe0205bd8171e383b6b88ba484d05fcfc02df"
+      },
+      "expected": {
+        "diagnosis": "cache-heavy",
+        "confidence": "medium",
+        "checks": [
+          "inspect-file-cache",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 10018816,
+        "anon": 122880,
+        "file": 8392704,
+        "shmem": 0,
+        "slab": 403168,
+        "slabUnreclaimable": 79008,
+        "dirty": 4096,
+        "writeback": 0,
+        "socket": 0,
+        "pageTables": 221184,
+        "max": 67108864,
+        "psiSome": 0.0,
+        "psiFull": 0.0,
+        "oom": 0,
+        "oomKill": 0,
+        "maxEvents": 0,
+        "highEvents": 0,
+        "localEvents": true,
+        "deltasKnown": true
+      }
+    },
+    {
+      "id": "memory-local-tmpfs",
+      "family": "memory",
+      "provenance": {
+        "source": "local-cluster",
+        "consent": "owned-fixture",
+        "sanitisation": "numeric-allowlist-v1",
+        "receiptSHA256": "eae054628efe4c217a777595d38f57591a84daa7598ed5b4865d3c3f3d09eaa3"
+      },
+      "expected": {
+        "diagnosis": "tmpfs-heavy",
+        "confidence": "medium",
+        "checks": [
+          "bound-memory-backed-storage",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 9474048,
+        "anon": 118784,
+        "file": 8392704,
+        "shmem": 8388608,
+        "slab": 141120,
+        "slabUnreclaimable": 48072,
+        "dirty": 4096,
+        "writeback": 0,
+        "socket": 0,
+        "pageTables": 49152,
+        "max": 67108864,
+        "psiSome": 0.0,
+        "psiFull": 0.0,
+        "oom": 0,
+        "oomKill": 0,
+        "maxEvents": 0,
+        "highEvents": 0,
+        "localEvents": true,
+        "deltasKnown": true
+      }
+    },
+    {
+      "id": "memory-local-pressure",
+      "family": "memory",
+      "provenance": {
+        "source": "local-cluster",
+        "consent": "owned-fixture",
+        "sanitisation": "numeric-allowlist-v1",
+        "receiptSHA256": "a6e23e50e8de25673856a89b04d1087cad0b5b4718cc6c1c58622a3dd941fa88"
+      },
+      "expected": {
+        "diagnosis": "memory-pressure",
+        "confidence": "high",
+        "checks": [
+          "investigate-reclaim-impact",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 3842048,
+        "anon": 2002944,
+        "file": 0,
+        "shmem": 0,
+        "slab": 172696,
+        "slabUnreclaimable": 105416,
+        "dirty": 0,
+        "writeback": 0,
+        "socket": 0,
+        "pageTables": 249856,
+        "high": 4194304,
+        "max": 67108864,
+        "psiSome": 0.0,
+        "psiFull": 0.0,
+        "oom": 0,
+        "oomKill": 0,
+        "maxEvents": 0,
+        "highEvents": 61,
+        "localEvents": true,
+        "deltasKnown": true
+      }
+    },
+    {
+      "id": "memory-local-oom",
+      "family": "memory",
+      "provenance": {
+        "source": "local-cluster",
+        "consent": "owned-fixture",
+        "sanitisation": "numeric-allowlist-v1",
+        "receiptSHA256": "f8481529596fa64fcecc7bfc7983fdea94f08b8ab4955d45e3c518f0c9b73bca"
+      },
+      "expected": {
+        "diagnosis": "oom-risk",
+        "confidence": "high",
+        "checks": [
+          "investigate-oom-evidence",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [
+          "observe-bounded-history"
+        ],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 376832,
+        "anon": 118784,
+        "file": 4096,
+        "shmem": 0,
+        "slab": 178840,
+        "slabUnreclaimable": 87824,
+        "dirty": 4096,
+        "writeback": 0,
+        "socket": 0,
+        "pageTables": 221184,
+        "max": 67108864,
+        "psiSome": 0.0,
+        "psiFull": 0.0,
+        "localEvents": true,
+        "deltasKnown": false,
+        "oom": 0,
+        "oomKill": 0,
+        "maxEvents": 0,
+        "highEvents": 0,
+        "terminationAgeSeconds": 1
+      }
+    },
+    {
+      "id": "volume-local-tmpfs",
+      "family": "volume",
+      "provenance": {
+        "source": "local-cluster",
+        "consent": "owned-fixture",
+        "sanitisation": "numeric-allowlist-v1",
+        "receiptSHA256": "a20b403cd2aff1f6ac7e78d22e795bbfe37c2679072a01a2489b2046f7e5d79d"
+      },
+      "volume": {
+        "capacity": 67108864,
+        "used": 8388608,
+        "available": 58720256,
+        "memoryBacked": true,
+        "ageSeconds": 0,
+        "health": "unreported"
+      },
+      "expected": {
+        "diagnosis": "storage-info",
+        "confidence": "not-assessed",
+        "checks": [
+          "inspect-tmpfs-attribution"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 9474048,
+        "anon": 118784,
+        "file": 8392704,
+        "shmem": 8388608,
+        "slab": 141120,
+        "slabUnreclaimable": 48072,
+        "dirty": 4096,
+        "writeback": 0,
+        "socket": 0,
+        "pageTables": 49152,
+        "max": 67108864,
+        "psiSome": 0.0,
+        "psiFull": 0.0,
+        "oom": 0,
+        "oomKill": 0,
+        "maxEvents": 0,
+        "highEvents": 0,
+        "localEvents": true,
+        "deltasKnown": true
+      }
+    }
+  ]
+}

@@ -18,7 +18,7 @@ import (
 
 func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	var namespace, beforePath, afterPath, incidentPodRef, incidentWorkloadRef, nodeRef string
-	var includeVolumes bool
+	var includeVolumes, includeTrends bool
 	cmd := &cobra.Command{
 		Use:   "compare [pod-a] [pod-b]",
 		Short: "Compare two live Pods or one Pod across incident bundles",
@@ -32,6 +32,9 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			return cobra.ExactArgs(2)(command, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if includeTrends && (beforePath == "" || afterPath == "" || includeVolumes) {
+				return fmt.Errorf("--trends requires --before and --after without --volumes")
+			}
 			if nodeRef != "" && (beforePath == "" || afterPath == "") {
 				return fmt.Errorf("--node comparison requires --before and --after")
 			}
@@ -42,7 +45,7 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 						selected++
 					}
 				}
-				if beforePath == "" || afterPath == "" || selected > 1 || (selected == 0 && !includeVolumes) {
+				if beforePath == "" || afterPath == "" || selected > 1 || (selected == 0 && !includeVolumes && !includeTrends) {
 					return fmt.Errorf("incident comparison requires --before, --after, and exactly one of --pod, --workload or --node")
 				}
 				beforeDocument, err := incident.Read(beforePath)
@@ -52,6 +55,15 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				afterDocument, err := incident.Read(afterPath)
 				if err != nil {
 					return fmt.Errorf("read after bundle: %w", err)
+				}
+				if beforeDocument.Topology != nil || afterDocument.Topology != nil {
+					return fmt.Errorf("topology captures support replay; NUMA aliases cannot establish continuity for comparison")
+				}
+				if beforeDocument.History != nil || afterDocument.History != nil || includeTrends {
+					if includeVolumes {
+						return fmt.Errorf("history comparison requires --trends without --volumes")
+					}
+					return compareHistoryDocuments(cmd.OutOrStdout(), beforeDocument, afterDocument, incidentPodRef, incidentWorkloadRef, nodeRef)
 				}
 				if beforeDocument.Volume != nil || afterDocument.Volume != nil || includeVolumes {
 					return compareVolumeDocuments(cmd.OutOrStdout(), beforeDocument, afterDocument, incidentPodRef, incidentWorkloadRef, nodeRef)
@@ -72,7 +84,11 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 					if !ok {
 						return fmt.Errorf("Pod %s was not found in the after bundle", incidentPodRef)
 					}
-					printPodComparison(cmd.OutOrStdout(), "Incident comparison: "+incidentPodRef, beforePod, afterPod, after.CapturedAt.Sub(before.CapturedAt))
+					elapsed := podComparisonInterval(beforePod, afterPod)
+					if elapsed <= 0 {
+						fmt.Fprintln(cmd.OutOrStdout(), "Pod identity or a forward source interval is unconfirmed, or evidence is stale; values describe separate observations and no change rate is inferred.")
+					}
+					printPodComparison(cmd.OutOrStdout(), "Incident comparison: "+incidentPodRef, beforePod, afterPod, elapsed)
 					return nil
 				}
 				beforeWorkload, ok := incidentWorkload(before, incidentWorkloadRef)
@@ -83,7 +99,8 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				if !ok {
 					return fmt.Errorf("workload %s was not found in the after bundle", incidentWorkloadRef)
 				}
-				printPodComparison(cmd.OutOrStdout(), "Workload incident comparison: "+incidentWorkloadRef, beforeWorkload, afterWorkload, after.CapturedAt.Sub(before.CapturedAt))
+				fmt.Fprintln(cmd.OutOrStdout(), "Workload totals may span different Pod instances and sample times; no change rate is inferred.")
+				printPodComparison(cmd.OutOrStdout(), "Workload incident comparison: "+incidentWorkloadRef, beforeWorkload, afterWorkload, 0)
 				printWorkloadResourceComparison(cmd.OutOrStdout(), before, after, incidentWorkloadRef)
 				return nil
 			}
@@ -130,6 +147,7 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	cmd.Flags().StringVar(&incidentPodRef, "pod", "", "Pod to compare across bundles as <namespace>/<name>")
 	cmd.Flags().StringVar(&incidentWorkloadRef, "workload", "", "workload to compare across bundles as <namespace>/<kind>/<name>")
 	cmd.Flags().StringVar(&nodeRef, "node", "", "Node to compare across schema-4 bundles")
+	cmd.Flags().BoolVar(&includeTrends, "trends", false, "compare source-labelled memory trends and markers in two schema-6 captures")
 	cmd.Flags().BoolVar(&includeVolumes, "volumes", false, "compare authorised live volume evidence or two schema-5 captures")
 	return cmd
 }
@@ -169,6 +187,16 @@ func findPod(pods []api.PodSnapshot, namespace, name string) (api.PodSnapshot, b
 		}
 	}
 	return api.PodSnapshot{}, false
+}
+
+func podComparisonInterval(before, after api.PodSnapshot) time.Duration {
+	if before.PodUID == "" || before.PodUID != after.PodUID || before.Namespace != after.Namespace || before.PodName != after.PodName || before.NodeName != after.NodeName {
+		return 0
+	}
+	if before.CapturedAt.IsZero() || after.CapturedAt.IsZero() || !after.CapturedAt.After(before.CapturedAt) || before.Freshness == api.EvidenceFreshnessStale || after.Freshness == api.EvidenceFreshnessStale {
+		return 0
+	}
+	return after.CapturedAt.Sub(before.CapturedAt)
 }
 
 func printPodComparison(w interface{ Write([]byte) (int, error) }, title string, before, after api.PodSnapshot, elapsed time.Duration) {

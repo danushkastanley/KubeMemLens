@@ -46,6 +46,7 @@ type Store struct {
 	nodeContext           *nodeContextStore
 	volumes               *volumeStore
 	nodeContextEnabled    bool
+	replicasEnabled       bool
 	inventoryKnown        bool
 	inventoryUpdatedAt    time.Time
 }
@@ -98,7 +99,7 @@ func (s *Store) ReplaceNodeSnapshot(snapshot api.AgentSnapshot) (int, error) {
 }
 
 func (s *Store) ReplaceAuthenticatedNodeSnapshot(snapshot api.AgentSnapshot, uid string) (int, error) {
-	if snapshot.NodeContext != nil || len(snapshot.VolumeBatch) > 0 {
+	if snapshot.NodeContext != nil || len(snapshot.VolumeBatch) > 0 || len(snapshot.Topology) > 0 {
 		return 0, nodecontext.ErrInvalidObservation
 	}
 	s.mu.Lock()
@@ -158,7 +159,11 @@ func (s *Store) ReplaceAuthenticatedNodeSnapshot(snapshot api.AgentSnapshot, uid
 		s.lastSnapshotAt = snapshot.CapturedAt
 	}
 	s.lastReceivedAt = s.now()
-	s.history.record(snapshot.CapturedAt, containers)
+	historyUID := ""
+	if s.replicasEnabled && nodeCompleteness(s.nodes[snapshot.NodeName]) == api.EvidenceComplete {
+		historyUID = uid
+	}
+	s.history.record(snapshot.CapturedAt, containers, historyUID)
 	return len(containers), nil
 }
 

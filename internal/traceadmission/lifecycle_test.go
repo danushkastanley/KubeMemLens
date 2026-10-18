@@ -19,10 +19,28 @@ func TestExpiredAdmissionsReleaseNodeHandlesAndQuota(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := h.binder.first()
+	deadline := time.NewTimer(2 * time.Second)
+	defer deadline.Stop()
 	select {
 	case <-binding.released:
-	case <-time.After(2 * time.Second):
+	case <-deadline.C:
 		t.Fatal("expiry did not release binding")
+	}
+	// The binding closes before closeEntry removes its reservation. Join that
+	// existing cleanup operation without initiating cleanup from this test.
+	h.manager.mu.Lock()
+	e := h.manager.entries[a.ID()]
+	var cleanupDone <-chan struct{}
+	if e != nil {
+		cleanupDone = e.cleanupDone
+	}
+	h.manager.mu.Unlock()
+	if e != nil {
+		select {
+		case <-cleanupDone:
+		case <-deadline.C:
+			t.Fatal("expiry did not finish reservation cleanup")
+		}
 	}
 	if _, err := h.manager.Get(context.Background(), p, "tenant-a", a.ID()); !errors.Is(err, ErrNotFound) {
 		t.Fatal("expired admission remained accessible")

@@ -21,6 +21,7 @@ const (
 )
 
 type actionState struct {
+	viewport            viewport
 	mode                actionMode
 	input               string
 	result              actionResult
@@ -55,6 +56,9 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 			return m, m.startCompare()
 		case "c":
 			m.beginCapture()
+		case "i":
+			command := m.openSessionPanel()
+			return m, command
 		case "y":
 			return m.copyCurrentCommand()
 		}
@@ -75,8 +79,12 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 			}
 		}
 	case actionResultMode:
+		if m.scrollActionResult(key) {
+			return m, nil
+		}
 		switch key {
 		case "esc", "enter":
+			m.action.viewport.reset()
 			m.action.mode = actionClosed
 		case "f":
 			if m.action.overwriteRequest != nil {
@@ -140,6 +148,7 @@ func (m *appModel) startCompare() tea.Cmd {
 	if m.action.compareSource == nil {
 		copy := pod
 		m.action.compareSource = &copy
+		m.action.viewport.reset()
 		m.action.mode = actionResultMode
 		m.action.result = actionResult{title: "Comparison source marked", lines: []string{
 			"First Pod: " + pod.Namespace + "/" + pod.PodName,
@@ -227,6 +236,7 @@ func (m *appModel) startAction(request actionRequest) tea.Cmd {
 	m.action.activeID = id
 	m.action.pendingRequest = &request
 	m.action.inFlight = true
+	m.action.viewport.reset()
 	m.action.mode = actionResultMode
 	m.action.err = nil
 	m.action.result = actionResult{title: "Working…"}
@@ -256,6 +266,7 @@ func (m *appModel) completeAction(message actionMsg) {
 }
 
 func (m *appModel) setActionError(err error) {
+	m.action.viewport.reset()
 	m.action.mode = actionResultMode
 	m.action.err = err
 	m.action.result = actionResult{title: "Action unavailable"}
@@ -267,6 +278,7 @@ func (m appModel) copyCurrentCommand() (tea.Model, tea.Cmd) {
 		m.setActionError(fmt.Errorf("no safe command is available for the selected entity"))
 		return m, nil
 	}
+	m.action.viewport.reset()
 	m.action.mode = actionResultMode
 	m.action.err = nil
 	m.action.result = actionResult{title: "Command copied", lines: []string{command, "Clipboard transport: OSC 52"}}

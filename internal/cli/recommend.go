@@ -10,6 +10,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
+	"github.com/danushkastanley/kube-memlens/internal/profiler"
 	"github.com/danushkastanley/kube-memlens/internal/recommend"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
@@ -21,6 +22,7 @@ type recommendationDocument struct {
 	Target            explanationTarget          `json:"target"`
 	Finding           findingEvidence            `json:"finding"`
 	Recommendations   []recommend.Recommendation `json:"recommendations"`
+	ProfilerHandoffs  []profiler.Result          `json:"profilerHandoffs,omitempty"`
 	AutomaticMutation bool                       `json:"automaticMutation"`
 }
 
@@ -32,7 +34,7 @@ func newRecommendCommand(collectorOptions collectorOptionsProvider) *cobra.Comma
 
 func newRecommendPodCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	var namespace, output string
-	var includeVolumes bool
+	var includeVolumes, includeProfilers bool
 	cmd := &cobra.Command{
 		Use: "pod <pod-name>", Short: "Recommend next investigation steps for one Pod", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,6 +53,9 @@ func newRecommendPodCommand(collectorOptions collectorOptionsProvider) *cobra.Co
 				return collectorUnavailableError(opts, session.Description, err)
 			}
 			if session.Plan.Mode == capability.Restricted {
+				if includeProfilers {
+					return fmt.Errorf("profiler handoffs require fresh deep container evidence")
+				}
 				return runRestrictedReport(cmd, session, explanationTarget{Kind: "Pod", Namespace: namespace, Name: args[0]}, capability.PodScope, output, restrictedRecommend)
 			}
 			reader, description := session.Reader, session.Description
@@ -61,18 +66,24 @@ func newRecommendPodCommand(collectorOptions collectorOptionsProvider) *cobra.Co
 			finding := explain.AnalyzePod(pod)
 			document := recommendationOutput(explanationTarget{Kind: "Pod", Namespace: namespace, Name: args[0]}, finding)
 			document.Recommendations = append(document.Recommendations, recommend.ForPodMemoryQoS([]api.PodSnapshot{pod})...)
+			if includeProfilers {
+				document.SchemaVersion = 4
+				document.ProfilerHandoffs = profiler.ForPods([]api.PodSnapshot{pod}, document.GeneratedAt)
+			}
 			return writeRecommendationDocument(cmd.OutOrStdout(), output, document)
 		},
 	}
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text, json, or yaml")
 	cmd.Flags().BoolVar(&includeVolumes, "volumes", false, "include fresh authorised volume evidence; structured output uses recommendation schema 3")
+	cmd.Flags().BoolVar(&includeProfilers, "profilers", false, "include declared runtime profiler handoffs; structured output uses recommendation schema 4")
+	cmd.MarkFlagsMutuallyExclusive("volumes", "profilers")
 	return cmd
 }
 
 func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 	var namespace, output string
-	var includeVolumes bool
+	var includeVolumes, includeProfilers bool
 	cmd := &cobra.Command{
 		Use: "workload <kind>/<name>", Short: "Recommend next investigation steps for a workload", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -95,6 +106,9 @@ func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cob
 				return collectorUnavailableError(opts, session.Description, err)
 			}
 			if session.Plan.Mode == capability.Restricted {
+				if includeProfilers {
+					return fmt.Errorf("profiler handoffs require fresh deep container evidence")
+				}
 				return runRestrictedReport(cmd, session, explanationTarget{Kind: parts[0], Namespace: namespace, Name: parts[1]}, capability.WorkloadScope, output, restrictedRecommend)
 			}
 			reader, description := session.Reader, session.Description
@@ -107,6 +121,10 @@ func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cob
 					finding := explain.AnalyzeWorkload(workload)
 					document := recommendationOutput(explanationTarget{Kind: workload.Kind, Namespace: namespace, Name: workload.Name}, finding)
 					document.Recommendations = append(document.Recommendations, recommend.ForPodMemoryQoS(workload.Pods)...)
+					if includeProfilers {
+						document.SchemaVersion = 4
+						document.ProfilerHandoffs = profiler.ForPods(workload.Pods, document.GeneratedAt)
+					}
 					return writeRecommendationDocument(cmd.OutOrStdout(), output, document)
 				}
 			}
@@ -116,6 +134,8 @@ func newRecommendWorkloadCommand(collectorOptions collectorOptionsProvider) *cob
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
 	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text, json, or yaml")
 	cmd.Flags().BoolVar(&includeVolumes, "volumes", false, "include fresh authorised workload volume evidence; requires the workload volume profile")
+	cmd.Flags().BoolVar(&includeProfilers, "profilers", false, "include declared runtime profiler handoffs; structured output uses recommendation schema 4")
+	cmd.MarkFlagsMutuallyExclusive("volumes", "profilers")
 	return cmd
 }
 
@@ -142,6 +162,11 @@ func writeRecommendationDocument(w io.Writer, output string, document recommenda
 				fmt.Fprintln(w, "- "+condition)
 			}
 			fmt.Fprintln(w)
+		}
+		if document.ProfilerHandoffs != nil {
+			for _, line := range profiler.Lines(document.ProfilerHandoffs) {
+				fmt.Fprintln(w, line)
+			}
 		}
 		return nil
 	}

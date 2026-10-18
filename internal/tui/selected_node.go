@@ -16,6 +16,8 @@ type selectedNode struct {
 	inFlight         bool
 	evidence         *api.NodeEvidence
 	history          *api.NodeContextHistory
+	topology         *api.NodeMemoryTopology
+	topologyErr      error
 	err              error
 	historyErr       error
 	updatedAt        time.Time
@@ -28,11 +30,13 @@ type nodeRequest struct {
 	generation uint64
 }
 type nodeMsg struct {
-	request    nodeRequest
-	evidence   *api.NodeEvidence
-	history    *api.NodeContextHistory
-	err        error
-	historyErr error
+	request     nodeRequest
+	evidence    *api.NodeEvidence
+	history     *api.NodeContextHistory
+	topology    *api.NodeMemoryTopology
+	topologyErr error
+	err         error
+	historyErr  error
 }
 
 func (s *selectedNode) selectName(name string) {
@@ -64,6 +68,12 @@ func (s *selectedNode) complete(msg nodeMsg, now time.Time) bool {
 	s.inFlight = false
 	s.err = msg.err
 	s.historyErr = msg.historyErr
+	s.topology, s.topologyErr = msg.topology, msg.topologyErr
+	// A failed refresh clears topology. Never retain sensitive Node details after
+	// an authorisation failure or combine them with another Node incarnation.
+	if msg.err != nil || msg.evidence == nil || !topologyMatches(msg.topology, msg.evidence.Record.NodeUID) {
+		s.topology = nil
+	}
 	if msg.err == nil {
 		s.evidence = msg.evidence
 		s.updatedAt = now

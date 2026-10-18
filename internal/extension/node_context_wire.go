@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/danushkastanley/kube-memlens/internal/memorytopology"
 	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 )
 
@@ -63,6 +64,8 @@ func nodeWireValue(decoder *json.Decoder, field string, depth int, volumeLimit i
 	case '[':
 		limit := 0
 		switch field {
+		case "items", "pools", "numa":
+			limit = memorytopology.MaxPageSizes
 		case "records":
 			limit = volumeLimit
 		case "systemcontainers":

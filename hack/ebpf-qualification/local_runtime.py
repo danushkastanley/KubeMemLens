@@ -1,6 +1,9 @@
 """Explicit local-only identities and UID-guarded optional-service transitions."""
 
+import base64
+import gzip
 import hashlib
+import io
 import json
 import re
 import subprocess
@@ -26,10 +29,48 @@ def command(args, data=None, timeout=10):
     return result.stdout
 
 
+def read_api_cluster(runtime):
+    clusters = runtime.json(['config', 'view', '--raw', '--minify', '-o', 'json'])['clusters']
+    if len(clusters) != 1:
+        raise ValueError('one explicit Kubernetes API endpoint required')
+    cluster = clusters[0]['cluster']
+    if (cluster.get('insecure-skip-tls-verify', False) is not False or cluster.get('proxy-url')
+            or cluster.get('tls-server-name') or not cluster.get('certificate-authority-data')):
+        raise ValueError('explicit Kubernetes serving trust without overrides required')
+    if not base64.b64decode(cluster['certificate-authority-data'], validate=True):
+        raise ValueError('Kubernetes serving CA is empty')
+    return cluster
+
+
 def spec_digest(spec):
     value = dict(spec)
     value.pop("replicas", None)
     return digest(canonical(value))
+
+
+def deployment_names(cfg):
+    names = cfg.get("deploymentNames", SERVICES)
+    if not isinstance(names, dict) or set(names) != set(SERVICES):
+        raise ValueError("explicit API and Node deployment identities required")
+    for name in names.values():
+        if (not isinstance(name, str) or len(name) > 253 or not all(
+                re.fullmatch(r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?", part) for part in name.split("."))):
+            raise ValueError("invalid deployment identity")
+    if len(set(names.values())) != 2:
+        raise ValueError("API and Node deployments must be distinct")
+    return dict(names)
+
+
+def pod_selector(deployment):
+    selector = deployment["spec"]["selector"]
+    labels = selector.get("matchLabels")
+    if set(selector) != {"matchLabels"} or not isinstance(labels, dict) or not 1 <= len(labels) <= 8:
+        raise ValueError("bounded deployment label selector required")
+    for key, value in labels.items():
+        if (not isinstance(key, str) or not re.fullmatch(r"[A-Za-z0-9./_-]{1,317}", key)
+                or not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9_.-]{0,63}", value)):
+            raise ValueError("invalid deployment label selector")
+    return ",".join(key + "=" + labels[key] for key in sorted(labels))
 
 
 class Runtime:
@@ -39,6 +80,7 @@ class Runtime:
             raise ValueError("only explicitly named local kind nodes are allowed")
         if not re.fullmatch(r"[a-z0-9-]+", cfg["namespace"]):
             raise ValueError("invalid namespace")
+        self.services = deployment_names(cfg)
         self.kube = ["kubectl", "--kubeconfig", cfg["kubeconfig"], "--context", cfg["context"]]
         endpoint = self.json(["config", "view", "--minify", "-o", "json"])["clusters"][0]["cluster"]["server"]
         if not re.fullmatch(r"https://(?:127\.0\.0\.1|localhost):[0-9]+", endpoint):
@@ -57,20 +99,50 @@ class Runtime:
     def exec(self, args, data=None, timeout=10):
         return command(["docker", "exec", "-i", self.cfg["node"], *args], data, timeout)
 
+    def environment_fields(self):
+        return {'sharedKindKernel': True}
+
+    def kernel_configuration(self):
+        raw = self.exec(['cat', '/proc/config.gz'])
+        with gzip.GzipFile(fileobj=io.BytesIO(raw)) as stream:
+            config = stream.read((1 << 20) + 1)
+        if len(config) > 1 << 20:
+            raise ValueError('kernel configuration exceeds bound')
+        return config.decode()
+
+    def api_cluster(self):
+        cluster = read_api_cluster(self)
+        if not re.fullmatch(r'https://(?:127\.0\.0\.1|localhost):[0-9]+', cluster['server']):
+            raise ValueError('local API endpoint required')
+        return cluster
+
+    def observer_network_scope(self):
+        return 'local'
+
+    def observer_server(self):
+        return 'https://' + self.cfg['context'].removeprefix('kind-') + '-control-plane:6443'
+
+    def observer_command(self, args):
+        return ['docker', 'exec', self.cfg['node'], *args]
+
+    def observer_input_command(self, args):
+        return ['docker', 'exec', '-i', self.cfg['node'], *args]
+
     def verify_tools(self):
         for path, key in ((MEASURE, "measureSHA256"), (CENSUS, "censusSHA256")):
             if self.exec(["sha256sum", path]).decode().split()[0] != self.cfg[key]:
                 raise ValueError("observer binary changed")
 
     def deployment(self, role):
-        obj = self.get("deployment", SERVICES[role])
+        obj = self.get("deployment", self.services[role])
         if (obj["metadata"]["uid"] != self.cfg["deploymentUIDs"][role] or
                 spec_digest(obj["spec"]) != self.cfg["deploymentSpecSHA256"][role]):
             raise ValueError("optional installation changed")
         return obj
 
     def pods(self, role):
-        return self.json(["-n", self.cfg["namespace"], "get", "pods", "-l", "app=" + SERVICES[role], "-o", "json"])["items"]
+        selector = pod_selector(self.deployment(role))
+        return self.json(["-n", self.cfg["namespace"], "get", "pods", "-l", selector, "-o", "json"])["items"]
 
     def scale(self, role, replicas):
         if type(replicas) is not int or replicas not in (0, 1):
@@ -79,7 +151,7 @@ class Runtime:
         patch = [{"op": "test", "path": "/metadata/uid", "value": obj["metadata"]["uid"]},
                  {"op": "test", "path": "/metadata/resourceVersion", "value": obj["metadata"]["resourceVersion"]},
                  {"op": "replace", "path": "/spec/replicas", "value": replicas}]
-        command(self.kube + ["-n", self.cfg["namespace"], "patch", "deployment", SERVICES[role],
+        command(self.kube + ["-n", self.cfg["namespace"], "patch", "deployment", self.services[role],
                             "--type=json", "--patch-file=/dev/stdin"], canonical(patch))
 
     def absent(self):
@@ -101,7 +173,7 @@ class Runtime:
     def ready(self):
         for role in SERVICES:
             command(self.kube + ["-n", self.cfg["namespace"], "rollout", "status",
-                                "deployment/" + SERVICES[role], "--timeout=60s"], timeout=65)
+                                "deployment/" + self.services[role], "--timeout=60s"], timeout=65)
         deadline = time.monotonic() + 30
         while True:
             try:

@@ -23,9 +23,12 @@ import (
 const readAPIVersion = api.MemoryAPIGroup + "/" + api.MemoryAPIVersion
 
 type ReadHandler struct {
+	memoryHistory          *memoryHistoryService
+	replicas               *replicaService
 	podAuthorizer          authorizer.Authorizer
 	accounting             map[string]nodeanalysis.Qualification
 	nodeContextEnabled     bool
+	topologyEnabled        bool
 	volumeStatsEnabled     bool
 	volumeWorkloadsEnabled bool
 	volumeNamespaces       map[string]bool
@@ -66,6 +69,14 @@ func (h *ReadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set(api.SnapshotSchemaHeader, strconv.Itoa(schema))
+	if info.Subresource == "replicas" {
+		h.serveReplicas(w, r, info)
+		return
+	}
+	if info.Subresource == "trends" || info.Subresource == "trends-context" {
+		h.serveMemoryHistory(w, r, info)
+		return
+	}
 	if info.Subresource == "volumes" {
 		// Volume metadata reads can wait on Kubernetes. Keep memory reads independent
 		// and reject excess volume queries instead of occupying server read slots.

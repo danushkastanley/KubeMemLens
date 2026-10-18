@@ -1,0 +1,128 @@
+{
+  "kind": "IncidentSession",
+  "schemaVersion": 0,
+  "redacted": false,
+  "id": "0123456789abcdef0123456789abcdef",
+  "openedAt": "2026-09-30T10:00:00Z",
+  "expiresAt": "2026-09-30T11:00:00Z",
+  "closedAt": "2026-09-30T10:00:06Z",
+  "entries": [
+    {
+      "sequence": 1,
+      "kind": "opened",
+      "recordedAt": "2026-09-30T10:00:00Z",
+      "observedAt": "2026-09-30T10:00:00Z",
+      "namespace": "tenant",
+      "namespaceUID": "namespace-uid",
+      "actor": "private-operator",
+      "source": "operator",
+      "sensitivity": "private",
+      "clockUncertain": false
+    },
+    {
+      "sequence": 2,
+      "kind": "annotated",
+      "recordedAt": "2026-09-30T10:00:01Z",
+      "observedAt": "2026-09-30T10:00:01Z",
+      "namespace": "tenant",
+      "namespaceUID": "namespace-uid",
+      "actor": "private-operator",
+      "source": "operator",
+      "sensitivity": "private",
+      "clockUncertain": false,
+      "note": "Investigate memory growth"
+    },
+    {
+      "sequence": 3,
+      "kind": "captured",
+      "recordedAt": "2026-09-30T10:00:02Z",
+      "observedAt": "2026-09-30T09:59:00Z",
+      "namespace": "tenant",
+      "namespaceUID": "namespace-uid",
+      "actor": "private-operator",
+      "source": "collector",
+      "sensitivity": "private",
+      "clockUncertain": false,
+      "references": [
+        {
+          "namespaceUID": "namespace-uid",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "schemaVersion": 6,
+          "observedAt": "2026-09-30T09:59:00Z"
+        }
+      ]
+    },
+    {
+      "sequence": 4,
+      "kind": "marked",
+      "recordedAt": "2026-09-30T10:00:03Z",
+      "observedAt": "2026-09-30T09:59:00Z",
+      "namespace": "tenant",
+      "namespaceUID": "namespace-uid",
+      "actor": "private-operator",
+      "source": "collector",
+      "sensitivity": "private",
+      "clockUncertain": false,
+      "references": [
+        {
+          "namespaceUID": "namespace-uid",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "schemaVersion": 6,
+          "observedAt": "2026-09-30T09:59:00Z"
+        }
+      ]
+    },
+    {
+      "sequence": 5,
+      "kind": "compared",
+      "recordedAt": "2026-09-30T10:00:04Z",
+      "observedAt": "2026-09-30T10:00:04Z",
+      "namespace": "tenant",
+      "namespaceUID": "namespace-uid",
+      "actor": "private-operator",
+      "source": "collector",
+      "sensitivity": "private",
+      "clockUncertain": false,
+      "references": [
+        {
+          "namespaceUID": "namespace-uid",
+          "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "schemaVersion": 6,
+          "observedAt": "2026-09-30T09:59:00Z"
+        },
+        {
+          "namespaceUID": "namespace-uid",
+          "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "schemaVersion": 6,
+          "observedAt": "2026-09-30T09:59:30Z"
+        }
+      ]
+    },
+    {
+      "sequence": 6,
+      "kind": "gap",
+      "recordedAt": "2026-09-30T10:00:05Z",
+      "observedAt": null,
+      "namespace": "tenant",
+      "namespaceUID": "namespace-uid",
+      "actor": "private-operator",
+      "source": "prometheus",
+      "sensitivity": "private",
+      "clockUncertain": false,
+      "gapReason": "source-unavailable"
+    },
+    {
+      "sequence": 7,
+      "kind": "closed",
+      "recordedAt": "2026-09-30T10:00:06Z",
+      "observedAt": "2026-09-30T10:00:06Z",
+      "namespace": "tenant",
+      "namespaceUID": "namespace-uid",
+      "actor": "private-operator",
+      "source": "operator",
+      "sensitivity": "private",
+      "clockUncertain": false
+    }
+  ],
+  "limitReached": false
+}

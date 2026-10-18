@@ -1,0 +1,336 @@
+{
+  "schemaVersion": 1,
+  "outcome": "local functional qualification passed",
+  "date": "2026-09-28",
+  "environment": {
+    "provider": "local kind",
+    "nodeCount": 2,
+    "nodes": [
+      {
+        "kernelVersion": "7.0.12-linuxkit",
+        "osImage": "Debian GNU/Linux 13 (trixie)",
+        "containerRuntimeVersion": "containerd://2.3.4",
+        "kubeletVersion": "v1.37.0",
+        "architecture": "arm64",
+        "operatingSystem": "linux"
+      },
+      {
+        "kernelVersion": "7.0.12-linuxkit",
+        "osImage": "Debian GNU/Linux 13 (trixie)",
+        "containerRuntimeVersion": "containerd://2.3.4",
+        "kubeletVersion": "v1.37.0",
+        "architecture": "arm64",
+        "operatingSystem": "linux"
+      }
+    ]
+  },
+  "sourceBaseCommit": "d6670e57def2023668fe7bb9fc58e57dcaf478b0",
+  "sourceHadUncommittedFeature": true,
+  "sourceSHA256": "11a87d6a8a9dca0274f584fa31a05753fcc393b30f8e6805bfa3eba9f8d25d25",
+  "sourceFingerprint": "SHA256 of canonical sorted JSON mapping go.mod, go.sum and non-test cmd/internal Go paths to SHA256 file bytes",
+  "binaries": {
+    "kubectl-memlens": "fc168cac4b88fa39096cb4265f43702f52f4e210e86134dbe1966005d9b0c359",
+    "memlens-agent": "0bcb05c42e578ad31a195515c3a51324c459473a79fb6a41ddeb771c84101db3",
+    "memlens-collector": "e0ab00e9d431fff718ca32cf3d356127466cedfb0b879471944bbc314abb63e8",
+    "memlens-node-context": "6e07254def65aeee38471a73190d89ee3768f0fac4a8e33deab721b80f34b229",
+    "memlens-cert-bootstrap": "9304e354e0689a5c799f2859d60c0f52e4fbbe8ef568934f068b6cf57dfd67a8"
+  },
+  "localImageID": "sha256:c2e1f550cdb5fd01c93c1bb797c7394ebf0f5c5c1f93b3025e730dfc6841d628",
+  "fixtureImageID": "sha256:45e00f9da89d69d9795916d021f38b476aab2f8d301ce0fd0f9bb493976af0c6",
+  "nativePrometheus": {
+    "version": "3.15.0",
+    "platform": "darwin/arm64",
+    "transport": "verified HTTPS; strict X.509 fixture chain also verified",
+    "syntheticSeries": true
+  },
+  "checks": [
+    {
+      "case": "tenant-a-own-pod",
+      "status": 200,
+      "elapsedSeconds": 0.014847332960925996,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "tenant-b-own-pod",
+      "status": 200,
+      "elapsedSeconds": 0.011746624950319529,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "named-resource-allowed",
+      "status": 200,
+      "elapsedSeconds": 0.010301875066943467,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "selected-container",
+      "status": 200,
+      "elapsedSeconds": 0.009453000035136938,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "remote-rss",
+      "status": 200,
+      "elapsedSeconds": 0.33851329202298075,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "cross-tenant-denied",
+      "status": 403,
+      "elapsedSeconds": 0.0037152080330997705
+    },
+    {
+      "case": "node-reader-pod-denied",
+      "status": 403,
+      "elapsedSeconds": 0.0033076669787988067
+    },
+    {
+      "case": "core-pod-permission-required",
+      "status": 403,
+      "elapsedSeconds": 0.13421183300670236
+    },
+    {
+      "case": "named-reader-other-pod-denied",
+      "status": 403,
+      "elapsedSeconds": 0.003527333028614521
+    },
+    {
+      "case": "denied-requests-never-reached-provider",
+      "passed": true
+    },
+    {
+      "case": "Deployment-current-members",
+      "status": 200,
+      "elapsedSeconds": 1.3327344589633867,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "ReplicaSet-current-members",
+      "status": 200,
+      "elapsedSeconds": 0.9963940830202773,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "StatefulSet-current-members",
+      "status": 200,
+      "elapsedSeconds": 0.9971131250495091,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "DaemonSet-current-members",
+      "status": 200,
+      "elapsedSeconds": 0.9986745839705691,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "ReplicationController-current-members",
+      "status": 200,
+      "elapsedSeconds": 0.9981169579550624,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "Job-current-members",
+      "status": 200,
+      "elapsedSeconds": 0.997079583001323,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "CronJob-current-members",
+      "status": 200,
+      "elapsedSeconds": 1.60186233301647,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "node-only-remote",
+      "status": 200,
+      "elapsedSeconds": 0.29892991692759097,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "tenant-node-denied",
+      "status": 403,
+      "elapsedSeconds": 0.0061825419543311
+    },
+    {
+      "case": "node-history-cannot-read-container-inventory",
+      "status": 403,
+      "elapsedSeconds": 0.005451750010251999
+    },
+    {
+      "case": "explicit-local-pod-charge",
+      "status": 200,
+      "elapsedSeconds": 0.4023095000302419,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "disabled-node-source",
+      "status": 200,
+      "elapsedSeconds": 0.29594404192175716,
+      "state": "disabled",
+      "targets": 1,
+      "series": 0
+    },
+    {
+      "case": "warm-core-permission-revoked",
+      "status": 403,
+      "elapsedSeconds": 0.03638933307956904
+    },
+    {
+      "case": "live-diagnosis-during-provider-wait",
+      "status": 200,
+      "elapsedSeconds": 0.008200334035791457
+    },
+    {
+      "case": "history-concurrency-rejected",
+      "status": 429,
+      "elapsedSeconds": 0.006822749972343445
+    },
+    {
+      "case": "explicit-local-during-provider-failure",
+      "status": 200,
+      "elapsedSeconds": 0.0178046670043841,
+      "state": "fresh",
+      "targets": 1,
+      "series": 1
+    },
+    {
+      "case": "provider-timeout-propagates-cancellation",
+      "passed": true
+    },
+    {
+      "case": "wrong-identity-fails-closed",
+      "status": 502,
+      "elapsedSeconds": 0.00923816708382219
+    },
+    {
+      "case": "duplicate-fails-closed",
+      "status": 502,
+      "elapsedSeconds": 0.010420083068311214
+    },
+    {
+      "case": "malformed-fails-closed",
+      "status": 502,
+      "elapsedSeconds": 0.010305457981303334
+    },
+    {
+      "case": "in-flight-revocation-discards-result",
+      "status": 403
+    },
+    {
+      "case": "in-flight-history-subresource-revocation-discards-result",
+      "status": 403
+    },
+    {
+      "case": "deleted-pod-history-denied",
+      "status": 404,
+      "elapsedSeconds": 0.007986417040228844
+    },
+    {
+      "case": "pod-name-reuse-does-not-return-old-instance",
+      "passed": true
+    },
+    {
+      "case": "cli-pod-json",
+      "passed": true
+    },
+    {
+      "case": "cli-container-rss",
+      "passed": true
+    },
+    {
+      "case": "cli-workload",
+      "passed": true
+    },
+    {
+      "case": "cli-seven-day-bound",
+      "passed": true
+    },
+    {
+      "case": "maximum-sixteen-target-241-point-workload",
+      "status": 200,
+      "elapsedSeconds": 5.89775429200381,
+      "state": "fresh",
+      "targets": 16,
+      "series": 16
+    },
+    {
+      "case": "seventeenth-target-rejected-before-provider",
+      "status": 413,
+      "elapsedSeconds": 2.6446887500351295
+    },
+    {
+      "case": "history-pty-80x24",
+      "passed": true
+    },
+    {
+      "case": "history-pty-120x36",
+      "passed": true
+    },
+    {
+      "case": "history-pty-160x48",
+      "passed": true
+    },
+    {
+      "case": "node-only-cli",
+      "passed": true,
+      "responseSHA256": "736fb7d217b4cc5dacbc9fbac8746b618f3126fe9129baabb8ec8619c7daa657"
+    },
+    {
+      "case": "rollback-revokes-history-reader-permission",
+      "status": 403
+    },
+    {
+      "case": "administrator-confirms-disabled-route-absent",
+      "status": 404
+    },
+    {
+      "case": "current-live-read-after-profile-rollback",
+      "status": 200
+    },
+    {
+      "case": "rollback-removes-flags-trust-and-extra-roles",
+      "passed": true
+    }
+  ],
+  "cleanup": {
+    "historyReleaseRemoved": true,
+    "ownedFixtureNamespacesRemoved": true,
+    "memoryAPIServiceRemoved": true,
+    "sharedClusterRetained": true
+  },
+  "limits": [
+    "Own testing; no independent review or adopter evidence.",
+    "Kubernetes runtime uses a controlled synthetic provider; a separate native Prometheus run verifies the actual range expression.",
+    "No managed-provider qualification, remote-service management, storage retention or Prometheus-wide compatibility claim.",
+    "One-shot functional timing is not a throughput or tail-latency benchmark.",
+    "Local image IDs are evidence identities, not published registry references."
+  ]
+}

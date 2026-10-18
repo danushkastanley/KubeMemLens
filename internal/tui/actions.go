@@ -18,6 +18,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/model"
 	"github.com/danushkastanley/kube-memlens/internal/nodeanalysis"
 	"github.com/danushkastanley/kube-memlens/internal/observationview"
+	"github.com/danushkastanley/kube-memlens/internal/profiler"
 	"github.com/danushkastanley/kube-memlens/internal/qosview"
 	"github.com/danushkastanley/kube-memlens/internal/recommend"
 	"github.com/danushkastanley/kube-memlens/internal/resourceview"
@@ -119,6 +120,8 @@ func recommendationResult(request actionRequest) (actionResult, error) {
 			lines = append(lines, "- "+condition)
 		}
 	}
+	lines = append(lines, "")
+	lines = append(lines, profiler.Lines(profiler.ForPods(qosPodsForRef(request.ref, request.pods), time.Now().UTC()))...)
 	return actionResult{title: "Read-only recommendations", lines: lines}, nil
 }
 

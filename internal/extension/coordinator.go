@@ -12,6 +12,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/collector"
+	"github.com/danushkastanley/kube-memlens/internal/memorytopology"
 	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 	"github.com/danushkastanley/kube-memlens/internal/volumecontext"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -176,14 +177,14 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 	}
 	var count int
 	if claims.Role == NodeContextProducer {
-		err = c.store.ReplaceNodeContextWithVolumes(*request.Snapshot.NodeContext, request.Snapshot.VolumeBatch)
+		err = c.store.ReplaceNodeEvidence(*request.Snapshot.NodeContext, request.Snapshot.VolumeBatch, request.Snapshot.Topology)
 	} else {
 		count, err = c.store.ReplaceAuthenticatedNodeSnapshot(request.Snapshot, claims.NodeUID)
 	}
 	if errors.Is(err, collector.ErrNodeIdentityUnavailable) {
 		return api.NodeSnapshotResponse{}, false, reject(409, "node_inventory", err.Error(), "node_mismatch")
 	}
-	if errors.Is(err, nodecontext.ErrInvalidObservation) {
+	if errors.Is(err, nodecontext.ErrInvalidObservation) || errors.Is(err, memorytopology.ErrInvalid) || errors.Is(err, memorytopology.ErrBounds) {
 		return api.NodeSnapshotResponse{}, false, reject(400, "invalid_snapshot", err.Error(), "invalid_snapshot")
 	}
 	if errors.Is(err, volumecontext.ErrInvalid) || errors.Is(err, volumecontext.ErrScope) {

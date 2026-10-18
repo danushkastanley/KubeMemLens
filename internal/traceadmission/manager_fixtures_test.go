@@ -1,8 +1,8 @@
 package traceadmission
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/internal/traceaudit"
 	"github.com/danushkastanley/kube-memlens/internal/tracepreflight"
 	"k8s.io/apiserver/pkg/authentication/user"
 )
@@ -132,7 +133,16 @@ func newHarness(t *testing.T, policy Policy) *harness {
 	t.Helper()
 	h := &harness{auth: &testAuthorizer{}, resolver: &testResolver{}, binder: &testBinder{}}
 	ctx, cancel := context.WithCancel(context.Background())
-	manager, err := NewManager(ctx, Dependencies{Authorizer: h.auth, Resolver: h.resolver, Binder: h.binder, Audit: func(e AuditEvent) { h.mu.Lock(); defer h.mu.Unlock(); h.audits = append(h.audits, e) }}, policy)
+	refs, err := traceaudit.NewReferences(bytes.Repeat([]byte{1}, 32))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager, err := NewManager(ctx, Dependencies{AuditReferences: refs, Authorizer: h.auth, Resolver: h.resolver, Binder: h.binder, Audit: func(_ context.Context, e AuditEvent) error {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		h.audits = append(h.audits, e)
+		return nil
+	}}, policy)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,4 +168,13 @@ func requestFor(t *testing.T, namespace string) Request {
 	}
 	return r
 }
-func (h *harness) auditText() string { h.mu.Lock(); defer h.mu.Unlock(); return fmt.Sprint(h.audits) }
+func (h *harness) auditText() string {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	var text strings.Builder
+	for _, record := range h.audits {
+		data, _ := record.Bytes()
+		text.Write(data)
+	}
+	return text.String()
+}

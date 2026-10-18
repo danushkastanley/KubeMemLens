@@ -2,21 +2,30 @@ package traceadmission
 
 import (
 	"context"
+	"github.com/danushkastanley/kube-memlens/internal/traceaudit"
 	"time"
 )
 
-func (m *Manager) finishAdmission(e *entry, err error) {
+func (m *Manager) finishAdmission(e *entry, err error) error {
 	m.mu.Lock()
 	e.initializing = false
+	if err == nil && (m.closed || m.entries[e.id] != e || e.stage != admitted || !time.Now().Before(e.expires)) {
+		err = ErrExpired
+	}
 	shouldClose := err != nil || e.stage == closing || m.closed
 	m.mu.Unlock()
 	if shouldClose {
-		_ = m.discard(e.id)
+		_ = m.discardWithCause(e.id, err)
 	}
+	return err
 }
 
 func (m *Manager) markClosing(e *entry, cause error) {
+	if e.stage != closing {
+		e.closeCause = cause
+	}
 	e.stage = closing
+	m.wakeExpiry()
 	if e.cancelActive != nil {
 		e.cancelActive(cause)
 	}
@@ -94,8 +103,20 @@ func (m *Manager) closeEntry(ctx context.Context, e *entry) error {
 		e.retryCleanup = time.Now().Add(time.Second)
 	}
 	m.mu.Unlock()
+	m.wakeExpiry()
+	var terminalErr error
+	// A rejected reservation never became a session. Its rejected create and
+	// cleanup records are sufficient; do not invent an engine termination.
+	if e.result.id != "" {
+		terminalErr = m.recordTerminal(e.audit, terminationFromCause(e.closeCause), traceaudit.ControllerOutcome)
+	}
+	event := e.audit.event
+	event.Operation, event.Decision, event.Reason = traceaudit.Cleanup, traceaudit.Observed, traceaudit.Cleaned
 	if err != nil {
-		m.deps.Audit(AuditEvent{Operation: Cancel, Decision: "error", Reason: "cleanup_unconfirmed", Principal: "system"})
+		event.Reason = traceaudit.CleanupUnconfirmed
+	}
+	auditErr := m.emitAudit(event)
+	if err != nil || auditErr != nil || terminalErr != nil {
 		return ErrUnavailable
 	}
 	return nil
@@ -116,6 +137,9 @@ func (m *Manager) sweep(shutdown bool) error {
 		}
 	}
 	m.mu.Unlock()
+	if len(ready) == 0 {
+		return nil
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 	var err error
@@ -128,10 +152,21 @@ func (m *Manager) sweep(shutdown bool) error {
 }
 func (m *Manager) expiryLoop() {
 	defer close(m.done)
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	timer := time.NewTimer(time.Hour)
+	timer.Stop()
+	defer timer.Stop()
 	for {
+		m.mu.Lock()
+		next := m.nextExpiry(time.Now())
+		m.mu.Unlock()
+		timer.Stop()
+		var ticks <-chan time.Time
+		if !next.IsZero() {
+			timer.Reset(time.Until(next))
+			ticks = timer.C
+		}
 		select {
+		case <-m.wake:
 		case <-m.ctx.Done():
 			m.mu.Lock()
 			m.closed = true
@@ -147,7 +182,7 @@ func (m *Manager) expiryLoop() {
 			}
 			m.mu.Unlock()
 			return
-		case <-ticker.C:
+		case <-ticks:
 			_ = m.sweep(false)
 		}
 	}

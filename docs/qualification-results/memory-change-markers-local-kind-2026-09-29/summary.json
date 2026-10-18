@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "ticket": "ADV-002",
+  "status": "local-functional-qualification-passed",
+  "environment": {
+    "kindNodeCount": 2,
+    "nodes": [
+      {
+        "architecture": "arm64",
+        "operatingSystem": "linux",
+        "kernelVersion": "7.0.12-linuxkit",
+        "kubeletVersion": "v1.37.0",
+        "containerRuntimeVersion": "containerd://2.3.4",
+        "osImage": "Debian GNU/Linux 13 (trixie)"
+      },
+      {
+        "architecture": "arm64",
+        "operatingSystem": "linux",
+        "kernelVersion": "7.0.12-linuxkit",
+        "kubeletVersion": "v1.37.0",
+        "containerRuntimeVersion": "containerd://2.3.4",
+        "osImage": "Debian GNU/Linux 13 (trixie)"
+      }
+    ]
+  },
+  "candidate": {
+    "baseCommit": "8db94e5b9da459e837fe09a7c966a140a78f16ac",
+    "sourceSHA256": "9404e246d3affdd3b99ca5793c1ab0d41e596b77d4d9ba79af8b62791975ed48",
+    "binaries": {
+      "kubectl-memlens": "784c9264175ab3ebdebae42b3a6d47b72936dbe0c19cdbd0131e79df5d118258",
+      "memlens-agent": "6d41a74094744728a5b8a52a0727dbea1b4afb6dc82ea36ac7111001dbfa2e38",
+      "memlens-collector": "8e29e860565f2ad3ab5efa0b1059f41e404a3fb490f7326f2974839f3a847f7b",
+      "memlens-node-context": "0be31c29029752415d8ec6fc191f5148f8175ac4252a1728aeaa91a6af352c40",
+      "memlens-cert-bootstrap": "3741742c1c09661b5bc85033d2929fe8c5839474c07657ec4c09211fbb5adccf"
+    },
+    "localImageIDs": {
+      "image-context": "sha256:94c1af4fa92ca185ec8fa890c7ca4e430f7410134443e9e88359bee2b0ae5dd8",
+      "fixture-image-context": "sha256:692af53f5487fe83d4756a2cca6b1907cd18f9452a3eca447fa5c54ff13df44f"
+    }
+  },
+  "runtimeChecks": [
+    {
+      "case": "tenant-a-own-context",
+      "status": 200,
+      "elapsedSeconds": 0.019916915916837752
+    },
+    {
+      "case": "tenant-b-own-context",
+      "status": 200,
+      "elapsedSeconds": 0.017059375066310167
+    },
+    {
+      "case": "named-pod-without-events",
+      "status": 200,
+      "elapsedSeconds": 0.015564500004984438
+    },
+    {
+      "case": "cross-tenant",
+      "status": 403,
+      "elapsedSeconds": 0.003706832998432219
+    },
+    {
+      "case": "core-get-required",
+      "status": 403,
+      "elapsedSeconds": 0.10934079205617309
+    },
+    {
+      "case": "node-reader-cannot-read-pod-context",
+      "status": 403,
+      "elapsedSeconds": 0.00379762495867908
+    },
+    {
+      "case": "named-reader-cannot-read-other-pod",
+      "status": 403,
+      "elapsedSeconds": 0.003278625081293285
+    },
+    {
+      "case": "denied-contexts-do-not-query-provider"
+    },
+    {
+      "case": "verified-owner-Deployment",
+      "markers": 10
+    },
+    {
+      "case": "verified-owner-ReplicaSet",
+      "markers": 5
+    },
+    {
+      "case": "verified-owner-StatefulSet",
+      "markers": 5
+    },
+    {
+      "case": "verified-owner-DaemonSet",
+      "markers": 5
+    },
+    {
+      "case": "verified-owner-ReplicationController",
+      "markers": 5
+    },
+    {
+      "case": "verified-owner-Job",
+      "markers": 5
+    },
+    {
+      "case": "verified-owner-CronJob",
+      "markers": 7
+    },
+    {
+      "case": "plain-history-contract",
+      "status": 200,
+      "elapsedSeconds": 0.010201458935625851
+    },
+    {
+      "case": "event-uid-filter-and-private-text-omission",
+      "retainedOwnedEvent": true
+    },
+    {
+      "case": "warm-marker-permission-revoked",
+      "status": 403,
+      "elapsedSeconds": 0.002988290973007679
+    },
+    {
+      "case": "plain-history-during-marker-revocation",
+      "status": 200,
+      "elapsedSeconds": 0.009061624994501472
+    },
+    {
+      "case": "deployment-rollout-current-cohort",
+      "revision": 2
+    },
+    {
+      "case": "rollback-reuses-rs-without-inventing-old-change-time",
+      "revision": 3
+    },
+    {
+      "case": "real-in-place-resize-completion",
+      "memoryLimitMiB": 96
+    },
+    {
+      "case": "real-container-restart-source-clock",
+      "restartCount": 1
+    },
+    {
+      "case": "same-name-replacement-keeps-memory-lifetimes-separate"
+    },
+    {
+      "case": "maximum-sixteen-target-context",
+      "status": 200,
+      "elapsedSeconds": 2.725290208007209
+    },
+    {
+      "case": "maximum-grid-shape",
+      "targets": 16,
+      "pointsPerSeries": 241
+    },
+    {
+      "case": "seventeenth-target-rejected",
+      "status": 413,
+      "elapsedSeconds": 1.8738326670136303
+    },
+    {
+      "case": "over-limit-selection-does-not-query-provider"
+    },
+    {
+      "case": "marker-density-bounded",
+      "markers": 64,
+      "truncated": true
+    },
+    {
+      "case": "in-flight-context-revocation",
+      "status": 403
+    },
+    {
+      "case": "live-read-during-slow-context",
+      "status": 200,
+      "elapsedSeconds": 0.005960916983895004
+    },
+    {
+      "case": "parallel-context-rejected",
+      "status": 429,
+      "elapsedSeconds": 0.005329792038537562
+    },
+    {
+      "case": "context-timeout-cancels-provider"
+    },
+    {
+      "case": "redacted-capture-1",
+      "bytes": 64756,
+      "mode": "0600",
+      "schema": 6
+    },
+    {
+      "case": "replay-preserves-caveats-1"
+    },
+    {
+      "case": "redacted-capture-2",
+      "bytes": 64757,
+      "mode": "0600",
+      "schema": 6
+    },
+    {
+      "case": "replay-preserves-caveats-2"
+    },
+    {
+      "case": "redacted-comparison-does-not-infer-continuity"
+    },
+    {
+      "case": "capture-refuses-unrequested-overwrite"
+    },
+    {
+      "case": "marker-pty-80x24",
+      "passed": true
+    },
+    {
+      "case": "marker-pty-120x36",
+      "passed": true
+    },
+    {
+      "case": "marker-pty-160x48",
+      "passed": true
+    },
+    {
+      "case": "plain-history-after-marker-rollback",
+      "status": 200,
+      "elapsedSeconds": 0.024256042088381946
+    },
+    {
+      "case": "rollback-revokes-marker-reader",
+      "status": 403,
+      "elapsedSeconds": 0.002898665959946811
+    },
+    {
+      "case": "administrator-confirms-disabled-marker-route",
+      "status": 404
+    },
+    {
+      "case": "marker-rollback-removes-only-additive-source-permissions"
+    },
+    {
+      "case": "live-read-survives-marker-rollback"
+    }
+  ],
+  "nativeValidation": {
+    "platform": "linux/arm64",
+    "moduleVerification": "passed",
+    "raceTests": "passed",
+    "vet": "passed",
+    "logSHA256": "2de3eba7c5dd8760c61a3eac362ff6d4878ad441bf7cfa68a6abd12825a747e6"
+  },
+  "hostValidation": {
+    "rootRaceTests": "passed",
+    "vet": "passed",
+    "linuxArm64Build": "passed",
+    "linuxAmd64Build": "passed",
+    "chartContract": "passed"
+  },
+  "cleanup": {
+    "ownedNamespacesRemoved": true,
+    "historyReleaseRemoved": true,
+    "memoryAPIServiceRemoved": true,
+    "fixtureNodeBindingRemoved": true
+  },
+  "limitations": [
+    "Controlled HTTPS range fixture supplied synthetic memory values for real local Kubernetes identities.",
+    "These results do not qualify a managed provider, independent review or adopter use.",
+    "Terminal driver failures were retained and corrected without a product code change."
+  ]
+}

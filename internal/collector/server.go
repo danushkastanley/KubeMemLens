@@ -110,7 +110,7 @@ func registerIngestion(mux *http.ServeMux, store *Store, opts HandlerOptions, lo
 			writeError(w, http.StatusBadRequest, "invalid snapshot JSON")
 			return
 		}
-		if snapshot.NodeContext != nil || len(snapshot.VolumeBatch) > 0 {
+		if snapshot.NodeContext != nil || len(snapshot.VolumeBatch) > 0 || len(snapshot.Topology) > 0 {
 			result = "invalid_snapshot"
 			writeError(w, http.StatusBadRequest, "Node context requires authenticated ingestion")
 			return
@@ -261,6 +261,9 @@ func method(allowed string, next http.HandlerFunc) http.HandlerFunc {
 }
 
 func ValidateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOptions) error {
+	if len(snapshot.Topology) > 0 && (snapshot.SchemaVersion < api.TopologySnapshotSchemaVersion || snapshot.NodeContext == nil) {
+		return fmt.Errorf("topology requires an authenticated schema 7 Node observation")
+	}
 	if len(snapshot.VolumeBatch) > 0 && (snapshot.SchemaVersion < api.VolumeSnapshotSchemaVersion || snapshot.NodeContext == nil) {
 		return fmt.Errorf("volume context requires an authenticated schema 4 Node observation")
 	}

@@ -44,7 +44,9 @@ func (m appModel) nodeCockpitLines(name string, width int) []string {
 	} else {
 		lines = append(lines, "Node history: unavailable or rebuilding.")
 	}
+	lines = append(lines, m.nodeTopologyLines(width)...)
 	lines = append(lines, "", "Next commands:", "kubectl memlens explain node "+name, "kubectl memlens history node "+name, "kubectl memlens capture --node "+name+" --include-history -o node-incident.json")
+	lines = append(lines, "kubectl memlens capture --node "+name+" --include-topology -o node-topology.json")
 	return nodeview.Wrap(lines, width)
 }
 

@@ -1,0 +1,40 @@
+# Development chart trust boundaries
+
+This packaging extends the existing [file/cache threat model](FILE_CACHE_THREAT_MODEL.md)
+and [admission boundary](ADMISSION.md). It does not qualify the candidate or change
+its signed programmes, worker limits, trace permissions or public stream contract.
+
+| Boundary or threat | Control and remaining limit |
+| --- | --- |
+| Tenant enables host access through a standard installation | The separate chart renders no resources by default; the standard chart has no dependency on it. Enabling the development profile requires explicit acknowledgement and administrator prerequisites. |
+| Values widen privileges or retarget nodes | Strict schema, bounded distinct node identities, fixed arguments/mounts/capabilities, exact Node RBAC and pinned image digest. There is no arbitrary Pod specification or argument escape hatch. |
+| Policy replacement under an existing name | Administrator-owned immutable ConfigMap plus a mandatory file digest. Both processes hash the exact bounded bytes they parse. Signed worker and programme acceptance still applies. |
+| Node replacement or kernel/runtime drift | Fresh Node reads match UID, architecture, kernel and containerd versions during admission, stream revalidation and OOM context reads. Startup checks the actual kernel. Kubernetes node metadata remains an administrator-controlled assertion, not remote attestation. |
+| Counterfeit node service or control peer | Dedicated TLS identities, CA validation and exact leaf pins. Installation checks names, validity, usages and both trust directions. Each node verifies its own private key at startup. |
+| Preflight gains durable privileges | Metadata Job runs without capabilities or host mounts and uses an existing exact-Node reader account. Host Jobs get only BPF/PERFMON, the baseline seccomp profile, bounded runtime and read-only mounts; no token or network. They do not attach incident programmes. |
+| Failed hooks leave permissions behind | No hook creates an account or cluster grant. Jobs have deadlines, no retries and a finished-job TTL. Administrators inspect residual hook objects after failure. Prerequisites remain explicitly administrator-owned. |
+| Tenant connects directly to node service | NetworkPolicy admits only same-release API Pods; mutual TLS and pins remain mandatory. Fresh-pod policy tests exercise allowed and denied paths. Existing connections after label changes are not evidence of fresh-flow isolation. |
+| Node opens outbound connections | Node NetworkPolicy denies initiated egress. Reply traffic remains possible. This requires an enforcing CNI; rendering a policy is insufficient evidence. |
+| Namespace writer impersonates API labels or replaces trust | Namespace writes are an administrative trust boundary. Keep tenants out of the installation namespace; network labels alone are not authentication. |
+| API credential misuse | Separate account with Pod gets, exact Node gets, delegated SubjectAccessReviews and the aggregation authentication reader. Operator role is unbound. Tenant create/read/delete access remains denied unless explicitly assigned. |
+| Preflight leaks target information or delays cancellation | Explicit preflight, trace-create and Pod-read permissions are checked before and after inspection. Compare-only selection preconditions reject replacement. One temporary node inspection verifies and closes its cgroup handle without activation, lease or replay state; it runs outside the lease lock, and shutdown joins it. Reports omit target identifiers and label the baseline as a startup observation. |
+| Removal appears complete while kernel state survives | Check captured, ownership-bound BPF IDs independently after active teardown, plus original process termination and chart resource inventory. Helm success and Pod absence alone are insufficient. No global BPF enumeration, unpinning or additional runtime capability is introduced. |
+| Non-owner adopts a handle or exports its results | Real tenant, colleague, administrator and unbound-account probes reject read/watch/cancel/export while preserving the owner's state and deadline. An administrator's namespace grant permits a new admission, not ownership of an existing handle. |
+| Restart silently frees uncertain capacity | A fresh node instance cannot attest predecessor cleanup. The API retains the reservation; administrative recovery first verifies captured objects absent and the replacement idle. Local restart tests exercised this boundary. |
+| NetworkPolicy change is mistaken for established-stream revocation | Test fresh and established connections separately. On this local profile, removing the allow rule denied fresh connections but did not prove established-stream interruption. A separate owned-Pod namespace packet-drop fault exercised original-deadline cleanup with unknown result counters. |
+| An older extension ignores negotiation and starts an unreadable trace | Current clients require an explicit acknowledgement on each operation, schema-3 requests and the exact activation query marker. Previous handlers reject that body/marker before binding or claiming. The previous/current binary matrix verifies refusal without consuming the pending owner's handle. Cancellation retains its existing authenticated ownership check without requiring negotiation. |
+| An imported export is mistaken for authentic live evidence | The bounded archive reader validates explicit versions, aliases, evidence semantics and uncertainty, preserving accepted bytes. Imported text remains untrusted and structural validity does not prove authorship or measurement. Opaque archive values cannot be implicitly formatted or JSON-exported. |
+
+The chart leaves API egress unrestricted for Kubernetes API access, DNS and node
+services. It permits API ingress on its TLS port for the aggregation layer. These
+are documented deployment boundaries, not claims of complete network isolation.
+External Secrets, policy, namespace and preflight permissions require separate
+administrative removal. Certificate rotation and node upgrades require new reviewed
+values and preflight; rollback must not reinstate stale identities or trust.
+
+Verification combines chart render contracts, strict parser/trust and profile-drift
+tests, real aggregation/RBAC checks and bounded local lifecycle tests. Independent
+review, resource budgets and provider qualification remain separate and incomplete.
+The [local isolation record](ISOLATION_LOCAL_VERIFICATION.md) distinguishes observed
+access, lifetime, restart and network results from untested provider behaviour.
+Error-body comparisons do not eliminate scheduling or shared-resource timing channels.

@@ -18,8 +18,6 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-type VolumeAccess struct{ Group, Resource, Namespace, Name, Verb string }
-type VolumeAuthorizer func(context.Context, VolumeAccess) error
 type VolumeNodeIdentity func(string, time.Time) (string, bool)
 
 type ResolvedVolumes struct {

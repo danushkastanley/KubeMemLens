@@ -1,4 +1,8 @@
 {{- if .Values.collector.enabled }}
+{{- $collectorSelector := .Values.collector.nodeSelector | default dict }}
+{{- if and (hasKey $collectorSelector "kubernetes.io/os") (ne (index $collectorSelector "kubernetes.io/os") "linux") }}
+{{- fail "collector.nodeSelector must retain kubernetes.io/os=linux" }}
+{{- end }}
 {{- if .Values.security.privileged }}
 {{- fail "security.privileged must remain false for the standard cgroup-read profile" }}
 {{- end }}
@@ -31,7 +35,7 @@ spec:
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
       nodeSelector:
-        kubernetes.io/os: linux
+{{- toYaml (merge (dict "kubernetes.io/os" "linux") $collectorSelector) | nindent 8 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -51,6 +55,31 @@ spec:
             - "--extension-tls-cert-file=/var/run/kube-memlens/tls/tls.crt"
             - "--extension-tls-key-file=/var/run/kube-memlens/tls/tls.key"
             - "--agent-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-agent"
+{{- if .Values.incidentSessions.enabled }}
+            - "--incident-sessions=true"
+            - {{ printf "--incident-session-namespaces=%s" (join "," .Values.incidentSessions.namespaces) | quote }}
+{{- end }}
+{{- if .Values.replicaBaselines.enabled }}
+            - "--replica-baselines=true"
+            - {{ printf "--replica-namespaces=%s" (join "," .Values.replicaBaselines.namespaces) | quote }}
+{{- end }}
+{{- if .Values.memoryHistory.enabled }}
+            - "--remote-history-enabled=true"
+            - {{ printf "--remote-history-url=%s" .Values.memoryHistory.url | quote }}
+            - {{ printf "--remote-history-cluster=%s" .Values.memoryHistory.cluster | quote }}
+            - {{ printf "--remote-history-namespaces=%s" (join "," .Values.memoryHistory.namespaces) | quote }}
+            - "--remote-history-nodes={{ .Values.memoryHistory.nodes }}"
+            - "--remote-history-workloads={{ .Values.memoryHistory.workloads }}"
+{{- if .Values.memoryHistory.markers }}
+            - "--memory-change-markers=true"
+{{- end }}
+{{- if .Values.memoryHistory.caKey }}
+            - "--remote-history-ca-file=/var/run/memory-history/ca.crt"
+{{- end }}
+{{- if .Values.memoryHistory.tokenKey }}
+            - "--remote-history-token-file=/var/run/memory-history/token"
+{{- end }}
+{{- end }}
 {{- if .Values.volumeContext.enabled }}
             {{- if .Values.volumeContext.workloads }}
             - "--volume-workloads-enabled=true"
@@ -62,6 +91,9 @@ spec:
 {{- end }}
 {{- if .Values.nodeContext.volumeStats }}
             - "--volume-stats-enabled=true"
+{{- end }}
+{{- if .Values.nodeContext.topology.enabled }}
+            - "--topology-enabled=true"
 {{- end }}
 {{- if .Values.nodeContext.enabled }}
             - "--node-context-username=system:serviceaccount:{{ .Values.namespace.name }}:kube-memlens-node-context"
@@ -116,6 +148,9 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 2
             failureThreshold: 1
+          env:
+            - name: GODEBUG
+              value: disablethp=1
           securityContext:
             privileged: false
             readOnlyRootFilesystem: {{ .Values.security.readOnlyRootFilesystem }}
@@ -125,6 +160,11 @@ spec:
           resources:
 {{ toYaml .Values.collector.resources | nindent 12 }}
           volumeMounts:
+{{- if and .Values.memoryHistory.enabled .Values.memoryHistory.credentialsSecret }}
+            - name: memory-history-trust
+              mountPath: /var/run/memory-history
+              readOnly: true
+{{- end }}
 {{- if and .Values.nodeContext.enabled .Values.nodeContext.accountingConfigMap }}
             - name: node-accounting
               mountPath: /var/run/node-accounting
@@ -137,6 +177,21 @@ spec:
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
       volumes:
+{{- if and .Values.memoryHistory.enabled .Values.memoryHistory.credentialsSecret }}
+        - name: memory-history-trust
+          secret:
+            secretName: {{ .Values.memoryHistory.credentialsSecret | quote }}
+            defaultMode: 0440
+            items:
+{{- if .Values.memoryHistory.caKey }}
+              - key: {{ .Values.memoryHistory.caKey | quote }}
+                path: ca.crt
+{{- end }}
+{{- if .Values.memoryHistory.tokenKey }}
+              - key: {{ .Values.memoryHistory.tokenKey | quote }}
+                path: token
+{{- end }}
+{{- end }}
 {{- if and .Values.nodeContext.enabled .Values.nodeContext.accountingConfigMap }}
         - name: node-accounting
           configMap:

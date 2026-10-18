@@ -188,9 +188,21 @@ collect_diagnostics() {
   kind export logs "${artifact_dir}/kind" --name "${cluster_name}" >/dev/null 2>&1 || true
   KUBECONFIG="${kubeconfig}" kubectl get all -A -o wide > "${artifact_dir}/resources.txt" 2>&1 || true
   KUBECONFIG="${kubeconfig}" kubectl describe pods -n "${namespace}" > "${artifact_dir}/pods.txt" 2>&1 || true
-  # Preserve the failed hook's exit reason in CI without exporting cluster credentials.
-  KUBECONFIG="${kubeconfig}" kubectl get pod kube-memlens-test-connection -n "${namespace}" -o json |
-    jq '{phase: .status.phase, reason: .status.reason, containers: [.status.containerStatuses[]? | {name, terminated: (.state.terminated | {reason, exitCode, signal})}]}' >&2 || true
+  # Bind diagnostics to the current hook Job rather than a generated Pod name.
+  local hook_uid
+  hook_uid=$(KUBECONFIG="${kubeconfig}" kubectl get job kube-memlens-test-connection \
+    -n "${namespace}" -o jsonpath='{.metadata.uid}' 2>/dev/null) || hook_uid=
+  if [ -n "${hook_uid}" ] && KUBECONFIG="${kubeconfig}" kubectl get pods -n "${namespace}" \
+    --selector "batch.kubernetes.io/controller-uid=${hook_uid}" -o json \
+    > "${work_dir}/helm-hook-status.private.json" 2>/dev/null; then
+    jq '[.items[] | {phase: .status.phase, reason: .status.reason,
+      containers: [.status.containerStatuses[]? | {name, terminated: (.state.terminated | {reason, exitCode, signal})}]}]' \
+      "${work_dir}/helm-hook-status.private.json" >&2 || true
+    # Waiting Pods have no exit reason; retain only allow-listed state counts.
+    python3 hack/node-qualification/readiness_failure.py \
+      --input "${work_dir}/helm-hook-status.private.json" \
+      --output "${artifact_dir}/helm-hook-readiness.json" >&2 || true
+  fi
 }
 
 cleanup() {
@@ -224,6 +236,8 @@ if [ -n "${E2E_KIND_CONFIG:-}" ]; then
 fi
 kind create cluster "${kind_args[@]}"
 cluster_created=true
+source hack/lib/helm-hook-preflight.sh
+prefetch_helm_hook_image "${cluster_name}" "${chart}" "${work_dir}"
 if [ "${E2E_RUN_AGENTLESS_SMOKE:-false}" = true ]; then
   AGENTLESS_KUBECONFIG="${kubeconfig}" AGENTLESS_CONTEXT="kind-${cluster_name}" \
     AGENTLESS_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/agentless" \

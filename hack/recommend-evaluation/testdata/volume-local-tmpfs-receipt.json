@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "caseID": "volume-local-tmpfs",
+  "method": "Owned local64MiB Pod. Direct cgroup-v2 counters projected using numeric allow-list; known event deltas retained. Synthetic scope identities and normalised replay clock; no collector or authorisation claim. Filesystem capacity/used/available measured by df on owned tmpfs; not a kubelet, CSI, or managed-provider qualification.",
+  "sourceSHA256": "067127c772595e9b53d87bb009a9b76d4ca1fc42bdddf8cff9f7464a0e52f3a1",
+  "cleanupSHA256": "d644f1b9c3f3e60faa6c2603a20ece15e778720882b666f9c549c9e824ae0dee",
+  "memory": {
+    "charge": 9474048,
+    "anon": 118784,
+    "file": 8392704,
+    "shmem": 8388608,
+    "slab": 141120,
+    "slabUnreclaimable": 48072,
+    "dirty": 4096,
+    "writeback": 0,
+    "socket": 0,
+    "pageTables": 49152,
+    "max": 67108864,
+    "psiSome": 0.0,
+    "psiFull": 0.0,
+    "oom": 0,
+    "oomKill": 0,
+    "maxEvents": 0,
+    "highEvents": 0,
+    "localEvents": true,
+    "deltasKnown": true
+  },
+  "replica": null,
+  "volume": {
+    "capacity": 67108864,
+    "used": 8388608,
+    "available": 58720256,
+    "memoryBacked": true,
+    "ageSeconds": 0,
+    "health": "unreported"
+  }
+}

@@ -10,6 +10,12 @@ Before opening a request, check the [installation guide](docs/installation.md),
 compatibility contract is the source of truth for supported and unsupported
 environments.
 
+For the separate optional trace extension, use the
+[trace operations guide](docs/ebpf/OPERATIONS.md),
+[incident playbooks](docs/ebpf/INCIDENTS.md) and
+[diagnostic sharing guidance](docs/ebpf/SUPPORT.md). Trace mode remains an
+unqualified development feature with no supported managed-provider profile.
+
 ## Where to ask
 
 - Use the [support request form](https://github.com/danushkastanley/KubeMemLens/issues/new?template=support_request.yml)

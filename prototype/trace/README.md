@@ -13,6 +13,12 @@ changes the executable lifetime: the sealed worker is reverified on activation,
 shared by active workers and released after their last exit. New resource and
 kernel qualification remain pending; the historical failed runs are unchanged.
 
+[ADR 0020](../../docs/adr/0020-limit-worker-sdk-to-reviewed-attachments.md) narrows
+the worker SDK to the tracepoint and fentry/fexit classes already accepted by the
+signed object policy. Ordinary worker checks and reproducible builds reject
+container-discovery and network/TC/uprobe dependencies. The changed patch digest
+requires a new matched candidate; size reduction is not resource qualification.
+
 This separate module provides `memlens-trace doctor`. It runs bounded,
 non-attaching Linux feature probes for the accepted engine baseline. A supported
 result does **not** approve incident tracing or custom programmes. See the
@@ -53,8 +59,11 @@ reviewed capabilities, seccomp policy and resource limits.
 
 The scratch image contains Go and the licence/notice files of every Go module
 imported by the optional binary. The build derives `/licences/inventory.json` from
-`go list -deps` and fails if a module has no licence file. Kubernetes adapters use
-the same pinned versions as the main module; upstream gadget references remain
+`go list -deps` and retains notices beside each compiled package and its ancestors,
+preserving module-relative paths for vendored forks. It rejects packages outside
+their module, ignores notice symlinks and fails if a module has no licence file.
+This inventory is packaging evidence, not a redistribution approval. Kubernetes
+adapters use the same pinned versions as the main module; upstream gadget references remain
 evaluation inputs.
 The embedded fixed probe instruction sequences are authored in this module;
 there is no upstream gadget bytecode embedded in the binary.

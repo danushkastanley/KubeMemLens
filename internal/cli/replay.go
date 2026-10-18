@@ -46,6 +46,9 @@ func newReplayCommand() *cobra.Command {
 				}
 				return incident.Write(cmd.OutOrStdout(), exportOutput, force, legacy)
 			}
+			if document.History != nil {
+				return replayHistory(cmd.OutOrStdout(), *document.History, podRef, nodeRef)
+			}
 			if document.Volume != nil {
 				if nodeRef != "" {
 					return fmt.Errorf("volume incidents contain Pod evidence")
@@ -57,6 +60,12 @@ func newReplayCommand() *cobra.Command {
 					return fmt.Errorf("schema 4 contains Node evidence; --pod is unavailable")
 				}
 				return replayNode(cmd.OutOrStdout(), *document.Node, nodeRef)
+			}
+			if document.Topology != nil {
+				if podRef != "" {
+					return fmt.Errorf("schema 7 contains Node topology; --pod is unavailable")
+				}
+				return replayTopology(cmd.OutOrStdout(), *document.Topology, nodeRef)
 			}
 			if nodeRef != "" {
 				return fmt.Errorf("--node requires a schema-4 incident")

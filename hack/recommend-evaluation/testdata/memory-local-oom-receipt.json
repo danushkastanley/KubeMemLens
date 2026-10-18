@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "caseID": "memory-local-oom",
+  "method": "Owned local64MiB Pod. Direct cgroup-v2 counters projected using numeric allow-list; known event deltas retained. Synthetic scope identities and normalised replay clock; no collector or authorisation claim. One bounded tmpfs allocation. Pre-termination memory snapshot retained; Kubernetes OOMKilled and actual recent termination age supply separate evidence, without invented post-termination counters.",
+  "sourceSHA256": "80510046aba33fa4a3f0aee3d0d02ccdfe449ae107fffc0b4455e77255e9c806",
+  "cleanupSHA256": "d644f1b9c3f3e60faa6c2603a20ece15e778720882b666f9c549c9e824ae0dee",
+  "memory": {
+    "charge": 376832,
+    "anon": 118784,
+    "file": 4096,
+    "shmem": 0,
+    "slab": 178840,
+    "slabUnreclaimable": 87824,
+    "dirty": 4096,
+    "writeback": 0,
+    "socket": 0,
+    "pageTables": 221184,
+    "max": 67108864,
+    "psiSome": 0.0,
+    "psiFull": 0.0,
+    "localEvents": true,
+    "deltasKnown": false,
+    "oom": 0,
+    "oomKill": 0,
+    "maxEvents": 0,
+    "highEvents": 0,
+    "terminationAgeSeconds": 1
+  },
+  "replica": null,
+  "volume": null
+}

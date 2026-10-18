@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "caseID": "memory-local-anonymous",
+  "method": "Owned two-container Go allocation capture. Original memory counters projected by explicit allow-list; synthetic scope identities and clock. This case evaluates memory diagnosis, not MemoryQoS.",
+  "sourceSHA256": "f45b5535dc7f2fd5bd1b22e65517f753145d1eb98c6420e8495bc813a032e6e7",
+  "cleanupSHA256": "a803c74205a7b6f9ee3c025fbfe8034d9288ad684046d7a3e298ee003ff13fa1",
+  "memory": {
+    "charge": 37134336,
+    "anon": 35143680,
+    "file": 28672,
+    "shmem": 0,
+    "slab": 257136,
+    "slabUnreclaimable": 136656,
+    "dirty": 28672,
+    "writeback": 0,
+    "socket": 0,
+    "pageTables": 245760,
+    "localEvents": true,
+    "deltasKnown": true,
+    "oom": 0,
+    "oomKill": 0,
+    "maxEvents": 0,
+    "highEvents": 0,
+    "psiSome": 0,
+    "psiFull": 0,
+    "min": 0,
+    "low": 0,
+    "max": 134217728
+  },
+  "replica": null
+}

@@ -55,7 +55,8 @@ Capture chooses incident schema 2 when resource metadata is present. Use
 `kubectl memlens capture -n production --pod api-abc --schema-version=1 -o incident.json`
 for an older replay binary; the export records that resource context was omitted.
 Current replay accepts deep schemas 1/2, [restricted schema 3](restricted-incidents.md),
-[Node schema 4](node-incidents.md) and [volume schema 5](volume-context.md).
+[Node schema 4](node-incidents.md), [volume schema 5](volume-context.md) and
+[memory trend schema 6](memory-change-markers.md).
 Unknown or mismatched schemas are rejected.
 
 ## MemoryQoS in version 3
@@ -115,3 +116,14 @@ interactive output. They are removed from default incident exports.
 kind and schema; existing memory and restricted output versions are unchanged.
 Snapshot schema 6 and incident schema 5 are separate contracts. See the
 [volume workflow](volume-context.md) for bounds, permissions and legacy export.
+
+## Explicit profiler handoffs
+
+`recommend pod|workload --profilers` emits recommendation schema **4**: the
+ordinary recommendation fields plus `profilerHandoffs`. Each item identifies the
+authorised container and an `available` or `unavailable` state with a reason.
+Available items contain a typed `handoff` with profile/runtime, declaration basis,
+prerequisites, risks, fixed local commands, verification steps and official
+references. Unavailable items omit it. Commands are never executed. Default
+recommendations remain schema1; restricted schema2 and volume schema3 are unchanged.
+See [profiler handoffs](profiler-handoffs.md) for the declaration and evidence gates.

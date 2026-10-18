@@ -1,0 +1,60 @@
+{{- if .Values.memoryHistory.markers }}
+{{- if or (not .Values.memoryHistory.enabled) (empty .Values.memoryHistory.namespaces) }}
+{{- fail "memoryHistory.markers requires enabled history and explicit namespaces" }}
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-history-marker-viewer
+rules:
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["pods/trends-context"{{ if .Values.memoryHistory.workloads }}, "workloads/trends-context"{{ end }}]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["replicationcontrollers"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get"]
+{{- range .Values.memoryHistory.namespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kube-memlens-history-marker-source
+  namespace: {{ . | quote }}
+rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["list"]
+  - apiGroups: [""]
+    resources: ["replicationcontrollers"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+    verbs: ["get"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kube-memlens-history-marker-source
+  namespace: {{ . | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kube-memlens-history-marker-source
+subjects:
+  - kind: ServiceAccount
+    name: kube-memlens-collector
+    namespace: {{ $.Values.namespace.name | quote }}
+{{- end }}
+{{- end }}

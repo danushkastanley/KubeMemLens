@@ -1,0 +1,101 @@
+{{- $sessions := .Values.incidentSessions }}
+{{- if not $sessions.enabled }}
+{{- if $sessions.namespaces }}
+{{- fail "incidentSessions namespaces require incidentSessions.enabled" }}
+{{- end }}
+{{- else }}
+{{- if or (not .Values.collector.enabled) (empty $sessions.namespaces) (gt (len $sessions.namespaces) 64) }}
+{{- fail "incidentSessions requires the authenticated collector and 1 to 64 explicit namespaces" }}
+{{- end }}
+{{- $seen := dict }}
+{{- range $sessions.namespaces }}
+{{- if or (gt (len .) 63) (not (regexMatch "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" .)) (hasKey $seen .) }}
+{{- fail "incidentSessions requires distinct valid namespaces" }}
+{{- end }}
+{{- $_ := set $seen . true }}
+{{- end }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-incident-creator
+rules:
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["incidentsessions"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-incident-operator
+rules:
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["incidentsessions"]
+    verbs: ["get", "delete"]
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["incidentsessions/entries", "incidentsessions/capture", "incidentsessions/compare", "incidentsessions/markers", "incidentsessions/trace-references", "incidentsessions/close"]
+    verbs: ["create"]
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["incidentsessions/export", "pods"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-incident-exporter
+rules:
+  - apiGroups: ["memory.kubememlens.io"]
+    resources: ["incidentsessions/export-sensitive"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-incident-identity
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    resourceNames: {{ toJson $sessions.namespaces }}
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-memlens-incident-identity
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-memlens-incident-identity
+subjects:
+  - kind: ServiceAccount
+    name: kube-memlens-collector
+    namespace: {{ .Values.namespace.name | quote }}
+{{- range $sessions.namespaces }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kube-memlens-incident-source
+  namespace: {{ . | quote }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kube-memlens-incident-source
+  namespace: {{ . | quote }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kube-memlens-incident-source
+subjects:
+  - kind: ServiceAccount
+    name: kube-memlens-collector
+    namespace: {{ $.Values.namespace.name | quote }}
+{{- end }}
+{{- end }}

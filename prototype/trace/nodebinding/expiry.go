@@ -10,7 +10,7 @@ import (
 func (s *Service) prune(now time.Time) {
 
 	for id, l := range s.leases {
-		if !now.Before(l.expires) {
+		if l.execution == nil && !now.Before(l.expires) {
 			_ = s.stopLease(id, l, admission.ErrExpired)
 		}
 	}
@@ -22,11 +22,22 @@ func (s *Service) prune(now time.Time) {
 }
 func (s *Service) expire(ctx context.Context) {
 	defer close(s.done)
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+	timer := time.NewTimer(time.Hour)
+	timer.Stop()
+	defer timer.Stop()
 	for {
+		s.mu.Lock()
+		next := s.nextExpiry()
+		s.mu.Unlock()
+		timer.Stop()
+		var ticks <-chan time.Time
+		if !next.IsZero() {
+			timer.Reset(time.Until(next))
+			ticks = timer.C
+		}
 		select {
-		case <-ticker.C:
+		case <-s.wake:
+		case <-ticks:
 			s.mu.Lock()
 			s.prune(time.Now())
 			s.mu.Unlock()
@@ -42,9 +53,13 @@ func (s *Service) expire(ctx context.Context) {
 				}
 			}
 			clear(s.seen)
+			preview := s.previewDone
 			s.mu.Unlock()
 			for _, execution := range active {
 				<-execution.done
+			}
+			if preview != nil {
+				<-preview
 			}
 			return
 		}

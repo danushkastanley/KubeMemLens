@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/danushkastanley/kube-memlens/internal/memorytopology"
 	"github.com/danushkastanley/kube-memlens/internal/nodecontext"
 	"github.com/danushkastanley/kube-memlens/internal/volumecontext"
 	"github.com/danushkastanley/kube-memlens/internal/volumehealth"
@@ -20,8 +21,9 @@ const (
 // Sample separates private volume records from Node memory. Read preserves
 // the existing memory-only interface; publishers use ReadSample instead.
 type Sample struct {
-	Node    nodecontext.Observation `json:"node"`
-	Volumes *volumecontext.Batch    `json:"-"`
+	Topology *memorytopology.Observation `json:"-"`
+	Node     nodecontext.Observation     `json:"node"`
+	Volumes  *volumecontext.Batch        `json:"-"`
 }
 
 type SampleSource interface {
@@ -31,7 +33,7 @@ type SampleSource interface {
 func (s *Source) volumeBatch(ctx context.Context, data []byte, nodeName, nodeUID string, at time.Time) (*volumecontext.Batch, error) {
 	records, omitted, err := decodeVolumes(ctx, data, nodeUID)
 	state := volumecontext.SourceState(volumehealth.Reported, "")
-	batch, validationErr := volumecontext.NewBatch(nodeName, nodeUID, at, state, records, at)
+	batch, expired, validationErr := volumecontext.NewSourceBatch(nodeName, nodeUID, at, state, records, at)
 	if err != nil || validationErr != nil {
 		s.opts.Telemetry.recordVolumes(0, omitted, errors.Join(err, validationErr))
 		// Identity and report time came from the successful Node source. A
@@ -43,7 +45,7 @@ func (s *Source) volumeBatch(ctx context.Context, data []byte, nodeName, nodeUID
 		}
 		return &batch, nil
 	}
-	s.opts.Telemetry.recordVolumes(len(records), omitted, nil)
+	s.opts.Telemetry.recordVolumes(batch.Len(), omitted+expired, nil)
 	return &batch, nil
 }
 

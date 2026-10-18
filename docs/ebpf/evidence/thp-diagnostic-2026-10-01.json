@@ -1,0 +1,1034 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-01",
+  "environment": {
+    "provider": "local kind",
+    "kernelRelease": "7.0.12-linuxkit",
+    "architecture": "arm64",
+    "containerRuntime": "containerd://2.3.4"
+  },
+  "image": "sha256:9ddfab40750558cdfd58aa52c37037c8139e1c08fec63bf9839ae37b6795d77c",
+  "acceptancePolicySHA256": "893f5b443a77533d933197581c244f270a721d90c660be6ff21a07409f70b848",
+  "hostTHPPolicy": "always",
+  "hostHugePageBytes": 2097152,
+  "samplingPeriodSeconds": 60,
+  "performanceQualified": false,
+  "scope": "two sequential 20-minute diagnostics; identifiers, paths and raw mappings omitted",
+  "limitations": [
+    "Sparse 60-second memory samples",
+    "Fresh matched TLS and process lifetimes in each run",
+    "No baseline CPU series in this diagnostic",
+    "Does not supersede the failed five-pair 40.61 MiB result",
+    "Active tracing and provider effects remain unverified"
+  ],
+  "runs": [
+    {
+      "godebug": null,
+      "summary": {
+        "samples": 21,
+        "combinedWorkingSetPeakBytes": 40587264,
+        "roles": {
+          "node": {
+            "workingSetPeakBytes": 18849792,
+            "anonymousHugePagePeakBytes": 14680064
+          },
+          "api": {
+            "workingSetPeakBytes": 21966848,
+            "anonymousHugePagePeakBytes": 14680064
+          }
+        }
+      },
+      "samples": [
+        {
+          "index": 0,
+          "roles": {
+            "node": {
+              "elapsedNanos": 0,
+              "collectionNanos": 83939666,
+              "workingSetBytes": 16560128,
+              "memoryCurrentBytes": 16564224,
+              "anonymousHugePagesBytes": 12582912,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 0,
+              "collectionNanos": 79138875,
+              "workingSetBytes": 16363520,
+              "memoryCurrentBytes": 16367616,
+              "anonymousHugePagesBytes": 12582912,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 1,
+          "roles": {
+            "node": {
+              "elapsedNanos": 60163685750,
+              "collectionNanos": 83134583,
+              "workingSetBytes": 16302080,
+              "memoryCurrentBytes": 16306176,
+              "anonymousHugePagesBytes": 12582912,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 60183536291,
+              "collectionNanos": 84381959,
+              "workingSetBytes": 18661376,
+              "memoryCurrentBytes": 18665472,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 2,
+          "roles": {
+            "node": {
+              "elapsedNanos": 120150732875,
+              "collectionNanos": 95315458,
+              "workingSetBytes": 18497536,
+              "memoryCurrentBytes": 18501632,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 120157904958,
+              "collectionNanos": 90733875,
+              "workingSetBytes": 18722816,
+              "memoryCurrentBytes": 18726912,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 3,
+          "roles": {
+            "node": {
+              "elapsedNanos": 180125515916,
+              "collectionNanos": 82718084,
+              "workingSetBytes": 18505728,
+              "memoryCurrentBytes": 18509824,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 180148658708,
+              "collectionNanos": 75390042,
+              "workingSetBytes": 18780160,
+              "memoryCurrentBytes": 18784256,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 4,
+          "roles": {
+            "node": {
+              "elapsedNanos": 240124326666,
+              "collectionNanos": 89701167,
+              "workingSetBytes": 18575360,
+              "memoryCurrentBytes": 18579456,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 240135849333,
+              "collectionNanos": 85250417,
+              "workingSetBytes": 18841600,
+              "memoryCurrentBytes": 18845696,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 5,
+          "roles": {
+            "node": {
+              "elapsedNanos": 300118312958,
+              "collectionNanos": 94434333,
+              "workingSetBytes": 18583552,
+              "memoryCurrentBytes": 18587648,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 300169921416,
+              "collectionNanos": 79498375,
+              "workingSetBytes": 18898944,
+              "memoryCurrentBytes": 18903040,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 6,
+          "roles": {
+            "node": {
+              "elapsedNanos": 360149327916,
+              "collectionNanos": 89922000,
+              "workingSetBytes": 18579456,
+              "memoryCurrentBytes": 18583552,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 360164593666,
+              "collectionNanos": 84812667,
+              "workingSetBytes": 18923520,
+              "memoryCurrentBytes": 18927616,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 7,
+          "roles": {
+            "node": {
+              "elapsedNanos": 420165297125,
+              "collectionNanos": 83121125,
+              "workingSetBytes": 18579456,
+              "memoryCurrentBytes": 18583552,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 420176598500,
+              "collectionNanos": 85044125,
+              "workingSetBytes": 18964480,
+              "memoryCurrentBytes": 18968576,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 8,
+          "roles": {
+            "node": {
+              "elapsedNanos": 480193264833,
+              "collectionNanos": 81816583,
+              "workingSetBytes": 18587648,
+              "memoryCurrentBytes": 18591744,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 480204323250,
+              "collectionNanos": 79044958,
+              "workingSetBytes": 19243008,
+              "memoryCurrentBytes": 19247104,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 9,
+          "roles": {
+            "node": {
+              "elapsedNanos": 540158634000,
+              "collectionNanos": 82756791,
+              "workingSetBytes": 18837504,
+              "memoryCurrentBytes": 18841600,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 540143284666,
+              "collectionNanos": 82586292,
+              "workingSetBytes": 19283968,
+              "memoryCurrentBytes": 19288064,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 10,
+          "roles": {
+            "node": {
+              "elapsedNanos": 600125081875,
+              "collectionNanos": 84345250,
+              "workingSetBytes": 18583552,
+              "memoryCurrentBytes": 18587648,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 600131463833,
+              "collectionNanos": 83723667,
+              "workingSetBytes": 19304448,
+              "memoryCurrentBytes": 19308544,
+              "anonymousHugePagesBytes": 12582912,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 11,
+          "roles": {
+            "node": {
+              "elapsedNanos": 660151461625,
+              "collectionNanos": 75548625,
+              "workingSetBytes": 18583552,
+              "memoryCurrentBytes": 18587648,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 660134745333,
+              "collectionNanos": 83618708,
+              "workingSetBytes": 19066880,
+              "memoryCurrentBytes": 19070976,
+              "anonymousHugePagesBytes": 12582912,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 12,
+          "roles": {
+            "node": {
+              "elapsedNanos": 720130071958,
+              "collectionNanos": 80547250,
+              "workingSetBytes": 18587648,
+              "memoryCurrentBytes": 18591744,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 720112397708,
+              "collectionNanos": 81717708,
+              "workingSetBytes": 19083264,
+              "memoryCurrentBytes": 19087360,
+              "anonymousHugePagesBytes": 12582912,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 13,
+          "roles": {
+            "node": {
+              "elapsedNanos": 780134378750,
+              "collectionNanos": 106941000,
+              "workingSetBytes": 18587648,
+              "memoryCurrentBytes": 18591744,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 780144037916,
+              "collectionNanos": 80058042,
+              "workingSetBytes": 19120128,
+              "memoryCurrentBytes": 19124224,
+              "anonymousHugePagesBytes": 12582912,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 14,
+          "roles": {
+            "node": {
+              "elapsedNanos": 840143351500,
+              "collectionNanos": 82051500,
+              "workingSetBytes": 18849792,
+              "memoryCurrentBytes": 18853888,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 840140783875,
+              "collectionNanos": 82540125,
+              "workingSetBytes": 21696512,
+              "memoryCurrentBytes": 21700608,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 15,
+          "roles": {
+            "node": {
+              "elapsedNanos": 900109022000,
+              "collectionNanos": 82830166,
+              "workingSetBytes": 18620416,
+              "memoryCurrentBytes": 18624512,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 900106824541,
+              "collectionNanos": 80328000,
+              "workingSetBytes": 21966848,
+              "memoryCurrentBytes": 21970944,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 16,
+          "roles": {
+            "node": {
+              "elapsedNanos": 960114280916,
+              "collectionNanos": 80234125,
+              "workingSetBytes": 18620416,
+              "memoryCurrentBytes": 18624512,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 960104041875,
+              "collectionNanos": 82266250,
+              "workingSetBytes": 21487616,
+              "memoryCurrentBytes": 21491712,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 17,
+          "roles": {
+            "node": {
+              "elapsedNanos": 1020138583208,
+              "collectionNanos": 81731542,
+              "workingSetBytes": 18620416,
+              "memoryCurrentBytes": 18624512,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 1020150737166,
+              "collectionNanos": 85723667,
+              "workingSetBytes": 21753856,
+              "memoryCurrentBytes": 21757952,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 18,
+          "roles": {
+            "node": {
+              "elapsedNanos": 1080160086083,
+              "collectionNanos": 83400542,
+              "workingSetBytes": 18620416,
+              "memoryCurrentBytes": 18624512,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 1080177913583,
+              "collectionNanos": 81557958,
+              "workingSetBytes": 21778432,
+              "memoryCurrentBytes": 21782528,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 19,
+          "roles": {
+            "node": {
+              "elapsedNanos": 1140152361500,
+              "collectionNanos": 76513375,
+              "workingSetBytes": 18620416,
+              "memoryCurrentBytes": 18624512,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 1140156523375,
+              "collectionNanos": 82705958,
+              "workingSetBytes": 21544960,
+              "memoryCurrentBytes": 21549056,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        },
+        {
+          "index": 20,
+          "roles": {
+            "node": {
+              "elapsedNanos": 1200962003000,
+              "collectionNanos": 264653000,
+              "workingSetBytes": 18620416,
+              "memoryCurrentBytes": 18624512,
+              "anonymousHugePagesBytes": 6291456,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            },
+            "api": {
+              "elapsedNanos": 1202045270166,
+              "collectionNanos": 290711542,
+              "workingSetBytes": 21540864,
+              "memoryCurrentBytes": 21544960,
+              "anonymousHugePagesBytes": 14680064,
+              "cpuUsageMicroseconds": null,
+              "throttledMicroseconds": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "godebug": "disablethp=1",
+      "summary": {
+        "samples": 21,
+        "combinedWorkingSetPeakBytes": 28430336,
+        "roles": {
+          "node": {
+            "workingSetPeakBytes": 12066816,
+            "anonymousHugePagePeakBytes": 0,
+            "approximateAverageCPUMilli": 0.21339485792322577,
+            "throttledMicrosecondsDelta": 0
+          },
+          "api": {
+            "workingSetPeakBytes": 16896000,
+            "anonymousHugePagePeakBytes": 0,
+            "approximateAverageCPUMilli": 2.853256517824582,
+            "throttledMicrosecondsDelta": 0
+          }
+        }
+      },
+      "samples": [
+        {
+          "index": 0,
+          "roles": {
+            "node": {
+              "elapsedNanos": 0,
+              "collectionNanos": 121165958,
+              "workingSetBytes": 11636736,
+              "memoryCurrentBytes": 11640832,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 207136,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 0,
+              "collectionNanos": 126813792,
+              "workingSetBytes": 13619200,
+              "memoryCurrentBytes": 13623296,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 229635,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 1,
+          "roles": {
+            "node": {
+              "elapsedNanos": 60093832625,
+              "collectionNanos": 119149583,
+              "workingSetBytes": 11710464,
+              "memoryCurrentBytes": 11714560,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 214826,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 60085765959,
+              "collectionNanos": 139558250,
+              "workingSetBytes": 15183872,
+              "memoryCurrentBytes": 15187968,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 415713,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 2,
+          "roles": {
+            "node": {
+              "elapsedNanos": 120075383292,
+              "collectionNanos": 119613833,
+              "workingSetBytes": 11911168,
+              "memoryCurrentBytes": 11915264,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 228551,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 120033344584,
+              "collectionNanos": 112403083,
+              "workingSetBytes": 15683584,
+              "memoryCurrentBytes": 15687680,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 606821,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 3,
+          "roles": {
+            "node": {
+              "elapsedNanos": 180089199542,
+              "collectionNanos": 112930291,
+              "workingSetBytes": 11956224,
+              "memoryCurrentBytes": 11960320,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 233663,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 180074182542,
+              "collectionNanos": 122478625,
+              "workingSetBytes": 16474112,
+              "memoryCurrentBytes": 16478208,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 739476,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 4,
+          "roles": {
+            "node": {
+              "elapsedNanos": 240150611167,
+              "collectionNanos": 117557291,
+              "workingSetBytes": 12066816,
+              "memoryCurrentBytes": 12070912,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 250141,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 240155844917,
+              "collectionNanos": 126956667,
+              "workingSetBytes": 15589376,
+              "memoryCurrentBytes": 15593472,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 868097,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 5,
+          "roles": {
+            "node": {
+              "elapsedNanos": 300083360042,
+              "collectionNanos": 108037625,
+              "workingSetBytes": 10661888,
+              "memoryCurrentBytes": 10665984,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 258839,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 300016566625,
+              "collectionNanos": 107973125,
+              "workingSetBytes": 16384000,
+              "memoryCurrentBytes": 16388096,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 1001409,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 6,
+          "roles": {
+            "node": {
+              "elapsedNanos": 360098179083,
+              "collectionNanos": 106269000,
+              "workingSetBytes": 10674176,
+              "memoryCurrentBytes": 10678272,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 264859,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 360040032167,
+              "collectionNanos": 118834708,
+              "workingSetBytes": 16666624,
+              "memoryCurrentBytes": 16670720,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 1177669,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 7,
+          "roles": {
+            "node": {
+              "elapsedNanos": 420298718458,
+              "collectionNanos": 157402667,
+              "workingSetBytes": 10723328,
+              "memoryCurrentBytes": 10727424,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 277887,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 420477193292,
+              "collectionNanos": 146536417,
+              "workingSetBytes": 16195584,
+              "memoryCurrentBytes": 16199680,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 1352690,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 8,
+          "roles": {
+            "node": {
+              "elapsedNanos": 480138232542,
+              "collectionNanos": 112405500,
+              "workingSetBytes": 10735616,
+              "memoryCurrentBytes": 10739712,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 284070,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 480099912042,
+              "collectionNanos": 111733042,
+              "workingSetBytes": 16015360,
+              "memoryCurrentBytes": 16019456,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 1502788,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 9,
+          "roles": {
+            "node": {
+              "elapsedNanos": 540156695583,
+              "collectionNanos": 110398834,
+              "workingSetBytes": 10657792,
+              "memoryCurrentBytes": 10661888,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 303921,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 540115228709,
+              "collectionNanos": 125784958,
+              "workingSetBytes": 16031744,
+              "memoryCurrentBytes": 16035840,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 1689645,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 10,
+          "roles": {
+            "node": {
+              "elapsedNanos": 600117361500,
+              "collectionNanos": 113221167,
+              "workingSetBytes": 10665984,
+              "memoryCurrentBytes": 10670080,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 310157,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 600074328584,
+              "collectionNanos": 116295416,
+              "workingSetBytes": 16822272,
+              "memoryCurrentBytes": 16826368,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 1864987,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 11,
+          "roles": {
+            "node": {
+              "elapsedNanos": 660104288083,
+              "collectionNanos": 106303792,
+              "workingSetBytes": 10698752,
+              "memoryCurrentBytes": 10702848,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 330682,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 660049056334,
+              "collectionNanos": 111519250,
+              "workingSetBytes": 16863232,
+              "memoryCurrentBytes": 16867328,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 2055162,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 12,
+          "roles": {
+            "node": {
+              "elapsedNanos": 720102410083,
+              "collectionNanos": 108739209,
+              "workingSetBytes": 10698752,
+              "memoryCurrentBytes": 10702848,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 338834,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 720061721292,
+              "collectionNanos": 106368583,
+              "workingSetBytes": 16363520,
+              "memoryCurrentBytes": 16367616,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 2238152,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 13,
+          "roles": {
+            "node": {
+              "elapsedNanos": 780136090250,
+              "collectionNanos": 106411292,
+              "workingSetBytes": 10698752,
+              "memoryCurrentBytes": 10702848,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 363205,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 780076886292,
+              "collectionNanos": 112856125,
+              "workingSetBytes": 16699392,
+              "memoryCurrentBytes": 16703488,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 2429510,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 14,
+          "roles": {
+            "node": {
+              "elapsedNanos": 840086181125,
+              "collectionNanos": 107444458,
+              "workingSetBytes": 10706944,
+              "memoryCurrentBytes": 10711040,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 369001,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 840026397875,
+              "collectionNanos": 109361125,
+              "workingSetBytes": 16449536,
+              "memoryCurrentBytes": 16453632,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 2604295,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 15,
+          "roles": {
+            "node": {
+              "elapsedNanos": 900086844250,
+              "collectionNanos": 106039583,
+              "workingSetBytes": 10719232,
+              "memoryCurrentBytes": 10723328,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 397937,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 900030911292,
+              "collectionNanos": 123305625,
+              "workingSetBytes": 16551936,
+              "memoryCurrentBytes": 16556032,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 2793398,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 16,
+          "roles": {
+            "node": {
+              "elapsedNanos": 960082740708,
+              "collectionNanos": 119303292,
+              "workingSetBytes": 10723328,
+              "memoryCurrentBytes": 10727424,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 404904,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 960046592959,
+              "collectionNanos": 108778166,
+              "workingSetBytes": 16560128,
+              "memoryCurrentBytes": 16564224,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 2956889,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 17,
+          "roles": {
+            "node": {
+              "elapsedNanos": 1020083637375,
+              "collectionNanos": 126036792,
+              "workingSetBytes": 10727424,
+              "memoryCurrentBytes": 10731520,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 426552,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 1020046841167,
+              "collectionNanos": 114985542,
+              "workingSetBytes": 16826368,
+              "memoryCurrentBytes": 16830464,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 3130650,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 18,
+          "roles": {
+            "node": {
+              "elapsedNanos": 1080094503042,
+              "collectionNanos": 112097666,
+              "workingSetBytes": 10727424,
+              "memoryCurrentBytes": 10731520,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 434403,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 1080066182625,
+              "collectionNanos": 119685459,
+              "workingSetBytes": 16863232,
+              "memoryCurrentBytes": 16867328,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 3301462,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 19,
+          "roles": {
+            "node": {
+              "elapsedNanos": 1140099277167,
+              "collectionNanos": 128297458,
+              "workingSetBytes": 10727424,
+              "memoryCurrentBytes": 10731520,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 457262,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 1140084841959,
+              "collectionNanos": 112108541,
+              "workingSetBytes": 16617472,
+              "memoryCurrentBytes": 16621568,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 3467743,
+              "throttledMicroseconds": 0
+            }
+          }
+        },
+        {
+          "index": 20,
+          "roles": {
+            "node": {
+              "elapsedNanos": 1200085149625,
+              "collectionNanos": 112553542,
+              "workingSetBytes": 10727424,
+              "memoryCurrentBytes": 10731520,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 463228,
+              "throttledMicroseconds": 0
+            },
+            "api": {
+              "elapsedNanos": 1200029152167,
+              "collectionNanos": 109985750,
+              "workingSetBytes": 16896000,
+              "memoryCurrentBytes": 16900096,
+              "anonymousHugePagesBytes": 0,
+              "cpuUsageMicroseconds": 3653626,
+              "throttledMicroseconds": 0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

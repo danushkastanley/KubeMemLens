@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	apiendpoints "k8s.io/apiserver/pkg/endpoints"
 	genericapiserver "k8s.io/apiserver/pkg/server"
+	"k8s.io/apiserver/pkg/server/healthz"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
 	utilfeature "k8s.io/apiserver/pkg/util/feature"
 	"k8s.io/client-go/kubernetes"
@@ -66,7 +67,7 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	if err != nil {
 		return errors.New("configure trace API authentication failed")
 	}
-	config.AddReadyzChecks(kubeauth.RequestHeaderReady(headers))
+	config.AddReadyzChecks(kubeauth.RequestHeaderReady(headers), healthz.NamedCheck("trace-audit", func(*http.Request) error { return o.Manager.AuditHealthy() }))
 	config.Authorization.Authorizer = delegatedAuthorizer{o.Client.AuthorizationV1().SubjectAccessReviews()}
 	server, err := config.Complete(nil).New("kube-memlens-trace-admission", genericapiserver.NewEmptyDelegate())
 	if err != nil {

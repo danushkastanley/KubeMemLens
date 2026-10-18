@@ -16,6 +16,9 @@ namespace:
 nodeContext:
   enabled: false
   volumeStats: false
+  topology:
+    enabled: false
+    cgroupRoot: /sys/fs/cgroup
   kubeletCAConfigMap: ""
   kubeletAudience: ""
   kubeletPort: 10250
@@ -34,6 +37,30 @@ volumeContext:
   workloads: false
   enabled: false
   health: false
+  namespaces: []
+
+# Optional history query adapter. The operator owns the remote service and its
+# immutable identity labels. Credentials come only from an existing Secret.
+memoryHistory:
+  enabled: false
+  url: ""
+  cluster: ""
+  namespaces: []
+  nodes: false
+  workloads: false
+  markers: false
+  credentialsSecret: ""
+  caKey: ""
+  tokenKey: ""
+
+# Optional owner-only incident records. Retained in collector memory only.
+incidentSessions:
+  enabled: false
+  namespaces: []
+
+# Optional local comparison of authorised workload replicas. No remote provider.
+replicaBaselines:
+  enabled: false
   namespaces: []
 
 agent:
@@ -59,6 +86,8 @@ agent:
 
 collector:
   enabled: true
+  # Additional placement labels; the collector always requires Linux.
+  nodeSelector: {}
   # Multiple replicas would each hold an independent in-memory view.
   replicas: 1
   snapshotTTL: 30s
@@ -93,6 +122,9 @@ collector:
   service:
     # Pod-local health listener. The authenticated Service does not expose it.
     port: 8080
+    # Authenticated Service endpoint; APIService and the connection test follow it.
+    extensionPort: 443
+    extensionPortName: https-extension
 
 extensionTLS:
   secretName: kube-memlens-extension-tls

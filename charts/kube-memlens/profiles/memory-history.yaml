@@ -1,0 +1,12 @@
+# Requires an existing identity-enriched Prometheus-compatible source. See
+# docs/memory-history.md before enabling; this profile installs no Prometheus.
+memoryHistory:
+  enabled: true
+  url: https://prometheus.monitoring.svc:9090
+  cluster: production
+  namespaces: [team-a]
+  nodes: false
+  workloads: false
+  credentialsSecret: memory-history-access
+  caKey: ca.crt
+  tokenKey: token

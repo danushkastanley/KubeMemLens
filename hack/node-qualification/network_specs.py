@@ -51,21 +51,22 @@ def manifests(namespace, image, node_names):
         policy(namespace, "ingress", {**APP, LABEL: "ingress"}, "ingress",
                [{"podSelector": {"matchLabels": {LABEL: "control"}}}]),
         policy(namespace, "egress", APP, "egress", [{"podSelector": {"matchLabels": {LABEL: "egress"}}}]),
+        # Strict CNIs also need an explicit policy for the responder Pods.
+        # Keep this separate so suspending producer egress still tests denial.
+        policy(namespace, "egress-target", {LABEL: "egress"}, "ingress",
+               [{"podSelector": {"matchLabels": APP}}]),
         policy(namespace, "control", {LABEL: "control"}, "egress", [{"podSelector": {"matchExpressions": [
             {"key": LABEL, "operator": "In", "values": ["ingress", "egress"]}]}}]),
     ]
     for slot, node in enumerate(node_names):
-        for role in ("ingress", "egress"):
+        for role in ("ingress", "egress", "control"):
             labels = {LABEL: role, **(APP if role == "ingress" else {})}
-            # A Job owns the serving Pod so the producer DaemonSet cannot adopt
-            # an ingress target that deliberately matches its policy selector.
+            # Real controllers prevent DaemonSet adoption and permit reliable
+            # network-policy enforcement on CNIs that require owned Pods.
             result.append({"apiVersion": "batch/v1", "kind": "Job",
                            "metadata": {"name": f"{PREFIX}-{role}-{slot}", "namespace": namespace},
                            "spec": {"backoffLimit": 0, "activeDeadlineSeconds": 600,
-                                    "template": {"metadata": {"labels": labels}, "spec": _pod_spec(image, node, True)}}})
-        result.append({"apiVersion": "v1", "kind": "Pod",
-                       "metadata": {"name": f"{PREFIX}-control-{slot}", "namespace": namespace, "labels": {LABEL: "control"}},
-                       "spec": _pod_spec(image, node, False)})
+                                    "template": {"metadata": {"labels": labels}, "spec": _pod_spec(image, node, role != "control")}}})
     return result
 
 

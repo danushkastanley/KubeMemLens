@@ -47,7 +47,7 @@ func (h *ReadHandler) authoriseVolumeObject(ctx context.Context, a kube.VolumeAc
 	if a.Group == api.MemoryAPIGroup {
 		version = api.MemoryAPIVersion
 	}
-	decision, _, err := h.podAuthorizer.Authorize(ctx, authorizer.AttributesRecord{User: principal, Verb: verb, APIGroup: a.Group, APIVersion: version, Resource: a.Resource, Namespace: a.Namespace, Name: a.Name, ResourceRequest: true})
+	decision, _, err := h.podAuthorizer.Authorize(ctx, authorizer.AttributesRecord{User: principal, Verb: verb, APIGroup: a.Group, APIVersion: version, Resource: a.Resource, Subresource: a.Subresource, Namespace: a.Namespace, Name: a.Name, ResourceRequest: true})
 	if err != nil {
 		return &kube.HealthReadError{Reason: volumehealth.ReadFailed}
 	}

@@ -1,0 +1,114 @@
+{
+  "schemaVersion": 1,
+  "qualification": "own local functional replica baseline verification",
+  "baseCommit": "c0fe709843a9f54eec217a12de724085c767c8e7",
+  "sourceSHA256": "b750dedd95a7d0e564e7c15c7f4e01d0d08c2efa12b87eca24882cc02ae7107f",
+  "platform": {
+    "kubernetes": "1.37.0",
+    "architecture": "arm64",
+    "nodes": 2,
+    "kernel": "7.0.12-linuxkit",
+    "containerRuntime": "containerd 2.3.4"
+  },
+  "fixture": {
+    "replicasInComparedWorkload": 5,
+    "containersPerReplica": 1,
+    "memoryLimitBytes": 134217728,
+    "additionalAllocationBytes": 67108864,
+    "allocationLifetimeSeconds": 600,
+    "sameTemplateAndRevision": true
+  },
+  "outlier": {
+    "passed": true,
+    "capturedAt": "2026-09-28T23:37:20.293318722Z",
+    "candidateBytes": 69931008,
+    "referenceMedianBytes": 1009664,
+    "references": 4,
+    "differenceBytes": 68921344,
+    "confidence": "limited-change-history",
+    "responseSeconds": 0.04039983300026506
+  },
+  "allocationRelease": {
+    "status": 200,
+    "chargeBytes": 999424,
+    "capturedAt": "2026-09-28T23:43:50.293848847Z",
+    "thresholdBytes": 16777216
+  },
+  "checks": [
+    "authorised workload returns five peers",
+    "tenant-b denied without disclosure",
+    "route-only denied without disclosure",
+    "tenant-b reads only its one replica",
+    "invalid query ?kind=Deployment&kind=Job",
+    "invalid query ?kind=Deployment&selector=all",
+    "Pod selection resolves same peer root",
+    "list permission does not disclose denied named peer",
+    "real CLI validates five-peer report",
+    "CLI describes stability and thresholds",
+    "actual bounded history qualifies growth comparison",
+    "outlier did not change workload template",
+    "all compared Pods retained original identities and revision",
+    "no fixture container restarted or OOM killed",
+    "revocation clears comparison immediately",
+    "restored authorisation re-resolves peers",
+    "replacement cannot inherit predecessor stability",
+    "removed identity not retained in peer set",
+    "replica replacement event suppresses all affected peers during stability window"
+  ],
+  "terminal": [
+    {
+      "scope": "pod",
+      "columns": 80,
+      "rows": 24,
+      "passed": true
+    },
+    {
+      "scope": "workload",
+      "columns": 120,
+      "rows": 36,
+      "passed": true
+    }
+  ],
+  "rollback": {
+    "endpointStatus": 404,
+    "discoveryRemoved": true,
+    "viewerRoleRemoved": true,
+    "replicaFlagsRemoved": true
+  },
+  "cleanup": {
+    "ownedNamespacesRemoved": true,
+    "apiServiceRemoved": true,
+    "bothExistingNodesReady": true,
+    "clusterDeleted": false,
+    "finishedAt": 1790639092.5341032
+  },
+  "binaryHashes": {
+    "kubectl-memlens": "b66cbb2060909f5a34d00f2ccad91d57345bcdd7b17dc6709ff096c4ad17e31d",
+    "memlens-agent": "f70ae1384df653cc62a03bd1100374a617c1c326a19f1922305fc47bee54a8df",
+    "memlens-collector": "aff09bdfabfc9b32e4707949bb7b45382b00f824e3beb541ddb9b4980cc08bcd",
+    "memlens-node-context": "fb9d10ecb413f3909b2532384e080dfb563dee5037d6a5049a18520f5d41349e",
+    "memlens-cert-bootstrap": "f9b415b6392acaed0bbd945f951044f0eecbcc79fa424026f1ab18d891f24d15",
+    "replica-workload": "85af4340a097c88e1eb9d35ed6b8ff38c5ec6f39c75637de872ac0276568b128"
+  },
+  "localImageID": "sha256:535a5cda0eaf422b2b3289e048896d5cd6e1bdfbd2fd0a137173e10b21b761b6",
+  "verification": {
+    "hostFullRace": true,
+    "correctedAgentAdapterRace": true,
+    "hostFullVet": true,
+    "linuxArm64RaceAndVet": true,
+    "linuxAMD64CrossBuild": true,
+    "replicaChartContract": true,
+    "existingHistoryChartContract": true,
+    "supportContract": true,
+    "replicaConcurrencyCancellationAndDisclosureFreshness": true
+  },
+  "limitations": [
+    "Local functional checks do not establish throughput, tail latency or managed-provider compatibility.",
+    "Event history remains partial; confidence is not a probability.",
+    "Legacy zero composition values lack presence metadata and remain unreported.",
+    "Independent review and adoption evidence are outside this local record."
+  ],
+  "additionalHostTests": {
+    "internal/extension/replica_concurrency_test.go": "fb0157a849e753eae74ed98b3570dad4b5dab23007159d388608fb78e97b3010"
+  }
+}

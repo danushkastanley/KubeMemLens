@@ -6,6 +6,12 @@ vet, and cross-compiles for Linux amd64 and arm64. The dedicated
 `trace-worker.yml` workflow runs these non-loading checks with read-only repository
 permissions. Parent-module `go test ./...` does not cross the nested module boundary.
 
+SDK preparation permits at most three fetch attempts for recognised transient
+failures within the original 180-second total deadline. Checksum and unclassified
+failures stop immediately. A successful fetch must still match the fixed module
+version and checksum before the constrained patch is applied. Preparation tests
+cover the shared deadline, bounded attempts and failure handling.
+
 This job does not sign or load programmes. Offline candidate-object preparation
 tests require `KML_FILECACHE_OBJECTS` (four-object file/cache build) and
 `KML_OOM_OBJECTS` (six-object build for OOM tests) and remain part of local candidate verification,

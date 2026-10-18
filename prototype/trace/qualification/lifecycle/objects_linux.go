@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"sort"
@@ -24,16 +25,24 @@ type snapshot struct {
 }
 
 func selectedTarget(pid int, targets map[uint64]bool) bool {
+	id, err := workerTarget(pid)
+	return err == nil && targets[id]
+}
+
+func workerTarget(pid int) (uint64, error) {
 	path := procPath(pid, "fd/3")
 	fd, err := unix.Open(path, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return false
+		return 0, errOwnership
 	}
 	var fs unix.Statfs_t
 	var value unix.Stat_t
 	fsErr, statErr := unix.Fstatfs(fd, &fs), unix.Fstat(fd, &value)
 	closeErr := unix.Close(fd)
-	return fsErr == nil && statErr == nil && closeErr == nil && fs.Type == unix.CGROUP2_SUPER_MAGIC && targets[value.Ino]
+	if fsErr != nil || statErr != nil || closeErr != nil || fs.Type != unix.CGROUP2_SUPER_MAGIC || value.Ino == 0 {
+		return 0, errOwnership
+	}
+	return value.Ino, nil
 }
 
 func ownedChildren(parent *process, digest string, targets map[uint64]bool) ([]*process, int, error) {
@@ -48,6 +57,10 @@ func ownedChildrenWithOpen(parent *process, targets map[uint64]bool, openChild f
 			}
 		}
 	}()
+	parentCgroup, err := readBounded(procPath(parent.pid, "cgroup"), 4096)
+	if err != nil {
+		return nil, 0, errOwnership
+	}
 	ids, err := children(parent)
 	if err != nil {
 		return nil, 0, err
@@ -67,6 +80,10 @@ func ownedChildrenWithOpen(parent *process, targets map[uint64]bool, openChild f
 			return owned, excluded, err
 		}
 		owned = append(owned, child)
+		childCgroup, groupErr := readBounded(procPath(pid, "cgroup"), 4096)
+		if groupErr != nil || !bytes.Equal(parentCgroup, childCgroup) {
+			return owned, excluded, errOwnership
+		}
 		status, err := readBounded(procPath(pid, "status"), 16384)
 		if err != nil || field(status, "PPid") != strconv.Itoa(parent.pid) || !selectedTarget(pid, targets) || child.check() != nil || len(owned) > 2 {
 			return owned, excluded, errOwnership

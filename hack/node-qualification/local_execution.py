@@ -48,7 +48,9 @@ def prepare(args):
               "inventoryProfile": "self-managed-containerd", "kubernetesVersion": infos[0]["kubernetes"],
               "cliBinary": str(root / "host-cli"), "cliDigest": file_digest(root / "host-cli", 128 * 1024 * 1024),
               "chartArchive": str(root / "chart.tgz"), "imageRepository": args.image_repository,
-              "imageDigest": args.image_digest, "kubeletAudience": audience}
+              "imageDigest": args.image_digest, "kubeletAudience": audience,
+              "apiServerCIDRs": sorted({service + "/32"} | {n["route"] for n in bindings}),
+              "nodeCIDRs": [n["route"] for n in bindings]}
     proposal = root / "local-proposal"; proposal.mkdir(mode=0o700)
     selector, tolerations = {"kubernetes.io/os": "linux"}, [{"operator": "Exists"}]
     for phase in ("baseline", "enabled"):
@@ -56,8 +58,8 @@ def prepare(args):
                   "agent": {"nodeSelector": selector, "tolerations": tolerations, "tokenExpirationSeconds": 600},
                   "collector": {"store": {"maxNodes": 10, "maxContainers": 2000}, "resources": {"limits": {"memory": "512Mi"}}},
                   "nodeContext": {"enabled": phase == "enabled", "kubeletCAConfigMap": "node-context-trust", "kubeletAudience": audience,
-                                  "apiServerCIDRs": sorted({service + "/32"} | {n["route"] for n in bindings}),
-                                  "nodeCIDRs": [n["route"] for n in bindings]}}
+                                  "apiServerCIDRs": config["apiServerCIDRs"],
+                                  "nodeCIDRs": config["nodeCIDRs"]}}
         write_new(proposal / (phase + "-values.json"), values)
     trust = {"apiVersion": "v1", "kind": "ConfigMap", "metadata": {"name": "node-context-trust", "namespace": namespace},
              "data": {"ca.crt": (root / "serving-ca.crt").read_text()}}

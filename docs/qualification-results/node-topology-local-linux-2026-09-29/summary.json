@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "qualification": "own local functional Node topology verification",
+  "baseCommit": "08da3702992a92eccdc2c9b8d9989afeb33a9bf8",
+  "sourceSHA256": "a13ff9b33367218e3decb1d2c6b2d03b7e4e94c405be97247ef92c48c95dc129",
+  "kind": {
+    "kubernetes": "1.37.0",
+    "architecture": "arm64",
+    "nodes": 2,
+    "kernel": "7.0.12-linuxkit",
+    "runtime": "containerd 2.3.4",
+    "NUMASource": "unsupported",
+    "hugepageSizesBytes": [
+      65536,
+      2097152,
+      33554432,
+      1073741824
+    ],
+    "allPoolPageCounts": 0,
+    "finiteCgroupLimitBytes": 9223372036854771712,
+    "normalMemoryFieldsMatchExactKubeletTime": true
+  },
+  "numaVM": {
+    "architecture": "arm64",
+    "kernel": "6.18.54-0-lts",
+    "domains": 2,
+    "memoryMiB": 1536,
+    "cpus": 2,
+    "ordinaryAllocationBytes": 268435456,
+    "hugePageBytes": 2097152,
+    "hugePagePoolPages": 8,
+    "stages": [
+      "baseline",
+      "numa-held-256MiB-node1",
+      "huge-reserved-unfaulted",
+      "huge-in-use-2MiB",
+      "scoped-hugetlb-limit-failure",
+      "released"
+    ],
+    "sourceAndAnalysisChecksPassed": true,
+    "containerRemoved": true,
+    "kernelLogSHA256": "2a8b61d1318a72f925e930c30ca7c073f3f0cae641e36e67207f82e4d93f9ab9",
+    "readerBinarySHA256": "0a0d60fa05f648bbd60cbcb82a16f500948b2b73ae02bab2d9d768778daab4e5"
+  },
+  "api": {
+    "normalNodeViewerDenied": true,
+    "otherNodeDenied": true,
+    "oldSchemaOmitted": true,
+    "podReadsDenied": true,
+    "normalNodeContractUnchanged": true,
+    "NUMAUnsupported": true,
+    "zeroPoolSourceMatches": true,
+    "cgroupState": "available"
+  },
+  "capture": {
+    "schema7": true,
+    "schema4DefaultPreserved": true,
+    "nodeAlias": true,
+    "privateMode": true,
+    "sourceCaveatsRetained": true,
+    "offlineReplay": true,
+    "forbiddenOverwritePreserved": true,
+    "cliSHA256": "a6a70a0ddcadb151362af289ff3d151e9f4f97a639fa401045bbf71ca84f315d"
+  },
+  "terminal": [
+    {
+      "columns": 80,
+      "rows": 24,
+      "liveTopology": true,
+      "scroll": true,
+      "pause": true
+    },
+    {
+      "columns": 160,
+      "rows": 35,
+      "liveTopology": true,
+      "scroll": true,
+      "pause": true
+    }
+  ],
+  "revocation": {
+    "namedReadDeniedAfterGrantRemoved": true
+  },
+  "rollback": {
+    "discoveryRemoved": true,
+    "viewerRoleRemoved": true,
+    "hostMountsRemoved": true,
+    "topologyFlagRemoved": true,
+    "ordinaryNodeReadAvailable": true
+  },
+  "cleanup": {
+    "ownedNamespaceRemoved": true,
+    "ownedRolesAndBindingsRemoved": true,
+    "apiServiceRemoved": true,
+    "kubeletConfigurationRestored": true,
+    "fixtureKeysRemoved": true,
+    "bothExistingNodesReady": true,
+    "existingClusterRetained": true,
+    "finishedAt": 1790646204.718098
+  },
+  "binaries": {
+    "kubectl-memlens": "2e4f75360eddbf12bebf71d452bdd37a9d22c11f5eaef86ea93aa409cdceeb68",
+    "memlens-agent": "7993b5e5c2e6dff1ea2c1c01d532c8649b3c32f2319b23858d076cdfee6bcca8",
+    "memlens-collector": "daaba2291248d1502fe2c5c6f9e64bfb1fd2eb481a9fd23dfdc244b328bc2d82",
+    "memlens-node-context": "8f13825fe3ab4d1ace0f81e7899375564007024cb608b8115e20d7ed7369d186",
+    "memlens-cert-bootstrap": "61939231c146ac3a7f0e9fe7c089cd104bfa58434cd1594eb8da52c41c5636fd"
+  },
+  "localImageConfigDigest": "sha256:2cd4d4c0d6844a303a59b3683168fd2532fd25731183b08fff8302f1c30247d6",
+  "verificationLogSHA256": {
+    "go-final-checks.log": "a6c20b091a3066f599ee9fb13aeda788745e32484ebc88008c2938f865015b5e",
+    "final-go-checks.log": "e08e7090c88fc1d473be6290c7edf45ab87c71fe99aa74706786b11b1cfda05c",
+    "linux-validation.log": "7548242ac0a8894b232842122ab33abfa347f99b89c7ca2e09cd2a812bc92e68",
+    "linux-final-regression.log": "639ebaa26b185831a26d8f703911ba94742ea6e2e2cad8a4f52acafedcbe6dca",
+    "source-bound-contracts.log": "704ffb8dc7a14ace52b11eaf14023a35b1508374f0fbac58896aa455f7563ad4",
+    "kernel-limit-regression.log": "8f1693363168b76e649b1acae335e8b432b84ef2acacdfd620078074c0e86173",
+    "cli-topology-tests.log": "0a2b35954ae5016d999e5ddbd8b15811e9cec4d817b3701b942e9c4e71dceb95",
+    "chart-node-contract.log": "abb46a9a30ab35de69128a3554650c96f3c0389a753db49012dbd0a1a41c2128",
+    "chart-topology-contract.log": "466ea868172b46b74331ca794d17b2197168c147c49886ff46e9a39e7f0cc30c"
+  },
+  "limitations": [
+    "Local kind and the isolated NUMA VM exercise different source profiles; positive NUMA and nonzero HugeTLB allocation ran in the VM.",
+    "No actual Kubernetes eviction or Topology/Memory Manager policy was inferred or qualified.",
+    "Local tests do not establish managed-provider support, all hardware support or throughput limits."
+  ]
+}

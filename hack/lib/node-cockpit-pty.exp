@@ -1,3 +1,44 @@
+# The owned fixture has two measured workers and possibly a control-plane Node.
+# Charge ordering is not a stable way to choose the requested qualified Node.
+# A full-name text filter may also match a suffixed sibling (worker / worker2),
+# so confirm the actual detail title rather than assuming the first filtered row.
+proc select_node_cockpit {node} {
+  global timeout node_cockpit_title_pattern
+  if {![regexp {^[a-z0-9][a-z0-9.-]{0,252}$} $node]} {
+    puts stderr "Node PTY requires a valid target Node"
+    exit 2
+  }
+  send -- "/"
+  expect {
+    -re {search:} {}
+    timeout { puts stderr "Node PTY filter did not open"; exit 1 }
+    eof { puts stderr "Node PTY exited before target selection"; exit 1 }
+  }
+  send -s -- "$node\r"
+  for {set attempt 0} {$attempt < 3} {incr attempt} {
+    send -- "e"
+    expect {
+      -re $node_cockpit_title_pattern {
+        if {$expect_out(1,string) eq $node} {
+          puts "PASS requested Node selected"
+          return
+        }
+      }
+      timeout { puts stderr "Node PTY target detail did not open"; exit 1 }
+      eof { puts stderr "Node PTY exited during target selection"; exit 1 }
+    }
+    send -- "h"
+    expect {
+      -re {CHARGE} {}
+      timeout { puts stderr "Node PTY did not return to the Node table"; exit 1 }
+      eof { puts stderr "Node PTY exited during target selection"; exit 1 }
+    }
+    send -- "j"
+  }
+  puts stderr "Node PTY did not select the requested Node"
+  exit 1
+}
+
 # Capture confirmation must tolerate a coalesced frame: the renderer may leave
 # "Redacted " from the input prompt on screen and write only the changed suffix.
 proc require_node_capture {capture} {
@@ -33,3 +74,6 @@ proc require_node_capture {capture} {
   puts stderr "Node PTY capture timed out: file_created=[file isfile $capture] confirmation_seen=$confirmed"
   exit 1
 }
+# The renderer can retain the table heading's N at row 3, column 1 and
+# redraw the detail title from column 2. Require that exact cursor position.
+set node_cockpit_title_pattern {(?:Node cockpit:|\x1b\[3;2Hode cockpit:) ([a-z0-9.-]+)[\s\x1b]}

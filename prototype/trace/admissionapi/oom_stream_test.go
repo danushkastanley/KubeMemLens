@@ -90,7 +90,7 @@ func TestOOMProxyEnrichesOnlyControlContextAndStopsReplacement(t *testing.T) {
 	for _, scenario := range []string{"complete", "forged-node-context", "target-replaced"} {
 		t.Run(scenario, func(t *testing.T) {
 			f := &oomStreamFixture{streamFixture: streamFixture{target: oomContextSpec(t).Target()}, forgedContext: scenario == "forged-node-context", replacedAfter: scenario == "target-replaced"}
-			manager, err := admission.NewManager(context.Background(), admission.Dependencies{Authorizer: f, Resolver: f, Binder: f, Audit: func(admission.AuditEvent) {}}, admission.DefaultPolicy())
+			manager, err := admission.NewManager(context.Background(), admission.Dependencies{Authorizer: f, Resolver: f, Binder: f, AuditReferences: testAuditReferences(t), Audit: func(context.Context, admission.AuditEvent) error { return nil }}, admission.DefaultPolicy())
 			if err != nil {
 				t.Fatal(err)
 			}
