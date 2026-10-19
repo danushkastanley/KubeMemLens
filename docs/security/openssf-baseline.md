@@ -28,10 +28,13 @@ sets the Branch-Protection minimum to 4 and retains the live-control readback,
 independent release approval and all other numerical thresholds. It is pending
 review and merge, and does not alter the historical scores below.
 
-The [v1.0.1 readback](../release-preparation-1.0.1.md#current-release-blockers)
+The [v1.0.1 readback](../release-preparation-1.0.1.md#pre-remediation-release-readback)
 records overall 8.0, Branch-Protection 4 and Vulnerabilities 4 on commit
 `681a05095c1562f15c1862b71c471cdf0b2e38cc`. The vulnerability result remains below
 the unchanged minimum of 7; this amendment does not clear that release blocker.
+The [dependency remediation](../release-preparation-1.0.1.md#dependency-remediation)
+separately addresses the affected dependencies. A new merged-main Scorecard
+readback is required before claiming that the vulnerability threshold passes.
 
 ## Scorecard
 

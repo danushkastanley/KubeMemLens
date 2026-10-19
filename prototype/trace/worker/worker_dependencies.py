@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess
 
 FORBIDDEN = (
+    "github.com/containerd/containerd",
+    "golang.org/x/crypto/openpgp",
     "google.golang.org/grpc",
     "k8s.io/client-go/",
     "k8s.io/cli-runtime/",

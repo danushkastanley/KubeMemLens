@@ -12,7 +12,7 @@ workflow results become the artefact authority after the candidate is frozen.
 | Reviewed implementation baseline | `681a05095c1562f15c1862b71c471cdf0b2e38cc` on `main` |
 | Release metadata | Prepared for review; the final candidate must use the merged preparation commit |
 | Candidate and stable publication | Not started; neither target tag exists at the preparation readback |
-| Release decision | Blocked by current Scorecard thresholds; see the dated readback below |
+| Release decision | Dependency remediation prepared; requires passing CI and a fresh merged-main Scorecard readback before tagging |
 | Rollback reference | Published `v1.0.0`; a rollback restores its older security dependencies |
 | Support scope | Existing standard EKS managed Linux profile; no new provider, runtime, terminal or scale claim |
 
@@ -77,7 +77,7 @@ projects. The public OpenSSF Best Practices API still reports `passing`; this
 is a self-assessment, not certification. These results do not clear the
 Scorecard release thresholds.
 
-### Current release blockers
+### Pre-remediation release readback
 
 The [Scorecard run on implementation baseline 681a050](https://github.com/danushkastanley/KubeMemLens/actions/runs/39172421856)
 completed successfully, but its findings fail the existing
@@ -113,6 +113,31 @@ The [Go vulnerability database](https://vuln.go.dev/) lists fixes for CEL at
 0.30.0 and etcd client/pkg at 3.7.1; it lists no fixed containerd v1 or OpenPGP
 version. Containerd v1 appears in the separate worker module's dependency graph.
 A version-only update cannot be assumed to resolve every finding.
+
+### Dependency remediation
+
+CEL is updated to 0.30.0 and the etcd API/client family to 3.7.1. The optional
+worker's checksum-bound SDK patch migrates its containerd client and test-helper
+imports to v2.3.7, preserving the tests and the `k8s.io` namespace default.
+Containerd v1 is absent from the resulting worker module files. The
+[migration decision](adr/0027-migrate-worker-sdk-containerd-dependency.md) records
+scope and the new matched-engine requirement; no optional runtime qualification
+is implied.
+
+Fresh root, trace and Linux/amd64 worker `govulncheck` scans report zero reachable
+symbols and zero affected imported packages. The only retained module advisory
+is `GO-2026-5932`: OpenPGP has no fixed version and is not imported by these
+targets. No finding is suppressed. Keep that absence under review and reject
+OpenPGP imports in the worker dependency boundary. This disposition retains the
+existing module advisory rather than claiming an advisory-free graph.
+
+The patched SDK helper/client packages and their tests cross-compile for Linux,
+and worker builds and dependency boundaries pass for Linux amd64 and arm64.
+The SDK patch digest is updated in the signed engine contract, so old accepted
+optional bundles cannot silently acquire the new code. The root unit/race,
+coverage, vet and build checks passed. Final CI and the merged-main Scorecard
+result remain required; the old main score above is not treated as repaired
+until the fresh readback confirms it.
 
 ### Preparation checks
 

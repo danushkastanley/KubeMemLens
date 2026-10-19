@@ -26,6 +26,7 @@ in the [release preparation record](docs/release-preparation-1.0.1.md).
 
 - Update Go builders and trace executable validation to 1.27.2, and align `golang.org/x/net` on 0.60.0 across all three modules to address HTTP and HTTP/2 security advisories.
 - Update the optional trace worker's Moby user-database parser to 0.4.1. The separate trace extension retains its development status.
+- Update CEL to 0.30.0 and the etcd clients/API to 3.7.1; migrate the optional worker SDK's containerd dependency to patched v2.3.7, retaining its tests and dependency isolation. The SDK patch has a new signed engine identity and requires a newly matched optional engine bundle.
 
 ### Upgrade notes
 

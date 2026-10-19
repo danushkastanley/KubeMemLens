@@ -5,6 +5,9 @@
 The v1.0.1 source updates Go builders to 1.27.2 and `golang.org/x/net` to
 0.60.0 across all three modules for the reviewed HTTP and HTTP/2 advisories.
 The optional trace worker also uses `github.com/moby/sys/user` 0.4.1.
+CEL 0.30.0 and etcd 3.7.1 close the previously recorded package advisories.
+The worker SDK uses containerd v2.3.7 instead of v1, with a new engine patch
+identity; previously accepted optional engine bundles do not authorise it.
 Existing installed binaries and immutable v1.0.0 artefacts are unchanged;
 deploy the new version only after its signed release is published.
 
