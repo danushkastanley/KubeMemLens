@@ -86,15 +86,19 @@ completed successfully, but its findings fail the existing
 | Check | Observed | Required | Decision |
 | --- | --- | --- | --- |
 | Overall | 8.0 | At least 7.0 | Pass |
-| Branch-Protection | 4 | At least 8 | Blocked; the September checks-only integration policy disabled required approvals |
+| Branch-Protection | 4 | At least 8 until the proposed amendment is merged; then at least 4 plus live controls | Amendment prepared for review at the maintainer's request; no live settings changed |
 | Vulnerabilities | 4, six advisories | At least 7 and no unreviewed advisory-count regression | Blocked; requires a reviewed remediation or closure plan |
 | Token-Permissions, Dangerous-Workflow, Pinned-Dependencies | 10 each | At least 8 each | Pass |
 | Signed-Releases | 8 | At least 8 | Pass |
 
 Code-Review is also 0; it is an advisory signal rather than a separate numerical
-release threshold. No repository setting or threshold has been changed by this
-preparation. The maintainer must resolve the conflict between checks-only
-integration and the retained Branch-Protection release requirement explicitly.
+release threshold. On 19 October the maintainer selected retaining checks-only
+PRs and requested an explicit amendment for review. The
+[proposed policy](repository-security.md#proposed-amendment-19-october-2026) and
+its executable predicate lower only the Branch-Protection minimum to 4 while
+retaining live-control verification. This proposal takes effect after review
+and merge. Live repository settings, the vulnerability threshold, independent
+release approval and the adopter decision remain unchanged.
 
 The six reported advisory IDs are `GO-2026-6094` (CEL), `GO-2026-6107` (etcd),
 `GO-2026-5932` (OpenPGP), and `GO-2026-5064`, `GO-2026-5338`, `GO-2026-5622`
