@@ -21,6 +21,7 @@ in the [release preparation record](docs/release-preparation-1.0.1.md).
 - Derive offline Pod comparison rates from forward source timestamps only when Pod identity and selection match and neither observation is stale. Omit unproven rates for redacted Pod captures and aggregate workload captures.
 - Measure volume qualification recovery durations with monotonic sub-second precision, avoiding zero-second records for fast recovery.
 - Wait for authenticated aggregation readiness after volume-profile rollback before asserting that the removed route returns 404, and retain redacted probe error categories.
+- Delete owned qualification Pods before their Jobs so background garbage collection cannot race the explicit Pod cleanup; retain UID-bound deletion.
 
 ### Security
 

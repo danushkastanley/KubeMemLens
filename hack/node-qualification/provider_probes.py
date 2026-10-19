@@ -153,6 +153,7 @@ def run_probes(config, bindings, ownership, k, timeout=90):
                 require(observation["nodeName"] == binding["name"] and observation["availability"] == "available"
                         and observation["evidence"]["freshness"] == "fresh", "production probe target or freshness differs")
                 observations.append(observation)
-            ownership.delete(parent)
+            # Delete the Pod before its Job can trigger background collection.
             ownership.delete(resource)
+            ownership.delete(parent)
     return observations
