@@ -46,13 +46,27 @@ remain required. No administrator bypass is added to `main`.
 
 This deliberately removes mandatory independent review before code reaches
 `main`. The earlier Branch-Protection score below is historical and does not
-prove the new policy's score. Existing OpenSSF release thresholds remain in
-force; a future regression must be reviewed at the release gate rather than
-silently treating old evidence as current. This change does not claim a fresh
-Scorecard result or waive a release threshold.
+prove the new policy's score. The September decision retained the release
+thresholds; the proposed amendment below resolves the resulting mismatch.
 
 Rollback restores the previous three PR-review settings and default ownership
 entry, together with the policy checker. The release environment is unchanged.
+
+### Proposed amendment, 19 October 2026
+
+The maintainer selected retaining checks-only PRs and requested this amendment
+for review. It takes effect only when the reviewed change is merged. Under
+that policy, Branch-Protection must score at least 4, with every required live
+control above and the exact checks-only PR policy still verified by
+`hack/community/check_repository_settings.sh`. The score alone is insufficient.
+The [decision record](adr/0026-align-release-gate-with-checks-only-integration.md)
+records the trade-off, alternatives and rollback.
+
+This explicitly accepts the absence of mandatory independent review before
+merge. Independent protected-environment approval, exact-tag authorisation,
+immutable signed artefacts and every other release threshold remain required.
+The change neither accepts the current vulnerability-score regression nor
+authorises a candidate tag or publication.
 
 ## OpenSSF thresholds
 
@@ -60,12 +74,14 @@ The scheduled Scorecard workflow publishes a signed result and uploads SARIF to
 GitHub code scanning. For v1 and every later supported release:
 
 - the overall Scorecard must be at least 7.0;
-- Branch-Protection, Token-Permissions, Dangerous-Workflow,
+- Branch-Protection must be at least 4 under the proposed checks-only amendment
+  above, together with a passing live-control readback;
+- Token-Permissions, Dangerous-Workflow,
   Pinned-Dependencies, and Signed-Releases must each be at least 8;
 - Vulnerabilities must be at least 7, `govulncheck` must report zero reachable
   vulnerabilities, and the known advisory count must not regress without a
   reviewed closure plan; and
-- a regression below either threshold is a release blocker, even when the
+- a regression below any applicable threshold is a release blocker, even when the
   overall score remains above 7.0.
 
 The OpenSSF Best Practices target is the Passing badge. Record evidence for

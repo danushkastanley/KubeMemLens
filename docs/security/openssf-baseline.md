@@ -20,6 +20,22 @@ The scores below are the recorded August baseline, not verification of the new
 PR policy. Recheck them before a release; no score or release threshold has been
 changed by this policy update.
 
+## Proposed policy amendment, 19 October 2026
+
+The maintainer requested retaining checks-only integration. The proposed
+[release-policy amendment](../repository-security.md#proposed-amendment-19-october-2026)
+sets the Branch-Protection minimum to 4 and retains the live-control readback,
+independent release approval and all other numerical thresholds. It is pending
+review and merge, and does not alter the historical scores below.
+
+The [v1.0.1 readback](../release-preparation-1.0.1.md#pre-remediation-release-readback)
+records overall 8.0, Branch-Protection 4 and Vulnerabilities 4 on commit
+`681a05095c1562f15c1862b71c471cdf0b2e38cc`. The vulnerability result remains below
+the unchanged minimum of 7; this amendment does not clear that release blocker.
+The [dependency remediation](../release-preparation-1.0.1.md#dependency-remediation)
+separately addresses the affected dependencies. A new merged-main Scorecard
+readback is required before claiming that the vulnerability threshold passes.
+
 ## Scorecard
 
 The repository had no published OpenSSF Scorecard result before PROD-011. A

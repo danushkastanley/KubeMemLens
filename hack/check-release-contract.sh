@@ -163,8 +163,8 @@ if grep -Eq 'docker build( |$)|docker buildx build|docker/build-push-action' <<<
   exit 1
 fi
 
-subjects_line=$(grep -n 'release-subjects.txt' "${workflow}" | head -1 | cut -d: -f1)
-release_line=$(grep -n 'hack/release/create_draft.sh' "${workflow}" | head -1 | cut -d: -f1)
+subjects_line=$(grep -n -m 1 'release-subjects.txt' "${workflow}" | cut -d: -f1)
+release_line=$(grep -n -m 1 'hack/release/create_draft.sh' "${workflow}" | cut -d: -f1)
 if [ -z "${subjects_line}" ] || [ -z "${release_line}" ] || [ "${subjects_line}" -ge "${release_line}" ]; then
   echo 'release subject inventory must exist before draft creation' >&2
   exit 1

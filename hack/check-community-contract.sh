@@ -25,6 +25,7 @@ required_files=(
   docs/security/reviews/private-reporting-drill-2026-08-27.md
   hack/community/check_repository_settings.sh
   hack/community/main_pr_policy.jq
+  hack/community/scorecard_policy.jq
 )
 
 for path in "${required_files[@]}"; do

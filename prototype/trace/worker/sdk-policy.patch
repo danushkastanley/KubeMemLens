@@ -911,3 +911,104 @@
 +
  package api
  
+--- a/pkg/container-utils/testutils/containerd.go
++++ b/pkg/container-utils/testutils/containerd.go
+@@ -22,12 +22,11 @@
+ 	"testing"
+ 	"time"
+ 
+-	"github.com/containerd/containerd"
+-	"github.com/containerd/containerd/cio"
+-	"github.com/containerd/containerd/namespaces"
+-	"github.com/containerd/containerd/oci"
+-	"github.com/containerd/containerd/pkg/cri/constants"
+-	"github.com/containerd/containerd/snapshots"
++	containerd "github.com/containerd/containerd/v2/client"
++	"github.com/containerd/containerd/v2/core/snapshots"
++	"github.com/containerd/containerd/v2/pkg/cio"
++	"github.com/containerd/containerd/v2/pkg/namespaces"
++	"github.com/containerd/containerd/v2/pkg/oci"
+ 	"github.com/opencontainers/runtime-spec/specs-go"
+ 	"github.com/stretchr/testify/require"
+ )
+@@ -67,7 +66,7 @@
+ 		return fmt.Errorf("creating a client: %w", err)
+ 	}
+ 
+-	namespace := constants.K8sContainerdNamespace
++	namespace := "k8s.io"
+ 	if c.options.namespace != "" {
+ 		namespace = c.options.namespace
+ 	}
+--- a/pkg/container-utils/containerd/containerd.go
++++ b/pkg/container-utils/containerd/containerd.go
+@@ -19,9 +19,8 @@
+ 	"fmt"
+ 	"time"
+ 
+-	"github.com/containerd/containerd"
+-	"github.com/containerd/containerd/namespaces"
+-	"github.com/containerd/containerd/pkg/cri/constants"
++	containerd "github.com/containerd/containerd/v2/client"
++	"github.com/containerd/containerd/v2/pkg/namespaces"
+ 	"github.com/containerd/errdefs"
+ 	"github.com/sirupsen/logrus"
+ 	"google.golang.org/grpc"
+@@ -65,7 +64,7 @@
+ 		return nil, fmt.Errorf("unknown runtime protocol %q", protocol)
+ 	}
+ 
+-	namespace := constants.K8sContainerdNamespace
++	namespace := "k8s.io"
+ 	if config != nil && config.Namespace != "" {
+ 		namespace = config.Namespace
+ 	}
+--- a/cmd/ig/utils/flags.go
++++ b/cmd/ig/utils/flags.go
+@@ -18,7 +18,6 @@
+ 	"fmt"
+ 	"strings"
+ 
+-	"github.com/containerd/containerd/pkg/cri/constants"
+ 	securejoin "github.com/cyphar/filepath-securejoin"
+ 
+ 	commonutils "github.com/inspektor-gadget/inspektor-gadget/cmd/common/utils"
+@@ -216,7 +215,7 @@
+ 	command.PersistentFlags().StringVar(
+ 		&commonFlags.ContainerdNamespace,
+ 		"containerd-namespace",
+-		constants.K8sContainerdNamespace,
++		"k8s.io",
+ 		"Namespace used by containerd",
+ 	)
+ 
+--- a/pkg/operators/localmanager/localmanager.go
++++ b/pkg/operators/localmanager/localmanager.go
+@@ -24,7 +24,6 @@
+ 
+ 	"github.com/cilium/ebpf"
+ 	"github.com/cilium/ebpf/rlimit"
+-	"github.com/containerd/containerd/pkg/cri/constants"
+ 	securejoin "github.com/cyphar/filepath-securejoin"
+ 	"github.com/google/uuid"
+ 	log "github.com/sirupsen/logrus"
+@@ -131,7 +130,7 @@
+ 		},
+ 		{
+ 			Key:          ContainerdNamespace,
+-			DefaultValue: constants.K8sContainerdNamespace,
++			DefaultValue: "k8s.io",
+ 			Description:  "Containerd namespace to use",
+ 		},
+ 		{
+--- a/go.mod
++++ b/go.mod
+@@ -6,7 +6,7 @@
+ 	github.com/blang/semver v3.5.1+incompatible
+ 	github.com/cilium/ebpf v0.22.0
+ 	github.com/cloudflare/cbpfc v0.0.0-20240920015331-ff978e94500b
+-	github.com/containerd/containerd v1.7.33
++	github.com/containerd/containerd/v2 v2.3.7
+ 	github.com/containerd/errdefs v1.0.0
+ 	github.com/containerd/nri v0.9.0
+ 	github.com/coreos/go-systemd/v22 v22.7.0

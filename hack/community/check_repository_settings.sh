@@ -150,15 +150,7 @@ done
 
 scorecard=$(curl --silent --show-error --fail \
   "https://api.scorecard.dev/projects/github.com/${repository}")
-jq -e '
-  .score >= 7 and
-  any(.checks[]; .name == "Branch-Protection" and .score >= 8) and
-  any(.checks[]; .name == "Token-Permissions" and .score >= 8) and
-  any(.checks[]; .name == "Dangerous-Workflow" and .score >= 8) and
-  any(.checks[]; .name == "Pinned-Dependencies" and .score >= 8) and
-  any(.checks[]; .name == "Signed-Releases" and .score >= 8) and
-  any(.checks[]; .name == "Vulnerabilities" and .score >= 7)
-' <<<"$scorecard" >/dev/null || {
+jq -e -f hack/community/scorecard_policy.jq <<<"$scorecard" >/dev/null || {
   echo 'published Scorecard result is below the release threshold' >&2
   exit 1
 }

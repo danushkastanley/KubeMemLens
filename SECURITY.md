@@ -1,5 +1,22 @@
 # Security Policy
 
+## v1.0.1 security updates
+
+The v1.0.1 source updates Go builders to 1.27.2 and `golang.org/x/net` to
+0.60.0 across all three modules for the reviewed HTTP and HTTP/2 advisories.
+The optional trace worker also uses `github.com/moby/sys/user` 0.4.1.
+CEL 0.30.0 and etcd 3.7.1 close the previously recorded package advisories.
+The worker SDK uses containerd v2.3.7 instead of v1, with a new engine patch
+identity; previously accepted optional engine bundles do not authorise it.
+Existing installed binaries and immutable v1.0.0 artefacts are unchanged;
+deploy the new version only after its signed release is published.
+
+See the [release preparation record](docs/release-preparation-1.0.1.md) for
+verification and publication status. A passing reachability scan does not
+claim an advisory-free dependency graph.
+
+## Historical RC2 baseline
+
 The published `v1.0.0-rc.2` candidate includes gRPC 1.83.2 for the
 HTTP/2 fragmented-frame memory-exhaustion and missing-authority denial-of-service advisories. This source change does
 not patch the immutable RC1 archives. See [RC2 preparation](docs/release-preparation-rc2.md).
@@ -11,14 +28,14 @@ dependency graph.
 
 ## Supported versions
 
-The standard `v1.0.0` release receives security fixes under the `1.0.x` policy. Historical prereleases receive fixes on a best-effort basis. The separately packaged eBPF development extension retains its own support status.
+Published standard `1.0.x` releases receive security fixes. Historical prereleases receive fixes on a best-effort basis. The separately packaged eBPF development extension retains its own support status.
 
 The [support and compatibility contract](docs/compatibility.md) is the canonical source for environment, tenant, availability and data-exposure claims. The candidate's shared-cluster claim remains limited to its recorded security and provider evidence.
 
 | Version | Supported |
 |---|---|
 | Published stable `1.0.x` | Security fixes |
-| `1.0.0-rc.x` | Best effort, pre-release |
+| `1.0.x-rc.N` | Best effort, pre-release |
 | `0.0.1-alpha.x` | Best effort, pre-release |
 | Unreleased `main` | Best effort |
 

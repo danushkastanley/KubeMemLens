@@ -1,5 +1,8 @@
 # v1 candidate evidence and blocker register
 
+For the next patch, see [v1.0.1 release preparation](release-preparation-1.0.1.md).
+The initial-v1 evidence below remains a historical record.
+
 Current release decision: the maintainer approved `v1.0.0` on 6 October 2026
 using completed project/EKS testing and the protected release workflow.
 [The release process](release-process.md#v100-maintainer-decision--6-october-2026)
