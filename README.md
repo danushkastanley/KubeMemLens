@@ -14,13 +14,19 @@ Instead of showing one scary memory number, KubeMemLens partitions pod/container
 
 The goal is to make incidents like "kubectl top says memory is high, but the app heap is stable" easier to understand.
 
-## v1.0.0
+## v1.0.1
 
-KubeMemLens provides read-only Kubernetes memory inspection through its CLI,
-terminal dashboard and standard agent/collector chart. Essential AWS EKS tests
-covered memory inspection, capture and replay, access isolation, recovery and
-cleanup. [Get KubeMemLens](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0) and
+This patch preserves evidence state in `top` output, corrects offline comparison
+rates and updates security dependencies. KubeMemLens provides read-only
+Kubernetes memory inspection through its CLI, terminal dashboard and standard
+agent/collector chart. The essential AWS EKS evidence recorded for v1.0.0 covers
+inspection, capture/replay, access isolation, recovery and cleanup; this patch
+does not add a provider claim. [Get KubeMemLens](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.1) and
 [send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
+
+Use the versioned install commands below after the matching release is published.
+The [release preparation record](docs/release-preparation-1.0.1.md) separates
+completed source checks from candidate and publication gates.
 
 The standard profile uses authenticated, tenant-scoped Kubernetes APIs and
 keeps optional features opt-in. The separate eBPF extension retains its
@@ -39,21 +45,21 @@ bounds rather than additional scale claims.
 ```sh
 helm upgrade --install kube-memlens \
   oci://ghcr.io/danushkastanley/charts/kube-memlens \
-  --version 1.0.0 \
+  --version 1.0.1 \
   --namespace kube-memlens \
   --create-namespace
 ```
 
-Download the CLI from the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0), or follow the
+Download the CLI from the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.1), or follow the
 [installation guide](docs/installation.md). For digest-pinned installation,
 use the production image digest in the signed `promotion-subjects.txt`.
 
 ### Release candidate artefacts
 
-The `v1.0.0-rc.3` candidate uses
-`oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.3/charts/kube-memlens`
-with `--version 1.0.0` and image repository
-`ghcr.io/danushkastanley/candidates/1.0.0-rc.3/kube-memlens`.
+The `v1.0.1-rc.1` candidate uses
+`oci://ghcr.io/danushkastanley/candidates/1.0.1-rc.1/charts/kube-memlens`
+with `--version 1.0.1` and image repository
+`ghcr.io/danushkastanley/candidates/1.0.1-rc.1/kube-memlens`.
 Candidate installs override the image repository and pin the image digest from
 its signed `candidate-manifest.json`. Stable promotion preserves those exact
 archive, image and chart bytes.

@@ -4,12 +4,14 @@ This chart installs the KubeMemLens node-local cgroup reader and its bounded, in
 
 KubeMemLens is a terminal-first Kubernetes memory incident explainer. The standard profile reads cgroup v2 memory accounting from a read-only host mount and does not install eBPF programmes, persistent storage, a CRD, external telemetry, or automatic remediation.
 
-## Install v1.0.0
+## Install v1.0.1
+
+Use this version after its matching release is published.
 
 ```sh
 helm upgrade --install kube-memlens \
   oci://ghcr.io/danushkastanley/charts/kube-memlens \
-  --version 1.0.0 \
+  --version 1.0.1 \
   --namespace kube-memlens \
   --create-namespace
 ```
@@ -18,17 +20,18 @@ The chart selects the version-matched standard image. Pin `image.digest` with
 the complete `sha256:` value from the signed `promotion-subjects.txt` when an
 immutable image reference is required.
 
-Essential AWS EKS tests covered inspection, incident capture/replay, access
-isolation, recovery and cleanup. [Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
+The essential AWS EKS evidence recorded for v1.0.0 covers inspection, incident
+capture/replay, access isolation, recovery and cleanup. This patch does not add
+a provider claim. [Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
 See the [support contract](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/compatibility.md)
 for the AWS EKS managed Linux profile and permission requirements.
 
 ### Release candidate artefacts
 
-The `v1.0.0-rc.3` candidate uses
-`oci://ghcr.io/danushkastanley/candidates/1.0.0-rc.3/charts/kube-memlens`
-with `--version 1.0.0` and image repository
-`ghcr.io/danushkastanley/candidates/1.0.0-rc.3/kube-memlens`.
+The `v1.0.1-rc.1` candidate uses
+`oci://ghcr.io/danushkastanley/candidates/1.0.1-rc.1/charts/kube-memlens`
+with `--version 1.0.1` and image repository
+`ghcr.io/danushkastanley/candidates/1.0.1-rc.1/kube-memlens`.
 Candidate installs override the image repository and pin the image digest from
 its signed `candidate-manifest.json`. Stable promotion preserves those exact
 archive, image and chart bytes.

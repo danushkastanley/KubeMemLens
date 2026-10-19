@@ -1,7 +1,7 @@
 # Support
 
-KubeMemLens is a community-maintained project. The approved `v1.0.0-rc.1` candidate and
-unreleased code receive best-effort support. Published stable `1.0.x` releases
+KubeMemLens is a community-maintained project. Prereleases and unreleased code
+receive best-effort support. Published stable `1.0.x` releases
 receive security fixes, but support remains best effort. There is no paid support, guaranteed response time, service-level
 agreement, or production stability guarantee.
 

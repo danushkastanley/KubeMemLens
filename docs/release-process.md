@@ -2,6 +2,16 @@
 
 KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer review.
 
+## v1.0.1 preparation
+
+The [v1.0.1 preparation record](release-preparation-1.0.1.md) proposes
+`v1.0.1-rc.1` followed by exact-byte promotion to `v1.0.1`. It records the
+source changes, compatibility notes and remaining decisions. Preparation does
+not declare either tag or release published. The v1.0.0-specific adopter
+exception below is not automatically extended to this patch; its promotion
+decision must be recorded before the stable tag is created. Independent
+environment approval and immutable artefact verification remain required.
+
 ## v1.0.0 maintainer decision — 6 October 2026
 
 For `v1.0.0`, the maintainer accepted the completed project and essential EKS

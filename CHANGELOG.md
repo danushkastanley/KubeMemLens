@@ -4,17 +4,34 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+## 1.0.1 - 2026-10-19
+
+Patch release preparation; publication and signed artefact status are recorded
+in the [release preparation record](docs/release-preparation-1.0.1.md).
+
 ### Dependencies
 
 - Align Kubernetes client and API libraries on 0.37.1 across the standard, trace and worker modules.
+- Update Bubble Tea to 2.1.0 and align `golang.org/x/time` on 0.16.0 across all three modules.
+- Refresh the pinned Docker, artefact-upload, Syft installer and CodeQL actions.
 
 ### Fixes
 
+- Preserve source sample time, freshness and completeness in deep-mode `top` table, JSON, YAML and CSV output.
+- Derive offline Pod comparison rates from forward source timestamps only when Pod identity and selection match and neither observation is stale. Omit unproven rates for redacted Pod captures and aggregate workload captures.
 - Measure volume qualification recovery durations with monotonic sub-second precision, avoiding zero-second records for fast recovery.
+- Wait for authenticated aggregation readiness after volume-profile rollback before asserting that the removed route returns 404, and retain redacted probe error categories.
 
 ### Security
 
 - Update Go builders and trace executable validation to 1.27.2, and align `golang.org/x/net` on 0.60.0 across all three modules to address HTTP and HTTP/2 security advisories.
+- Update the optional trace worker's Moby user-database parser to 0.4.1. The separate trace extension retains its development status.
+
+### Upgrade notes
+
+- `top` CSV output appends `captured_at`, `freshness` and `completeness`; JSON and YAML include the same evidence metadata. Consumers should read fields by name rather than assume a fixed column count.
+- Offline comparison output omits the rate column when continuity cannot be established. Existing capture formats remain readable.
+- The chart keeps the existing permissions, defaults, data retention and support scope. Helm upgrade or rollback restarts the in-memory collector and resets its retained history.
 
 ## 1.0.0 - 2026-10-06
 

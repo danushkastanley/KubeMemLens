@@ -281,7 +281,7 @@ python3 hack/node-qualification/verify_provider_artifacts.py \
   --proposal /absolute/path/to/private-proposal \
   --profile hack/node-qualification/profiles/gke-standard.json \
   --candidate-bundle /absolute/path/to/candidate-bundle \
-  --candidate-tag v1.0.0-rc.3 \
+  --candidate-tag v1.0.1-rc.1 \
   --image-archive /absolute/path/to/kube-memlens-image.tar \
   --architecture amd64 \
   --output /absolute/path/to/new-artefact-verification.json
