@@ -12,6 +12,7 @@ import (
 )
 
 type appModel struct {
+	podDashboard          podDashboardState
 	tracePanel            tracePanel
 	sessionPanel          sessionPanel
 	historyPanel          historyPanel
@@ -258,6 +259,7 @@ func (m *appModel) clearRevokedData() {
 	m.selectedPodNS = ""
 	m.selectedPodName = ""
 	m.detail = entityRef{}
+	m.podDashboard = podDashboardState{}
 	m.containerLoading = false
 	m.containerErr = nil
 }
@@ -321,6 +323,15 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		return m, m.ensureHistoryTarget()
 	}
 
+	if m.isPodDashboard() && m.help && msg.String() == "esc" {
+		m.help = false
+		return m, nil
+	}
+	if m.isPodDashboard() && !m.help {
+		if handled, command := m.podDashboardKey(msg.String()); handled {
+			return m, command
+		}
+	}
 	switch msg.String() {
 	case "T":
 		m.openTracePanel()
@@ -366,7 +377,9 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(m.nodeRefreshCmd(), m.volumeRefreshCmd())
 		}
 	case "esc":
-		if m.query != "" {
+		if m.view == viewDetail && m.podDashboard.podRef.kind == entityPod {
+			m.back()
+		} else if m.query != "" {
 			m.query = ""
 		} else if m.view == viewDetail {
 			m.back()

@@ -14,19 +14,21 @@ Instead of showing one scary memory number, KubeMemLens partitions pod/container
 
 The goal is to make incidents like "kubectl top says memory is high, but the app heap is stable" easier to understand.
 
-## v1.0.1
+## v1.0.2 preparation
 
-This patch preserves evidence state in `top` output, corrects offline comparison
-rates and updates security dependencies. KubeMemLens provides read-only
-Kubernetes memory inspection through its CLI, terminal dashboard and standard
-agent/collector chart. The essential AWS EKS evidence recorded for v1.0.0 covers
-inspection, capture/replay, access isolation, recovery and cleanup; this patch
-does not add a provider claim. [Get KubeMemLens](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.1) and
-[send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
+This patch adds a dedicated Pod dashboard with memory composition, history,
+context and read-only next checks. Enter opens the selected Pod; Esc restores
+the previous selection and filter. The main dashboard layout is unchanged.
 
-Use the versioned install commands below after the matching release is published.
-The [release preparation record](docs/release-preparation-1.0.1.md) separates
-completed source checks from candidate and publication gates.
+It also includes Go 1.27.3 for the certificate-verification security update,
+aligned x/sys dependencies and refreshed pinned CI actions. The
+[release preparation record](docs/release-preparation-1.0.2.md) records the
+checks and remaining candidate/publication gates. No new provider claim is made.
+
+`v1.0.2` is being prepared and is not yet published. The latest published
+stable release is [v1.0.1](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.1).
+Use the versioned install commands below only after the matching release is
+published. [Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
 
 The standard profile uses authenticated, tenant-scoped Kubernetes APIs and
 keeps optional features opt-in. The separate eBPF extension retains its
@@ -45,21 +47,21 @@ bounds rather than additional scale claims.
 ```sh
 helm upgrade --install kube-memlens \
   oci://ghcr.io/danushkastanley/charts/kube-memlens \
-  --version 1.0.1 \
+  --version 1.0.2 \
   --namespace kube-memlens \
   --create-namespace
 ```
 
-Download the CLI from the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.1), or follow the
+Download the CLI from the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.2), or follow the
 [installation guide](docs/installation.md). For digest-pinned installation,
 use the production image digest in the signed `promotion-subjects.txt`.
 
 ### Release candidate artefacts
 
-The `v1.0.1-rc.1` candidate uses
-`oci://ghcr.io/danushkastanley/candidates/1.0.1-rc.1/charts/kube-memlens`
-with `--version 1.0.1` and image repository
-`ghcr.io/danushkastanley/candidates/1.0.1-rc.1/kube-memlens`.
+The proposed `v1.0.2-rc.1` candidate uses
+`oci://ghcr.io/danushkastanley/candidates/1.0.2-rc.1/charts/kube-memlens`
+with `--version 1.0.2` and image repository
+`ghcr.io/danushkastanley/candidates/1.0.2-rc.1/kube-memlens`.
 Candidate installs override the image repository and pin the image digest from
 its signed `candidate-manifest.json`. Stable promotion preserves those exact
 archive, image and chart bytes.
@@ -78,6 +80,9 @@ The terminal interface is an incident-focused memory cockpit rather than a gener
 - bounded, race-safe selected-Pod history that retains the last good series through a refresh error;
 - read-only recommendations, live Pod comparison, safe command copy and mode-`0600` redacted incident capture; and
 - Kubernetes aggregated-API connectivity by default, with no port-forward required for normal use.
+
+Select a Pod and press **Enter** for the [Pod dashboard](docs/pod-dashboard.md).
+Press **Esc** to return with the previous selection and filter preserved.
 
 The summary deliberately says **observed Pod charge**: it is the sum of mapped Pod cgroups, not total cluster or node memory usage. Colours reinforce text labels but are not required; set `NO_COLOR=1` for monochrome output.
 
