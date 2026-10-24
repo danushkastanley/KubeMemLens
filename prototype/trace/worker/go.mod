@@ -1,6 +1,6 @@
 module github.com/danushkastanley/kube-memlens/prototype/trace/worker
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/cilium/ebpf v0.22.0
@@ -10,7 +10,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/spf13/viper v1.21.0
-	golang.org/x/sys v0.48.0
+	golang.org/x/sys v0.49.0
 )
 
 require (
