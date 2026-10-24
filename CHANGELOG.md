@@ -4,6 +4,14 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Security
+
+- Update Go to 1.27.3 across all three modules, pinned builders and trace executable validation to address GO-2026-6809 in certificate verification. Published release artefacts are unchanged.
+
+### Dependencies
+
+- Align `golang.org/x/sys` on 0.49.0 across the standard, trace and worker modules.
+
 ## 1.0.1 - 2026-10-19
 
 Patch release preparation; publication and signed artefact status are recorded

@@ -1,5 +1,13 @@
 # Security Policy
 
+## Unreleased security updates
+
+The source uses Go 1.27.3 across all three modules and pinned builders to
+address [GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809) in certificate
+verification. Trace bundle validation requires the same compiler version.
+This change does not replace published binaries or previously signed engine
+bundles; deployment requires a separately verified release.
+
 ## v1.0.1 security updates
 
 The v1.0.1 source updates Go builders to 1.27.2 and `golang.org/x/net` to
