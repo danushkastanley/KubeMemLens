@@ -103,6 +103,14 @@ The PR checks, pinned Trivy configuration/secret/image scans and final merged
 source review remain release gates. No v1.0.2 image, chart or archive has been
 published or verified as an immutable release artefact.
 
+The first PR CI run passed all checks except the Kubernetes 1.37 terminal smoke
+test, which still expected the old `Diagnosis:` view immediately after opening
+a Pod. The smoke test now exercises Enter, context/history panels, raw evidence
+and both Esc return paths, preserving its history, scrolling and read-only
+recommendation assertions. The repaired smoke passed locally with 20 temporary
+workload Pods across 80×24, 120×30 and 180×50 terminals. A fresh CI run on the
+repair remains required before merge.
+
 ## Remaining release gates
 
 1. Review and merge the TUI and release preparation changes through the normal

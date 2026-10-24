@@ -14,7 +14,7 @@ Instead of showing one scary memory number, KubeMemLens partitions pod/container
 
 The goal is to make incidents like "kubectl top says memory is high, but the app heap is stable" easier to understand.
 
-## v1.0.2 preparation
+## v1.0.2
 
 This patch adds a dedicated Pod dashboard with memory composition, history,
 context and read-only next checks. Enter opens the selected Pod; Esc restores
@@ -23,12 +23,13 @@ the previous selection and filter. The main dashboard layout is unchanged.
 It also includes Go 1.27.3 for the certificate-verification security update,
 aligned x/sys dependencies and refreshed pinned CI actions. The
 [release preparation record](docs/release-preparation-1.0.2.md) records the
-checks and remaining candidate/publication gates. No new provider claim is made.
+pre-tag checks, compatibility notes and publication gates. No new provider
+claim is made.
 
-`v1.0.2` is being prepared and is not yet published. The latest published
-stable release is [v1.0.1](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.1).
-Use the versioned install commands below only after the matching release is
-published. [Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
+For signed artefacts and publication status, see the
+[v1.0.2 release](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.2).
+Use the versioned install commands below only after that release is published.
+[Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
 
 The standard profile uses authenticated, tenant-scoped Kubernetes APIs and
 keeps optional features opt-in. The separate eBPF extension retains its

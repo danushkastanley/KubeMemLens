@@ -78,18 +78,26 @@ send -- "\r"
 require_pattern {kube-memlens-tu} "filter applied to compact Pod identities"
 
 after 200
-send -- "e"
-require_pattern {Diagnosis:} "Pod detail opened"
+send -- "\r"
+require_pattern {WHERE MEMORY GOES} "Pod dashboard opened"
+send -- "\t"
+require_pattern {POD CONTEXT} "Pod context panel opened"
+send -- "\t"
+require_pattern {RECENT POD HISTORY} "Pod history panel opened"
 after 1500
 send -- "r"
 after 1000
+send -- "e"
+require_pattern {Diagnosis:} "raw Pod evidence opened"
 send -- "\033\[6~"
 send -- "\033\[6~"
 require_pattern {Recent Pod history} "history remained live through refresh"
 send -- "G"
 require_pattern {Next commands:} "detail scrolled to final section"
-send -- "h"
-require_pattern {A/F/S/O} "detail returned to Pod table"
+send -- "\033"
+require_pattern {RECENT POD HISTORY} "raw evidence returned to Pod dashboard"
+send -- "\033"
+require_pattern {A/F/S/O} "Pod dashboard returned to filtered Pod table"
 send -- "\033"
 after 300
 
