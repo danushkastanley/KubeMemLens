@@ -33,7 +33,7 @@ func inspectExecutable(data []byte, architecture, binary string) error {
 		return ErrArchive
 	}
 	info, err := buildinfo.Read(bytes.NewReader(data))
-	if err != nil || info.GoVersion != "go1.27.2" {
+	if err != nil || info.GoVersion != "go1.27.3" {
 		return ErrArchive
 	}
 	packagePath := "github.com/danushkastanley/kube-memlens/prototype/trace/cmd/memlens-trace"

@@ -1,6 +1,6 @@
 module github.com/danushkastanley/kube-memlens/prototype/trace/worker
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/cilium/ebpf v0.22.0
