@@ -23,9 +23,26 @@ cluster_name="kube-memlens-release-consumer-${RANDOM}"
 kubeconfig=${work_dir}/kubeconfig
 cluster_created=false
 
+collect_hook_diagnostics() {
+  local hook_uid
+  hook_uid=$(kubectl --kubeconfig "${kubeconfig}" --request-timeout=5s \
+    get job kube-memlens-test-connection -n kube-memlens \
+    -o jsonpath='{.metadata.uid}' 2>/dev/null) || return 1
+  [ -n "${hook_uid}" ] || return 1
+  kubectl --kubeconfig "${kubeconfig}" --request-timeout=5s \
+    get pods -n kube-memlens --selector "batch.kubernetes.io/controller-uid=${hook_uid}" \
+    -o json > "${work_dir}/helm-hook-status.private.json" 2>/dev/null || return 1
+  python3 hack/node-qualification/readiness_failure.py \
+    --input "${work_dir}/helm-hook-status.private.json" \
+    --output "${work_dir}/helm-hook-readiness.json" >&2
+}
+
 cleanup() {
   status=$?
   if [ "${cluster_created}" = true ]; then
+    if [ "${status}" -ne 0 ]; then
+      collect_hook_diagnostics || echo 'release hook diagnostics unavailable' >&2
+    fi
     kind delete cluster --name "${cluster_name}" >/dev/null 2>&1 || true
   fi
   rm -rf "${work_dir}"
@@ -33,7 +50,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for tool in cosign docker gh helm jq kind kubectl sha256sum tar; do
+for tool in cosign docker gh helm jq kind kubectl python3 ruby sha256sum tar; do
   command -v "${tool}" >/dev/null || {
     echo "clean consumer requires ${tool}" >&2
     exit 1
@@ -114,6 +131,10 @@ jq -e --arg version "${version}" --arg commit "${commit}" \
   '.version == $version and .commit == $commit' "${work_dir}/image-version.json" >/dev/null
 
 kind create cluster --name "${cluster_name}" --image "${node_image}" --kubeconfig "${kubeconfig}" --wait 120s
+
+# Keep registry retries outside the connection test's unchanged readiness bound.
+source hack/lib/helm-hook-preflight.sh
+prefetch_helm_hook_image "${cluster_name}" "${chart_package}" "${work_dir}"
 
 helm upgrade --install kube-memlens "${chart_package}" \
   --kubeconfig "${kubeconfig}" \
