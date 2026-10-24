@@ -25,6 +25,10 @@ Patch release preparation; candidate and publication gates are recorded in the
 - Align `golang.org/x/sys` on 0.49.0 across the standard, trace and worker modules.
 - Refresh the immutable CodeQL 4.39.0, Scorecard 2.5.0, Download Artifact 8.0.2 and GoReleaser action 7.3.0 pins.
 
+### Release verification
+
+- Preflight the pinned Helm test image before clean-consumer checks, using the existing identical-digest mirror only for classified registry rate limits. Preserve the connection-test timeout and report bounded hook state diagnostics on failure.
+
 ### Upgrade notes
 
 - Pod detail now opens as a dashboard. Press `e` inside it for the complete line-oriented evidence, and Esc to return.
