@@ -4,6 +4,18 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+## 1.0.2 - 2026-10-24
+
+Patch release preparation; candidate and publication gates are recorded in the
+[release preparation record](docs/release-preparation-1.0.2.md).
+
+### UI updates
+
+- Open a dedicated Pod dashboard with Enter, showing memory composition, configured limit and headroom, Kubernetes context, retained history, container contributions and sampled event/pressure evidence.
+- Return with Esc while preserving the parent filter, sort, selected Pod and scroll position, including when a refresh has reordered the table.
+- Navigate panels with Tab / Shift+Tab and retain access to read-only checks, comparison, container detail and raw evidence. Compact terminals show one panel at a time; focus remains visible without colour.
+- Keep the main dashboard layout unchanged. Display stale, partial, disconnected and unavailable evidence explicitly; plot observed history samples without interpolating gaps or combining Pod instances.
+
 ### Security
 
 - Update Go to 1.27.3 across all three modules, pinned builders and trace executable validation to address GO-2026-6809 in certificate verification. Published release artefacts are unchanged.
@@ -11,6 +23,13 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 ### Dependencies
 
 - Align `golang.org/x/sys` on 0.49.0 across the standard, trace and worker modules.
+- Refresh the immutable CodeQL 4.39.0, Scorecard 2.5.0, Download Artifact 8.0.2 and GoReleaser action 7.3.0 pins.
+
+### Upgrade notes
+
+- Pod detail now opens as a dashboard. Press `e` inside it for the complete line-oriented evidence, and Esc to return.
+- No API, capture-format, permission, host-mount or persistent-data migration is introduced. The optional trace extension remains a separate development profile.
+- Helm upgrade or rollback restarts the collector and resets its in-memory history. Rolling back to v1.0.1 restores the older Go toolchain; it is not a security remediation.
 
 ## 1.0.1 - 2026-10-19
 

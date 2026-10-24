@@ -34,7 +34,14 @@ func (m appModel) viewString() string {
 	var b strings.Builder
 	b.WriteString(m.renderHeader(width))
 	b.WriteString("\n")
-	b.WriteString(truncate(m.sourceLabel(), width))
+	if m.isPodDashboard() {
+		pod, ok := m.findPod(m.detail.namespace, m.detail.podName)
+		if ok {
+			b.WriteString(truncate(m.podEvidenceLabel(pod)+" | "+m.sourceLabel(), width))
+		}
+	} else {
+		b.WriteString(truncate(m.sourceLabel(), width))
+	}
 	b.WriteString("\n")
 	if m.tracePanel.open {
 		b.WriteString(m.renderTracePanel(width))
@@ -69,6 +76,9 @@ func (m appModel) viewString() string {
 }
 
 func (m appModel) renderContent(plan layoutPlan) string {
+	if m.isPodDashboard() {
+		return m.renderPodDashboard()
+	}
 	if m.view == viewDetail {
 		return m.renderDetail(plan.width)
 	}
@@ -110,6 +120,9 @@ func (m appModel) renderContent(plan layoutPlan) string {
 }
 
 func (m appModel) renderHeader(width int) string {
+	if m.isPodDashboard() {
+		return m.podDashboardHeader(width)
+	}
 	restricted := m.restricted()
 	parts := []string{"KubeMemLens"}
 	if !restricted {
@@ -181,6 +194,9 @@ func (m appModel) renderHeader(width int) string {
 }
 
 func (m appModel) renderFooter(width int) string {
+	if m.isPodDashboard() && !m.help && m.action.mode == actionClosed && !m.historyPanel.open && !m.replicaPanel.open && !m.sessionPanel.open && !m.tracePanel.open {
+		return m.podDashboardFooter(width)
+	}
 	footer := "q quit · space pause · r refresh · / filter · N/n/w/p/c views · enter drill · e explain · ? help"
 	if m.searching {
 		footer = "search: " + m.query + " · enter keep · esc clear · backspace delete"
@@ -217,6 +233,9 @@ func renderMinimumSize(plan layoutPlan) string {
 }
 
 func (m appModel) renderHelp(width int) string {
+	if m.isPodDashboard() {
+		return m.renderPodDashboardHelp(width)
+	}
 	if m.restricted() {
 		lines := wrapText(append(m.restrictedHelpLines(),
 			"q quit; ? close help; Space pause; r refresh",

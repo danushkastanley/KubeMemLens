@@ -31,6 +31,9 @@ func (m *appModel) enter() tea.Cmd {
 }
 
 func (m *appModel) back() {
+	if m.returnFromPodDashboard() {
+		return
+	}
 	switch m.view {
 	case viewDetail:
 		m.view = m.detailParent
@@ -164,6 +167,11 @@ func (m *appModel) openSelectedDetail() tea.Cmd {
 	ref, ok := m.currentEntityRef()
 	if !ok {
 		return nil
+	}
+	if ref.kind == entityPod && !m.restricted() {
+		m.rememberPodDashboard(ref)
+	} else {
+		m.podDashboard = podDashboardState{}
 	}
 	m.detail = ref
 	m.detailSection = detailMemory

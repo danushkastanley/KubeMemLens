@@ -1,6 +1,6 @@
 # Installation, Upgrade, and Uninstall
 
-Install KubeMemLens `v1.0.1` after its matching release is published and use the
+Install KubeMemLens `v1.0.2` after its matching release is published and use the
 terminal dashboard to inspect workload memory. The essential EKS evidence
 recorded for v1.0.0 covers the core inspection and incident paths, access
 isolation, recovery and cleanup. The patch does not add a provider claim.
@@ -56,26 +56,26 @@ by default. Follow the [Node-context enablement guide](node-context.md#enablemen
 for CA, audience, network ranges, explicit collector sizing and the separate
 Node-only viewer role. Managed-provider support remains unqualified.
 
-## Install v1.0.1
+## Install v1.0.2
 
 ```sh
 helm upgrade --install kube-memlens \
   oci://ghcr.io/danushkastanley/charts/kube-memlens \
-  --version 1.0.1 \
+  --version 1.0.2 \
   --namespace kube-memlens \
   --create-namespace
 ```
 
 The chart selects the version-matched standard image. To pin its immutable
 digest, set `image.digest` to the complete `sha256:` value from the signed
-`promotion-subjects.txt` in the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.1).
+`promotion-subjects.txt` in the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.2).
 
 ### Release candidate artefacts
 
-The `v1.0.1-rc.1` candidate uses
-`oci://ghcr.io/danushkastanley/candidates/1.0.1-rc.1/charts/kube-memlens`
-with `--version 1.0.1` and image repository
-`ghcr.io/danushkastanley/candidates/1.0.1-rc.1/kube-memlens`.
+The proposed `v1.0.2-rc.1` candidate uses
+`oci://ghcr.io/danushkastanley/candidates/1.0.2-rc.1/charts/kube-memlens`
+with `--version 1.0.2` and image repository
+`ghcr.io/danushkastanley/candidates/1.0.2-rc.1/kube-memlens`.
 Candidate installs override the image repository and pin the image digest from
 its signed `candidate-manifest.json`. Stable promotion preserves those exact
 archive, image and chart bytes.
