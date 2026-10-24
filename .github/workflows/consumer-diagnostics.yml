@@ -1,0 +1,60 @@
+name: Candidate consumer diagnostics
+
+on:
+  push:
+    branches: [fix/release-consumer-verification]
+    paths: [.github/workflows/consumer-diagnostics.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Diagnose the frozen candidate connection hook
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLUSTER_NAME: memlens-consumer-diagnostics
+      CHART: ghcr.io/danushkastanley/candidates/1.0.2-rc.1/charts/kube-memlens
+      CHART_DIGEST: sha256:f275f692d975c22cb486f5d327c75634c241462d5d15edd817d74f8c860fb15a
+      IMAGE: ghcr.io/danushkastanley/candidates/1.0.2-rc.1/kube-memlens
+      IMAGE_DIGEST: sha256:c0b90f51ddf82e65c86e683c802b94b79155771b4526b365a1e2dd95d905e6d6
+    steps:
+      - name: Check out verification tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the same pinned consumer tools
+        run: |
+          hack/release/install_consumer_tools.sh "$RUNNER_TEMP/consumer-tools"
+          echo "$RUNNER_TEMP/consumer-tools" >> "$GITHUB_PATH"
+          echo "KUBECONFIG=$RUNNER_TEMP/consumer-kubeconfig" >> "$GITHUB_ENV"
+      - name: Fetch the exact signed chart package
+        run: |
+          helm pull "oci://$CHART" --version 1.0.2 --destination "$RUNNER_TEMP" 2>&1 | tee "$RUNNER_TEMP/chart-pull.log"
+          grep -Fq "Digest: $CHART_DIGEST" "$RUNNER_TEMP/chart-pull.log"
+          echo "eac3798a07cea2ea2617ab9b5c424b36e8fa029a885b20790c5423cd2f739c9f  $RUNNER_TEMP/kube-memlens-1.0.2.tgz" | sha256sum --check
+      - name: Create the same Kubernetes 1.37 consumer environment
+        run: |
+          test -z "$(kind get clusters 2>/dev/null)"
+          kind create cluster --name "$CLUSTER_NAME" \
+            --image kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5 \
+            --kubeconfig "$KUBECONFIG" --wait 120s
+          helm upgrade --install kube-memlens "$RUNNER_TEMP/kube-memlens-1.0.2.tgz" \
+            --namespace kube-memlens --create-namespace \
+            --set image.repository="$IMAGE" --set image.digest="$IMAGE_DIGEST" \
+            --wait --timeout 3m
+      - name: Run unchanged connection test with retained diagnostics
+        run: |
+          set +e
+          helm test kube-memlens --namespace kube-memlens --timeout 1m
+          result=$?
+          set -e
+          kubectl get pods -n kube-memlens -o wide
+          kubectl get events -n kube-memlens --sort-by=.metadata.creationTimestamp
+          kubectl get pods -n kube-memlens -l app.kubernetes.io/name=kube-memlens-test -o json \
+            | python3 -c 'import json,sys; print(json.dumps([{"phase":p["status"].get("phase"),"containers":[{"state":c.get("state"),"lastState":c.get("lastState"),"restartCount":c.get("restartCount")} for c in p["status"].get("containerStatuses",[])]} for p in json.load(sys.stdin)["items"]],indent=2))'
+          exit "$result"
+      - name: Remove only the disposable probe cluster
+        if: always()
+        run: kind delete cluster --name "$CLUSTER_NAME"
