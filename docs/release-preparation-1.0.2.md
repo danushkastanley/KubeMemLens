@@ -1,19 +1,41 @@
 # v1.0.2 release preparation
 
-Prepared: 24 October 2026. This is a pre-tag record; signed manifests and
-workflow results become the artefact authority after the candidate is frozen.
+Prepared: 24 October 2026. Updated for RC2 preparation on 25 October 2026.
+Signed manifests and workflow results remain the artefact authority for each
+frozen candidate; RC1 is not modified by this preparation.
 
 ## Identity and scope
 
 | Item | Status |
 | --- | --- |
 | Target stable version | `v1.0.2` |
-| Proposed candidate | `v1.0.2-rc.1`; exact-tag approval remains required |
-| Implementation baseline | `3e50db9` on `main`, plus the reviewed Pod dashboard and this preparation change |
+| Proposed candidate | `v1.0.2-rc.2`; exact-tag approval remains required |
+| Implementation baseline | `f87d713` on `main` (merged PR #224), plus the release-consumer repair |
 | Candidate source | Must be the final reviewed preparation commit merged to `main` |
-| Publication | Not started; no `v1.0.2` or `v1.0.2-rc.1` tag exists at preparation readback |
+| Publication | RC1 image and chart signed; consumer failed before draft creation. No stable release published |
 | Rollback reference | Published `v1.0.1`; restores the older Go toolchain |
 | Support | Existing standard EKS managed Linux scope; no new provider, runtime, terminal or scale qualification |
+
+## RC1 consumer failure and RC2 repair
+
+The [RC1 workflow](https://github.com/danushkastanley/KubeMemLens/actions/runs/40118221494)
+built reproducible artefacts and published signed candidate subjects after
+independent approval. Two consumer attempts timed out at the first Helm test.
+A [matching AMD64 probe](https://github.com/danushkastanley/KubeMemLens/actions/runs/40121938053)
+retained the cause: the BusyBox hook image pull received HTTP 429 from public
+ECR; the hook never started. The agent and collector were running.
+
+RC2 preparation reuses the existing bounded hook-image preflight in the release
+consumer. Only a classified rate limit permits the existing public mirror, at
+the identical reviewed digest. Authentication and other pull failures still
+fail closed. The one-minute connection test and all lifecycle checks remain
+unchanged. Failure cleanup prints only allow-listed hook state counts before
+removing the disposable cluster.
+
+RC1's tag and signed artefacts remain untouched. The repaired verifier must be
+reviewed and merged before a new RC2 tag can freeze its source. The maintainer's
+[recorded v1.0.2-only adopter exception](https://github.com/danushkastanley/KubeMemLens/issues/50#issuecomment-6387574341)
+remains applicable; independent release approvals and artefact checks remain.
 
 ## Included changes
 
@@ -99,32 +121,30 @@ The following preparation checks completed on 24 October 2026:
   checks-only policy thresholds. It is baseline evidence, not a result for the
   final merged v1.0.2 source; repeat the readback before the candidate decision.
 
-The PR checks, pinned Trivy configuration/secret/image scans and final merged
-source review remain release gates. No v1.0.2 image, chart or archive has been
-published or verified as an immutable release artefact.
+These are the initial preparation results. PR #224 and its merged-source
+checks subsequently passed. RC1 signed candidate subjects exist, but its
+clean-consumer gate failed and it was not published as a GitHub release.
 
 The first PR CI run passed all checks except the Kubernetes 1.37 terminal smoke
 test, which still expected the old `Diagnosis:` view immediately after opening
 a Pod. The smoke test now exercises Enter, context/history panels, raw evidence
 and both Esc return paths, preserving its history, scrolling and read-only
 recommendation assertions. The repaired smoke passed locally with 20 temporary
-workload Pods across 80×24, 120×30 and 180×50 terminals. A fresh CI run on the
-repair remains required before merge.
+workload Pods across 80×24, 120×30 and 180×50 terminals. The repaired PR and merged-source CI subsequently passed before RC1.
 
 ## Remaining release gates
 
-1. Review and merge the TUI and release preparation changes through the normal
-   protected PR path. Complete required CI and the release/security readback on
+1. Review and merge the release-consumer repair and RC2 preparation through
+   the normal protected PR path. Complete required CI and the release/security readback on
    the exact final `main` commit.
-2. Obtain approval naming `v1.0.2-rc.1`, create only that annotated candidate tag
+2. Obtain approval naming `v1.0.2-rc.2`, create only that annotated candidate tag
    and dispatch the existing candidate workflow from it. The stable tag must
    not exist yet.
 3. Obtain independent protected-environment approvals and verify the candidate
    archives, image, chart, reproducibility, signatures, SBOMs, provenance,
    clean-consumer lifecycle and full draft inventory before publication.
-4. Record the v1.0.2 promotion decision. Earlier release-specific adopter
-   exceptions do not carry forward; retain the documented gate unless the
-   maintainer records a new explicit decision.
+4. Retain the recorded v1.0.2-only adopter exception and append the verified
+   RC2 identity and complete checks to the release evidence issue.
 5. Obtain exact stable-tag/publication approval and promote the same candidate
    bytes through the existing workflow. Verify the stable draft and immutable
    publication before describing v1.0.2 as released.

@@ -5,7 +5,7 @@ KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer 
 ## v1.0.2 preparation
 
 The [v1.0.2 preparation record](release-preparation-1.0.2.md) proposes
-`v1.0.2-rc.1` followed by exact-byte promotion to `v1.0.2`. It combines the Pod
+`v1.0.2-rc.2` followed by exact-byte promotion to `v1.0.2`. It combines the Pod
 dashboard with the merged Go security and dependency updates. Preparation does
 not declare either tag or release published and does not authorise workflow
 dispatch or package publication. Exact-tag approval, independent environment
