@@ -1,7 +1,7 @@
 cel.dev/expr v0.25.2 h1:K6j46C81hXtZQfuX60cVWQFBJahKSE2gfRbNuvr5bFs=
 cel.dev/expr v0.25.2/go.mod h1:hrXvqGP6G6gyx8UAHSHJ5RGk//1Oj5nXQ2NI02Nrsg4=
-charm.land/bubbletea/v2 v2.1.0 h1:A9fj9h5LFrvQhQHFNggp8K8rvY6CUfgn9dMbb6p2HIw=
-charm.land/bubbletea/v2 v2.1.0/go.mod h1:xWHeyxIX9/wiFU2kgPW04ojOZyTzrWf+8lGjUCaftiU=
+charm.land/bubbletea/v2 v2.1.1 h1:S1S9l37pCZGrj1JexBcr9x4Nr3MVeM42InqCYM/tDpU=
+charm.land/bubbletea/v2 v2.1.1/go.mod h1:xWHeyxIX9/wiFU2kgPW04ojOZyTzrWf+8lGjUCaftiU=
 github.com/NYTimes/gziphandler v1.1.1 h1:ZUDjpQae29j0ryrS0u/B8HZfJBtBQHjqw2rQ2cqUQ3I=
 github.com/NYTimes/gziphandler v1.1.1/go.mod h1:n/CVRwUEOgIxrgPvAQhUUr9oeUtvrhMomdKFjzJNB0c=
 github.com/antlr4-go/antlr/v4 v4.13.1 h1:SqQKkuVZ+zWkMMNkjy5FZe5mr5WURWnlpmOuzYWrPrQ=
