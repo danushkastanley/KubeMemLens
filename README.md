@@ -30,10 +30,10 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
 ## Quick start
 
 1. Install the CLI on macOS or Linux (Windows archives are on the
-   [release page](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.2)):
+   [release page](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.3)):
 
    ```sh
-   VERSION=1.0.2
+   VERSION=1.0.3
    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
    ARCH=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
    curl -fsSLO "https://github.com/danushkastanley/KubeMemLens/releases/download/v${VERSION}/kube-memlens_${VERSION}_${OS}_${ARCH}.tar.gz"
@@ -53,7 +53,7 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
    ```sh
    helm upgrade --install kube-memlens \
      oci://ghcr.io/danushkastanley/charts/kube-memlens \
-     --version 1.0.2 \
+     --version 1.0.3 \
      --namespace kube-memlens \
      --create-namespace
    ```
@@ -68,14 +68,14 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
    Readers who are not cluster administrators need a RoleBinding first; see
    [what it installs and what it can access](#what-it-installs-and-what-it-can-access).
 
-To try the explanations without a cluster, run the bundled samples. From
-v1.0.3 they are built into the CLI:
+To try the explanations without a cluster, run the samples built into the CLI:
 
 ```sh
+kubectl memlens sample list
 kubectl memlens sample explain cache-heavy
 ```
 
-With v1.0.2, run them from a source checkout with Go 1.27:
+v1.0.2 and earlier need a source checkout with Go 1.27 for this:
 `go run ./cmd/kubectl-memlens sample explain cache-heavy`.
 
 ## How it compares
