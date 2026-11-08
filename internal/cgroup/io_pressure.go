@@ -3,8 +3,7 @@ package cgroup
 import (
 	"errors"
 	"io"
-	"os"
-	"path/filepath"
+	"io/fs"
 	"strings"
 
 	"github.com/danushkastanley/kube-memlens/internal/model"
@@ -14,9 +13,9 @@ const maxIOPressureBytes = 4096
 
 // I/O enrichment failure must not discard an otherwise valid memory sample.
 // Missing files do not establish whether PSI is disabled or unsupported.
-func readIOPressure(dir string) model.IOPressure {
-	file, err := os.Open(filepath.Join(dir, "io.pressure"))
-	if errors.Is(err, os.ErrNotExist) {
+func readIOPressure(fsys fs.FS) model.IOPressure {
+	file, err := fsys.Open("io.pressure")
+	if errors.Is(err, fs.ErrNotExist) {
 		return model.IOPressure{State: model.IOUnreported}
 	}
 	if err != nil {

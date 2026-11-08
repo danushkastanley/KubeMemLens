@@ -349,7 +349,8 @@
         "charge": 104857600,
         "anon": 68157440,
         "file": 31457280,
-        "slab": 5242880
+        "slab": 5242880,
+        "max": 125829120
       }
     },
     {
@@ -375,6 +376,57 @@
         "anon": 67108864,
         "file": 31457280,
         "slab": 5242880
+      }
+    },
+    {
+      "id": "memory-anonymous-material-unbounded",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "rss-heavy",
+        "confidence": "medium",
+        "checks": [
+          "profile-anonymous-memory",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": false
+      },
+      "memory": {
+        "charge": 838860800,
+        "anon": 629145600,
+        "file": 199229440,
+        "slab": 10485760
+      }
+    },
+    {
+      "id": "memory-anonymous-below-material-share",
+      "family": "memory",
+      "provenance": {
+        "source": "synthetic",
+        "consent": "not-applicable",
+        "sanitisation": "numeric-allowlist-v1"
+      },
+      "expected": {
+        "diagnosis": "normal",
+        "confidence": "low",
+        "checks": [
+          "observe-bounded-history",
+          "no-automatic-mutation"
+        ],
+        "prohibited": [],
+        "abstain": true
+      },
+      "memory": {
+        "charge": 104857600,
+        "anon": 83886080,
+        "file": 15728640,
+        "slab": 5242880,
+        "max": 268435456
       }
     },
     {
@@ -1374,14 +1426,14 @@
         "max": 134217728
       },
       "expected": {
-        "diagnosis": "rss-heavy",
-        "confidence": "medium",
+        "diagnosis": "normal",
+        "confidence": "low",
         "checks": [
-          "profile-anonymous-memory",
+          "observe-bounded-history",
           "no-automatic-mutation"
         ],
         "prohibited": [],
-        "abstain": false
+        "abstain": true
       },
       "provenance": {
         "source": "local-cluster",

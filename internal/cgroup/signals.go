@@ -5,8 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
+	"io/fs"
 	"strconv"
 	"strings"
 
@@ -25,35 +24,35 @@ type memoryPressure struct {
 	Full pressureSample
 }
 
-func readMemorySignals(dir string, breakdown *model.MemoryBreakdown) error {
-	breakdown.IOPressure = readIOPressure(dir)
+func readMemorySignals(fsys fs.FS, breakdown *model.MemoryBreakdown) error {
+	breakdown.IOPressure = readIOPressure(fsys)
 	var err error
-	if breakdown.PeakBytes, breakdown.PeakKnown, _, err = readOptionalScalar(dir, "memory.peak", false); err != nil {
+	if breakdown.PeakBytes, breakdown.PeakKnown, _, err = readOptionalScalar(fsys, "memory.peak", false); err != nil {
 		return err
 	}
-	if breakdown.MinBytes, breakdown.MinKnown, breakdown.MinUnlimited, err = readOptionalScalar(dir, "memory.min", true); err != nil {
+	if breakdown.MinBytes, breakdown.MinKnown, breakdown.MinUnlimited, err = readOptionalScalar(fsys, "memory.min", true); err != nil {
 		return err
 	}
-	if breakdown.LowBytes, breakdown.LowKnown, breakdown.LowUnlimited, err = readOptionalScalar(dir, "memory.low", true); err != nil {
+	if breakdown.LowBytes, breakdown.LowKnown, breakdown.LowUnlimited, err = readOptionalScalar(fsys, "memory.low", true); err != nil {
 		return err
 	}
-	if breakdown.HighBytes, breakdown.HighKnown, breakdown.HighUnlimited, err = readOptionalScalar(dir, "memory.high", true); err != nil {
+	if breakdown.HighBytes, breakdown.HighKnown, breakdown.HighUnlimited, err = readOptionalScalar(fsys, "memory.high", true); err != nil {
 		return err
 	}
-	if breakdown.MaxBytes, breakdown.MaxKnown, breakdown.MaxUnlimited, err = readOptionalScalar(dir, "memory.max", true); err != nil {
+	if breakdown.MaxBytes, breakdown.MaxKnown, breakdown.MaxUnlimited, err = readOptionalScalar(fsys, "memory.max", true); err != nil {
 		return err
 	}
-	if breakdown.SwapCurrentBytes, breakdown.SwapCurrentKnown, _, err = readOptionalScalar(dir, "memory.swap.current", false); err != nil {
+	if breakdown.SwapCurrentBytes, breakdown.SwapCurrentKnown, _, err = readOptionalScalar(fsys, "memory.swap.current", false); err != nil {
 		return err
 	}
-	if breakdown.SwapPeakBytes, breakdown.SwapPeakKnown, _, err = readOptionalScalar(dir, "memory.swap.peak", false); err != nil {
+	if breakdown.SwapPeakBytes, breakdown.SwapPeakKnown, _, err = readOptionalScalar(fsys, "memory.swap.peak", false); err != nil {
 		return err
 	}
-	if breakdown.SwapMaxBytes, breakdown.SwapMaxKnown, breakdown.SwapMaxUnlimited, err = readOptionalScalar(dir, "memory.swap.max", true); err != nil {
+	if breakdown.SwapMaxBytes, breakdown.SwapMaxKnown, breakdown.SwapMaxUnlimited, err = readOptionalScalar(fsys, "memory.swap.max", true); err != nil {
 		return err
 	}
 
-	local, known, err := readOptionalEvents(dir, "memory.events.local", knownEventKeys)
+	local, known, err := readOptionalEvents(fsys, "memory.events.local", knownEventKeys)
 	if err != nil {
 		return err
 	}
@@ -63,7 +62,7 @@ func readMemorySignals(dir string, breakdown *model.MemoryBreakdown) error {
 	breakdown.LocalHighEvents = local["high"]
 	breakdown.LocalMaxEvents = local["max"]
 
-	swap, known, err := readOptionalEvents(dir, "memory.swap.events", knownSwapEventKeys)
+	swap, known, err := readOptionalEvents(fsys, "memory.swap.events", knownSwapEventKeys)
 	if err != nil {
 		return err
 	}
@@ -72,7 +71,7 @@ func readMemorySignals(dir string, breakdown *model.MemoryBreakdown) error {
 	breakdown.SwapMaxEvents = swap["max"]
 	breakdown.SwapFailEvents = swap["fail"]
 
-	pressureBytes, err := os.ReadFile(filepath.Join(dir, "memory.pressure"))
+	pressureBytes, err := fs.ReadFile(fsys, "memory.pressure")
 	if err == nil {
 		pressure, parseErr := ParseMemoryPressure(pressureBytes)
 		if parseErr != nil {
@@ -87,15 +86,15 @@ func readMemorySignals(dir string, breakdown *model.MemoryBreakdown) error {
 		breakdown.PSIFullAvg60 = pressure.Full.Avg60
 		breakdown.PSIFullAvg300 = pressure.Full.Avg300
 		breakdown.PSIFullTotalMicros = pressure.Full.TotalMicros
-	} else if !errors.Is(err, os.ErrNotExist) {
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read memory.pressure: %w", err)
 	}
 	return nil
 }
 
-func readOptionalScalar(dir, name string, allowMax bool) (value uint64, known bool, unlimited bool, err error) {
-	data, err := os.ReadFile(filepath.Join(dir, name))
-	if errors.Is(err, os.ErrNotExist) {
+func readOptionalScalar(fsys fs.FS, name string, allowMax bool) (value uint64, known bool, unlimited bool, err error) {
+	data, err := fs.ReadFile(fsys, name)
+	if errors.Is(err, fs.ErrNotExist) {
 		return 0, false, false, nil
 	}
 	if err != nil {
@@ -112,9 +111,9 @@ func readOptionalScalar(dir, name string, allowMax bool) (value uint64, known bo
 	return value, true, false, nil
 }
 
-func readOptionalEvents(dir, name string, keys map[string]struct{}) (map[string]uint64, bool, error) {
-	data, err := os.ReadFile(filepath.Join(dir, name))
-	if errors.Is(err, os.ErrNotExist) {
+func readOptionalEvents(fsys fs.FS, name string, keys map[string]struct{}) (map[string]uint64, bool, error) {
+	data, err := fs.ReadFile(fsys, name)
+	if errors.Is(err, fs.ErrNotExist) {
 		return map[string]uint64{}, false, nil
 	}
 	if err != nil {

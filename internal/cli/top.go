@@ -238,7 +238,7 @@ func printPodsTable(w interface{ Write([]byte) (int, error) }, pods []api.PodSna
 	})
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tPOD AGE\tSAMPLE\tSTATE")
+	fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tLIMIT\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tPOD AGE\tSAMPLE\tSTATE")
 	for _, pod := range pods {
 		printMemoryRow(tw, []string{
 			pod.Namespace,
@@ -259,7 +259,7 @@ func printContainersTable(w interface{ Write([]byte) (int, error) }, containers 
 	})
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tSAMPLE\tSTATE")
+	fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tLIMIT\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tSAMPLE\tSTATE")
 	for _, container := range containers {
 		fmt.Fprintf(
 			tw,
@@ -299,7 +299,7 @@ func printNamespacesTable(w interface{ Write([]byte) (int, error) }, namespaces 
 	})
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAMESPACE\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
+	fmt.Fprintln(tw, "NAMESPACE\tPODS\tTOTAL\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
 	for _, namespace := range namespaces {
 		fmt.Fprintf(
 			tw,
@@ -322,7 +322,7 @@ func printWorkloadsTable(w interface{ Write([]byte) (int, error) }, workloads []
 		return workloads[i].Memory.TotalBytes > workloads[j].Memory.TotalBytes
 	})
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAMESPACE\tKIND\tWORKLOAD\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tLARGEST POD\tMAX POD\tDIAGNOSIS")
+	fmt.Fprintln(tw, "NAMESPACE\tKIND\tWORKLOAD\tPODS\tTOTAL\tANON\tCACHE\tSHMEM\tOTHER\tLARGEST POD\tMAX POD\tDIAGNOSIS")
 	for _, workload := range workloads {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			workload.Namespace, workload.Kind, workload.Name, workload.PodCount,

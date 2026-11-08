@@ -39,6 +39,11 @@ type restrictedReport struct {
 }
 
 func runRestrictedReport(cmd *cobra.Command, session client.EvidenceSession, target explanationTarget, scope capability.Scope, output string, kind restrictedReportKind) error {
+	if output == "text" {
+		if err := writeRestrictedSetupHints(cmd.ErrOrStderr(), session.Plan); err != nil {
+			return err
+		}
+	}
 	batch, err := session.Observations.Current(cmd.Context())
 	if err != nil {
 		return err

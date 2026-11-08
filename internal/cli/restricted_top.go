@@ -26,6 +26,11 @@ func runRestrictedTop(cmd *cobra.Command, session client.EvidenceSession, scope 
 	default:
 		return fmt.Errorf("sorting by %s requires deep evidence; restricted mode supports total working set, name and namespace", opts.SortBy)
 	}
+	if opts.Output == "table" {
+		if err := writeRestrictedSetupHints(cmd.ErrOrStderr(), session.Plan); err != nil {
+			return err
+		}
+	}
 	var lastRead time.Time
 	refresh := func() error {
 		batch, err := session.Observations.Current(cmd.Context())

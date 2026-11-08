@@ -31,7 +31,11 @@ func discoverDeepPod(ctx context.Context, reader SnapshotReader, namespace, name
 	if IsNotFound(err) {
 		// A missing object is not an absent API. Only the group check can
 		// justify a source fallback after this 404.
-		if healthErr := reader.Health(ctx); healthErr != nil {
+		healthErr, checked := notFoundDiscovery(err)
+		if !checked {
+			healthErr = reader.Health(ctx)
+		}
+		if healthErr != nil {
 			return evidenceFailure(healthErr), nil
 		}
 		return deepSourceState(nil), nil

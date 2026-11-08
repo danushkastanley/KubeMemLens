@@ -279,7 +279,7 @@ func (m appModel) renderWorkloads(width int) string {
 		return "No workloads match the current filter."
 	}
 	widths := workloadWidths(width)
-	lines := []string{tableRow([]string{"NAMESPACE", "KIND", "WORKLOAD", "PODS", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "LARGEST", "MAX POD", "DIAGNOSIS"}, widths, nil)}
+	lines := []string{tableRow([]string{"NAMESPACE", "KIND", "WORKLOAD", "PODS", "TOTAL", "ANON", "CACHE", "SHMEM", "OTHER", "LARGEST", "MAX POD", "DIAGNOSIS"}, widths, nil)}
 	viewport := m.viewports[viewWorkloads]
 	viewport.reconcile(len(items))
 	start, end := viewport.visibleRange()
@@ -325,7 +325,7 @@ func (m appModel) renderNamespaces(width int) string {
 		return "No namespaces match the current filter."
 	}
 	widths := namespaceWidths(width)
-	lines := []string{tableRow([]string{"NAMESPACE", "PODS", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS", "AGE"}, widths, nil)}
+	lines := []string{tableRow([]string{"NAMESPACE", "PODS", "TOTAL", "ANON", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS", "AGE"}, widths, nil)}
 	viewport := m.viewports[viewNamespaces]
 	viewport.reconcile(len(items))
 	start, end := viewport.visibleRange()
@@ -416,7 +416,7 @@ func (m appModel) renderContainers(width int) string {
 		return "No containers match the current filter."
 	}
 	widths := containerWidths(width)
-	lines := []string{tableRow([]string{"NAMESPACE", "POD", "CONTAINER", "NODE", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS", "AGE"}, widths, nil)}
+	lines := []string{tableRow([]string{"NAMESPACE", "POD", "CONTAINER", "NODE", "TOTAL", "ANON", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS", "AGE"}, widths, nil)}
 	viewport := m.viewports[viewContainers]
 	viewport.reconcile(len(items))
 	start, end := viewport.visibleRange()

@@ -31,7 +31,7 @@ func TestProfilerRecommendationsUseOnlyAuthorisedPodRead(t *testing.T) {
 			}
 			now := time.Now().UTC()
 			c := api.ContainerSnapshot{Namespace: "team-a", PodName: "app", PodUID: "uid", ContainerName: "app", ContainerID: "id", CapturedAt: now,
-				Freshness: api.EvidenceFreshnessFresh, Completeness: api.EvidenceComplete, Memory: model.MemoryBreakdown{TotalBytes: 100 << 20, AnonBytes: 80 << 20},
+				Freshness: api.EvidenceFreshnessFresh, Completeness: api.EvidenceComplete, Memory: model.MemoryBreakdown{TotalBytes: 100 << 20, AnonBytes: 80 << 20, MaxKnown: true, MaxBytes: 128 << 20},
 				Context: api.ContainerContext{PodPhase: "Running", Labels: map[string]string{profiler.LabelPrefix + "app": profiler.GoHeapProfile, "private": "secret"}}}
 			p := api.PodSnapshot{Namespace: c.Namespace, PodName: c.PodName, PodUID: c.PodUID, CapturedAt: now, Freshness: c.Freshness, Completeness: c.Completeness,
 				Context: api.PodContext{Phase: "Running"}, Containers: []api.ContainerSnapshot{c}, Memory: c.Memory}

@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -23,8 +23,15 @@ type MemoryEvents struct {
 	Unknown map[string]uint64
 }
 
+// ParseDirectory parses the cgroup v2 memory files in dir.
 func ParseDirectory(name, dir string) (model.MemoryBreakdown, error) {
-	currentBytes, err := os.ReadFile(filepath.Join(dir, "memory.current"))
+	return ParseFS(name, os.DirFS(dir))
+}
+
+// ParseFS parses cgroup v2 memory files at the root of fsys. It lets bundled
+// samples share the agent's parser without a copy on disk.
+func ParseFS(name string, fsys fs.FS) (model.MemoryBreakdown, error) {
+	currentBytes, err := fs.ReadFile(fsys, "memory.current")
 	if err != nil {
 		return model.MemoryBreakdown{}, fmt.Errorf("read memory.current: %w", err)
 	}
@@ -34,7 +41,7 @@ func ParseDirectory(name, dir string) (model.MemoryBreakdown, error) {
 		return model.MemoryBreakdown{}, fmt.Errorf("parse memory.current: %w", err)
 	}
 
-	statBytes, err := os.ReadFile(filepath.Join(dir, "memory.stat"))
+	statBytes, err := fs.ReadFile(fsys, "memory.stat")
 	if err != nil {
 		return model.MemoryBreakdown{}, fmt.Errorf("read memory.stat: %w", err)
 	}
@@ -45,13 +52,13 @@ func ParseDirectory(name, dir string) (model.MemoryBreakdown, error) {
 	}
 
 	events := MemoryEvents{Values: map[string]uint64{}, Unknown: map[string]uint64{}}
-	eventBytes, err := os.ReadFile(filepath.Join(dir, "memory.events"))
+	eventBytes, err := fs.ReadFile(fsys, "memory.events")
 	if err == nil {
 		events, err = ParseMemoryEvents(eventBytes)
 		if err != nil {
 			return model.MemoryBreakdown{}, fmt.Errorf("parse memory.events: %w", err)
 		}
-	} else if !errors.Is(err, os.ErrNotExist) {
+	} else if !errors.Is(err, fs.ErrNotExist) {
 		return model.MemoryBreakdown{}, fmt.Errorf("read memory.events: %w", err)
 	}
 
@@ -91,7 +98,7 @@ func ParseDirectory(name, dir string) (model.MemoryBreakdown, error) {
 		MajorPageFaults:        stat.value("pgmajfault"),
 		ReclaimCountersKnown:   stat.has("pgscan") && stat.has("pgsteal") && (stat.has("workingset_refault_anon") || stat.has("workingset_refault_file")),
 	}
-	if err := readMemorySignals(dir, &breakdown); err != nil {
+	if err := readMemorySignals(fsys, &breakdown); err != nil {
 		return model.MemoryBreakdown{}, err
 	}
 	return breakdown, nil
