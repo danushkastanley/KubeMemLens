@@ -2,18 +2,20 @@
 
 KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer review.
 
-## v1.0.2 preparation
+## v1.0.3 preparation
 
-The [v1.0.2 preparation record](release-preparation-1.0.2.md) proposes
-`v1.0.2-rc.2` followed by exact-byte promotion to `v1.0.2`. It combines the Pod
-dashboard with the merged Go security and dependency updates. Preparation does
-not declare either tag or release published and does not authorise workflow
-dispatch or package publication. Exact-tag approval, independent environment
-approval and immutable artefact verification remain required. Earlier
-release-specific adopter exceptions do not automatically apply to v1.0.2;
-record its promotion decision separately.
+The [v1.0.3 preparation record](release-preparation-1.0.3.md) proposes
+`v1.0.3-rc.1` followed by exact-byte promotion to `v1.0.3`. It combines the
+first-run and anonymous-memory diagnosis changes with the merged `x/net`
+security update and launch documentation. Preparation does not declare either
+tag or release published and does not authorise workflow dispatch or package
+publication. Exact-tag approval, independent environment approval and
+immutable artefact verification remain required. The v1.0.2-only adopter
+exception does not automatically apply to v1.0.3; record its promotion
+decision separately.
 
-The [v1.0.1 preparation record](release-preparation-1.0.1.md) remains historical.
+The [v1.0.2](release-preparation-1.0.2.md) and
+[v1.0.1](release-preparation-1.0.1.md) preparation records remain historical.
 
 ## v1.0.0 maintainer decision — 6 October 2026
 
@@ -28,7 +30,7 @@ reproducibility and exact-byte promotion remain unchanged. Use
 ## Pre-release gate
 
 1. Start from a clean, reviewed commit on `main`.
-2. Read `README.md` and the canonical support contract, then confirm the target version, maturity label, support rows and evidence owners across `CHANGELOG.md`, chart metadata, installation, security and release notes.
+2. Read `README.md` and the canonical support contract, then confirm the target version, maturity label and support rows across `CHANGELOG.md`, chart metadata, installation, security and release notes.
 3. Run `make check`; inspect the reported statement coverage rather than treating a percentage as a substitute for behaviour-focused tests.
 4. Run Helm lint, rendering, strict schema validation, and the unsafe-replica rejection check.
 5. Confirm every provider/runtime claim links to reviewed, version-bound evidence. Do not provision cloud resources merely because its advisory freshness date has passed. If the candidate changes a provider-sensitive boundary, narrow the affected claim or obtain separate approval for a new qualification run. A live-scale claim still requires the reviewed [scale qualification](scale-qualification.md) summary and evaluation for the exact declared profile.

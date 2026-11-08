@@ -2,10 +2,10 @@
 
 This is the canonical support contract for KubeMemLens. Other documents link here instead of defining their own provider, runtime, availability or retention promises.
 
-The standard `v1.0.2` release provides read-only memory inspection with authenticated
+The standard `v1.0.3` release provides read-only memory inspection with authenticated
 agent writes and tenant-scoped reads. The essential AWS EKS evidence recorded
 for v1.0.0 covers inspection, capture/replay, access isolation, recovery and
-cleanup. v1.0.2 adds no provider, runtime, terminal or scale claim.
+cleanup. v1.0.3 adds no provider, runtime, terminal or scale claim.
 [Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
 
 Historical provider, scale and terminal evidence remains bound to its recorded
@@ -38,7 +38,7 @@ environment; they are not a current support claim, and their status says
 
 | Profile | v1 contract | Current evidence | Status |
 | --- | --- | --- | --- |
-| Kubernetes API | The three most recent upstream-maintained minor releases on the release decision date. The 24 October 2026 preparation readback confirms 1.35, 1.36 and 1.37. | Required kind lifecycle CI covers all three current minors. Provider evidence records, but does not extend, the exact Kubernetes versions it exercised. | Locally verified |
+| Kubernetes API | The three most recent upstream-maintained minor releases on the release decision date. The 8 November 2026 preparation readback confirms 1.35, 1.36 and 1.37. | Required kind lifecycle CI covers all three current minors. Provider evidence records, but does not extend, the exact Kubernetes versions it exercised. | Locally verified |
 | Deep-mode node base | Linux, cgroup v2, a readable `/sys/fs/cgroup`, DaemonSet scheduling and an enforcing NetworkPolicy-capable CNI. | Parser, walker and chart tests plus the [reviewed provider/runtime matrix](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md). | Qualified |
 | GKE Standard | COS with containerd and Ubuntu with containerd on amd64 Linux nodes. Support is limited to the exact recorded GKE, image, kernel, runtime and CNI versions. | Reviewed [COS](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/gke-cos-containerd-amd64/provider-qualification.json) and [Ubuntu](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/gke-ubuntu-containerd-amd64/provider-qualification.json) lifecycle bundles. | Historical (outside current support scope) |
 | EKS managed nodes | AL2023 with containerd on amd64 managed-node-group Linux nodes. Bottlerocket is not claimed. | Reviewed [AL2023 lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/eks-al2023-containerd-amd64/provider-qualification.json). | Qualified |
