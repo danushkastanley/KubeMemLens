@@ -217,6 +217,16 @@ covers `checksums.txt`. To verify the image, take its digest from
 `promotion-subjects.txt` and run
 `gh attestation verify oci://ghcr.io/danushkastanley/kube-memlens@<digest> --repo danushkastanley/KubeMemLens`.
 
+### Release candidate artefacts
+
+The proposed `v1.0.3-rc.1` candidate uses
+`oci://ghcr.io/danushkastanley/candidates/1.0.3-rc.1/charts/kube-memlens`
+with `--version 1.0.3` and image repository
+`ghcr.io/danushkastanley/candidates/1.0.3-rc.1/kube-memlens`.
+Candidate installs override the image repository and pin the image digest from
+its signed `candidate-manifest.json`. Stable promotion preserves those exact
+archive, image and chart bytes.
+
 ## TUI 2.0
 
 ![KubeMemLens TUI 2.0 in the qualified Kitty 180x50 terminal row, showing namespaces, risk-ordered Pods, selected Pod evidence, node memory context and current cgroup signals](docs/qualification-results/terminal-runtime-e631f20/screenshots/kitty-soak-180x50.png)
