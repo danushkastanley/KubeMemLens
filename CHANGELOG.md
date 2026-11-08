@@ -4,6 +4,20 @@ All notable changes are documented here. KubeMemLens follows [Semantic Versionin
 
 ## Unreleased
 
+### Changed
+
+- Build the sample cgroup data into the CLI, so `kubectl memlens sample` works from a release binary without a source checkout. `KUBEMEMLENS_SAMPLE_ROOT` still selects a directory of samples.
+- Report `rss-heavy` only when anonymous memory is material: at least half of a finite limit, or 512 MiB without one, as well as 65% of the charge. Small anon-dominant cgroups, such as idle control-plane Pods, are now `normal`. The diagnosis name, metrics label and JSON value are unchanged.
+- Label the anonymous memory bucket "Anonymous (anon)" and `ANON` in the CLI and TUI instead of "RSS / anon" and `RSS`, because cgroup `anon` is not process RSS. JSON, YAML and CSV field names are unchanged.
+- Show `kubectl memlens` in usage text, and hide the pre-v1 rollback flags (`--connect-mode`, `--collector-url`, `--collector-namespace`, `--collector-service`, `--collector-port`) from help. They still work.
+
+### First-run experience
+
+- Say when the KubeMemLens API is not installed, with a link to the installation guide, instead of reporting a missing object.
+- In restricted mode, note on stderr when the chart or metrics-server is missing, for table and text output only.
+- Print next steps after `helm install`: wait for rollout, bind the namespace viewer role, then run `doctor` and `tui`.
+- Extract `LICENSE` explicitly in the Krew manifest, and describe the chart and metrics-server requirements in its caveats.
+
 ### Documentation
 
 - Rewrite the README opening with the problem statement, a three-step quick start, a comparison with `kubectl top`, k9s and Prometheus/Grafana, an explanation of how memory is measured, measured resource overhead, the exact permissions the chart installs, and download verification steps.
