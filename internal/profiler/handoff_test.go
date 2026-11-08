@@ -18,7 +18,7 @@ func fixture() api.PodSnapshot {
 	c := api.ContainerSnapshot{Namespace: "test", PodName: "app-1", PodUID: "uid", ContainerName: "app", ContainerID: "container-id",
 		CapturedAt: observed, Freshness: api.EvidenceFreshnessFresh, Completeness: api.EvidenceComplete,
 		Context: api.ContainerContext{PodPhase: "Running", Labels: map[string]string{LabelPrefix + "app": GoHeapProfile}},
-		Memory:  model.MemoryBreakdown{TotalBytes: 100 << 20, AnonBytes: 80 << 20},
+		Memory:  model.MemoryBreakdown{TotalBytes: 100 << 20, AnonBytes: 80 << 20, MaxKnown: true, MaxBytes: 128 << 20},
 	}
 	return api.PodSnapshot{Namespace: c.Namespace, PodName: c.PodName, PodUID: c.PodUID, CapturedAt: observed,
 		Freshness: c.Freshness, Completeness: c.Completeness, Context: api.PodContext{Phase: "Running"}, Containers: []api.ContainerSnapshot{c}}

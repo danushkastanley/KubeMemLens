@@ -14,7 +14,7 @@ func TestPrintWorkloadsTableIncludesLargestReplica(t *testing.T) {
 	printWorkloadsTable(output, []api.WorkloadSnapshot{{
 		Namespace: "default", Kind: "Deployment", Name: "api", PodCount: 2,
 		LargestPodName: "api-b", LargestPodBytes: 300 << 20,
-		Memory: model.MemoryBreakdown{TotalBytes: 400 << 20, AnonBytes: 350 << 20},
+		Memory: model.MemoryBreakdown{TotalBytes: 700 << 20, AnonBytes: 600 << 20},
 	}})
 	for _, want := range []string{"NAMESPACE", "Deployment", "api-b", "300Mi", "rss-heavy"} {
 		if !strings.Contains(output.String(), want) {

@@ -5,16 +5,19 @@ metadata:
 spec:
   version: "{{VERSION}}"
   homepage: https://github.com/danushkastanley/KubeMemLens
-  shortDescription: Explain Kubernetes cgroup memory from the terminal
+  shortDescription: Explain why Pod memory is high
   description: |
-    KubeMemLens partitions anonymous memory, filesystem-backed cache, tmpfs,
-    and residual/other, then adds kernel, writeback, and recent pressure
-    evidence. It is a read-only incident diagnostic tool and does not mutate
-    workloads.
+    Breaks Pod and container memory into anonymous memory, file cache,
+    tmpfs/shared memory and other, using cgroup v2 evidence, so you can tell
+    a real leak from reclaimable page cache before an OOMKill. Includes a
+    terminal dashboard, per-Pod explanations and offline incident replay.
+    It never changes workloads.
   caveats: |
-    Deep cluster inspection requires the separately installed KubeMemLens Helm
-    chart. Review its hostPath, RBAC, NetworkPolicy, and compatibility matrix
-    before installation.
+    Full cgroup detail needs the KubeMemLens Helm chart in the cluster:
+      https://github.com/danushkastanley/KubeMemLens/blob/main/docs/installation.md
+    Without it, the plugin shows Metrics API working set only, which needs
+    metrics-server. Run `kubectl memlens doctor` to check your setup, or try
+    the bundled samples without a cluster: `kubectl memlens sample explain cache-heavy`.
   platforms:
     - selector:
         matchLabels:
@@ -22,6 +25,11 @@ spec:
           arch: amd64
       uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_linux_amd64.tar.gz
       sha256: "{{SHA_LINUX_AMD64}}"
+      files:
+        - from: "kubectl-memlens"
+          to: "."
+        - from: "LICENSE"
+          to: "."
       bin: kubectl-memlens
     - selector:
         matchLabels:
@@ -29,6 +37,11 @@ spec:
           arch: arm64
       uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_linux_arm64.tar.gz
       sha256: "{{SHA_LINUX_ARM64}}"
+      files:
+        - from: "kubectl-memlens"
+          to: "."
+        - from: "LICENSE"
+          to: "."
       bin: kubectl-memlens
     - selector:
         matchLabels:
@@ -36,6 +49,11 @@ spec:
           arch: amd64
       uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_darwin_amd64.tar.gz
       sha256: "{{SHA_DARWIN_AMD64}}"
+      files:
+        - from: "kubectl-memlens"
+          to: "."
+        - from: "LICENSE"
+          to: "."
       bin: kubectl-memlens
     - selector:
         matchLabels:
@@ -43,6 +61,11 @@ spec:
           arch: arm64
       uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_darwin_arm64.tar.gz
       sha256: "{{SHA_DARWIN_ARM64}}"
+      files:
+        - from: "kubectl-memlens"
+          to: "."
+        - from: "LICENSE"
+          to: "."
       bin: kubectl-memlens
     - selector:
         matchLabels:
@@ -50,6 +73,11 @@ spec:
           arch: amd64
       uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_windows_amd64.zip
       sha256: "{{SHA_WINDOWS_AMD64}}"
+      files:
+        - from: "kubectl-memlens.exe"
+          to: "."
+        - from: "LICENSE"
+          to: "."
       bin: kubectl-memlens.exe
     - selector:
         matchLabels:
@@ -57,4 +85,9 @@ spec:
           arch: arm64
       uri: https://github.com/danushkastanley/KubeMemLens/releases/download/{{VERSION}}/kube-memlens_{{VERSION_NUMBER}}_windows_arm64.zip
       sha256: "{{SHA_WINDOWS_ARM64}}"
+      files:
+        - from: "kubectl-memlens.exe"
+          to: "."
+        - from: "LICENSE"
+          to: "."
       bin: kubectl-memlens.exe

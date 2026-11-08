@@ -150,7 +150,7 @@ func Analyze(m model.MemoryBreakdown) Result {
 	dirtyHigh := m.TotalBytes > 0 && (m.DirtyWritebackRatio() >= 0.10 || m.DirtyWritebackBytes() >= 256*mib)
 	tmpfsHigh := m.TotalBytes > 0 && m.ShmemRatio() >= 0.30
 	slabHigh := m.TotalBytes > 0 && (m.SlabRatio() >= 0.20 || componentRatio(m.SlabUnreclaimableBytes, m.TotalBytes) >= 0.10 || componentRatio(m.SocketBytes, m.TotalBytes) >= 0.10 || componentRatio(m.PageTableBytes, m.TotalBytes) >= 0.10)
-	rssHigh := m.TotalBytes > 0 && m.AnonRatio() >= 0.65
+	rssHigh := m.TotalBytes > 0 && m.AnonRatio() >= 0.65 && anonIsMaterial(m)
 	cacheHigh := m.TotalBytes > 0 && m.FileCacheRatio() >= 0.40 && m.AnonRatio() <= 0.50
 
 	majorSignals := countTrue(dirtyHigh, tmpfsHigh, slabHigh, rssHigh, cacheHigh)
@@ -294,10 +294,27 @@ func limitRisk(m model.MemoryBreakdown) Result {
 	}
 }
 
+const (
+	// anonMaterialLimitShare and anonMaterialUnboundedBytes decide when
+	// anonymous memory is large enough to report as rss-heavy.
+	anonMaterialLimitShare     = 0.50
+	anonMaterialUnboundedBytes = 512 * mib
+)
+
+// anonIsMaterial stops anon-dominant composition, which is normal for most
+// processes, from being reported on its own. Anonymous memory must also be at
+// least half of a finite limit, or 512 MiB when no finite limit is known.
+func anonIsMaterial(m model.MemoryBreakdown) bool {
+	if m.MaxKnown && !m.MaxUnlimited && m.MaxBytes > 0 {
+		return componentRatio(m.AnonBytes, m.MaxBytes) >= anonMaterialLimitShare
+	}
+	return m.AnonBytes >= anonMaterialUnboundedBytes
+}
+
 func cacheHeavy(m model.MemoryBreakdown) Result {
 	signals := []string{
 		fmt.Sprintf("filesystem-backed cache, excluding shmem, is %.0f%% of total charged memory", m.FileCacheRatio()*100),
-		fmt.Sprintf("RSS/anon is %.0f%% of total charged memory", m.AnonRatio()*100),
+		fmt.Sprintf("anonymous memory is %.0f%% of total charged memory", m.AnonRatio()*100),
 	}
 	if m.FileBytes > 0 && float64(m.ActiveFileBytes)/float64(m.FileBytes) >= 0.60 {
 		signals = append(signals, "active_file is high relative to the raw cgroup file value")
@@ -306,13 +323,13 @@ func cacheHeavy(m model.MemoryBreakdown) Result {
 	return Result{
 		Diagnosis: DiagnosisCacheHeavy,
 		Summary:   "File-backed cache is the largest visible contributor.",
-		LikelyExplanation: "This does not look like a pure application heap leak. RSS/anonymous memory is relatively stable/low " +
+		LikelyExplanation: "This does not look like a pure application heap leak. Anonymous memory is relatively stable/low " +
 			"compared to total memory, while file cache is high and active.",
 		SuggestedChecks: []string{
 			"Look for app-level disk caches with long TTLs.",
 			"Check whether files under cache directories are being repeatedly read/written.",
 			"Check emptyDir usage and sizeLimit.",
-			"Consider scaling on RSS/anon instead of total working set for this workload.",
+			"Consider scaling on anonymous memory instead of total working set for this workload.",
 		},
 		Signals: signals,
 	}
@@ -321,16 +338,16 @@ func cacheHeavy(m model.MemoryBreakdown) Result {
 func rssHeavy(m model.MemoryBreakdown) Result {
 	return Result{
 		Diagnosis: DiagnosisRSSHeavy,
-		Summary:   "RSS/anonymous memory dominates the cgroup charge.",
+		Summary:   "Anonymous memory dominates the cgroup charge and is large relative to its budget.",
 		LikelyExplanation: "This suggests application heap, native anonymous memory, runtime heap growth, or retained allocations. " +
 			"Use runtime-specific heap tooling before assuming page cache is the cause.",
 		SuggestedChecks: []string{
-			"Compare runtime heap metrics with RSS/anon.",
+			"Compare runtime heap metrics with anonymous memory.",
 			"Capture a heap profile or allocator profile during the high-memory window.",
 			"Check for recent code paths that retain large buffers or caches in process memory.",
 		},
 		Signals: []string{
-			fmt.Sprintf("RSS/anon is %.0f%% of total charged memory", m.AnonRatio()*100),
+			fmt.Sprintf("anonymous memory is %.0f%% of total charged memory", m.AnonRatio()*100),
 		},
 	}
 }
@@ -404,12 +421,12 @@ func mixed(m model.MemoryBreakdown) Result {
 		LikelyExplanation: "The available cgroup stats suggest a mixed memory profile. Start with the largest buckets, " +
 			"then compare the timing of those signals with workload activity.",
 		SuggestedChecks: []string{
-			"Compare RSS/anon, file cache, shmem, and slab over the same incident window.",
+			"Compare anonymous memory, file cache, shmem, and slab over the same incident window.",
 			"Check whether workload activity changed at the same time as memory usage.",
 			"Use more specific runtime or storage tooling for the largest bucket.",
 		},
 		Signals: []string{
-			fmt.Sprintf("RSS/anon %.0f%%, file cache %.0f%%, shmem %.0f%%, slab %.0f%%",
+			fmt.Sprintf("anon %.0f%%, file cache %.0f%%, shmem %.0f%%, slab %.0f%%",
 				m.AnonRatio()*100,
 				m.FileCacheRatio()*100,
 				m.ShmemRatio()*100,
@@ -429,10 +446,17 @@ func normal(m model.MemoryBreakdown) Result {
 			"Compare current memory with recent baseline and configured limits.",
 			"Check application-level metrics if users still report symptoms.",
 		},
-		Signals: []string{
-			"no dominant cgroup memory bucket detected",
-		},
+		Signals: []string{normalSignal(m)},
 	}
+}
+
+// normalSignal says when anon dominates but is too small to report, so a
+// normal result does not read as "nothing dominates".
+func normalSignal(m model.MemoryBreakdown) string {
+	if m.TotalBytes > 0 && m.AnonRatio() >= 0.65 {
+		return fmt.Sprintf("anonymous memory is %.0f%% of total charged memory but below the rss-heavy size threshold (half of a finite limit, or 512 MiB without one)", m.AnonRatio()*100)
+	}
+	return "no dominant cgroup memory bucket detected"
 }
 
 func countTrue(values ...bool) int {

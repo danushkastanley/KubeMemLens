@@ -323,7 +323,7 @@ Namespaces where file cache dominates:
 ) > 0.4
 ```
 
-Top pods by RSS/anon:
+Top pods by anonymous memory:
 
 ```promql
 topk(20, kubememlens_pod_memory_bytes{type="anon"})

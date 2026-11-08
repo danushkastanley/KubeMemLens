@@ -164,6 +164,9 @@ func ConnectionError(opts Options, description string, err error) error {
 	if IsForbidden(err) {
 		return fmt.Errorf("You do not have permission to read KubeMemLens data in the requested scope")
 	}
+	if IsAPINotInstalled(err) {
+		return errors.New(apiNotInstalledMessage)
+	}
 	if IsNotFound(err) {
 		return fmt.Errorf("The requested KubeMemLens object was not found in the authorised scope")
 	}

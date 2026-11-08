@@ -68,13 +68,15 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
    Readers who are not cluster administrators need a RoleBinding first; see
    [what it installs and what it can access](#what-it-installs-and-what-it-can-access).
 
-To try the explanations without a cluster, run the bundled samples from a
-source checkout with Go 1.27. In v1.0.2 the sample data ships with the source,
-not the release binary:
+To try the explanations without a cluster, run the bundled samples. From
+v1.0.3 they are built into the CLI:
 
 ```sh
-go run ./cmd/kubectl-memlens sample explain cache-heavy
+kubectl memlens sample explain cache-heavy
 ```
+
+With v1.0.2, run them from a source checkout with Go 1.27:
+`go run ./cmd/kubectl-memlens sample explain cache-heavy`.
 
 ## How it compares
 
@@ -116,8 +118,11 @@ buckets below. See [restricted mode](docs/restricted-mode.md).
 
 A container is OOM-killed when its usage reaches `memory.max` and the kernel
 cannot reclaim enough. File cache is reclaimed first, so growth in anonymous
-memory or tmpfs is the usual risk. Releases up to v1.0.2 label the anonymous
-bucket "RSS / anon" in the CLI and TUI. The full model, including the
+memory or tmpfs is the usual risk. From v1.0.3 the CLI and TUI label this
+bucket "Anonymous (anon)" and `ANON`; v1.0.2 and earlier label it "RSS / anon".
+The `rss-heavy` diagnosis keeps its name for compatibility, and from v1.0.3 it
+needs anonymous memory to be at least half of a finite limit, or 512 MiB
+without one. The full model, including the
 overlapping kernel and writeback detail, is in
 [memory semantics](docs/memory-semantics.md).
 
@@ -244,7 +249,7 @@ go run ./cmd/kubectl-memlens sample explain cache-heavy
 Sample: cache-heavy
 
 Total charged memory: 4.10 GiB
-RSS / anon:           1.20 GiB
+Anonymous (anon):     1.20 GiB
 File cache:           2.51 GiB
 Shmem / tmpfs:        90.00 MiB
 Residual / other:     307.20 MiB
@@ -491,7 +496,7 @@ Key controls:
 | `Enter` or `e` | Drill into the selected entity or open its explanation |
 | `h`, Backspace or Escape | Return or clear the active filter |
 | `/` | Filter the current view; Pod filters also accept `severity:`, `diagnosis:`, `pressure:`, `owner:` and `state:` tokens |
-| `s` | Cycle risk, total, RSS, cache, shmem and name sorting |
+| `s` | Cycle risk, total, anon, cache, shmem and name sorting |
 | Space / `r` | Pause automatic refresh / refresh manually; manual refresh remains available while paused |
 | Tab | At wide sizes, move focus between the table and selected detail; it no longer changes entity view |
 | `a`, `R`, `x`, `C`, `y` | Open incident actions, recommendations, compare, redacted capture or copy a safe command |

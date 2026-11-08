@@ -1,21 +1,21 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
+	"github.com/danushkastanley/kube-memlens/examples"
 	"github.com/danushkastanley/kube-memlens/internal/cgroup"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 )
-
-const defaultSampleRoot = "examples/cgroup-v2"
 
 var preferredSampleOrder = []string{
 	"cache-heavy",
@@ -28,7 +28,7 @@ var preferredSampleOrder = []string{
 func newSampleCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sample",
-		Short: "Use local sample cgroup data",
+		Short: "Explore bundled sample cgroup data without a cluster",
 	}
 
 	cmd.AddCommand(newSampleListCommand())
@@ -44,7 +44,7 @@ func newSampleListCommand() *cobra.Command {
 		Short: "List available samples",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			samples, err := listSamples(sampleRoot())
+			samples, err := listSamples()
 			if err != nil {
 				return err
 			}
@@ -82,7 +82,7 @@ func newSampleTopCommand() *cobra.Command {
 		Short: "Show a table of local cgroup samples",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			samples, err := listSamples(sampleRoot())
+			samples, err := listSamples()
 			if err != nil {
 				return err
 			}
@@ -102,18 +102,27 @@ func newSampleTopCommand() *cobra.Command {
 	}
 }
 
-func sampleRoot() string {
+// sampleFS returns the samples built into the binary. KUBEMEMLENS_SAMPLE_ROOT
+// points at a directory of samples instead, for trying new fixtures.
+func sampleFS() (fs.FS, string, error) {
 	if root := strings.TrimSpace(os.Getenv("KUBEMEMLENS_SAMPLE_ROOT")); root != "" {
-		return root
+		return os.DirFS(root), root, nil
 	}
-
-	return defaultSampleRoot
+	bundled, err := examples.CgroupV2()
+	if err != nil {
+		return nil, "", fmt.Errorf("open bundled samples: %w", err)
+	}
+	return bundled, "bundled samples", nil
 }
 
-func listSamples(root string) ([]string, error) {
-	entries, err := os.ReadDir(root)
+func listSamples() ([]string, error) {
+	fsys, source, err := sampleFS()
 	if err != nil {
-		return nil, fmt.Errorf("list samples under %s: %w", root, err)
+		return nil, err
+	}
+	entries, err := fs.ReadDir(fsys, ".")
+	if err != nil {
+		return nil, fmt.Errorf("list samples in %s: %w", source, err)
 	}
 
 	available := map[string]struct{}{}
@@ -142,12 +151,26 @@ func listSamples(root string) ([]string, error) {
 }
 
 func loadSample(name string) (model.MemoryBreakdown, error) {
-	if strings.Contains(name, string(os.PathSeparator)) || name == "." || name == ".." {
+	if strings.ContainsAny(name, `/\`) || !fs.ValidPath(name) || name == "." {
 		return model.MemoryBreakdown{}, fmt.Errorf("invalid sample name %q", name)
 	}
 
-	dir := filepath.Join(sampleRoot(), name)
-	breakdown, err := cgroup.ParseDirectory(name, dir)
+	fsys, _, err := sampleFS()
+	if err != nil {
+		return model.MemoryBreakdown{}, err
+	}
+	info, err := fs.Stat(fsys, name)
+	if errors.Is(err, fs.ErrNotExist) || err == nil && !info.IsDir() {
+		return model.MemoryBreakdown{}, fmt.Errorf("unknown sample %q; run \"kubectl memlens sample list\"", name)
+	}
+	if err != nil {
+		return model.MemoryBreakdown{}, fmt.Errorf("load sample %s: %w", name, err)
+	}
+	dir, err := fs.Sub(fsys, name)
+	if err != nil {
+		return model.MemoryBreakdown{}, fmt.Errorf("invalid sample name %q", name)
+	}
+	breakdown, err := cgroup.ParseFS(name, dir)
 	if err != nil {
 		return model.MemoryBreakdown{}, fmt.Errorf("load sample %s: %w", name, err)
 	}
@@ -162,7 +185,7 @@ func printExplanation(w interface{ Write([]byte) (int, error) }, breakdown model
 func printMemoryExplanation(w interface{ Write([]byte) (int, error) }, title string, breakdown model.MemoryBreakdown, result explain.Result) {
 	fmt.Fprintf(w, "%s\n\n", title)
 	fmt.Fprintf(w, "Total charged memory: %s\n", model.FormatBytes(breakdown.TotalBytes))
-	fmt.Fprintf(w, "RSS / anon:           %s\n", model.FormatBytes(breakdown.RSSBytes()))
+	fmt.Fprintf(w, "Anonymous (anon):     %s\n", model.FormatBytes(breakdown.RSSBytes()))
 	fmt.Fprintf(w, "File cache:           %s\n", model.FormatBytes(breakdown.CacheBytes()))
 	fmt.Fprintf(w, "Shmem / tmpfs:        %s\n", model.FormatBytes(breakdown.ShmemBytes))
 	fmt.Fprintf(w, "Residual / other:     %s\n", model.FormatBytes(breakdown.ResidualBytes()))
@@ -226,7 +249,7 @@ func printMemoryExplanation(w interface{ Write([]byte) (int, error) }, title str
 
 func printSampleTop(w interface{ Write([]byte) (int, error) }, rows []model.MemoryBreakdown) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "NAME\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
+	fmt.Fprintln(tw, "NAME\tTOTAL\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
 	for _, row := range rows {
 		fmt.Fprintf(
 			tw,

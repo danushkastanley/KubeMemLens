@@ -24,11 +24,13 @@ Kernel, slab, sockets, page tables, mapped-file, THP, active/inactive file, and 
 
 `memory.peak` preserves transient high-water usage that may no longer be visible in `memory.current`. `memory.min`, `memory.low`, `memory.high`, and `memory.max` describe protection and limit boundaries; `max` is represented explicitly as unlimited rather than converted to a byte value.
 
-## Anon / RSS
+## Anonymous memory (anon)
 
-`anon` is used as the RSS/anonymous memory proxy in this MVP. It often lines up with application heap, native allocations, runtime memory, and memory retained directly by the process.
+`anon` in `memory.stat` is memory charged to the cgroup that is not backed by a file. It often lines up with application heap, native allocations, runtime memory, and memory retained directly by the process. The CLI and TUI label it "Anonymous (anon)" and `ANON`; releases up to v1.0.2 labelled it "RSS / anon".
 
-High anon memory can suggest heap growth or native memory retention, but it is not proof of a leak by itself.
+It is not process RSS. RSS also counts file pages a process has mapped and shared memory, and it is measured per process rather than per cgroup.
+
+High anon memory can suggest heap growth or native memory retention, but it is not proof of a leak by itself. Most processes are anon-dominant, so the `rss-heavy` diagnosis needs two conditions: anon is at least 65% of the charge, and it is material, meaning at least half of a finite `memory.max` or at least 512 MiB when no finite limit is known. Smaller anon-dominant cgroups are reported as `normal`. The diagnosis keeps the `rss-heavy` name because it is part of the metrics and JSON contracts.
 
 ## File Cache
 

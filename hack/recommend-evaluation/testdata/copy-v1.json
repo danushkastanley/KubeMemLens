@@ -1,5 +1,5 @@
 {
-  "memory-anonymous-dominant": "5bbffe52a1183f52b1c9bd7dc410e0057855fc0cc2850aa068d1f81039b5edae",
+  "memory-anonymous-dominant": "006380848ea5c469d68e9cc1a4630423484527e8da6bdf7475c3c0e638d524e9",
   "memory-balanced": "de5fb9ec6bbd008f0b1546bcc93b4f9b574a6033dbd152ba85222c3cdbe70e4b",
   "memory-below-anonymous-boundary": "de5fb9ec6bbd008f0b1546bcc93b4f9b574a6033dbd152ba85222c3cdbe70e4b",
   "memory-below-cache-boundary": "de5fb9ec6bbd008f0b1546bcc93b4f9b574a6033dbd152ba85222c3cdbe70e4b",
@@ -48,11 +48,13 @@
   "volume-tmpfs-charge": "1fd5a8f09fdacacd18e1324e7de5ca5b4f2e276c7ee32bdd5c199dbf37d0de6b",
   "volume-tmpfs-configuration-only": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
   "volume-writeback-window": "1588be15487bfd38a4e29d592c2293bdfe53d929161795aada57cf1a5250ff9b",
-  "memory-local-anonymous": "5bbffe52a1183f52b1c9bd7dc410e0057855fc0cc2850aa068d1f81039b5edae",
+  "memory-local-anonymous": "de5fb9ec6bbd008f0b1546bcc93b4f9b574a6033dbd152ba85222c3cdbe70e4b",
   "replica-local-outlier": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
   "memory-local-cache": "7033536f906e30d0759ff29c0ffb0236c4366c7d15110711b499faba793d8868",
   "memory-local-tmpfs": "f69dafc023f60b77565b56fd82303be0ea2660e31c27d7af37ac077c04af4dc8",
   "memory-local-pressure": "7cee81619998261750ea9f974ecc6ce407d80939abfa244a494ebe79afba4ffb",
   "memory-local-oom": "e5d30275157684be0a0792376c1f2acacddb832402bf9c7f6ccbf30c7bbf9083",
-  "volume-local-tmpfs": "1fd5a8f09fdacacd18e1324e7de5ca5b4f2e276c7ee32bdd5c199dbf37d0de6b"
+  "volume-local-tmpfs": "1fd5a8f09fdacacd18e1324e7de5ca5b4f2e276c7ee32bdd5c199dbf37d0de6b",
+  "memory-anonymous-material-unbounded": "006380848ea5c469d68e9cc1a4630423484527e8da6bdf7475c3c0e638d524e9",
+  "memory-anonymous-below-material-share": "de5fb9ec6bbd008f0b1546bcc93b4f9b574a6033dbd152ba85222c3cdbe70e4b"
 }

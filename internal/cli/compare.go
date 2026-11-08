@@ -214,7 +214,7 @@ func printPodComparison(w interface{ Write([]byte) (int, error) }, title string,
 		afterBytes  uint64
 	}{
 		{name: "Total", beforeBytes: before.Memory.TotalBytes, afterBytes: after.Memory.TotalBytes},
-		{name: "RSS / anon", beforeBytes: before.Memory.RSSBytes(), afterBytes: after.Memory.RSSBytes()},
+		{name: "Anonymous (anon)", beforeBytes: before.Memory.RSSBytes(), afterBytes: after.Memory.RSSBytes()},
 		{name: "File cache", beforeBytes: before.Memory.CacheBytes(), afterBytes: after.Memory.CacheBytes()},
 		{name: "Shmem / tmpfs", beforeBytes: before.Memory.ShmemBytes, afterBytes: after.Memory.ShmemBytes},
 		{name: "Residual / other", beforeBytes: before.Memory.ResidualBytes(), afterBytes: after.Memory.ResidualBytes()},

@@ -88,7 +88,7 @@ func finiteLimit(memory model.MemoryBreakdown) uint64 {
 func printPodRows(w io.Writer, rows []topRow, noHeaders bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	if !noHeaders {
-		fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
+		fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tLIMIT\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
 	}
 	for _, row := range rows {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Name, row.Node, compact(row.TotalBytes), compactLimit(row.LimitBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
@@ -99,7 +99,7 @@ func printPodRows(w io.Writer, rows []topRow, noHeaders bool) {
 func printContainerRows(w io.Writer, rows []topRow, noHeaders bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	if !noHeaders {
-		fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
+		fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tLIMIT\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
 	}
 	for _, row := range rows {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Pod, row.Name, row.Node, compact(row.TotalBytes), compactLimit(row.LimitBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
@@ -110,7 +110,7 @@ func printContainerRows(w io.Writer, rows []topRow, noHeaders bool) {
 func printWorkloadRows(w io.Writer, rows []topRow, noHeaders bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	if !noHeaders {
-		fmt.Fprintln(tw, "NAMESPACE\tKIND\tWORKLOAD\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tLARGEST POD\tMAX POD\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
+		fmt.Fprintln(tw, "NAMESPACE\tKIND\tWORKLOAD\tPODS\tTOTAL\tANON\tCACHE\tSHMEM\tOTHER\tLARGEST POD\tMAX POD\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
 	}
 	for _, row := range rows {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Kind, row.Name, row.Count, compact(row.TotalBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.LargestName, compact(row.LargestBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
@@ -121,7 +121,7 @@ func printWorkloadRows(w io.Writer, rows []topRow, noHeaders bool) {
 func printNamespaceRows(w io.Writer, rows []topRow, noHeaders bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	if !noHeaders {
-		fmt.Fprintln(tw, "NAMESPACE\tPODS\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
+		fmt.Fprintln(tw, "NAMESPACE\tPODS\tTOTAL\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
 	}
 	for _, row := range rows {
 		fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Count, compact(row.TotalBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
