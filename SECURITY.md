@@ -1,40 +1,20 @@
 # Security Policy
 
-## v1.0.2 security preparation
+## Report a vulnerability
 
-The source uses Go 1.27.3 across all three modules and pinned builders to
-address [GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809) in certificate
-verification. Trace bundle validation requires the same compiler version.
-This change does not replace published binaries or previously signed engine
-bundles; deployment requires a separately verified release. The
-[v1.0.2 preparation record](docs/release-preparation-1.0.2.md) tracks the fresh
-scans, retained advisory and remaining publication gates.
+Do not open a public issue for a suspected vulnerability.
 
-## v1.0.1 security updates
+Use the repository's [private security advisory form](https://github.com/danushkastanley/KubeMemLens/security/advisories/new). If you cannot use GitHub, email [security@kubememlens.com](mailto:security@kubememlens.com).
 
-The v1.0.1 source updates Go builders to 1.27.2 and `golang.org/x/net` to
-0.60.0 across all three modules for the reviewed HTTP and HTTP/2 advisories.
-The optional trace worker also uses `github.com/moby/sys/user` 0.4.1.
-CEL 0.30.0 and etcd 3.7.1 close the previously recorded package advisories.
-The worker SDK uses containerd v2.3.7 instead of v1, with a new engine patch
-identity; previously accepted optional engine bundles do not authorise it.
-Existing installed binaries and immutable v1.0.0 artefacts are unchanged;
-deploy the new version only after its signed release is published.
+Include only the information needed to reproduce and assess the issue:
 
-See the [release preparation record](docs/release-preparation-1.0.1.md) for
-verification and publication status. A passing reachability scan does not
-claim an advisory-free dependency graph.
+- affected commit or version;
+- deployment mode and Kubernetes/runtime versions;
+- impact and required attacker access;
+- reproduction steps or a minimal proof of concept;
+- suggested remediation, if known.
 
-## Historical RC2 baseline
-
-The published `v1.0.0-rc.2` candidate includes gRPC 1.83.2 for the
-HTTP/2 fragmented-frame memory-exhaustion and missing-authority denial-of-service advisories. This source change does
-not patch the immutable RC1 archives. See [RC2 preparation](docs/release-preparation-rc2.md).
-
-The preparation also updates etcd API/client modules to 3.6.14 and x/crypto to
-0.56.0. The preparation record distinguishes patched advisories from remaining
-unreachable CEL and unused OpenPGP findings; it does not claim an advisory-free
-dependency graph.
+Do not include real cluster credentials, tokens, Pod data, logs containing identifiers, or other sensitive production information. Use synthetic names and redacted evidence.
 
 ## Supported versions
 
@@ -48,22 +28,6 @@ The [support and compatibility contract](docs/compatibility.md) is the canonical
 | `1.0.x-rc.N` | Best effort, pre-release |
 | `0.0.1-alpha.x` | Best effort, pre-release |
 | Unreleased `main` | Best effort |
-
-## Report a vulnerability
-
-Do not open a public issue for a suspected vulnerability.
-
-Use the repository's [private security advisory form](https://github.com/danushkastanley/KubeMemLens/security/advisories/new) when it is available. If GitHub private vulnerability reporting is not enabled, contact the maintainer privately through the contact method on [the maintainer's GitHub profile](https://github.com/danushkastanley).
-
-Include only the information needed to reproduce and assess the issue:
-
-- affected commit or version;
-- deployment mode and Kubernetes/runtime versions;
-- impact and required attacker access;
-- reproduction steps or a minimal proof of concept;
-- suggested remediation, if known.
-
-Do not include real cluster credentials, tokens, Pod data, logs containing identifiers, or other sensitive production information. Use synthetic names and redacted evidence.
 
 ## Response expectations
 
@@ -107,3 +71,41 @@ Security-sensitive areas include:
 
 Installation and usage questions belong in [SUPPORT.md](SUPPORT.md). Private
 vulnerability reporting is not a private support channel.
+
+## Security update history
+
+### v1.0.2
+
+The source uses Go 1.27.3 across all three modules and pinned builders to
+address [GO-2026-6809](https://pkg.go.dev/vuln/GO-2026-6809) in certificate
+verification. Trace bundle validation requires the same compiler version.
+This change does not replace published binaries or previously signed engine
+bundles; deployment requires a separately verified release. The
+[v1.0.2 preparation record](docs/release-preparation-1.0.2.md) tracks the fresh
+scans, retained advisory and remaining publication gates.
+
+### v1.0.1
+
+The v1.0.1 source updates Go builders to 1.27.2 and `golang.org/x/net` to
+0.60.0 across all three modules for the reviewed HTTP and HTTP/2 advisories.
+The optional trace worker also uses `github.com/moby/sys/user` 0.4.1.
+CEL 0.30.0 and etcd 3.7.1 close the previously recorded package advisories.
+The worker SDK uses containerd v2.3.7 instead of v1, with a new engine patch
+identity; previously accepted optional engine bundles do not authorise it.
+Existing installed binaries and immutable v1.0.0 artefacts are unchanged;
+deploy the new version only after its signed release is published.
+
+See the [release preparation record](docs/release-preparation-1.0.1.md) for
+verification and publication status. A passing reachability scan does not
+claim an advisory-free dependency graph.
+
+### v1.0.0-rc.2
+
+The published `v1.0.0-rc.2` candidate includes gRPC 1.83.2 for the
+HTTP/2 fragmented-frame memory-exhaustion and missing-authority denial-of-service advisories. This source change does
+not patch the immutable RC1 archives. See [RC2 preparation](docs/release-preparation-rc2.md).
+
+The preparation also updates etcd API/client modules to 3.6.14 and x/crypto to
+0.56.0. The preparation record distinguishes patched advisories from remaining
+unreachable CEL and unused OpenPGP findings; it does not claim an advisory-free
+dependency graph.

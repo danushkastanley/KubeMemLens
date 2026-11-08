@@ -3,7 +3,9 @@
 charts
 deploy
 docs
-examples
+examples/*
+!examples/embed.go
+!examples/cgroup-v2
 hack
 local-docs
 qualification-evidence

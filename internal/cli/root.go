@@ -34,9 +34,11 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 		Use:   "kubectl-memlens",
 		Short: "Terminal-first Kubernetes memory inspector",
 		Long: "KubeMemLens helps explain why pod or container memory is high by separating cgroup memory " +
-			"into non-overlapping RSS/anon, filesystem cache, tmpfs, and residual/other buckets, with kernel, writeback, and pressure drill-down evidence.",
+			"into non-overlapping anonymous memory, filesystem cache, tmpfs, and residual/other buckets, with kernel, writeback, and pressure drill-down evidence.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		// Show the kubectl plugin invocation in usage and help text.
+		Annotations: map[string]string{cobra.CommandDisplayNameAnnotation: "kubectl memlens"},
 	}
 
 	cmd.SetOut(stdout)
@@ -47,8 +49,15 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	cmd.PersistentFlags().StringVar(&flags.collectorNamespace, "collector-namespace", flags.collectorNamespace, "collector service namespace for kube-proxy mode")
 	cmd.PersistentFlags().StringVar(&flags.collectorService, "collector-service", flags.collectorService, "collector service name for kube-proxy mode")
 	cmd.PersistentFlags().IntVar(&flags.collectorPort, "collector-port", flags.collectorPort, "collector service port for kube-proxy mode")
-	cmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "", "path to kubeconfig for Kubernetes API or kube-proxy mode")
-	cmd.PersistentFlags().StringVar(&flags.context, "context", "", "kubeconfig context for Kubernetes API or kube-proxy mode")
+	cmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "", "path to the kubeconfig file")
+	cmd.PersistentFlags().StringVar(&flags.context, "context", "", "kubeconfig context to use")
+	// These flags exist only for controlled rollback of pre-v1 installations.
+	// They keep working but are hidden so new users see the supported path.
+	for _, name := range []string{"connect-mode", "collector-url", "collector-namespace", "collector-service", "collector-port"} {
+		if err := cmd.PersistentFlags().MarkHidden(name); err != nil {
+			panic(fmt.Sprintf("hide pre-v1 flag %s: %v", name, err))
+		}
+	}
 
 	cmd.AddCommand(newSampleCommand())
 	cmd.AddCommand(newTopCommand(flags.options))

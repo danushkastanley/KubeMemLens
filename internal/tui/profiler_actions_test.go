@@ -13,7 +13,7 @@ import (
 func TestRecommendationHandoffUsesSelectedContainerOnly(t *testing.T) {
 	now := time.Now().UTC()
 	c := api.ContainerSnapshot{Namespace: "test", PodName: "app-1", PodUID: "uid", ContainerName: "app", ContainerID: "id", CapturedAt: now,
-		Freshness: api.EvidenceFreshnessFresh, Completeness: api.EvidenceComplete, Memory: model.MemoryBreakdown{TotalBytes: 100 << 20, AnonBytes: 80 << 20},
+		Freshness: api.EvidenceFreshnessFresh, Completeness: api.EvidenceComplete, Memory: model.MemoryBreakdown{TotalBytes: 100 << 20, AnonBytes: 80 << 20, MaxKnown: true, MaxBytes: 128 << 20},
 		Context: api.ContainerContext{PodPhase: "Running", Labels: map[string]string{profiler.LabelPrefix + "app": profiler.GoHeapProfile}}}
 	sidecar := c
 	sidecar.ContainerName = "sidecar"

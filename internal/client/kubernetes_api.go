@@ -243,6 +243,10 @@ func (c *KubernetesAPIClient) getBounded(ctx context.Context, operation, path st
 		return readTransportError(operation, err)
 	}
 	defer response.Body.Close()
+	if response.StatusCode == http.StatusNotFound {
+		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
+		return c.notFoundError(ctx, operation, path)
+	}
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 4096))
 		return readStatusError(operation, response.StatusCode)

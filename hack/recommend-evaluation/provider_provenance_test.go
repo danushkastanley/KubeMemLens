@@ -16,7 +16,7 @@ func TestManagedProviderSourceRemainsDistinctWithoutReceiptDisclosure(t *testing
 	if err != nil || !report.Passed {
 		t.Fatalf("provider-labelled numerical evaluation failed: %v", err)
 	}
-	if report.Sources["managed-provider"] != 1 || report.Sources["local-cluster"] != 7 || report.Sources["synthetic"] != 48 || report.Cases[0].Source != "managed-provider" {
+	if report.Sources["managed-provider"] != 1 || report.Sources["local-cluster"] != 7 || report.Sources["synthetic"] != 50 || report.Cases[0].Source != "managed-provider" {
 		t.Fatal("managed-provider provenance was lost or relabelled")
 	}
 	raw, err := json.Marshal(report)

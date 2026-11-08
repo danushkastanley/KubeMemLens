@@ -1,71 +1,221 @@
 # KubeMemLens
 
-KubeMemLens is a terminal-first Kubernetes memory inspector.
+**See why a Kubernetes Pod's memory is high before it is OOMKilled.**
 
-[Public website](https://kubememlens.com) · [OpenSSF Best Practices Passing self-assessment](https://www.bestpractices.dev/en/projects/14259/passing)
+`kubectl top` shows working set, which counts active page cache as well as
+application memory, so a Pod can look close to its limit while much of that
+memory is reclaimable cache. KubeMemLens reads cgroup v2 memory statistics on
+each node and splits Pod and container memory into anonymous memory, file
+cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
 
+[![CI](https://github.com/danushkastanley/KubeMemLens/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/danushkastanley/KubeMemLens/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/danushkastanley/KubeMemLens)](https://github.com/danushkastanley/KubeMemLens/releases/latest)
+[![Licence](https://img.shields.io/github/license/danushkastanley/KubeMemLens)](LICENSE)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/danushkastanley/KubeMemLens/badge)](https://scorecard.dev/viewer/?uri=github.com/danushkastanley/KubeMemLens)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/14259/badge)](https://www.bestpractices.dev/en/projects/14259)
 
-It helps answer:
+[Website](https://kubememlens.com) · [Installation](docs/installation.md) ·
+[Support and compatibility](docs/compatibility.md) · [Changelog](CHANGELOG.md)
 
-> Why is this pod's memory high?
+<!-- Demo GIF placeholder: replace with a recording of a cache-heavy Pod
+     after v1.0.3, for example docs/images/demo.gif. -->
 
-Instead of showing one scary memory number, KubeMemLens partitions pod/container memory into anonymous memory, filesystem-backed cache, tmpfs/shared memory, and residual/other, then adds explicitly overlapping kernel, writeback, and pressure drill-down evidence.
+- **Never changes your workloads.** It reads cgroup files and Kubernetes
+  metadata; recommendations are printed for you to review, never applied.
+- **Built for incidents.** A terminal dashboard, per-Pod explanations with
+  severity, confidence and caveats, and redacted incident capture with offline
+  replay.
+- **No telemetry.** Nothing leaves your cluster or terminal.
 
-The goal is to make incidents like "kubectl top says memory is high, but the app heap is stable" easier to understand.
+## Quick start
 
-## v1.0.2
+1. Install the CLI on macOS or Linux (Windows archives are on the
+   [release page](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.2)):
 
-This patch adds a dedicated Pod dashboard with memory composition, history,
-context and read-only next checks. Enter opens the selected Pod; Esc restores
-the previous selection and filter. The main dashboard layout is unchanged.
+   ```sh
+   VERSION=1.0.2
+   OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+   ARCH=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
+   curl -fsSLO "https://github.com/danushkastanley/KubeMemLens/releases/download/v${VERSION}/kube-memlens_${VERSION}_${OS}_${ARCH}.tar.gz"
+   tar -xzf "kube-memlens_${VERSION}_${OS}_${ARCH}.tar.gz" kubectl-memlens
+   sudo install -m 0755 kubectl-memlens /usr/local/bin/kubectl-memlens
+   kubectl memlens version
+   ```
 
-It also includes Go 1.27.3 for the certificate-verification security update,
-aligned x/sys dependencies and refreshed pinned CI actions. The
-[release preparation record](docs/release-preparation-1.0.2.md) records the
-pre-tag checks, compatibility notes and publication gates. No new provider
-claim is made.
+   [Verify the download](#verify-a-download) before installing it on a shared
+   machine. A Krew package is not published yet. `go install` is not supported
+   because the Go module path differs from the repository name; use a release
+   archive or [build from source](docs/installation.md#build-the-cli-from-source).
 
-For signed artefacts and publication status, see the
-[v1.0.2 release](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.2).
-Use the versioned install commands below only after that release is published.
-[Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
+2. Install the in-cluster components (needs permission to install a chart with
+   cluster-scoped RBAC):
 
-The standard profile uses authenticated, tenant-scoped Kubernetes APIs and
-keeps optional features opt-in. The separate eBPF extension retains its
-[development profile](docs/ebpf/SUPPORT.md).
-The legacy `v0.0.1-alpha.3` release is not suitable for shared multi-tenant clusters.
+   ```sh
+   helm upgrade --install kube-memlens \
+     oci://ghcr.io/danushkastanley/charts/kube-memlens \
+     --version 1.0.2 \
+     --namespace kube-memlens \
+     --create-namespace
+   ```
 
-The [support and compatibility contract](docs/compatibility.md) defines the
-supported AWS EKS managed Linux profile: AL2023, containerd and amd64.
-Local lifecycle checks cover Kubernetes 1.35, 1.36 and 1.37. The
-[5,000-container local result](docs/qualification-results/rc-5000-local-kind-2026-08-26.md)
-records its exact environment and duration; configured ceilings remain rejection
-bounds rather than additional scale claims.
+3. Check the install and open the dashboard:
 
-## Install
+   ```sh
+   kubectl memlens doctor
+   kubectl memlens tui
+   ```
+
+   Readers who are not cluster administrators need a RoleBinding first; see
+   [what it installs and what it can access](#what-it-installs-and-what-it-can-access).
+
+To try the explanations without a cluster, run the bundled samples. From
+v1.0.3 they are built into the CLI:
 
 ```sh
-helm upgrade --install kube-memlens \
-  oci://ghcr.io/danushkastanley/charts/kube-memlens \
-  --version 1.0.2 \
-  --namespace kube-memlens \
-  --create-namespace
+kubectl memlens sample explain cache-heavy
 ```
 
-Download the CLI from the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.2), or follow the
-[installation guide](docs/installation.md). For digest-pinned installation,
-use the production image digest in the signed `promotion-subjects.txt`.
+With v1.0.2, run them from a source checkout with Go 1.27:
+`go run ./cmd/kubectl-memlens sample explain cache-heavy`.
 
-### Release candidate artefacts
+## How it compares
 
-The proposed `v1.0.2-rc.2` candidate uses
-`oci://ghcr.io/danushkastanley/candidates/1.0.2-rc.2/charts/kube-memlens`
-with `--version 1.0.2` and image repository
-`ghcr.io/danushkastanley/candidates/1.0.2-rc.2/kube-memlens`.
-Candidate installs override the image repository and pin the image digest from
-its signed `candidate-manifest.json`. Stable promotion preserves those exact
-archive, image and chart bytes.
+KubeMemLens complements a metrics stack; it does not replace one.
+
+| | `kubectl top` | k9s | Prometheus and Grafana | KubeMemLens |
+| --- | --- | --- | --- | --- |
+| Memory figure | Working set from the Metrics API | Working set from the Metrics API | Whatever you chart from cAdvisor, such as working set, RSS and cache | cgroup v2 charge split into anon, file cache, tmpfs and other |
+| Explains the likely cause | No | No | Only if you build it | Yes, with severity, confidence and caveats |
+| History | None | None | As long as you retain it | 15 minutes in collector memory by default |
+| Needs in the cluster | metrics-server | metrics-server | Prometheus, exporters and dashboards | The KubeMemLens chart: a DaemonSet and one collector |
+| Offline incident record | No | No | Dashboard snapshots | Redacted capture, replay and comparison |
+| Scope | One number per Pod or container | General cluster browser | General observability | Memory incidents only |
+
+An optional read-only [K9s plugin](docs/k9s-integration.md) opens the selected
+Pod's explanation from k9s, and the chart can export
+[Prometheus metrics](docs/metrics.md) with the same composition.
+
+## How it measures
+
+**Deep mode (with the chart).** An agent on each Linux node reads every
+container's cgroup v2 files (`memory.current`, `memory.stat`, `memory.events`
+and `memory.pressure`) every five seconds through a read-only mount of
+`/sys/fs/cgroup`. It sends snapshots to one in-memory collector, which you
+query through the Kubernetes API server with your own RBAC. metrics-server is
+not needed.
+
+**Restricted mode (no chart).** The CLI reads working set from the Kubernetes
+Metrics API, which needs metrics-server. It cannot split memory into the
+buckets below. See [restricted mode](docs/restricted-mode.md).
+
+| Term | cgroup v2 source | Meaning |
+| --- | --- | --- |
+| Working set | `memory.current` minus `inactive_file` | What `kubectl top` shows and what the kubelet uses for eviction under node memory pressure. It includes active page cache. |
+| Anonymous memory (anon) | `anon` in `memory.stat` | Heap, stacks and other memory not backed by a file. This is usually the figure that tracks application growth or a leak. It is not the same as process RSS, which also counts mapped file pages and shared memory. |
+| File cache | `file` minus `shmem` | Page cache for files the container has read or written. The kernel reclaims it under memory pressure, so a high value alone rarely causes an OOM kill. |
+| Tmpfs and shared memory | `shmem` | tmpfs, memory-backed `emptyDir` volumes and shared memory. It counts towards the limit and cannot be reclaimed while the files exist unless swap is enabled. |
+| Other | `memory.current` minus `anon` and `file` | Kernel memory charged to the cgroup, such as slab, page tables and socket buffers. |
+
+A container is OOM-killed when its usage reaches `memory.max` and the kernel
+cannot reclaim enough. File cache is reclaimed first, so growth in anonymous
+memory or tmpfs is the usual risk. From v1.0.3 the CLI and TUI label this
+bucket "Anonymous (anon)" and `ANON`; v1.0.2 and earlier label it "RSS / anon".
+The `rss-heavy` diagnosis keeps its name for compatibility, and from v1.0.3 it
+needs anonymous memory to be at least half of a finite limit, or 512 MiB
+without one. The full model, including the
+overlapping kernel and writeback detail, is in
+[memory semantics](docs/memory-semantics.md).
+
+## Resource overhead
+
+| Component | Chart default requests | Chart default limits |
+| --- | --- | --- |
+| Agent, one per Linux node | 10m CPU, 96 MiB | 128 MiB |
+| Collector, one replica | 10m CPU, 192 MiB | 256 MiB |
+
+Measured results:
+
+- **5,000 containers on four-node kind for 30 minutes:** agent p95 about
+  63 MiB, collector p95 about 160 MiB, 0% CPU throttling, CLI p95 464 ms. See
+  the [recorded result](docs/qualification-results/rc-5000-local-kind-2026-08-26.md).
+- **Idle single-node kind with v1.0.2:** about 12 MiB for the agent and 16 MiB
+  for the collector, as charged by their own cgroups.
+
+These are local measurements, not managed-provider sizing claims. Tune the
+limits from your own cluster density using the
+[installation guide](docs/installation.md#upgrade).
+
+## What it installs and what it can access
+
+KubeMemLens never creates, changes or deletes your workloads. The chart does
+install cluster components, and these are their permissions:
+
+| Component | Kubernetes permissions | Host access and runtime |
+| --- | --- | --- |
+| Agent (DaemonSet on Linux nodes) | `get`, `list`, `watch` Pods; `get` Nodes (it reads only its own); `get` ReplicaSets and Jobs to find the owning workload; `create` node snapshots and `get` ingestion epochs in the KubeMemLens API | Read-only hostPath mount of `/sys/fs/cgroup`. Runs as UID 65532, not privileged, all capabilities dropped, read-only root filesystem. |
+| Collector (Deployment, one replica) | `list` Nodes; `system:auth-delegator` to check each reader's permissions; read the `extension-apiserver-authentication` ConfigMap in `kube-system` | No host access. Same restricted security context. |
+| Certificate bootstrap (Helm hook Job) | `get` and `update` only the `v1alpha1.memory.kubememlens.io` APIService and the `kube-memlens-extension-tls` Secret | No host access. Same restricted security context. |
+| APIService | Registers `memory.kubememlens.io/v1alpha1`, so every read and agent write goes through the Kubernetes API server | Not applicable |
+
+The chart also creates NetworkPolicies and three reader ClusterRoles, which it
+never binds: `kube-memlens-namespace-viewer`, `kube-memlens-cluster-viewer` and
+`kube-memlens-metrics-reader`. To let one user read one namespace:
+
+```sh
+kubectl create rolebinding kube-memlens-namespace-viewer \
+  --namespace <namespace> \
+  --clusterrole kube-memlens-namespace-viewer \
+  --user <user>
+```
+
+The [tenant-scoped read runbook](docs/runbooks/tenant-scoped-reads.md) covers
+cluster-wide grants, revocation and verification.
+
+## Supported environments
+
+- **Kubernetes:** 1.35, 1.36 and 1.37, covered by kind lifecycle tests in CI.
+- **Provider support:** AWS EKS managed Linux nodes with AL2023, containerd and
+  amd64. Other providers and self-managed clusters may work but are outside the
+  current support scope.
+- **Nodes:** Linux with cgroup v2 and an enforcing NetworkPolicy CNI.
+  cgroup v1, Windows nodes, GKE Autopilot, EKS Fargate and AKS are unsupported
+  for deep mode.
+- **CLI:** macOS 13 or later, Linux and Windows on amd64 and arm64.
+
+The [support and compatibility contract](docs/compatibility.md) is the
+canonical source, including historical provider results and unsupported
+profiles.
+The legacy `v0.0.1-alpha.3` release is not suitable for shared multi-tenant clusters.
+
+## Verify a download
+
+Release archives, the image and the chart are signed with Sigstore keyless
+signing and carry GitHub build provenance. With the
+[GitHub CLI](https://cli.github.com/):
+
+```sh
+gh release verify "v${VERSION}" --repo danushkastanley/KubeMemLens
+gh attestation verify "kube-memlens_${VERSION}_${OS}_${ARCH}.tar.gz" \
+  --repo danushkastanley/KubeMemLens
+```
+
+With [cosign](https://docs.sigstore.dev/cosign/system_config/installation/),
+download `checksums.txt` and `checksums.txt.sigstore.json` from the same
+release. A stable release reuses the exact bytes of its release candidate, so
+the candidate workflow signs this file:
+
+```sh
+cosign verify-blob checksums.txt \
+  --bundle checksums.txt.sigstore.json \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  --certificate-identity-regexp '^https://github\.com/danushkastanley/KubeMemLens/\.github/workflows/candidate\.yml@refs/tags/v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'
+shasum -a 256 --ignore-missing -c checksums.txt
+```
+
+`promotion-checksums.txt` is signed by `promote.yml` at the stable tag and
+covers `checksums.txt`. To verify the image, take its digest from
+`promotion-subjects.txt` and run
+`gh attestation verify oci://ghcr.io/danushkastanley/kube-memlens@<digest> --repo danushkastanley/KubeMemLens`.
 
 ## TUI 2.0
 
@@ -99,19 +249,29 @@ go run ./cmd/kubectl-memlens sample explain cache-heavy
 Sample: cache-heavy
 
 Total charged memory: 4.10 GiB
-RSS / anon:           1.20 GiB
+Anonymous (anon):     1.20 GiB
 File cache:           2.51 GiB
+Shmem / tmpfs:        90.00 MiB
+Residual / other:     307.20 MiB
+
+Secondary detail (overlaps primary composition):
 Active file:          2.20 GiB
 Inactive file:        380.00 MiB
-Shmem / tmpfs:        90.00 MiB
+Kernel total:         180.00 MiB
 Slab:                 140.00 MiB
+  reclaimable:        100.00 MiB
+  unreclaimable:      40.00 MiB
+Socket memory:        2.00 MiB
+Page tables:          8.00 MiB
+Mapped file:          50.00 MiB
+THP anon/file/shmem:  0 B / 0 B / 0 B
 Other kernel:         40.00 MiB
 Dirty/writeback:      low
 
 Diagnosis:
 cache-heavy
 Severity: info
-Confidence: medium
+Confidence: medium — The composition is measured directly, while the likely cause remains a single-snapshot heuristic.
 ```
 
 ```sh
@@ -336,7 +496,7 @@ Key controls:
 | `Enter` or `e` | Drill into the selected entity or open its explanation |
 | `h`, Backspace or Escape | Return or clear the active filter |
 | `/` | Filter the current view; Pod filters also accept `severity:`, `diagnosis:`, `pressure:`, `owner:` and `state:` tokens |
-| `s` | Cycle risk, total, RSS, cache, shmem and name sorting |
+| `s` | Cycle risk, total, anon, cache, shmem and name sorting |
 | Space / `r` | Pause automatic refresh / refresh manually; manual refresh remains available while paused |
 | Tab | At wide sizes, move focus between the table and selected detail; it no longer changes entity view |
 | `a`, `R`, `x`, `C`, `y` | Open incident actions, recommendations, compare, redacted capture or copy a safe command |
@@ -439,7 +599,7 @@ See the [tenant-scoped read runbook](docs/runbooks/tenant-scoped-reads.md) for e
 
 ## Security Posture
 
-The candidate reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. It uses Kubernetes request-header authentication, exact delegated authorisation, server-side namespace filtering and node-bound ingestion. The secure Service exposes only TLS port `443`; the Pod's `8080` listener is health-only. Metrics use a separate cluster permission. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. The [support contract](docs/compatibility.md) records the v1 tenant boundary, exposed metadata and unsupported environments. The boundary passed the local [PROD-005 adversarial gate](docs/security/tenant-isolation-validation.md); provider and enforcing-CNI qualification remain separate. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
+The candidate reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. It uses Kubernetes request-header authentication, exact delegated authorisation, server-side namespace filtering and node-bound ingestion. The secure Service exposes only TLS port `443`; the Pod's `8080` listener is health-only. Metrics use a separate cluster permission. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. The [support contract](docs/compatibility.md) records the v1 tenant boundary, exposed metadata and unsupported environments. The boundary passed the local [adversarial tenant-isolation gate](docs/security/tenant-isolation-validation.md); provider and enforcing-CNI qualification remain separate. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
 
 ## Contributing
 

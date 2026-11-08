@@ -20,7 +20,24 @@ type ReadError struct {
 	Kind       ReadErrorKind
 	Operation  string
 	StatusCode int
-	Cause      error
+	// APINotInstalled marks a not-found response where API discovery also
+	// reported that the KubeMemLens API group is absent from the cluster.
+	APINotInstalled bool
+	Cause           error
+
+	// discoveryChecked records that a discovery request followed this 404,
+	// and discoveryErr holds its result, so callers do not repeat it.
+	discoveryChecked bool
+	discoveryErr     error
+}
+
+// notFoundDiscovery returns the discovery result recorded with a 404, if any.
+func notFoundDiscovery(err error) (discoveryErr error, checked bool) {
+	var readErr *ReadError
+	if !errors.As(err, &readErr) || readErr.Kind != ReadErrorNotFound {
+		return nil, false
+	}
+	return readErr.discoveryErr, readErr.discoveryChecked
 }
 
 func (e *ReadError) Error() string {
@@ -50,6 +67,13 @@ func IsForbidden(err error) bool {
 
 func IsNotFound(err error) bool {
 	return hasReadErrorKind(err, ReadErrorNotFound)
+}
+
+// IsAPINotInstalled reports whether the cluster does not serve the
+// KubeMemLens API at all, which usually means the chart is not installed.
+func IsAPINotInstalled(err error) bool {
+	var readErr *ReadError
+	return errors.As(err, &readErr) && readErr.Kind == ReadErrorNotFound && readErr.APINotInstalled
 }
 
 func IsUnavailable(err error) bool {

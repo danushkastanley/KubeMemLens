@@ -56,7 +56,7 @@ func TestFrozenCorpusPassesThroughProductionRules(t *testing.T) {
 			t.Fatal(family)
 		}
 	}
-	if report.Sources["synthetic"] != 49 || report.Sources["local-cluster"] != 7 {
+	if report.Sources["synthetic"] != 51 || report.Sources["local-cluster"] != 7 {
 		t.Fatal("invented provenance")
 	}
 	for _, m := range report.Rules {

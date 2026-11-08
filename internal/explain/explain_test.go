@@ -188,7 +188,7 @@ func TestEveryDiagnosisIncludesSeverityConfidenceEvidenceChecksAndCaveats(t *tes
 		DiagnosisPressure:            {TotalBytes: 100, PressureKnown: true, PSISomeAvg10: 1},
 		DiagnosisLimitRisk:           {TotalBytes: 95, MaxKnown: true, MaxBytes: 100},
 		DiagnosisCacheHeavy:          {TotalBytes: 100, FileBytes: 80, InactiveFileBytes: 60},
-		DiagnosisRSSHeavy:            {TotalBytes: 100, AnonBytes: 80},
+		DiagnosisRSSHeavy:            {TotalBytes: 100, AnonBytes: 80, MaxKnown: true, MaxBytes: 150},
 		DiagnosisTmpfsHeavy:          {TotalBytes: 100, ShmemBytes: 40},
 		DiagnosisDirtyWritebackHeavy: {TotalBytes: 100, DirtyBytes: 20},
 		DiagnosisSlabHeavy:           {TotalBytes: 100, SlabBytes: 30},
@@ -234,5 +234,31 @@ func TestEvidenceWindowReportsExactUniformAndMixedBounds(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(mixed.Caveats, "\n"), "multiple exact counter windows") {
 		t.Fatalf("mixed-window caveat missing: %#v", mixed.Caveats)
+	}
+}
+
+func TestRSSHeavyRequiresMaterialAnonymousMemory(t *testing.T) {
+	for name, test := range map[string]struct {
+		memory model.MemoryBreakdown
+		want   Diagnosis
+	}{
+		"small unbounded anon is normal": {model.MemoryBreakdown{TotalBytes: 40 * mib, AnonBytes: 35 * mib}, DiagnosisNormal},
+		"unbounded anon at floor":        {model.MemoryBreakdown{TotalBytes: 600 * mib, AnonBytes: 512 * mib}, DiagnosisRSSHeavy},
+		"unbounded anon below floor":     {model.MemoryBreakdown{TotalBytes: 600 * mib, AnonBytes: 512*mib - 1}, DiagnosisNormal},
+		"unlimited max uses floor":       {model.MemoryBreakdown{TotalBytes: 40 * mib, AnonBytes: 35 * mib, MaxKnown: true, MaxUnlimited: true}, DiagnosisNormal},
+		"anon at half of limit":          {model.MemoryBreakdown{TotalBytes: 80 * mib, AnonBytes: 64 * mib, MaxKnown: true, MaxBytes: 128 * mib}, DiagnosisRSSHeavy},
+		"anon below half of limit":       {model.MemoryBreakdown{TotalBytes: 40 * mib, AnonBytes: 35 * mib, MaxKnown: true, MaxBytes: 128 * mib}, DiagnosisNormal},
+		"composition still required":     {model.MemoryBreakdown{TotalBytes: 100 * mib, AnonBytes: 60 * mib, FileBytes: 40 * mib, MaxKnown: true, MaxBytes: 115 * mib}, DiagnosisNormal},
+	} {
+		if got := Analyze(test.memory).Diagnosis; got != test.want {
+			t.Fatalf("%s: diagnosis = %s, want %s", name, got, test.want)
+		}
+	}
+	small := Analyze(model.MemoryBreakdown{TotalBytes: 40 * mib, AnonBytes: 35 * mib})
+	if len(small.Signals) != 1 || !strings.Contains(small.Signals[0], "below the rss-heavy size threshold") {
+		t.Fatalf("small anon-dominant signal = %q", small.Signals)
+	}
+	if balanced := Analyze(model.MemoryBreakdown{TotalBytes: 100, AnonBytes: 20}); balanced.Signals[0] != "no dominant cgroup memory bucket detected" {
+		t.Fatalf("balanced signal = %q", balanced.Signals)
 	}
 }

@@ -66,7 +66,7 @@ func TestIOPressureFailurePreservesMemory(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, "io.pressure"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if got := readIOPressure(dir); got.State != model.IOUnavailable {
+	if got := readIOPressure(os.DirFS(dir)); got.State != model.IOUnavailable {
 		t.Fatalf("read failure = %+v", got)
 	}
 }

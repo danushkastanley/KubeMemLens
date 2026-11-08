@@ -30,7 +30,7 @@ func ForFinding(finding explain.Result) []Recommendation {
 		primary.Conditions = []string{"Check restart and OOM history.", "Prefer workload-specific profiling or cache/tmpfs investigation before a limit change."}
 	case explain.DiagnosisRSSHeavy:
 		primary.ID = "profile-anonymous-memory"
-		primary.Action = "Capture runtime heap or allocator evidence and compare it with RSS/anon growth."
+		primary.Action = "Capture runtime heap or allocator evidence and compare it with anonymous memory growth."
 		primary.Rationale = "Anonymous memory dominates, which is compatible with heap or native allocation growth but is not proof of a leak."
 		primary.Conditions = []string{"Look for sustained growth across bounded history.", "Consider headroom only when growth or pressure is repeatable and workload demand justifies it."}
 	case explain.DiagnosisCacheHeavy:

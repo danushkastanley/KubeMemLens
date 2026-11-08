@@ -103,7 +103,7 @@ func (s sortMode) String() string {
 	case sortTotal:
 		return "total desc"
 	case sortRSS:
-		return "rss desc"
+		return "anon desc"
 	case sortCache:
 		return "cache desc"
 	case sortShmem:

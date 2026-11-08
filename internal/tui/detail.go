@@ -65,7 +65,7 @@ func (m appModel) podDetailLines(pod api.PodSnapshot, width int, historyTitle st
 		"Total charged memory: " + memmodel.FormatBytes(pod.Memory.TotalBytes),
 		"Limit:                " + presentation.limit,
 		"Current signal:       " + presentation.signal,
-		"RSS / anon:           " + memmodel.FormatBytes(pod.Memory.RSSBytes()),
+		"Anonymous (anon):     " + memmodel.FormatBytes(pod.Memory.RSSBytes()),
 		"File cache:           " + memmodel.FormatBytes(pod.Memory.CacheBytes()),
 		"Shmem / tmpfs:        " + memmodel.FormatBytes(pod.Memory.ShmemBytes),
 		"Residual / other:     " + memmodel.FormatBytes(pod.Memory.ResidualBytes()),
@@ -181,7 +181,7 @@ func (m appModel) containerDetailLines(width int) []string {
 
 func renderContainerSummary(containers []api.ContainerSnapshot) []string {
 	widths := []int{18, 8, 8, 8, 7, 8, 18}
-	lines := []string{tableRow([]string{"CONTAINER", "TOTAL", "RSS", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS"}, widths, nil)}
+	lines := []string{tableRow([]string{"CONTAINER", "TOTAL", "ANON", "CACHE", "SHMEM", "OTHER", "DIAGNOSIS"}, widths, nil)}
 	for _, container := range containers {
 		lines = append(lines, tableRow([]string{
 			container.ContainerName,
