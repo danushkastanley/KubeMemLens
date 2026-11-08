@@ -4,6 +4,10 @@ All notable changes will be documented here. KubeMemLens intends to follow [Sema
 
 ## Unreleased
 
+### Security
+
+- Update `golang.org/x/net` to 0.62.0 in the standard and trace modules for CVE-2026-78661, a denial of service in `x/net/html`. govulncheck reports the affected code as unreachable from KubeMemLens; the update clears the image scan. This pulls the matching `x/crypto` 0.58.0, `x/sync` 0.24.0, `x/term` 0.47.0 and `x/text` 0.43.0 releases. Published release artefacts are unchanged.
+
 ## 1.0.2 - 2026-10-24
 
 Patch release preparation; candidate and publication gates are recorded in the
