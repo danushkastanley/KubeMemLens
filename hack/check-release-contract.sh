@@ -172,4 +172,21 @@ if [ -z "${subjects_line}" ] || [ -z "${release_line}" ] || [ "${subjects_line}"
   exit 1
 fi
 
+# candidate.yml requires every user guide to name the candidate repositories.
+# Check the same paths here so a guide edit fails before a tag is created.
+# shellcheck disable=SC2016 # The Markdown backticks are matched literally.
+candidate_version=$(sed -n 's/^The proposed `v\([0-9][0-9.]*-rc\.[0-9][0-9]*\)` candidate uses$/\1/p' \
+  "${chart}/README.md" | head -n 1)
+if [ -z "${candidate_version}" ]; then
+  echo "release contract is missing the proposed candidate from ${chart}/README.md" >&2
+  exit 1
+fi
+ga_version=${candidate_version%-rc.*}
+require_text "${chart}/Chart.yaml" "version: ${ga_version}"
+for guide in README.md docs/installation.md "${chart}/README.md"; do
+  require_text "${guide}" "candidates/${candidate_version}/charts/kube-memlens"
+  require_text "${guide}" "candidates/${candidate_version}/kube-memlens"
+  require_text "${guide}" "--version ${ga_version}"
+done
+
 echo 'release integrity contract passed'

@@ -10,8 +10,9 @@ not publish a release.
 | --- | --- |
 | Target stable version | `v1.0.3` |
 | Proposed candidate | `v1.0.3-rc.1`; exact-tag approval remains required |
-| Implementation baseline | `a8f61b3` on `main` (merged PRs #231 to #234), plus the dependency queue in #235 |
+| Implementation baseline | `9ec2386` on `main` (merged PRs #231 to #235), plus the candidate guide fix in this preparation update |
 | Candidate source | Must be the final reviewed preparation commit merged to `main` |
+| First candidate attempt | `v1.0.3-rc.1` on `9ec2386`; candidate run 42498208644 failed its documentation check before building, so nothing was signed or published |
 | Publication | No candidate or stable release published |
 | Rollback reference | Published `v1.0.2` |
 | Support | Existing standard EKS managed Linux scope; no new provider, runtime, terminal or scale qualification |
@@ -134,17 +135,35 @@ three and includes the `klauspost/compress` update. Its local checks on
   findings for either architecture.
 - No module references `klauspost/compress` 1.19.x after the update.
 
+## First candidate attempt
+
+`v1.0.3-rc.1` was first created on `9ec2386` on 8 November 2026.
+[Candidate run 42498208644](https://github.com/danushkastanley/KubeMemLens/actions/runs/42498208644)
+stopped at "Check candidate documentation and contracts". The workflow requires
+the candidate chart and image paths in `README.md`, `docs/installation.md` and
+the chart README. The launch documentation in #231 had removed them from the
+first two, and no local or pull-request check asserted them. The build, signing,
+registry and draft jobs did not run. No candidate package, signature,
+attestation or release exists for that attempt.
+
+This update restores the candidate sections in both guides, and
+`hack/check-release-contract.sh` now requires every guide to name the same
+candidate as the chart README. The maintainer chose to delete the unused tag
+and recreate `v1.0.3-rc.1` on the merged fix rather than skip to `rc.2`. The
+failed run remains in the Actions history as evidence.
+
 ## Remaining release gates
 
-1. Review and merge #235 through the normal protected PR path. Complete
-   required CI on the exact final `main` commit; that commit is the candidate
-   source.
+1. Review and merge this preparation update through the normal protected PR
+   path. Complete required CI on the exact final `main` commit; that commit is
+   the candidate source.
 2. Record the v1.0.3 adopter decision on
    [release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50).
    The v1.0.2-only exception does not carry over automatically.
-3. Obtain approval naming `v1.0.3-rc.1`, create only that annotated candidate
-   tag and dispatch the existing candidate workflow from it. The stable tag
-   must not exist yet.
+3. With the maintainer's approval, delete the unused `v1.0.3-rc.1` tag on
+   `9ec2386`, recreate that annotated candidate tag on the merged commit and
+   dispatch the existing candidate workflow from it. The stable tag must not
+   exist yet.
 4. Obtain independent protected-environment approvals and verify the candidate
    archives, image, chart, reproducibility, signatures, SBOMs, provenance,
    clean-consumer lifecycle and full draft inventory before publication.
