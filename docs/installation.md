@@ -1,9 +1,9 @@
 # Installation, Upgrade, and Uninstall
 
-Install KubeMemLens `v1.0.2` after its matching release is published and use the
-terminal dashboard to inspect workload memory. The essential EKS evidence
+Install KubeMemLens `v1.0.2` and use the terminal dashboard to inspect workload
+memory. The essential EKS evidence
 recorded for v1.0.0 covers the core inspection and incident paths, access
-isolation, recovery and cleanup. The patch does not add a provider claim.
+isolation, recovery and cleanup. v1.0.2 does not add a provider claim.
 [Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
 
 Use the [support and compatibility contract](compatibility.md) for environment
@@ -69,17 +69,6 @@ helm upgrade --install kube-memlens \
 The chart selects the version-matched standard image. To pin its immutable
 digest, set `image.digest` to the complete `sha256:` value from the signed
 `promotion-subjects.txt` in the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.2).
-
-### Release candidate artefacts
-
-The proposed `v1.0.2-rc.2` candidate uses
-`oci://ghcr.io/danushkastanley/candidates/1.0.2-rc.2/charts/kube-memlens`
-with `--version 1.0.2` and image repository
-`ghcr.io/danushkastanley/candidates/1.0.2-rc.2/kube-memlens`.
-Candidate installs override the image repository and pin the image digest from
-its signed `candidate-manifest.json`. Stable promotion preserves those exact
-archive, image and chart bytes.
-
 
 ## Verify an install
 

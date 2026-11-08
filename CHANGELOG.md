@@ -1,12 +1,18 @@
 # Changelog
 
-All notable changes will be documented here. KubeMemLens intends to follow [Semantic Versioning](https://semver.org/) after its first public release.
+All notable changes are documented here. KubeMemLens follows [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Documentation
+
+- Rewrite the README opening with the problem statement, a three-step quick start, a comparison with `kubectl top`, k9s and Prometheus/Grafana, an explanation of how memory is measured, measured resource overhead, the exact permissions the chart installs, and download verification steps.
+- State one provider support scope in the compatibility contract. GKE and self-managed results from `v0.0.1-alpha.3` are now marked historical rather than qualified, and internal ticket identifiers are removed.
+- Add security@kubememlens.com as the private reporting address for vulnerabilities and conduct concerns, and put vulnerability reporting first in the security policy.
+
 ## 1.0.2 - 2026-10-24
 
-Patch release preparation; candidate and publication gates are recorded in the
+Patch release. Candidate and publication gates are recorded in the
 [release preparation record](docs/release-preparation-1.0.2.md).
 
 ### UI updates
@@ -37,7 +43,7 @@ Patch release preparation; candidate and publication gates are recorded in the
 
 ## 1.0.1 - 2026-10-19
 
-Patch release preparation; publication and signed artefact status are recorded
+Patch release. Publication and signed artefact status are recorded
 in the [release preparation record](docs/release-preparation-1.0.1.md).
 
 ### Dependencies

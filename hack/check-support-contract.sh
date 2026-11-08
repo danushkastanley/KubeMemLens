@@ -37,12 +37,9 @@ require_text "$contract" 'Default Pod history is retained in collector memory fo
 require_text "$contract" 'Configured store ceilings are rejection bounds, not scale claims.'
 require_text "$contract" "\`reviewDueAt\` reports advisory freshness"
 require_text "$contract" 'Live-cloud qualification is not scheduled, run in CI or repeated automatically for releases.'
-require_text "$contract" 'PROD-002 to PROD-005'
-require_text "$contract" 'PROD-006'
-require_text "$contract" 'PROD-007'
-require_text "$contract" 'PROD-008'
-require_text "$contract" 'PROD-009'
-require_text "$contract" 'PROD-010 and PROD-012'
+require_text "$contract" 'they are not a current support claim'
+reject_text "$contract" 'PROD-0'
+reject_text "$contract" 'The proposed standard'
 
 require_text README.md 'docs/compatibility.md'
 require_text README.md 'not suitable for shared multi-tenant clusters'

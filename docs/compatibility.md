@@ -2,10 +2,10 @@
 
 This is the canonical support contract for KubeMemLens. Other documents link here instead of defining their own provider, runtime, availability or retention promises.
 
-The proposed standard `v1.0.2` patch retains read-only memory inspection with authenticated
+The standard `v1.0.2` release provides read-only memory inspection with authenticated
 agent writes and tenant-scoped reads. The essential AWS EKS evidence recorded
 for v1.0.0 covers inspection, capture/replay, access isolation, recovery and
-cleanup. The patch adds no provider, runtime, terminal or scale claim.
+cleanup. v1.0.2 adds no provider, runtime, terminal or scale claim.
 [Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
 
 Historical provider, scale and terminal evidence remains bound to its recorded
@@ -14,10 +14,14 @@ standard release publication does not promote the separate eBPF extension.
 
 ## Current provider scope
 
-Current provider support is focused on EKS
-managed Linux nodes with AL2023, containerd and amd64. Other providers and
-self-managed environments are outside the current support scope. The historical
-results below retain their original version and environment boundaries.
+The current support scope is one managed-provider profile: AWS EKS managed
+Linux nodes with AL2023, containerd and amd64. Other providers and self-managed
+environments are outside the current support scope.
+
+The GKE and self-managed rows below record lifecycle runs against the
+`v0.0.1-alpha.3` pre-release. They show what passed for that exact version and
+environment; they are not a current support claim, and their status says
+**Historical** to make that explicit.
 
 ## Status terms
 
@@ -32,23 +36,23 @@ results below retain their original version and environment boundaries.
 
 ## Recorded profile evidence
 
-| Profile | v1 contract | Current evidence | Evidence owner | Status |
-| --- | --- | --- | --- | --- |
-| Kubernetes API | The three most recent upstream-maintained minor releases on the release decision date. The 24 October 2026 preparation readback confirms 1.35, 1.36 and 1.37. | Required kind lifecycle CI covers all three current minors. Provider evidence records, but does not extend, the exact Kubernetes versions it exercised. | PROD-008 and automated compatibility CI | Locally verified |
-| Deep-mode node base | Linux, cgroup v2, a readable `/sys/fs/cgroup`, DaemonSet scheduling and an enforcing NetworkPolicy-capable CNI. | Parser, walker and chart tests plus the [reviewed provider/runtime matrix](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md). | PROD-008 | Qualified |
-| GKE Standard | COS with containerd and Ubuntu with containerd on amd64 Linux nodes. Support is limited to the exact recorded GKE, image, kernel, runtime and CNI versions. | Reviewed [COS](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/gke-cos-containerd-amd64/provider-qualification.json) and [Ubuntu](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/gke-ubuntu-containerd-amd64/provider-qualification.json) lifecycle bundles. | PROD-008 | Qualified |
-| EKS managed nodes | AL2023 with containerd on amd64 managed-node-group Linux nodes. Bottlerocket is not claimed. | Reviewed [AL2023 lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/eks-al2023-containerd-amd64/provider-qualification.json). | PROD-008 | Qualified |
-| AKS node pools | Standard Ubuntu/containerd node pools are not supported by the recorded candidate. Azure Linux is also unclaimed. | The reviewed [AKS result](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/aks-ubuntu-containerd-amd64/provider-qualification.json) confirms that AKS supplied an empty request-header allowed-name list while the candidate required a named aggregation proxy and failed closed. | PROD-008 | Unsupported |
-| Self-managed containerd | Linux cgroup v2 on amd64 with containerd and the documented mount, scheduling and NetworkPolicy prerequisites. Support is limited to the recorded distribution, kernel and runtime. | Reviewed [containerd lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/self-managed-containerd/provider-qualification.json). | PROD-008 | Qualified |
-| Self-managed CRI-O | One real amd64 Linux cgroup v2 CRI-O distribution. Recognising a CRI-O cgroup path in a fixture is not qualification. | Reviewed [CRI-O lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/self-managed-crio-amd64/provider-qualification.json). | PROD-008 | Qualified |
-| Shared multi-tenant clusters | Supported only when authenticated agent writes, tenant-scoped reads and adversarial isolation tests pass. | The candidate contains the authenticated boundary, and the PROD-005 adversarial suite passed on local kind `v1.35.5`, including NetworkPolicy removal. The legacy `v0.0.1-alpha.3` release does not have this boundary. | PROD-002 to PROD-005; PROD-008 qualifies exact providers and CNIs. | Locally verified |
-| Collector availability | One best-effort, single-replica, in-memory collector with visible restart, partial, stale and history-loss states. | Automated state, retry, readiness and shutdown tests plus the local kind `v1.35.5` failure harness: API recovery 9s, stale transition 29s, agent recovery 7s, partial-rollout detection 4s, removed-Node recovery 15s and graceful shutdown 5s. Provider timing remains unqualified. | PROD-006 | Locally verified |
-| Live scale | Only the live container, node and refresh profile measured and published for the release candidate. Configured store ceilings are rejection bounds, not scale claims. | The [local `rc-5000` record](qualification-results/rc-5000-local-kind-2026-08-26.md) passed with 5,000 containers for 30 minutes on four-Node kind `v1.35.5`. Provider qualification does not turn this local density into a managed-provider scale claim. | PROD-007 and the [scale gate](scale-qualification.md) | Locally verified |
-| Linux terminal UI | xterm 390, Kitty 0.32.2 and Alacritty 0.13.2 on Ubuntu 24.04 arm64 at 80x24, 120x30 and 180x50; tmux 3.4 and OpenSSH 9.6p1 at 120x30. | The reviewed [terminal runtime matrix](qualification-results/terminal-runtime-e631f20/README.md), including 30-minute PTY and Kitty runs. | PROD-009 | Qualified |
-| macOS terminal UI | Apple Terminal, Ghostty, iTerm2 and Warp on supported Darwin CLI builds. | The Darwin arm64 PTY lifecycle passed, but no named macOS emulator completed the required real-emulator run. | PROD-009 | Qualification required |
-| Release artefacts | Signed CLI archives, a non-root multi-architecture Linux image and an OCI Helm chart, all tied to one immutable release identity. | The immutable [`v1.0.0-rc.1` release](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) contains six checked archives, per-platform SBOMs, signed checksums, image/chart provenance and the signed candidate manifest. The clean consumer verified the exact image and chart digests through install, test, upgrade, rollback and uninstall. | PROD-010 and PROD-012 | Qualified |
+| Profile | v1 contract | Current evidence | Status |
+| --- | --- | --- | --- |
+| Kubernetes API | The three most recent upstream-maintained minor releases on the release decision date. The 24 October 2026 preparation readback confirms 1.35, 1.36 and 1.37. | Required kind lifecycle CI covers all three current minors. Provider evidence records, but does not extend, the exact Kubernetes versions it exercised. | Locally verified |
+| Deep-mode node base | Linux, cgroup v2, a readable `/sys/fs/cgroup`, DaemonSet scheduling and an enforcing NetworkPolicy-capable CNI. | Parser, walker and chart tests plus the [reviewed provider/runtime matrix](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/README.md). | Qualified |
+| GKE Standard | COS with containerd and Ubuntu with containerd on amd64 Linux nodes. Support is limited to the exact recorded GKE, image, kernel, runtime and CNI versions. | Reviewed [COS](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/gke-cos-containerd-amd64/provider-qualification.json) and [Ubuntu](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/gke-ubuntu-containerd-amd64/provider-qualification.json) lifecycle bundles. | Historical (outside current support scope) |
+| EKS managed nodes | AL2023 with containerd on amd64 managed-node-group Linux nodes. Bottlerocket is not claimed. | Reviewed [AL2023 lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/eks-al2023-containerd-amd64/provider-qualification.json). | Qualified |
+| AKS node pools | Standard Ubuntu/containerd node pools are not supported by the recorded candidate. Azure Linux is also unclaimed. | The reviewed [AKS result](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/aks-ubuntu-containerd-amd64/provider-qualification.json) confirms that AKS supplied an empty request-header allowed-name list while the candidate required a named aggregation proxy and failed closed. | Unsupported |
+| Self-managed containerd | Linux cgroup v2 on amd64 with containerd and the documented mount, scheduling and NetworkPolicy prerequisites. Support is limited to the recorded distribution, kernel and runtime. | Reviewed [containerd lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/self-managed-containerd/provider-qualification.json). | Historical (outside current support scope) |
+| Self-managed CRI-O | One real amd64 Linux cgroup v2 CRI-O distribution. Recognising a CRI-O cgroup path in a fixture is not qualification. | Reviewed [CRI-O lifecycle bundle](qualification-results/provider-runtime-0.0.1-alpha.3-b878c14/self-managed-crio-amd64/provider-qualification.json). | Historical (outside current support scope) |
+| Shared multi-tenant clusters | Supported only when authenticated agent writes, tenant-scoped reads and adversarial isolation tests pass. | The candidate contains the authenticated boundary, and the adversarial tenant-isolation suite passed on local kind `v1.35.5`, including NetworkPolicy removal. The legacy `v0.0.1-alpha.3` release does not have this boundary. | Locally verified |
+| Collector availability | One best-effort, single-replica, in-memory collector with visible restart, partial, stale and history-loss states. | Automated state, retry, readiness and shutdown tests plus the local kind `v1.35.5` failure harness: API recovery 9s, stale transition 29s, agent recovery 7s, partial-rollout detection 4s, removed-Node recovery 15s and graceful shutdown 5s. Provider timing remains unqualified. | Locally verified |
+| Live scale | Only the live container, node and refresh profile measured and published for the release candidate. Configured store ceilings are rejection bounds, not scale claims. | The [local `rc-5000` record](qualification-results/rc-5000-local-kind-2026-08-26.md) passed with 5,000 containers for 30 minutes on four-Node kind `v1.35.5`. Provider qualification does not turn this local density into a managed-provider scale claim. See the [scale gate](scale-qualification.md). | Locally verified |
+| Linux terminal UI | xterm 390, Kitty 0.32.2 and Alacritty 0.13.2 on Ubuntu 24.04 arm64 at 80x24, 120x30 and 180x50; tmux 3.4 and OpenSSH 9.6p1 at 120x30. | The reviewed [terminal runtime matrix](qualification-results/terminal-runtime-e631f20/README.md), including 30-minute PTY and Kitty runs. | Qualified |
+| macOS terminal UI | Apple Terminal, Ghostty, iTerm2 and Warp on supported Darwin CLI builds. | The Darwin arm64 PTY lifecycle passed, but no named macOS emulator completed the required real-emulator run. | Qualification required |
+| Release artefacts | Signed CLI archives, a non-root multi-architecture Linux image and an OCI Helm chart, all tied to one immutable release identity. | The immutable [`v1.0.0-rc.1` release](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.0-rc.1) contains six checked archives, per-platform SBOMs, signed checksums, image/chart provenance and the signed candidate manifest. The clean consumer verified the exact image and chart digests through install, test, upgrade, rollback and uninstall. | Qualified |
 
-CLI archives exist for Darwin, Linux and Windows on amd64 and arm64. The release workflow checks their construction, checksums and SBOMs. Archive availability does not prove every operating system and terminal combination. PROD-009 owns the interactive client claim. The deep-mode agent remains Linux-only.
+CLI archives exist for Darwin, Linux and Windows on amd64 and arm64. The release workflow checks their construction, checksums and SBOMs. Archive availability does not prove every operating system and terminal combination; the terminal UI rows above define the interactive client claim. The deep-mode agent remains Linux-only.
 
 KubeMemLens builds with Go 1.27. Darwin archives therefore require macOS 13 or later, matching the Go 1.27 runtime baseline.
 
@@ -120,11 +124,11 @@ The v1 shared-cluster claim requires all of the following:
 - every collector read must have an authenticated principal and a server-side namespace or cluster-scope decision;
 - every snapshot write must authenticate the agent, bind it to the expected node and reject replay or forged-node data;
 - direct HTTP, service proxy, history, comparison, capture and metrics paths must preserve the same boundary; and
-- PROD-005 must prove isolation with NetworkPolicy present and removed.
+- an adversarial isolation suite must prove isolation with NetworkPolicy present and removed.
 
 TUI filters, namespace selection, Kubernetes service-proxy permission and NetworkPolicy reachability are not substitutes for application authorisation.
 
-The implemented interface is defined in the [authentication and authorisation architecture](security/authentication-and-authorisation.md), [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md), the [tenant read runbook](runbooks/tenant-scoped-reads.md) and the [PROD-005 validation record](security/tenant-isolation-validation.md). A new or widened provider-specific shared-cluster claim requires reviewed provider and enforcing-CNI evidence.
+The implemented interface is defined in the [authentication and authorisation architecture](security/authentication-and-authorisation.md), [ADR 0004](adr/0004-use-kubernetes-aggregation-for-authentication.md), the [tenant read runbook](runbooks/tenant-scoped-reads.md) and the [tenant isolation validation record](security/tenant-isolation-validation.md). A new or widened provider-specific shared-cluster claim requires reviewed provider and enforcing-CNI evidence.
 
 ## Availability and history
 
@@ -135,7 +139,7 @@ The v1 collector contract is best effort:
 - a collector restart or upgrade loses current snapshots, event-delta baselines and recent history;
 - agents repopulate current state on their next successful post;
 - the API and TUI must report rebuilding, partial, stale and unavailable states instead of presenting missing evidence as healthy; and
-- PROD-006 owns recovery timing, readiness and failure-state evidence.
+- recovery timing, readiness and failure-state evidence are recorded in the reliability contract.
 
 The [reliability and availability contract](reliability.md) defines the probes, states, retry and shutdown bounds. Its [operator runbook](runbooks/reliability.md) covers agent, API, collector, node and partial-rollout failures. These contracts do not add collector replication or persistence.
 
@@ -174,7 +178,7 @@ KubeMemLens does not send product telemetry or copy cluster data to a hosted ser
 A pull request that adds, widens or removes a support row is a release decision. It must:
 
 1. update this file and the changelog;
-2. name the exact profile and evidence owner;
+2. name the exact profile and its evidence;
 3. link a reviewed, sanitised qualification result for any new support claim;
 4. update installation, security or release notes when operator behaviour changes; and
 5. pass the release documentation gate and clean-consumer checks before publication.
