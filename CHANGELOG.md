@@ -4,6 +4,10 @@ All notable changes are documented here. KubeMemLens follows [Semantic Versionin
 
 ## Unreleased
 
+### Security
+
+- Update `golang.org/x/net` to 0.62.0 in the standard and trace modules for CVE-2026-78661, a denial of service in `x/net/html`. govulncheck reports the affected code as unreachable from KubeMemLens; the update clears the image scan. This pulls the matching `x/crypto` 0.58.0, `x/sync` 0.24.0, `x/term` 0.47.0 and `x/text` 0.43.0 releases. Published release artefacts are unchanged.
+
 ### Changed
 
 - Build the sample cgroup data into the CLI, so `kubectl memlens sample` works from a release binary without a source checkout. `KUBEMEMLENS_SAMPLE_ROOT` still selects a directory of samples.
