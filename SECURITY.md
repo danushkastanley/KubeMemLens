@@ -80,7 +80,9 @@ The source updates `golang.org/x/net` to 0.62.0 in the standard and trace
 modules for [CVE-2026-78661](https://www.cve.org/CVERecord?id=CVE-2026-78661),
 a denial of service in `x/net/html`. govulncheck reports the affected code as
 unreachable from KubeMemLens; the update clears the runtime-image scan.
-Installed v1.0.2 binaries and its immutable artefacts are unchanged; deploy the
+The indirect `github.com/klauspost/compress` dependency moves to 1.20.3 for
+[GO-2026-6865](https://osv.dev/GO-2026-6865), which govulncheck does not report
+as called. Installed v1.0.2 binaries and its immutable artefacts are unchanged; deploy the
 new version only after its signed release is published. The
 [v1.0.3 preparation record](docs/release-preparation-1.0.3.md) tracks the fresh
 scans and remaining publication gates.
