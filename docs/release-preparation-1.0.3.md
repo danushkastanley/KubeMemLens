@@ -10,7 +10,7 @@ not publish a release.
 | --- | --- |
 | Target stable version | `v1.0.3` |
 | Proposed candidate | `v1.0.3-rc.1`; exact-tag approval remains required |
-| Implementation baseline | `d94ebc5` on `main` (merged PRs #231, #232 and #233) |
+| Implementation baseline | `a8f61b3` on `main` (merged PRs #231 to #234), plus the dependency queue in #235 |
 | Candidate source | Must be the final reviewed preparation commit merged to `main` |
 | Publication | No candidate or stable release published |
 | Rollback reference | Published `v1.0.2` |
@@ -42,6 +42,13 @@ not publish a release.
   `golang.org/x/net` 0.62.0 across the standard, trace and worker modules for
   CVE-2026-78661, with the matching `x/crypto`, `x/sync`, `x/term` and
   `x/text` releases.
+- [#235](https://github.com/danushkastanley/KubeMemLens/pull/235): the
+  dependency queue. Kubernetes libraries 0.37.2 across the standard, trace and
+  worker modules, bubbletea 2.1.1, and the indirect
+  `github.com/klauspost/compress` 1.20.3 for
+  [GO-2026-6865](https://osv.dev/GO-2026-6865). The release builder moves to
+  the 5 November 2026 `golang:1.27.3-alpine` rebuild (Alpine 3.24.4); the Go
+  version is unchanged. It supersedes Dependabot #228, #229 and #230.
 - [#231](https://github.com/danushkastanley/KubeMemLens/pull/231): launch
   documentation. The README, security policy, code of conduct and support
   contract were rewritten. GKE and self-managed `v0.0.1-alpha.3` results are
@@ -69,7 +76,7 @@ minors.
 Helm upgrade and rollback restart the collector and reset its in-memory
 history. Follow the recorded Helm revision and fresh-data checks in the
 [reliability runbook](runbooks/reliability.md#roll-back). A rollback to v1.0.2
-restores the earlier labels, threshold and `x/net` version.
+restores the earlier labels, threshold and dependency versions.
 
 ## Verification
 
@@ -109,25 +116,29 @@ preparation branch:
   called. Code-Review 4 and Branch-Protection 4 are unchanged in kind from
   v1.0.2.
 
-The open dependency queue at preparation time:
+At preparation time, Dependabot #228 (Kubernetes 0.37.2), #229 (bubbletea
+2.1.1) and #230 (Go builder digest) were open; #228 failed the trace and
+worker checks because it updated only the root module. #235 replaces all
+three and includes the `klauspost/compress` update. Its local checks on
+8 November 2026:
 
-- [#229](https://github.com/danushkastanley/KubeMemLens/pull/229),
-  bubbletea 2.1.1, and
-  [#230](https://github.com/danushkastanley/KubeMemLens/pull/230), the Go
-  builder image digest, pass CI.
-- [#228](https://github.com/danushkastanley/KubeMemLens/pull/228), Kubernetes
-  libraries 0.37.2, fails the trace and worker checks because it updates only
-  the root module.
-
-Merge, align or explicitly defer each of these, and decide on the
-`klauspost/compress` update, before the candidate tag freezes the source.
+- Standard and trace modules: formatting, unit and race tests, vet, build,
+  `govulncheck` with no reachable vulnerabilities, trace preflight and release,
+  and the release, support, recommendation evaluation, terminal,
+  incident-session and trace-chart contracts passed.
+- Worker module in a `golang:1.27.3` Linux container: `go mod verify`,
+  `go list -mod=readonly -deps`, vet, race tests and the worker dependency
+  boundary for Linux amd64 and arm64 passed.
+- The runtime image built for linux/amd64 and linux/arm64 with the new builder,
+  runs as UID/GID 65532, and the pinned Trivy high and critical scan reported no
+  findings for either architecture.
+- No module references `klauspost/compress` 1.19.x after the update.
 
 ## Remaining release gates
 
-1. Resolve the dependency queue and the `klauspost/compress` decision above.
-   Review and merge this preparation through the normal protected PR path,
-   updating this record if the source changes. Complete required CI on the
-   exact final `main` commit.
+1. Review and merge #235 through the normal protected PR path. Complete
+   required CI on the exact final `main` commit; that commit is the candidate
+   source.
 2. Record the v1.0.3 adopter decision on
    [release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50).
    The v1.0.2-only exception does not carry over automatically.

@@ -10,6 +10,12 @@ Patch release. Candidate and publication gates are recorded in the
 ### Security
 
 - Update `golang.org/x/net` to 0.62.0 in the standard and trace modules for CVE-2026-78661, a denial of service in `x/net/html`. govulncheck reports the affected code as unreachable from KubeMemLens; the update clears the image scan. This pulls the matching `x/crypto` 0.58.0, `x/sync` 0.24.0, `x/term` 0.47.0 and `x/text` 0.43.0 releases.
+- Raise the indirect `github.com/klauspost/compress` dependency to 1.20.3 in all three modules for GO-2026-6865, a panic on two-block frames. govulncheck does not report the affected code as called.
+
+### Dependencies
+
+- Update the Kubernetes libraries to 0.37.2 across the standard, trace and worker modules, and bubbletea to 2.1.1.
+- Pin the release builder to the 5 November 2026 `golang:1.27.3-alpine` rebuild (Alpine 3.24.4). The Go version is unchanged.
 
 ### Changed
 
