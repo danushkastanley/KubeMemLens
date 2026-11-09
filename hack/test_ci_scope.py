@@ -20,6 +20,13 @@ class ScopeTest(unittest.TestCase):
         self.assertFalse(needs_kind(["README.md", "docs/api.md", "internal-not-code.md",
                                      "Dockerfile.backup", "hack/unrelated.sh"]))
 
+    def test_chart_readme_alone_does_not_trigger(self):
+        self.assertFalse(needs_kind(["charts/kube-memlens/README.md", "docs/installation.md"]))
+
+    def test_chart_readme_with_chart_change_still_triggers(self):
+        self.assertTrue(needs_kind(["charts/kube-memlens/README.md",
+                                    "charts/kube-memlens/values.yaml"]))
+
     def test_nul_input_preserves_unusual_source_names(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "paths"
