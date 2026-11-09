@@ -595,6 +595,18 @@ See the [tenant-scoped read runbook](docs/runbooks/tenant-scoped-reads.md) for e
 - separately authorised Prometheus/OpenMetrics resource with cardinality guardrails
 - explicit [reliability states](docs/reliability.md), separate liveness and readiness, bounded retry, graceful shutdown and an [operator runbook](docs/runbooks/reliability.md)
 
+## Roadmap
+
+Planned next, in order. Each release reuses the same agent and permissions and
+stays read-only. See the [roadmap](docs/roadmap.md) for details.
+
+- `v1.1.0`: versioned JSON for every command and a local MCP server for AI
+  agents and scripts.
+- `v1.2.0`: OOMKill and eviction post-mortems.
+- `v1.3.0`: CPU throttling diagnosis.
+- `v1.4.0`: node pressure from PSI.
+- `v1.5.0`: right-sizing with cost estimates.
+
 ## Non-Goals
 
 - No web dashboard
