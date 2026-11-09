@@ -89,9 +89,9 @@ require_text "${candidate_workflow}" 'publish_candidate.sh'
 require_text "${candidate_workflow}" 'verify_candidate.sh'
 require_text "${candidate_workflow}" 'name: release'
 # shellcheck disable=SC2016 # Workflow variables are matched literally.
-require_text "${candidate_workflow}" 'candidates/${CANDIDATE_VERSION}/charts/kube-memlens'
+require_text "${candidate_workflow}" 'candidates/${candidate_version}/charts/kube-memlens'
 # shellcheck disable=SC2016 # Workflow variables are matched literally.
-require_text "${candidate_workflow}" 'candidates/${CANDIDATE_VERSION}/kube-memlens'
+require_text "${candidate_workflow}" 'candidates/${candidate_version}/kube-memlens'
 require_text "${promotion_workflow}" 'workflow_dispatch:'
 require_text "${promotion_workflow}" "SKOPEO_IMAGE: ${skopeo_image}"
 require_text "${promotion_workflow}" 'name: Copy exact candidate subjects'
@@ -172,21 +172,24 @@ if [ -z "${subjects_line}" ] || [ -z "${release_line}" ] || [ "${subjects_line}"
   exit 1
 fi
 
-# candidate.yml requires every user guide to name the candidate repositories.
-# Check the same paths here so a guide edit fails before a tag is created.
-# shellcheck disable=SC2016 # The Markdown backticks are matched literally.
-candidate_version=$(sed -n 's/^The proposed `v\([0-9][0-9.]*-rc\.[0-9][0-9]*\)` candidate uses$/\1/p' \
-  "${chart}/README.md" | head -n 1)
-if [ -z "${candidate_version}" ]; then
-  echo "release contract is missing the proposed candidate from ${chart}/README.md" >&2
-  exit 1
-fi
-ga_version=${candidate_version%-rc.*}
-require_text "${chart}/Chart.yaml" "version: ${ga_version}"
+# Release archives ship README.md and the chart package ships its README.
+# Stable promotion preserves those bytes, so any candidate path written there
+# would remain in the stable release. Candidate install paths belong only in the
+# notes that create_candidate_draft.sh generates from the signed manifest.
+# candidate.yml also requires every guide to name the chart version; check it
+# here so a guide edit fails before a tag is created.
+chart_version=$(awk '$1 == "version:" {print $2; exit}' "${chart}/Chart.yaml")
 for guide in README.md docs/installation.md "${chart}/README.md"; do
-  require_text "${guide}" "candidates/${candidate_version}/charts/kube-memlens"
-  require_text "${guide}" "candidates/${candidate_version}/kube-memlens"
-  require_text "${guide}" "--version ${ga_version}"
+  require_text "${guide}" "--version ${chart_version}"
+  if grep -Eq 'candidates/|v?[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+' "${guide}"; then
+    echo "release guide names a release candidate: ${guide}" >&2
+    grep -En 'candidates/|v?[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+' "${guide}" >&2
+    exit 1
+  fi
 done
+require_text hack/release/create_candidate_draft.sh 'jq -er .chart.repository'
+require_text hack/release/create_candidate_draft.sh 'jq -er .image.digest'
+# shellcheck disable=SC2016 # The script variable is matched literally.
+require_text hack/release/create_candidate_draft.sh '--notes "${notes}"'
 
 echo 'release integrity contract passed'

@@ -70,16 +70,6 @@ The chart selects the version-matched standard image. To pin its immutable
 digest, set `image.digest` to the complete `sha256:` value from the signed
 `promotion-subjects.txt` in the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.3).
 
-### Release candidate artefacts
-
-The proposed `v1.0.3-rc.1` candidate uses
-`oci://ghcr.io/danushkastanley/candidates/1.0.3-rc.1/charts/kube-memlens`
-with `--version 1.0.3` and image repository
-`ghcr.io/danushkastanley/candidates/1.0.3-rc.1/kube-memlens`.
-Candidate installs override the image repository and pin the image digest from
-its signed `candidate-manifest.json`. Stable promotion preserves those exact
-archive, image and chart bytes.
-
 ## Verify an install
 
 ```sh

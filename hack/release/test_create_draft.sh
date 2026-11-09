@@ -26,7 +26,13 @@ touch \
   "${bundle}/promotion-checksums.txt" \
   "${bundle}/promotion-checksums.sigstore.json" \
   "${bundle}/promotion-subjects.txt"
-printf '%s\n' '{"intended_ga_tag":"v1.2.3"}' > "${bundle}/candidate-manifest.json"
+digest_a="sha256:$(printf 'a%.0s' {1..64})"
+digest_b="sha256:$(printf 'b%.0s' {1..64})"
+jq -cn --arg image_digest "${digest_a}" --arg chart_digest "${digest_b}" '
+  {intended_ga_tag:"v1.2.3",
+   image:{repository:"ghcr.io/danushkastanley/candidates/1.2.3-rc.1/kube-memlens",digest:$image_digest},
+   chart:{repository:"ghcr.io/danushkastanley/candidates/1.2.3-rc.1/charts/kube-memlens",digest:$chart_digest}}' \
+  > "${bundle}/candidate-manifest.json"
 
 cat > "${fake_bin}/gh" <<'SH'
 #!/usr/bin/env bash
@@ -35,7 +41,9 @@ if [ "${1:-}" = api ]; then
   printf '[]\n'
   exit 0
 fi
-printf '%s\n' "$*" >> "${GH_LOG}"
+# Keep one log line per call; multi-line release notes are flattened.
+args="$*"
+printf '%s\n' "${args//$'\n'/\\n}" >> "${GH_LOG}"
 if [ "${GH_FAIL_CREATE:-false}" = true ] && [ "${1:-}" = release ] && [ "${2:-}" = create ]; then
   exit 1
 fi
@@ -76,6 +84,38 @@ test "$(wc -l < "${log}" | tr -d ' ')" -eq 2
 sed -n '1p' "${log}" | grep -Fq 'release create v1.2.3-rc.1'
 sed -n '1p' "${log}" | grep -Fq -- '--prerelease --verify-tag --title INCOMPLETE qualification: v1.2.3-rc.1'
 sed -n '2p' "${log}" | grep -Fq 'release edit v1.2.3-rc.1 --draft --prerelease --title v1.2.3-rc.1 candidate for v1.2.3'
+candidate_notes=$(sed -n '2p' "${log}")
+for expected in \
+  '--notes Prospective v1.2.3 artefacts.' \
+  'oci://ghcr.io/danushkastanley/candidates/1.2.3-rc.1/charts/kube-memlens' \
+  '--version 1.2.3' \
+  '--set image.repository=ghcr.io/danushkastanley/candidates/1.2.3-rc.1/kube-memlens' \
+  "--set image.digest=${digest_a}" \
+  "Chart digest: \`${digest_b}\`" \
+  'release evidence issue #50'; do
+  grep -Fq -- "${expected}" <<< "${candidate_notes}" || {
+    echo "candidate notes are missing: ${expected}" >&2
+    exit 1
+  }
+done
+
+: > "${log}"
+jq 'del(.image.digest)' "${bundle}/candidate-manifest.json" > "${work_dir}/incomplete.json"
+cp "${bundle}/candidate-manifest.json" "${work_dir}/complete.json"
+cp "${work_dir}/incomplete.json" "${bundle}/candidate-manifest.json"
+if PATH="${fake_bin}:${PATH}" \
+  GH_LOG="${log}" \
+  RELEASE_BUNDLE_DIR="${bundle}" \
+  RELEASE_CANDIDATE_TAG=v1.2.3-rc.1 \
+    "${root}/hack/release/create_candidate_draft.sh" 2>/dev/null; then
+  echo 'candidate draft completed without an image digest' >&2
+  exit 1
+fi
+if grep -Fq 'release edit' "${log}"; then
+  echo 'candidate draft was marked complete without install notes' >&2
+  exit 1
+fi
+cp "${work_dir}/complete.json" "${bundle}/candidate-manifest.json"
 
 : > "${log}"
 PATH="${fake_bin}:${PATH}" \

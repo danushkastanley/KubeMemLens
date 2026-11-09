@@ -106,6 +106,14 @@ fails closed.
 
 The candidate bytes deliberately carry the intended stable identity. Their RC status comes from the candidate repository path, signed manifest, prerelease tag and GitHub prerelease, not from changing the product bytes. This is the only supported way to keep correct stable metadata while later preserving every CLI archive byte, image digest and chart digest. If that identity model is rejected, update the PROD-012 contract before creating a candidate; do not relabel RC bytes as stable or call a rebuild an exact promotion.
 
+The README, installation guide and chart README describe only the stable
+release. The CLI archives and chart package ship those README files and
+promotion keeps their bytes, so a candidate path written there would remain in
+the stable release. `hack/release/create_candidate_draft.sh` writes the
+candidate chart path, image repository and digests into the prerelease notes
+from the signed `candidate-manifest.json`, and `hack/check-release-contract.sh`
+rejects any candidate path or RC version in those guides.
+
 Publishing the candidate supplies the evidence that cannot exist at the
 pre-candidate stage: frozen artefact identities, two-build reproducibility,
 clean-consumer lifecycle results and the immutable version adopters must test.

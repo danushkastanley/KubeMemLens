@@ -26,16 +26,6 @@ a provider claim. [Send feedback through a GitHub issue](https://github.com/danu
 See the [support contract](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/compatibility.md)
 for the AWS EKS managed Linux profile and permission requirements.
 
-### Release candidate artefacts
-
-The proposed `v1.0.3-rc.1` candidate uses
-`oci://ghcr.io/danushkastanley/candidates/1.0.3-rc.1/charts/kube-memlens`
-with `--version 1.0.3` and image repository
-`ghcr.io/danushkastanley/candidates/1.0.3-rc.1/kube-memlens`.
-Candidate installs override the image repository and pin the image digest from
-its signed `candidate-manifest.json`. Stable promotion preserves those exact
-archive, image and chart bytes.
-
 ## Components
 
 - One agent Pod per selected Linux node reads `/sys/fs/cgroup` read-only and maps container cgroups to Kubernetes Pods.

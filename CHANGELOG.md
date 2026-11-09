@@ -7,6 +7,7 @@ All notable changes are documented here. KubeMemLens follows [Semantic Versionin
 ### Changed
 
 - Remove command examples from the Krew manifest caveats, which Krew guidelines reserve for setup prerequisites. The caveats still name the Helm chart and metrics-server requirements.
+- Keep release-candidate install paths out of the README, installation guide and chart README. Release archives and the chart package ship these guides and stable promotion preserves their bytes, so the v1.0.3 artefacts still name `v1.0.3-rc.1`. Candidate prerelease notes now carry the generated install command, and the release contract rejects candidate paths in the guides.
 
 ## 1.0.3 - 2026-11-08
 

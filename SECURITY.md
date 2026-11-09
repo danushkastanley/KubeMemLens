@@ -82,10 +82,10 @@ a denial of service in `x/net/html`. govulncheck reports the affected code as
 unreachable from KubeMemLens; the update clears the runtime-image scan.
 The indirect `github.com/klauspost/compress` dependency moves to 1.20.3 for
 [GO-2026-6865](https://osv.dev/GO-2026-6865), which govulncheck does not report
-as called. Installed v1.0.2 binaries and its immutable artefacts are unchanged; deploy the
-new version only after its signed release is published. The
-[v1.0.3 preparation record](docs/release-preparation-1.0.3.md) tracks the fresh
-scans and remaining publication gates.
+as called. The signed v1.0.3 release was published on 9 November 2026;
+upgrade from v1.0.2 to receive these updates. Published v1.0.2 artefacts are
+unchanged. The [v1.0.3 preparation record](docs/release-preparation-1.0.3.md)
+records the fresh scans and candidate gates.
 
 ### v1.0.2
 
