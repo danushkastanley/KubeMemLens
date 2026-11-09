@@ -602,8 +602,8 @@ stays read-only. See the [roadmap](docs/roadmap.md) for details.
 
 - `v1.1.0`: versioned JSON for every command and a local MCP server for AI
   agents and scripts.
-- `v1.2.0`: CPU throttling diagnosis.
-- `v1.3.0`: OOMKill and eviction post-mortems.
+- `v1.2.0`: OOMKill and eviction post-mortems.
+- `v1.3.0`: CPU throttling diagnosis.
 - `v1.4.0`: node pressure from PSI.
 - `v1.5.0`: right-sizing with cost estimates.
 

@@ -26,8 +26,8 @@ only ships when its evidence and release gates pass. To suggest a change, open a
 | Version | Focus | Why it matters |
 | --- | --- | --- |
 | `v1.1.0` | Stable versioned JSON for every user-facing command, published JSON Schemas, and a local MCP server (`kubectl memlens mcp`) that uses your own kubeconfig and RBAC | Scripts and AI agents can diagnose Pod memory with a few well-defined calls instead of many raw `kubectl` commands |
-| `v1.2.0` | CPU throttling diagnosis from cgroup `cpu.stat` and `cpu.max` | "Slow despite low CPU usage" is as common as an OOMKill and uses the same agent |
-| `v1.3.0` | OOMKill and eviction post-mortems that keep bounded evidence after the Pod is gone | Most cgroup evidence disappears with the container unless someone captures it first |
+| `v1.2.0` | OOMKill and eviction post-mortems that keep bounded evidence after the Pod is gone | Most cgroup evidence disappears with the container unless someone captures it first |
+| `v1.3.0` | CPU throttling diagnosis from cgroup `cpu.stat` and `cpu.max` | "Slow despite low CPU usage" is as common as an OOMKill and uses the same agent |
 | `v1.4.0` | Node pressure from PSI, ranking the Pods that contribute most | Answers "which Pods are hurting this node?" without claiming more than the evidence shows |
 | `v1.5.0` | Right-sizing estimates with cost, using prices you supply | Adds a budget reason alongside the incident reason; prices are never fetched |
 
