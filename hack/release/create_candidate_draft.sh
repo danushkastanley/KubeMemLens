@@ -31,5 +31,34 @@ case "${resume_status}" in
   *) exit "${resume_status}" ;;
 esac
 
+# Candidate install paths live only in these notes. The archives and chart ship
+# README files whose bytes stable promotion preserves, so those guides must
+# describe the stable release alone.
+image_repository=$(jq -er .image.repository "${manifest}")
+image_digest=$(jq -er .image.digest "${manifest}")
+chart_repository=$(jq -er .chart.repository "${manifest}")
+chart_digest=$(jq -er .chart.digest "${manifest}")
+notes=$(cat <<NOTES
+Prospective ${ga_tag} artefacts. Do not promote until every PROD-012 gate and the recorded go/no-go review pass.
+
+Stable promotion copies these exact archive, image and chart bytes to ${ga_tag}; nothing is rebuilt.
+
+Install this candidate for qualification only, pinning the image digest from the signed \`candidate-manifest.json\`:
+
+\`\`\`sh
+helm upgrade --install kube-memlens \\
+  oci://${chart_repository} \\
+  --version ${ga_version} \\
+  --namespace kube-memlens \\
+  --create-namespace \\
+  --set image.repository=${image_repository} \\
+  --set image.digest=${image_digest}
+\`\`\`
+
+Chart digest: \`${chart_digest}\`. Report results on [release evidence issue #50](https://github.com/danushkastanley/KubeMemLens/issues/50).
+NOTES
+)
+
 gh release edit "${candidate_tag}" --draft --prerelease \
-  --title "${candidate_tag} candidate for ${ga_tag}"
+  --title "${candidate_tag} candidate for ${ga_tag}" \
+  --notes "${notes}"
