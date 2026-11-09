@@ -17,8 +17,7 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
 [Website](https://kubememlens.com) · [Installation](docs/installation.md) ·
 [Support and compatibility](docs/compatibility.md) · [Changelog](CHANGELOG.md)
 
-<!-- Demo GIF placeholder: replace with a recording of a cache-heavy Pod
-     after v1.0.3, for example docs/images/demo.gif. -->
+![KubeMemLens terminal dashboard: a Pod at 79% of its 96 MiB limit opens to show that 84% of its memory is file cache and 14% is anonymous memory, with read-only next checks](docs/images/kubememlens-demo.gif)
 
 - **Never changes your workloads.** It reads cgroup files and Kubernetes
   metadata; recommendations are printed for you to review, never applied.
