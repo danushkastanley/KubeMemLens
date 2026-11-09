@@ -4,6 +4,11 @@ All notable changes are documented here. KubeMemLens follows [Semantic Versionin
 
 ## Unreleased
 
+### Fixed
+
+- Make `metrics/current` scrapeable. When a request's `Accept` header prefers OpenMetrics or Prometheus text, the resource now returns the exposition text with the matching content type; other requests, including `kubectl get --raw` and the CLI, keep the JSON object. Since authenticated reads replaced the direct collector route, Prometheus and similar scrapers had received JSON they could not parse, so the chart's optional alerts and dashboard had no data. [Scrape with Prometheus](docs/metrics.md#scrape-with-prometheus) documents a least-privilege setup.
+- Point the default alert `runbookBaseURL` at `danushkastanley/KubeMemLens`. The previous `kube-memlens` repository URL returned 404 for every alert's runbook link.
+
 ### Changed
 
 - Remove command examples from the Krew manifest caveats, which Krew guidelines reserve for setup prerequisites. The caveats still name the Helm chart and metrics-server requirements.

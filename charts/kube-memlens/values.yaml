@@ -146,7 +146,7 @@ metrics:
   prometheusRule:
     enabled: false
     labels: {}
-    runbookBaseURL: https://github.com/danushkastanley/kube-memlens/blob/main/docs/runbooks
+    runbookBaseURL: https://github.com/danushkastanley/KubeMemLens/blob/main/docs/runbooks
   grafanaDashboard:
     enabled: false
     labels:

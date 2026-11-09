@@ -111,7 +111,7 @@ func (h *ReadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "clusterstatus":
 		h.serveClusterStatus(w, info, schema)
 	case "metrics":
-		h.serveMetrics(w, info)
+		h.serveMetrics(w, r, info)
 	default:
 		writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
 	}
@@ -296,7 +296,8 @@ func (h *ReadHandler) serveClusterStatus(w http.ResponseWriter, info *apirequest
 	}, h.opts.MaxResponseBytes)
 }
 
-func (h *ReadHandler) serveMetrics(w http.ResponseWriter, info *apirequest.RequestInfo) {
+func (h *ReadHandler) serveMetrics(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo) {
+	w.Header().Set("Vary", "Accept")
 	if !exactClusterGet(info, "current") {
 		writeReadError(w, http.StatusNotFound, metav1.StatusReasonNotFound, "requested resource was not found")
 		return
@@ -318,6 +319,10 @@ func (h *ReadHandler) serveMetrics(w http.ResponseWriter, info *apirequest.Reque
 			return
 		}
 		writeReadError(w, http.StatusInternalServerError, metav1.StatusReasonInternalError, "metrics could not be rendered")
+		return
+	}
+	if format := negotiateMetricsFormat(r.Header.Get("Accept")); format != metricsJSON {
+		writeMetricsText(w, format, content)
 		return
 	}
 	writeBoundedReadJSON(w, api.Metrics{

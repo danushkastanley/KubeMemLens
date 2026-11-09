@@ -1,6 +1,6 @@
 # Metrics
 
-KubeMemLens exposes Prometheus/OpenMetrics-compatible content through the aggregated `metrics/current` resource. The production chart requires a separate metrics-reader binding and does not expose a direct collector `/metrics` route or `ServiceMonitor`.
+KubeMemLens exposes Prometheus/OpenMetrics-compatible content through the aggregated `metrics/current` resource. The production chart requires a separate metrics-reader binding and does not expose a direct collector `/metrics` route or `ServiceMonitor`. Scrapers reach the resource through the Kubernetes API server; see [Scrape with Prometheus](#scrape-with-prometheus).
 
 The [support and compatibility contract](compatibility.md#data-and-metadata-exposure) is the canonical source for metric metadata visibility, retention ownership and tenant-boundary requirements.
 
@@ -278,7 +278,7 @@ metrics:
   prometheusRule:
     enabled: false
     labels: {}
-    runbookBaseURL: https://github.com/danushkastanley/kube-memlens/blob/main/docs/runbooks
+    runbookBaseURL: https://github.com/danushkastanley/KubeMemLens/blob/main/docs/runbooks
   grafanaDashboard:
     enabled: false
     labels:
@@ -304,6 +304,60 @@ helm upgrade --install kube-memlens ./charts/kube-memlens \
   -n kube-memlens \
   --set metrics.includePods=false
 ```
+
+## Scrape with Prometheus
+
+`metrics/current` returns the exposition text when the request asks for it, and a JSON object otherwise:
+
+| `Accept` header | Response |
+| --- | --- |
+| Lists `application/openmetrics-text` (no version, `1.0.0` or `0.0.1`) with a quality at least as high as JSON | OpenMetrics text, `Content-Type: application/openmetrics-text; version=1.0.0; charset=utf-8` |
+| Lists `text/plain` (no version or `0.0.4`) with a quality at least as high as JSON | The same text, `Content-Type: text/plain; version=0.0.4; charset=utf-8` |
+| Missing, `*/*`, `application/json` or anything else | `Metrics` JSON object with the text in `content`, as used by `kubectl get --raw` and the CLI |
+
+Prometheus sends a suitable `Accept` header by default. The OpenTelemetry Collector's Prometheus receiver and Grafana Alloy use the same scrape library, but only Prometheus has been verified. Both forms use the same authorisation, size limit and cardinality guardrails, and responses carry `Vary: Accept`.
+
+Give the scraper its own ServiceAccount bound only to the chart's `kube-memlens-metrics-reader` ClusterRole. It needs no other access:
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prometheus
+  namespace: monitoring
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus-kube-memlens-metrics
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-memlens-metrics-reader
+subjects:
+  - kind: ServiceAccount
+    name: prometheus
+    namespace: monitoring
+```
+
+For Prometheus running in the cluster under that ServiceAccount, scrape the API server:
+
+```yaml
+scrape_configs:
+  - job_name: kubememlens
+    scheme: https
+    metrics_path: /apis/memory.kubememlens.io/v1alpha1/metrics/current
+    authorization:
+      credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+    tls_config:
+      ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    static_configs:
+      - targets: ["kubernetes.default.svc:443"]
+```
+
+Every scrape is a request to the Kubernetes API server, which forwards it to the collector. Keep the interval at 15 seconds or longer to limit API server load. Agents scan every 5 seconds by default (`agent.interval`), so a shorter scrape interval adds load without adding much new evidence. A ServiceAccount without the binding receives `403 Forbidden` and no metrics.
+
+This configuration was verified on 9 November 2026 with Prometheus 3.15.0 on a single-node kind Kubernetes 1.36.1 cluster: the target reported `up == 1` with no scrape error, `kubememlens_pod_memory_bytes` and counter series were queryable, and an unbound ServiceAccount was refused. It is local evidence, not a managed-provider qualification.
 
 ## PromQL Examples
 
