@@ -2,6 +2,12 @@
 
 All notable changes are documented here. KubeMemLens follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Changed
+
+- Remove command examples from the Krew manifest caveats, which Krew guidelines reserve for setup prerequisites. The caveats still name the Helm chart and metrics-server requirements.
+
 ## 1.0.3 - 2026-11-08
 
 Patch release. Candidate and publication gates are recorded in the
