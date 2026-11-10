@@ -2,20 +2,21 @@
 
 KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer review.
 
-## v1.0.3 preparation
+## v1.0.4 preparation
 
-The [v1.0.3 preparation record](release-preparation-1.0.3.md) proposes
-`v1.0.3-rc.1` followed by exact-byte promotion to `v1.0.3`. It combines the
-first-run and anonymous-memory diagnosis changes with the merged `x/net`
-security update and launch documentation. Preparation does not declare either
-tag or release published and does not authorise workflow dispatch or package
-publication. Exact-tag approval, independent environment approval and
-immutable artefact verification remain required. The v1.0.2-only adopter
-exception does not automatically apply to v1.0.3; record its promotion
+The [v1.0.4 preparation record](release-preparation-1.0.4.md) proposes
+`v1.0.4-rc.1` followed by exact-byte promotion to `v1.0.4`. It combines the
+scrapeable `metrics/current` fix, the corrected alert runbook links and the
+first candidate whose shipped guides carry no candidate paths. Preparation does
+not declare either tag or release published and does not authorise workflow
+dispatch or package publication. Exact-tag approval, independent environment
+approval and immutable artefact verification remain required. The v1.0.3-only
+adopter exception does not automatically apply to v1.0.4; record its promotion
 decision separately.
 
-The [v1.0.2](release-preparation-1.0.2.md) and
-[v1.0.1](release-preparation-1.0.1.md) preparation records remain historical.
+The [v1.0.3](release-preparation-1.0.3.md), [v1.0.2](release-preparation-1.0.2.md)
+and [v1.0.1](release-preparation-1.0.1.md) preparation records remain
+historical.
 
 ## v1.0.0 maintainer decision — 6 October 2026
 
