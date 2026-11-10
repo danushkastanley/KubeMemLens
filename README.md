@@ -510,7 +510,7 @@ Recommendations and comparisons are read-only. TUI capture uses the same redacti
 
 ## Prometheus / OpenMetrics Export
 
-The authenticated profile exposes workload-labelled metrics as the cluster-scoped `metrics/current` resource. It requires a separate `kube-memlens-metrics-reader` binding.
+The authenticated profile exposes workload-labelled metrics as the cluster-scoped `metrics/current` resource. It requires a separate `kube-memlens-metrics-reader` binding. Prometheus and other OpenMetrics scrapers collect it through the Kubernetes API server; see [Scrape with Prometheus](docs/metrics.md#scrape-with-prometheus) for the least-privilege ServiceAccount and scrape configuration.
 
 By default, namespace and pod metrics are enabled. Container metrics are disabled by default because they can create high-cardinality series in busy clusters.
 
@@ -528,7 +528,7 @@ Authenticated smoke test:
 kubectl get --raw '/apis/memory.kubememlens.io/v1alpha1/metrics/current' | jq -r '.content' | head -40
 ```
 
-PromQL examples:
+PromQL examples, once Prometheus scrapes the resource:
 
 ```promql
 topk(10, sum by (namespace) (kubememlens_namespace_memory_bytes{type="total"}))
