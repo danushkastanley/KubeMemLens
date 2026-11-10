@@ -4,14 +4,14 @@ This chart installs the KubeMemLens node-local cgroup reader and its bounded, in
 
 KubeMemLens is a terminal-first Kubernetes memory incident explainer. The standard profile reads cgroup v2 memory accounting from a read-only host mount and does not install eBPF programmes, persistent storage, a CRD, external telemetry, or automatic remediation.
 
-## Install v1.0.3
+## Install v1.0.4
 
 Use this version after its matching release is published.
 
 ```sh
 helm upgrade --install kube-memlens \
   oci://ghcr.io/danushkastanley/charts/kube-memlens \
-  --version 1.0.3 \
+  --version 1.0.4 \
   --namespace kube-memlens \
   --create-namespace
 ```

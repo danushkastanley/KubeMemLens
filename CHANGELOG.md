@@ -2,7 +2,10 @@
 
 All notable changes are documented here. KubeMemLens follows [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 1.0.4 - 2026-11-10
+
+Patch release. Candidate and publication gates are recorded in the
+[release preparation record](docs/release-preparation-1.0.4.md).
 
 ### Fixed
 
@@ -13,6 +16,16 @@ All notable changes are documented here. KubeMemLens follows [Semantic Versionin
 
 - Remove command examples from the Krew manifest caveats, which Krew guidelines reserve for setup prerequisites. The caveats still name the Helm chart and metrics-server requirements.
 - Keep release-candidate install paths out of the README, installation guide and chart README. Release archives and the chart package ship these guides and stable promotion preserves their bytes, so the v1.0.3 artefacts still name `v1.0.3-rc.1`. Candidate prerelease notes now carry the generated install command, and the release contract rejects candidate paths in the guides.
+
+### Dependencies
+
+- Update the pinned GitHub Actions: `docker/login-action` 4.8.0, `sigstore/cosign-installer` 4.1.3 and `github/codeql-action` 4.39.3. No Go module, builder image or runtime dependency changes.
+
+### Documentation
+
+- Publish the post-1.0 roadmap in `docs/roadmap.md` and summarise it in the README.
+- Add a terminal demo GIF to the README.
+- Add "Scrape with Prometheus" to `docs/metrics.md`.
 
 ## 1.0.3 - 2026-11-08
 
