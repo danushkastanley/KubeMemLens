@@ -2,7 +2,7 @@ name: Node-context qualification
 
 on:
   pull_request:
-    paths: ['hack/node-qualification/**', 'hack/provider-inventory/**', 'hack/lib/node-qualification-kind.sh', 'hack/lib/node-observer-kind.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-context-fixture.sh', 'internal/nodestats/**', 'internal/nodeproducer/**', 'internal/agent/**', 'internal/collector/**', 'internal/extension/**', 'charts/kube-memlens/**', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/verify-node-context-execution-kind.sh', '.github/workflows/node-qualification.yml']
+    paths: ['hack/node-qualification/**', 'hack/provider-inventory/**', 'hack/lib/node-qualification-kind.sh', 'hack/lib/node-observer-kind.sh', 'hack/lib/node-context-ingestion.sh', 'hack/lib/node-context-fixture.sh', 'internal/nodestats/**', 'internal/nodeproducer/**', 'internal/agent/**', 'internal/collector/**', 'internal/extension/**', 'charts/kube-memlens/**', '!charts/kube-memlens/README.md', 'go.mod', 'go.sum', 'hack/verify-node-context-kind.sh', 'hack/verify-node-context-execution-kind.sh', '.github/workflows/node-qualification.yml']
   workflow_dispatch:
 
 permissions:

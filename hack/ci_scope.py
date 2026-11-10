@@ -14,10 +14,16 @@ EXACT = {"Dockerfile", "go.mod", "go.sum", ".github/workflows/ci.yml",
          "hack/tui-smoke.exp"}
 
 
+# Documentation inside a source prefix that never reaches a running cluster.
+# The chart README ships in the chart package but changes no rendered object.
+IGNORED = {"charts/kube-memlens/README.md"}
+
+
 def needs_kind(paths):
-    return any(path in EXACT or path.startswith(PREFIXES)
-               or (Path(path).parent == Path("hack")
-                   and fnmatch.fnmatchcase(Path(path).name, "verify-*-kind.sh"))
+    return any(path not in IGNORED
+               and (path in EXACT or path.startswith(PREFIXES)
+                    or (Path(path).parent == Path("hack")
+                        and fnmatch.fnmatchcase(Path(path).name, "verify-*-kind.sh")))
                for path in paths)
 
 
