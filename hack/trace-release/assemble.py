@@ -30,7 +30,7 @@ def assemble(source, workers, launchers, programmes, reproduced_programmes, veri
     engine = context/'engine'; engine.mkdir(mode=0o755)
     worker = json.loads((workers/'build.json').read_bytes())
     launcher = json.loads((launchers/'build.json').read_bytes())
-    require(worker['builder'] == 'golang:1.27.3-alpine@sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c' and
+    require(worker['builder'] == 'golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf' and
             worker['builder'] == launcher['builder'] and worker['buildFlags'] == launcher['buildFlags'] and
             worker['sourceSHA256'] == launcher['sourceSHA256'] and
             worker['sdkReceiptSHA256'] == launcher['sdkReceiptSHA256'], 'binary builds disagree')

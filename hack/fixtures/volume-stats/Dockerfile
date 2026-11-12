@@ -1,4 +1,4 @@
-FROM golang:1.27.3-alpine@sha256:b8c9b82affbbb82a020bbcf998dad2ba9516944ac7e883524642a481a9505e9c AS build
+FROM golang:1.27.4-alpine@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS build
 WORKDIR /src
 COPY . .
 RUN CGO_ENABLED=0 go build -mod=readonly -trimpath -ldflags="-X main.version=eccd681b18a2c96332f33c2cac5db38656edd500" -o /out/hostpathplugin ./cmd/hostpathplugin
