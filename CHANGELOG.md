@@ -2,6 +2,12 @@
 
 All notable changes are documented here. KubeMemLens follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- Keep `metrics/current` scrapeable when per-entity series do not fit in the response. The entity ceiling was derived from the full response limit, but the exposition text is rendered within half of it, so at chart defaults a cluster of roughly 1,000 to 1,920 Pods got HTTP 507 for the whole resource and lost every series, including the collector state that the reliability alerts read. A level that does not fit is now left out on its own, most detailed first, and reported as `kubememlens_metrics_dropped_entities{reason="response_budget_exceeded"}`. Output is unchanged when everything fits.
+
 ## 1.0.4 - 2026-11-10
 
 Patch release. Candidate and publication gates are recorded in the

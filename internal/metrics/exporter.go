@@ -42,10 +42,17 @@ func (e Exporter) Render() (string, error) {
 		opts = DefaultOptions()
 	}
 
-	renderer := newRenderer(e.MaxBytes)
-	renderer.render(e.Source, now, e.TTL, opts)
+	// Operational series follow the entity levels in the exposition, so they
+	// are rendered first and their size is held back from the level budget.
+	tail := newRenderer(e.MaxBytes)
 	if e.Operational != nil {
-		renderer.operational(*e.Operational)
+		tail.operational(*e.Operational)
 	}
+	if tail.b.err != nil {
+		return "", tail.b.err
+	}
+	renderer := newRenderer(e.MaxBytes)
+	renderer.render(e.Source, now, e.TTL, opts, tail.b.Len()+len(eofLine))
+	_, _ = renderer.b.WriteString(tail.b.String())
 	return renderer.String()
 }
