@@ -45,7 +45,7 @@ func TestResourceExplanationVersionAndHumanContext(t *testing.T) {
 		t.Fatal("machine resource explanation leaked identifiers")
 	}
 	var output bytes.Buffer
-	printPodContext(&output, pod)
+	printPodContext(&output, pod, liveClock())
 	if !strings.Contains(output.String(), "192Mi (Pod configuration)") || !strings.Contains(output.String(), "Resize allocation: deferred") {
 		t.Fatalf("human context lost source or resize state: %s", output.String())
 	}

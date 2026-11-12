@@ -65,7 +65,7 @@ func writePodVolumeExplanation(cmd *cobra.Command, output string, pod api.PodSna
 	if output != "text" {
 		return writeNodeDocument(cmd.OutOrStdout(), output, volumeExplanation{SchemaVersion: volumeExplanationSchemaVersion, Kind: "PodVolumeExplanation", EvaluatedAt: now, Context: volumes.Context, Analysis: result})
 	}
-	printPodExplanation(cmd.OutOrStdout(), pod)
+	printPodExplanation(cmd.OutOrStdout(), pod, evidenceClock{at: now, relation: "ago"})
 	if _, err := fmt.Fprintln(cmd.OutOrStdout(), "\n"+strings.Join(volumeview.Lines(volumes.Context, result, now, 100), "\n")); err != nil {
 		return err
 	}

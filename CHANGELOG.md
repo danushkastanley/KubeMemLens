@@ -11,6 +11,7 @@ All notable changes are documented here. KubeMemLens follows [Semantic Versionin
 ### Fixed
 
 - Keep a node's memory evidence when `memory.pressure` cannot be read or parsed. Any read error other than a missing file failed the whole container, so on a kernel with PSI compiled in but disabled at boot, where the file exists and every read fails, the agent reported `scan_failed` for the node indefinitely. Pressure is now reported as unknown, as `io.pressure` already was, and the rest of the sample is kept. PSI averages that are not a percentage between 0 and 100, including `NaN`, are rejected in the parser; a `NaN` previously failed JSON encoding of the node's whole snapshot.
+- Diagnose replayed and compared deep captures at their capture time. `replay` and `compare --before/--after` measured "recent" from the moment the command ran, so a capture of a Pod that had been OOMKilled two minutes earlier replayed as `normal` once it was more than 15 minutes old, and Pod ages counted up to today. The diagnosis and ages now use the time recorded in the file, single-Pod replay prints that capture time first, and comparisons diagnose each side at its own sample time. A capture with no recorded time says so and claims no ages.
 
 ## 1.0.4 - 2026-11-10
 

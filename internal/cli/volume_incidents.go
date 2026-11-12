@@ -68,7 +68,7 @@ func replayVolume(w io.Writer, b incident.VolumeBundle, podRef string) error {
 		return fmt.Errorf("selected Pod is not present in the volume incident")
 	}
 	var memory bytes.Buffer
-	printPodExplanation(&memory, b.Pod)
+	printPodExplanation(&memory, b.Pod, captureClock(b.CapturedAt, b.Pod))
 	lines := []string{fmt.Sprintf("Volume incident captured: %s; redacted=%t", b.CapturedAt, b.Redacted)}
 	lines = append(lines, nodeview.Wrap(strings.Split(memory.String(), "\n"), 100)...)
 	result := explain.AnalyzeVolumes(explain.VolumeInput{Pod: b.Pod, Volumes: b.Volumes, Now: b.CapturedAt})

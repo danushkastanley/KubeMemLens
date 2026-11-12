@@ -16,7 +16,7 @@ func TestPodsTableSeparatesPodAgeFromSampleAge(t *testing.T) {
 		Namespace: "default", PodName: "api", NodeName: "node-a",
 		CapturedAt: now, Freshness: api.EvidenceFreshnessFresh,
 		Context: api.PodContext{CreatedAt: now.Add(-48 * time.Hour)},
-	}})
+	}}, now)
 	text := output.String()
 	for _, expected := range []string{"POD AGE", "SAMPLE", "STATE", "2d", "fresh"} {
 		if !strings.Contains(text, expected) {

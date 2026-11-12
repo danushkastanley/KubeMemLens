@@ -10,7 +10,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/resourceview"
 )
 
-func printPodContext(w interface{ Write([]byte) (int, error) }, pod api.PodSnapshot) {
+func printPodContext(w interface{ Write([]byte) (int, error) }, pod api.PodSnapshot, clock evidenceClock) {
 	context := pod.Context
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Kubernetes context:")
@@ -42,7 +42,7 @@ func printPodContext(w interface{ Write([]byte) (int, error) }, pod api.PodSnaps
 		fmt.Fprintln(w, "  workload: unresolved")
 	}
 	if !context.CreatedAt.IsZero() {
-		fmt.Fprintf(w, "  created: %s (%s ago)\n", context.CreatedAt.UTC().Format(time.RFC3339), compactAge(context.CreatedAt))
+		fmt.Fprintf(w, "  created: %s%s\n", context.CreatedAt.UTC().Format(time.RFC3339), clock.age(context.CreatedAt))
 	}
 	fmt.Fprintf(w, "  restarts: %d\n", context.RestartCount)
 	if context.LastTerminationKnown {
@@ -78,14 +78,6 @@ func limitUsage(memory model.MemoryBreakdown) string {
 		return "unlimited"
 	}
 	return fmt.Sprintf("%.0f%%", memory.LimitUsageRatio()*100)
-}
-
-func compactAge(value time.Time) string {
-	age := time.Since(value)
-	if age < 0 {
-		age = 0
-	}
-	return age.Round(time.Second).String()
 }
 
 func valueOrUnknown(value string) string {

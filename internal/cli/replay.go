@@ -82,17 +82,19 @@ func newReplayCommand() *cobra.Command {
 				if !ok {
 					return fmt.Errorf("Pod %s was not found in the incident bundle", podRef)
 				}
-				printPodExplanation(cmd.OutOrStdout(), pod)
+				printIncidentHeader(cmd.OutOrStdout(), bundle)
+				printPodExplanation(cmd.OutOrStdout(), pod, captureClock(bundle.CapturedAt, pod))
 				printIncidentHistory(cmd.OutOrStdout(), bundle, pod)
 				return nil
 			}
 			if len(bundle.Pods) == 1 {
-				printPodExplanation(cmd.OutOrStdout(), bundle.Pods[0])
+				printIncidentHeader(cmd.OutOrStdout(), bundle)
+				printPodExplanation(cmd.OutOrStdout(), bundle.Pods[0], captureClock(bundle.CapturedAt, bundle.Pods[0]))
 				printIncidentHistory(cmd.OutOrStdout(), bundle, bundle.Pods[0])
 				return nil
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Incident captured: %s  Tool: %s  Redacted: %t\n\n", bundle.CapturedAt.Format(time.RFC3339), bundle.ToolVersion, bundle.Redacted)
-			printPodsTable(cmd.OutOrStdout(), bundle.Pods)
+			printIncidentHeader(cmd.OutOrStdout(), bundle)
+			printPodsTable(cmd.OutOrStdout(), bundle.Pods, bundle.CapturedAt)
 			fmt.Fprintln(cmd.OutOrStdout(), "\nUse --pod <namespace>/<name> to replay one explanation.")
 			return nil
 		},
@@ -103,6 +105,16 @@ func newReplayCommand() *cobra.Command {
 	cmd.Flags().StringVarP(&exportOutput, "output", "o", "", "legacy export file, or - for stdout")
 	cmd.Flags().BoolVar(&force, "force", false, "replace an existing legacy export file")
 	return cmd
+}
+
+// printIncidentHeader states the capture time first, because every age and
+// recency statement that follows is measured against it.
+func printIncidentHeader(w io.Writer, bundle api.IncidentBundle) {
+	captured := "unknown"
+	if !bundle.CapturedAt.IsZero() {
+		captured = bundle.CapturedAt.UTC().Format(time.RFC3339)
+	}
+	fmt.Fprintf(w, "Incident captured: %s  Tool: %s  Redacted: %t\n\n", captured, bundle.ToolVersion, bundle.Redacted)
 }
 
 func readIncidentBundle(path string) (api.IncidentBundle, error) {
