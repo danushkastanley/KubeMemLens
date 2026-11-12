@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"strconv"
 	"strings"
 
@@ -71,25 +72,31 @@ func readMemorySignals(fsys fs.FS, breakdown *model.MemoryBreakdown) error {
 	breakdown.SwapMaxEvents = swap["max"]
 	breakdown.SwapFailEvents = swap["fail"]
 
-	pressureBytes, err := fs.ReadFile(fsys, "memory.pressure")
-	if err == nil {
-		pressure, parseErr := ParseMemoryPressure(pressureBytes)
-		if parseErr != nil {
-			return fmt.Errorf("parse memory.pressure: %w", parseErr)
-		}
-		breakdown.PressureKnown = true
-		breakdown.PSISomeAvg10 = pressure.Some.Avg10
-		breakdown.PSISomeAvg60 = pressure.Some.Avg60
-		breakdown.PSISomeAvg300 = pressure.Some.Avg300
-		breakdown.PSISomeTotalMicros = pressure.Some.TotalMicros
-		breakdown.PSIFullAvg10 = pressure.Full.Avg10
-		breakdown.PSIFullAvg60 = pressure.Full.Avg60
-		breakdown.PSIFullAvg300 = pressure.Full.Avg300
-		breakdown.PSIFullTotalMicros = pressure.Full.TotalMicros
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("read memory.pressure: %w", err)
-	}
+	readMemoryPressure(fsys, breakdown)
 	return nil
+}
+
+// Pressure is enrichment: a file that cannot be read or parsed leaves pressure
+// unknown and must not discard an otherwise valid memory sample. A kernel with
+// PSI compiled in but disabled at boot has the file and fails every read of it.
+func readMemoryPressure(fsys fs.FS, breakdown *model.MemoryBreakdown) {
+	data, err := fs.ReadFile(fsys, "memory.pressure")
+	if err != nil {
+		return
+	}
+	pressure, err := ParseMemoryPressure(data)
+	if err != nil {
+		return
+	}
+	breakdown.PressureKnown = true
+	breakdown.PSISomeAvg10 = pressure.Some.Avg10
+	breakdown.PSISomeAvg60 = pressure.Some.Avg60
+	breakdown.PSISomeAvg300 = pressure.Some.Avg300
+	breakdown.PSISomeTotalMicros = pressure.Some.TotalMicros
+	breakdown.PSIFullAvg10 = pressure.Full.Avg10
+	breakdown.PSIFullAvg60 = pressure.Full.Avg60
+	breakdown.PSIFullAvg300 = pressure.Full.Avg300
+	breakdown.PSIFullTotalMicros = pressure.Full.TotalMicros
 }
 
 func readOptionalScalar(fsys fs.FS, name string, allowMax bool) (value uint64, known bool, unlimited bool, err error) {
@@ -175,15 +182,15 @@ func parsePressureSample(fields []string) (pressureSample, error) {
 			return pressureSample{}, fmt.Errorf("missing %s", key)
 		}
 	}
-	avg10, err := strconv.ParseFloat(values["avg10"], 64)
+	avg10, err := parsePressurePercent(values["avg10"])
 	if err != nil {
 		return pressureSample{}, fmt.Errorf("invalid avg10: %w", err)
 	}
-	avg60, err := strconv.ParseFloat(values["avg60"], 64)
+	avg60, err := parsePressurePercent(values["avg60"])
 	if err != nil {
 		return pressureSample{}, fmt.Errorf("invalid avg60: %w", err)
 	}
-	avg300, err := strconv.ParseFloat(values["avg300"], 64)
+	avg300, err := parsePressurePercent(values["avg300"])
 	if err != nil {
 		return pressureSample{}, fmt.Errorf("invalid avg300: %w", err)
 	}
@@ -192,6 +199,19 @@ func parsePressureSample(fields []string) (pressureSample, error) {
 		return pressureSample{}, fmt.Errorf("invalid total: %w", err)
 	}
 	return pressureSample{Avg10: avg10, Avg60: avg60, Avg300: avg300, TotalMicros: total}, nil
+}
+
+// PSI averages are percentages of wall time. NaN and infinities parse as
+// floats but cannot be encoded as JSON, so one would fail the whole publish.
+func parsePressurePercent(raw string) (float64, error) {
+	value, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return 0, err
+	}
+	if math.IsNaN(value) || value < 0 || value > 100 {
+		return 0, fmt.Errorf("%q is not a percentage", raw)
+	}
+	return value, nil
 }
 
 var knownSwapEventKeys = map[string]struct{}{
