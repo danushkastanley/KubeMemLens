@@ -74,6 +74,18 @@ vulnerability reporting is not a private support channel.
 
 ## Security update history
 
+### Unreleased
+
+The source uses Go 1.27.4 across all three modules and pinned builders to
+address [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859)
+(CVE-2026-97054), a race in `net/http` that can crash an HTTP/1 server which
+uses `MaxBytesReader` when a handler reads the request body while writing
+response headers. govulncheck reports the affected package as reachable; no
+crash has been reproduced in KubeMemLens. Trace bundle validation requires the
+same compiler version. This change does not replace published binaries or
+previously signed engine bundles; deployment requires a separately verified
+release.
+
 ### v1.0.3
 
 The source updates `golang.org/x/net` to 0.62.0 in the standard and trace
