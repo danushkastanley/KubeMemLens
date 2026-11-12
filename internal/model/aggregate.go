@@ -1,6 +1,13 @@
 package model
 
 func AddMemory(a, b MemoryBreakdown) MemoryBreakdown {
+	// An aggregate has a finite limit only when every member has one: a known
+	// limit summed with an unread one would understate the real ceiling. An
+	// empty accumulator has no limit of its own to contribute.
+	unlimited := a.MaxUnlimited || b.MaxUnlimited
+	limitKnown := unlimited || (b.MaxKnown && (a.MaxKnown || a == MemoryBreakdown{Name: a.Name}))
+	localKnown := a.LocalEventsKnown || b.LocalEventsKnown
+	localA, localB := a.ownEvents(localKnown), b.ownEvents(localKnown)
 	return MemoryBreakdown{
 		Name:                    a.Name,
 		TotalBytes:              a.TotalBytes + b.TotalBytes,
@@ -33,8 +40,8 @@ func AddMemory(a, b MemoryBreakdown) MemoryBreakdown {
 		HighKnown:               a.HighKnown || b.HighKnown,
 		HighUnlimited:           a.HighUnlimited || b.HighUnlimited,
 		MaxBytes:                a.MaxBytes + b.MaxBytes,
-		MaxKnown:                a.MaxKnown || b.MaxKnown,
-		MaxUnlimited:            a.MaxUnlimited || b.MaxUnlimited,
+		MaxKnown:                limitKnown,
+		MaxUnlimited:            unlimited,
 		SwapCurrentBytes:        a.SwapCurrentBytes + b.SwapCurrentBytes,
 		SwapCurrentKnown:        a.SwapCurrentKnown || b.SwapCurrentKnown,
 		SwapPeakBytes:           a.SwapPeakBytes + b.SwapPeakBytes,
@@ -67,11 +74,11 @@ func AddMemory(a, b MemoryBreakdown) MemoryBreakdown {
 		OOMKillEvents:           a.OOMKillEvents + b.OOMKillEvents,
 		HighEvents:              a.HighEvents + b.HighEvents,
 		MaxEvents:               a.MaxEvents + b.MaxEvents,
-		LocalEventsKnown:        a.LocalEventsKnown || b.LocalEventsKnown,
-		LocalOOMEvents:          a.LocalOOMEvents + b.LocalOOMEvents,
-		LocalOOMKillEvents:      a.LocalOOMKillEvents + b.LocalOOMKillEvents,
-		LocalHighEvents:         a.LocalHighEvents + b.LocalHighEvents,
-		LocalMaxEvents:          a.LocalMaxEvents + b.LocalMaxEvents,
+		LocalEventsKnown:        localKnown,
+		LocalOOMEvents:          localA.oom + localB.oom,
+		LocalOOMKillEvents:      localA.oomKill + localB.oomKill,
+		LocalHighEvents:         localA.high + localB.high,
+		LocalMaxEvents:          localA.max + localB.max,
 		SwapEventsKnown:         a.SwapEventsKnown || b.SwapEventsKnown,
 		SwapHighEvents:          a.SwapHighEvents + b.SwapHighEvents,
 		SwapMaxEvents:           a.SwapMaxEvents + b.SwapMaxEvents,
@@ -82,14 +89,41 @@ func AddMemory(a, b MemoryBreakdown) MemoryBreakdown {
 		HighEventsDelta:         a.HighEventsDelta + b.HighEventsDelta,
 		MaxEventsDelta:          a.MaxEventsDelta + b.MaxEventsDelta,
 		LocalEventDeltasKnown:   a.LocalEventDeltasKnown || b.LocalEventDeltasKnown,
-		LocalOOMEventsDelta:     a.LocalOOMEventsDelta + b.LocalOOMEventsDelta,
-		LocalOOMKillEventsDelta: a.LocalOOMKillEventsDelta + b.LocalOOMKillEventsDelta,
-		LocalHighEventsDelta:    a.LocalHighEventsDelta + b.LocalHighEventsDelta,
-		LocalMaxEventsDelta:     a.LocalMaxEventsDelta + b.LocalMaxEventsDelta,
+		LocalOOMEventsDelta:     localA.oomDelta + localB.oomDelta,
+		LocalOOMKillEventsDelta: localA.oomKillDelta + localB.oomKillDelta,
+		LocalHighEventsDelta:    localA.highDelta + localB.highDelta,
+		LocalMaxEventsDelta:     localA.maxDelta + localB.maxDelta,
 		SwapEventDeltasKnown:    a.SwapEventDeltasKnown || b.SwapEventDeltasKnown,
 		SwapHighEventsDelta:     a.SwapHighEventsDelta + b.SwapHighEventsDelta,
 		SwapMaxEventsDelta:      a.SwapMaxEventsDelta + b.SwapMaxEventsDelta,
 		SwapFailEventsDelta:     a.SwapFailEventsDelta + b.SwapFailEventsDelta,
+	}
+}
+
+type eventCounters struct {
+	oom, oomKill, high, max                     uint64
+	oomDelta, oomKillDelta, highDelta, maxDelta uint64
+}
+
+// ownEvents returns the counters that describe m's own activity for a local
+// roll-up: memory.events.local when the kernel reports it, otherwise the
+// hierarchical counters, so a member without local events is not read as
+// quiet once another member makes the aggregate use local counters.
+func (m MemoryBreakdown) ownEvents(aggregateUsesLocal bool) eventCounters {
+	if m.LocalEventsKnown {
+		return eventCounters{
+			oom: m.LocalOOMEvents, oomKill: m.LocalOOMKillEvents, high: m.LocalHighEvents, max: m.LocalMaxEvents,
+			oomDelta: m.LocalOOMEventsDelta, oomKillDelta: m.LocalOOMKillEventsDelta,
+			highDelta: m.LocalHighEventsDelta, maxDelta: m.LocalMaxEventsDelta,
+		}
+	}
+	if !aggregateUsesLocal {
+		return eventCounters{}
+	}
+	return eventCounters{
+		oom: m.OOMEvents, oomKill: m.OOMKillEvents, high: m.HighEvents, max: m.MaxEvents,
+		oomDelta: m.OOMEventsDelta, oomKillDelta: m.OOMKillEventsDelta,
+		highDelta: m.HighEventsDelta, maxDelta: m.MaxEventsDelta,
 	}
 }
 

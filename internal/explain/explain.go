@@ -88,6 +88,9 @@ func AnalyzePodAt(pod api.PodSnapshot, now time.Time) Result {
 			result.ConfidenceReason = "The Node condition is direct evidence, but it does not identify this Pod as the cause."
 		}
 	}
+	if container, found := containerNearestLimit(pod.Containers); found && severityFor(result.Diagnosis) == SeverityInfo {
+		result = withConfidence(containerLimitRisk(container, pod.Memory), container.Memory)
+	}
 	if pod.Context.MemoryLimitContainers == len(pod.Containers) && pod.Context.MemoryLimitBytes > 0 {
 		result.Signals = append(result.Signals, fmt.Sprintf("configured container limits total %s", model.FormatCompactBytes(pod.Context.MemoryLimitBytes)))
 	}

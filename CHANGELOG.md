@@ -8,6 +8,12 @@ All notable changes are documented here. KubeMemLens follows [Semantic Versionin
 
 - Update Go to 1.27.4 across all three modules, pinned builders and trace executable validation to address GO-2026-6859 (CVE-2026-97054), an HTTP/1 server crash in `net/http` when a handler that uses `MaxBytesReader` reads the request body while writing response headers. Published release artefacts are unchanged.
 
+### Fixed
+
+- Report a Pod as `limit-risk` when one of its containers is close to its own `memory.max`. The Pod diagnosis used only the sum of container usage against the sum of container limits, but the kernel enforces each container's limit separately, so a Pod with one container at 99% of a small limit beside a sidecar with a large limit read as `normal` in `explain pod`, `top pods` and the dashboard's risk order. The explanation now names the container and its headroom. Stronger Pod-level evidence (a recent OOM, pressure or node memory pressure) still takes precedence.
+- Treat an aggregated limit as known only when every member's limit is. A Pod with one limited container and one whose limit was not read was compared against the known limit alone, which could show more than 100% of `memory.max` and a false `limit-risk`. It now reads `unknown`; a Pod with any unlimited container still reads `unlimited`.
+- Keep recent OOM and limit events from members without `memory.events.local` when they are rolled up with members that have it. The local counters of one member no longer hide the hierarchical counters of another in workload and namespace roll-ups.
+
 ## 1.0.4 - 2026-11-10
 
 Patch release. Candidate and publication gates are recorded in the

@@ -22,6 +22,27 @@ func TestRiskSortPrioritisesRecentEvidence(t *testing.T) {
 	}
 }
 
+func TestRiskSortRanksAPodWithAContainerAtItsOwnLimit(t *testing.T) {
+	limited := func(name string, used, limit uint64) api.ContainerSnapshot {
+		return api.ContainerSnapshot{ContainerName: name, Memory: model.MemoryBreakdown{TotalBytes: used, EventDeltasKnown: true, MaxKnown: true, MaxBytes: limit}}
+	}
+	pods := []api.PodSnapshot{
+		{Namespace: "default", PodName: "large", Memory: model.MemoryBreakdown{TotalBytes: 5000, EventDeltasKnown: true, MaxKnown: true, MaxBytes: 50000}},
+		{
+			Namespace: "default", PodName: "sidecar-heavy", Containers: []api.ContainerSnapshot{limited("app", 99, 100), limited("sidecar", 100, 1000)},
+			Memory: model.MemoryBreakdown{TotalBytes: 199, EventDeltasKnown: true, MaxKnown: true, MaxBytes: 1100},
+		},
+	}
+	SortPodsAt(pods, sortRisk, time.Now(), time.Minute)
+	if pods[0].PodName != "sidecar-heavy" {
+		t.Fatalf("risk order = %s, %s", pods[0].PodName, pods[1].PodName)
+	}
+	risk := podRisk(pods[0], time.Now(), time.Minute)
+	if risk.reasons[0] != "a container is close to its own memory limit" {
+		t.Fatalf("risk reasons = %v", risk.reasons)
+	}
+}
+
 func TestRiskSortIsDeterministicAcrossInputOrder(t *testing.T) {
 	base := []api.PodSnapshot{
 		{Namespace: "b", PodName: "two", Memory: model.MemoryBreakdown{TotalBytes: 10, EventDeltasKnown: true}},
