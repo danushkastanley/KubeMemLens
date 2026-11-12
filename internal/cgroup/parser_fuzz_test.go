@@ -58,6 +58,7 @@ func FuzzParseMemoryPressure(f *testing.F) {
 		[]byte("some avg10=0 avg60=0 avg300=0 total=18446744073709551615\nfull avg10=0 avg60=0 avg300=0 total=0\n"),
 		[]byte("some avg10=0 avg60=0 avg300=0 total=0\n"),
 		[]byte("unknown avg10=0 avg60=0 avg300=0 total=0\n"),
+		[]byte("some avg10=NaN avg60=+Inf avg300=100.01 total=0\nfull avg10=-1 avg60=0 avg300=0 total=0\n"),
 		{},
 	} {
 		f.Add(seed)
@@ -70,6 +71,14 @@ func FuzzParseMemoryPressure(f *testing.F) {
 		pressure, err := ParseMemoryPressure(data)
 		if err != nil {
 			return
+		}
+
+		for _, sample := range []pressureSample{pressure.Some, pressure.Full} {
+			for _, average := range []float64{sample.Avg10, sample.Avg60, sample.Avg300} {
+				if !(average >= 0 && average <= 100) {
+					t.Fatalf("accepted pressure average %v outside 0 to 100", average)
+				}
+			}
 		}
 
 		canonical := []byte(fmt.Sprintf(
