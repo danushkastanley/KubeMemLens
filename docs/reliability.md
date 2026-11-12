@@ -111,7 +111,7 @@ The [scale qualification gate](scale-qualification.md) repeats the workload, age
 | Collector restarts | The old Pod becomes unready before drain. The new generation reports rebuilding, with partial history, until agents publish again. |
 | Node is replaced | The Node inventory removes the deleted Node record and marks the replacement missing until its DaemonSet agent posts. The collector returns to ready when every selected Node has fresh, complete evidence. |
 | Agent rollout is partial | Fresh and stale node records produce degraded, partial coverage. The state returns to ready only when all retained nodes are fresh and complete. |
-| Metadata or cgroup walk fails | The agent does not replace a last good snapshot with an unsynchronised or partial walk. Repeated loss eventually makes the retained record stale. Current incomplete node context is marked degraded. |
+| Metadata or cgroup walk fails | The agent does not replace a last good snapshot with an unsynchronised or partial walk. Repeated loss eventually makes the retained record stale. Current incomplete node context is marked degraded. A walk is partial when a cgroup that is still present cannot be read. A container or scope that stops during the walk is skipped and does not make the walk partial, because nothing of it is left to read. |
 | History reaches a bound | The collector exposes dropped-series or evicted-point counts and reports history as partial. It does not claim a complete window. |
 
 ## Alerts and operator response

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"syscall"
 
 	"github.com/danushkastanley/kube-memlens/internal/model"
 )
@@ -23,6 +24,10 @@ type Entry struct {
 
 type Walker struct {
 	Root string
+
+	// parse reads one container cgroup. Tests replace it to reproduce a
+	// cgroup that changes between being listed and being read.
+	parse func(name, dir string) (model.MemoryBreakdown, error)
 }
 
 func (w Walker) Walk() ([]Entry, error) {
@@ -46,6 +51,10 @@ func (w Walker) WalkContext(ctx context.Context) ([]Entry, error) {
 		return nil, fmt.Errorf("cgroup root is not a directory: %s", w.Root)
 	}
 
+	parse := w.parse
+	if parse == nil {
+		parse = ParseDirectory
+	}
 	var entries []Entry
 	var errs []error
 	containerDirs := map[string]string{}
@@ -54,7 +63,9 @@ func (w Walker) WalkContext(ctx context.Context) ([]Entry, error) {
 			return err
 		}
 		if walkErr != nil {
-			errs = append(errs, fmt.Errorf("walk %s: %w", path, walkErr))
+			if !cgroupGone(walkErr) {
+				errs = append(errs, fmt.Errorf("walk %s: %w", path, walkErr))
+			}
 			return nil
 		}
 		if !d.IsDir() {
@@ -80,9 +91,11 @@ func (w Walker) WalkContext(ctx context.Context) ([]Entry, error) {
 			relativePath = path
 		}
 
-		breakdown, err := ParseDirectory(containerID, path)
+		breakdown, err := parse(containerID, path)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("parse %s: %w", path, err))
+			if !cgroupGone(err) {
+				errs = append(errs, fmt.Errorf("parse %s: %w", path, err))
+			}
 			return nil
 		}
 
@@ -103,6 +116,17 @@ func (w Walker) WalkContext(ctx context.Context) ([]Entry, error) {
 	}
 
 	return entries, errors.Join(errs...)
+}
+
+// cgroupGone reports whether an error means the cgroup was removed while the
+// walk was in progress. Containers and systemd scopes stop all the time, so a
+// cgroup that no longer exists is not a gap in the evidence: there is nothing
+// left to read. The memory files were present when the directory was listed,
+// so a missing file means the cgroup went away, and the kernel returns ENODEV
+// for a read through a handle that outlived its cgroup. Any other failure is
+// a live cgroup that could not be read and still fails the scan.
+func cgroupGone(err error) bool {
+	return errors.Is(err, fs.ErrNotExist) || errors.Is(err, syscall.ENODEV)
 }
 
 func ExtractPodUIDFromPath(path string) string {

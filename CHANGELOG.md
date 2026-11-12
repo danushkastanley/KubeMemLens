@@ -11,6 +11,7 @@ All notable changes are documented here. KubeMemLens follows [Semantic Versionin
 ### Fixed
 
 - Keep a node's memory evidence when `memory.pressure` cannot be read or parsed. Any read error other than a missing file failed the whole container, so on a kernel with PSI compiled in but disabled at boot, where the file exists and every read fails, the agent reported `scan_failed` for the node indefinitely. Pressure is now reported as unknown, as `io.pressure` already was, and the rest of the sample is kept. PSI averages that are not a percentage between 0 and 100, including `NaN`, are rejected in the parser; a `NaN` previously failed JSON encoding of the node's whole snapshot.
+- Publish a node's snapshot when a container or systemd scope stops during the cgroup walk. A cgroup that disappeared between being listed and being read was counted as a read error, and any read error withheld the whole node's snapshot as `partial_scan_not_published`, so ordinary Pod churn could leave a node without fresh evidence. A cgroup that no longer exists is now skipped. A cgroup that is still present but cannot be read still withholds the snapshot.
 
 ## 1.0.4 - 2026-11-10
 
