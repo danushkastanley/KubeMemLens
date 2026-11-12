@@ -2,6 +2,12 @@
 
 All notable changes are documented here. KubeMemLens follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- Keep a node's memory evidence when `memory.pressure` cannot be read or parsed. Any read error other than a missing file failed the whole container, so on a kernel with PSI compiled in but disabled at boot, where the file exists and every read fails, the agent reported `scan_failed` for the node indefinitely. Pressure is now reported as unknown, as `io.pressure` already was, and the rest of the sample is kept. PSI averages that are not a percentage between 0 and 100, including `NaN`, are rejected in the parser; a `NaN` previously failed JSON encoding of the node's whole snapshot.
+
 ## 1.0.4 - 2026-11-10
 
 Patch release. Candidate and publication gates are recorded in the
