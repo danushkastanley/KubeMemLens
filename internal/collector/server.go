@@ -98,12 +98,17 @@ func registerIngestion(mux *http.ServeMux, store *Store, opts HandlerOptions, lo
 			writeError(w, http.StatusUnsupportedMediaType, err.Error())
 			return
 		}
-		snapshot, err := decodeSnapshot(w, r, opts.MaxSnapshotBytes)
+		snapshot, err := decodeSnapshot(w, r, opts.MaxSnapshotBytes, opts.MaxContainers)
 		if err != nil {
 			var maxBytesError *http.MaxBytesError
 			if errors.As(err, &maxBytesError) {
 				result = "payload_too_large"
 				writeError(w, http.StatusRequestEntityTooLarge, "snapshot exceeds maximum request size")
+				return
+			}
+			if errors.Is(err, ErrSnapshotContainerLimit) {
+				result = "invalid_snapshot"
+				writeError(w, http.StatusBadRequest, err.Error())
 				return
 			}
 			result = "invalid_json"
@@ -207,9 +212,15 @@ func requireJSON(r *http.Request) error {
 	return nil
 }
 
-func decodeSnapshot(w http.ResponseWriter, r *http.Request, maxBytes int64) (api.AgentSnapshot, error) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
-	decoder := json.NewDecoder(r.Body)
+func decodeSnapshot(w http.ResponseWriter, r *http.Request, maxBytes int64, maxContainers int) (api.AgentSnapshot, error) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBytes))
+	if err != nil {
+		return api.AgentSnapshot{}, err
+	}
+	if err := BoundSnapshotWire(body, maxContainers); err != nil {
+		return api.AgentSnapshot{}, err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()
 
 	var snapshot api.AgentSnapshot

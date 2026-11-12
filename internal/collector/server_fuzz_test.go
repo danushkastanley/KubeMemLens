@@ -39,7 +39,7 @@ func FuzzDecodeSnapshot(f *testing.F) {
 
 		maxBytes := int64(rawMaxBytes%maxFuzzDecodeBytes) + 1
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", bytes.NewReader(data))
-		got, err := decodeSnapshot(httptest.NewRecorder(), request, maxBytes)
+		got, err := decodeSnapshot(httptest.NewRecorder(), request, maxBytes, defaultMaxContainers)
 		if err != nil {
 			return
 		}
@@ -63,7 +63,7 @@ func FuzzDecodeSnapshot(f *testing.F) {
 			t.Fatalf("marshal decoded snapshot: %v", err)
 		}
 		replay := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", bytes.NewReader(canonical))
-		roundTripped, err := decodeSnapshot(httptest.NewRecorder(), replay, int64(len(canonical)))
+		roundTripped, err := decodeSnapshot(httptest.NewRecorder(), replay, int64(len(canonical)), defaultMaxContainers)
 		if err != nil {
 			t.Fatalf("decode canonical snapshot: %v", err)
 		}
