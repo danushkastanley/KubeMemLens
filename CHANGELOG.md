@@ -4,6 +4,10 @@ All notable changes are documented here. KubeMemLens follows [Semantic Versionin
 
 ## Unreleased
 
+### Security
+
+- Update Go to 1.27.4 across all three modules, pinned builders and trace executable validation to address GO-2026-6859 (CVE-2026-97054), an HTTP/1 server crash in `net/http` when a handler that uses `MaxBytesReader` reads the request body while writing response headers. Published release artefacts are unchanged.
+
 ### Fixed
 
 - Bound the container count of an agent snapshot before it is decoded. The 10,000-container limit was checked only after decoding, so a request within the 4 MiB body limit could list over a million empty containers and make the collector allocate several gigabytes, enough to have it OOM-killed and lose its in-memory history. This needed an agent ServiceAccount token, or network access to the ingestion port in legacy mode. Such requests are now rejected with the same `containers exceeds maximum` response while they are still bytes.
