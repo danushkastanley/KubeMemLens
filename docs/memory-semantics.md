@@ -24,6 +24,8 @@ Kernel, slab, sockets, page tables, mapped-file, THP, active/inactive file, and 
 
 `memory.peak` preserves transient high-water usage that may no longer be visible in `memory.current`. `memory.min`, `memory.low`, `memory.high`, and `memory.max` describe protection and limit boundaries; `max` is represented explicitly as unlimited rather than converted to a byte value.
 
+Limits are enforced per container. A Pod's figure sums its containers' usage and limits, so a Pod can show ample headroom while one container is about to be OOM-killed. The Pod diagnosis therefore reports `limit-risk` when any container is at 90% or more of its own `memory.max`, and names that container. A summed limit is shown only when every container's limit was read: one unread limit makes the Pod limit `unknown`, and one unlimited container makes it `unlimited`.
+
 ## Anonymous memory (anon)
 
 `anon` in `memory.stat` is memory charged to the cgroup that is not backed by a file. It often lines up with application heap, native allocations, runtime memory, and memory retained directly by the process. The CLI and TUI label it "Anonymous (anon)" and `ANON`; releases up to v1.0.2 labelled it "RSS / anon".

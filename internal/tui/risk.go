@@ -20,6 +20,12 @@ type riskPresentation struct {
 func podRisk(pod api.PodSnapshot, now time.Time, staleAfter time.Duration) riskPresentation {
 	result := explain.AnalyzePod(pod)
 	risk := memoryRisk(pod.Memory, result.Severity)
+	if result.Diagnosis == explain.DiagnosisLimitRisk && !pod.Memory.HasLimitRisk() {
+		// No Pod-level signal produced this diagnosis, so the only reason so
+		// far is the placeholder for ordering by severity alone.
+		risk.score += 5
+		risk.reasons = []string{"a container is close to its own memory limit"}
+	}
 	if pod.Context.NodeMemoryPressure == "True" {
 		risk.score += 25
 		risk.reasons = append(risk.reasons, "node MemoryPressure is true")
