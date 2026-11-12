@@ -60,6 +60,8 @@ Mapped-file and transparent huge page counters (`file_mapped`, `anon_thp`, `file
 
 `memory.pressure` provides PSI `some` and `full` rolling averages and cumulative stall time. A recent `memory.events.local:high` delta means the local cgroup crossed `memory.high` and its processes were routed into direct reclaim. KubeMemLens prefers local event deltas for leaf-container diagnosis while retaining the hierarchical `memory.events` counters.
 
+PSI is optional evidence. When `memory.pressure` is missing, cannot be read (for example on a kernel with PSI disabled at boot) or does not parse, pressure is reported as unknown and the rest of the memory sample is kept. Unknown pressure is not zero pressure.
+
 `memory.swap.current`, `memory.swap.peak`, `memory.swap.max`, and swap-event deltas show whether anonymous memory is being swapped or swap allocation is being throttled or rejected. Reclaim/refault counters from `memory.stat` are collected as evidence; they are not presented as root cause without a time-window comparison.
 
 The collector records the previous node-snapshot timestamp only when the same container ID is observed again. Explanations therefore keep the instantaneous gauge timestamp separate from the exact counter-delta start/end. First observations and replaced containers explicitly report an unavailable or incomplete delta window; multi-node workload roll-ups expose outer bounds and report whether their per-container windows are uniform. This prevents a cumulative counter or mixed sampling interval from being presented as a single recent event window.
