@@ -2,6 +2,12 @@
 
 All notable changes are documented here. KubeMemLens follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Security
+
+- Update Go to 1.27.4 across all three modules, pinned builders and trace executable validation to address GO-2026-6859 (CVE-2026-97054), an HTTP/1 server crash in `net/http` when a handler that uses `MaxBytesReader` reads the request body while writing response headers. Published release artefacts are unchanged.
+
 ## 1.0.4 - 2026-11-10
 
 Patch release. Candidate and publication gates are recorded in the
