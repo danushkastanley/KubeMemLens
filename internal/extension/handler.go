@@ -292,9 +292,9 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, "body_error", "could not read snapshot body")
 		return
 	}
-	if claims.Role == NodeContextProducer && boundedNodeWireWithVolumes(body, volumecontext.MaxBatchRecords) != nil {
-		result = "invalid_json"
-		writeAPIError(w, http.StatusBadRequest, "invalid_json", "invalid bounded Node-only snapshot JSON")
+	if wireErr := h.boundIngestWire(claims.Role, body); wireErr != nil {
+		result = wireErr.Result
+		writeAPIError(w, wireErr.Status, wireErr.Code, wireErr.Message)
 		return
 	}
 	var request api.NodeSnapshotRequest
