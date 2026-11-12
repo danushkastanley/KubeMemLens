@@ -4,6 +4,10 @@ All notable changes are documented here. KubeMemLens follows [Semantic Versionin
 
 ## Unreleased
 
+### Security
+
+- Update Go to 1.27.4 across all three modules, pinned builders and trace executable validation to address GO-2026-6859 (CVE-2026-97054), an HTTP/1 server crash in `net/http` when a handler that uses `MaxBytesReader` reads the request body while writing response headers. Published release artefacts are unchanged.
+
 ### Fixed
 
 - Keep a node's memory evidence when `memory.pressure` cannot be read or parsed. Any read error other than a missing file failed the whole container, so on a kernel with PSI compiled in but disabled at boot, where the file exists and every read fails, the agent reported `scan_failed` for the node indefinitely. Pressure is now reported as unknown, as `io.pressure` already was, and the rest of the sample is kept. PSI averages that are not a percentage between 0 and 100, including `NaN`, are rejected in the parser; a `NaN` previously failed JSON encoding of the node's whole snapshot.
