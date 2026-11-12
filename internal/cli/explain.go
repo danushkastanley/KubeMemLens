@@ -53,7 +53,7 @@ func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				return explainPodWithVolumes(cmd, reader, pod, podOutput)
 			}
 			if podOutput == "text" {
-				printPodExplanation(cmd.OutOrStdout(), pod)
+				printPodExplanation(cmd.OutOrStdout(), pod, liveClock())
 				return nil
 			}
 			return writeExplanationDocument(cmd.OutOrStdout(), podOutput, podExplanationDocument(pod))
@@ -145,10 +145,10 @@ func printWorkloadExplanation(w interface{ Write([]byte) (int, error) }, workloa
 	}
 }
 
-func printPodExplanation(w interface{ Write([]byte) (int, error) }, pod api.PodSnapshot) {
-	result := explain.AnalyzePod(pod)
+func printPodExplanation(w interface{ Write([]byte) (int, error) }, pod api.PodSnapshot, clock evidenceClock) {
+	result := explain.AnalyzePodAt(pod, clock.at)
 	printMemoryExplanation(w, fmt.Sprintf("Pod: %s/%s", pod.Namespace, pod.PodName), pod.Memory, result)
-	printPodContext(w, pod)
+	printPodContext(w, pod, clock)
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Containers:")
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)

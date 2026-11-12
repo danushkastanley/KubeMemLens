@@ -43,10 +43,16 @@ func withReadScope(opts client.Options, namespace string, allNamespaces bool) (c
 }
 
 func formatAge(capturedAt time.Time) string {
-	if capturedAt.IsZero() {
+	return formatAgeAt(capturedAt, time.Now())
+}
+
+// formatAgeAt formats how long before now a moment was. An unknown moment or
+// an unknown clock has no age.
+func formatAgeAt(capturedAt, now time.Time) string {
+	if capturedAt.IsZero() || now.IsZero() {
 		return "-"
 	}
-	age := time.Since(capturedAt)
+	age := now.Sub(capturedAt)
 	if age < 0 {
 		age = 0
 	}

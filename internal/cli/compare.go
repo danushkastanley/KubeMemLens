@@ -240,7 +240,10 @@ func printPodComparison(w interface{ Write([]byte) (int, error) }, title string,
 	for _, line := range append(resourceview.ComparisonLines(before, after), qosview.ComparisonLines(before, after)...) {
 		fmt.Fprintln(w, line)
 	}
-	beforeResult, afterResult := explain.AnalyzePod(before), explain.AnalyzePod(after)
+	// Each side is diagnosed at its own sample time, so a capture compared
+	// days later still shows the evidence that was recent when it was taken.
+	beforeResult := explain.AnalyzePodAt(before, podEvidenceTime(before))
+	afterResult := explain.AnalyzePodAt(after, podEvidenceTime(after))
 	fmt.Fprintf(w, "\nDiagnosis: %s (%s) → %s (%s)\n", beforeResult.Diagnosis, beforeResult.Confidence, afterResult.Diagnosis, afterResult.Confidence)
 	if elapsed > 0 {
 		fmt.Fprintf(w, "Elapsed: %s  Total rate: %s/s\n", elapsed.Round(time.Second), signedBytesRate(before.Memory.TotalBytes, after.Memory.TotalBytes, elapsed))

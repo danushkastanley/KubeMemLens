@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -232,7 +233,9 @@ func filterWorkloadsByNamespace(workloads []api.WorkloadSnapshot, namespace stri
 	return filtered
 }
 
-func printPodsTable(w interface{ Write([]byte) (int, error) }, pods []api.PodSnapshot) {
+// printPodsTable lists the Pods of an incident. Ages are measured against the
+// capture time so that a replay does not drift with the wall clock.
+func printPodsTable(w interface{ Write([]byte) (int, error) }, pods []api.PodSnapshot, capturedAt time.Time) {
 	sort.Slice(pods, func(i, j int) bool {
 		return pods[i].Memory.TotalBytes > pods[j].Memory.TotalBytes
 	})
@@ -244,8 +247,8 @@ func printPodsTable(w interface{ Write([]byte) (int, error) }, pods []api.PodSna
 			pod.Namespace,
 			pod.PodName,
 			pod.NodeName,
-			formatAge(pod.Context.CreatedAt),
-			formatAge(pod.CapturedAt),
+			formatAgeAt(pod.Context.CreatedAt, capturedAt),
+			formatAgeAt(pod.CapturedAt, capturedAt),
 			string(pod.Freshness),
 		}, pod.Memory)
 	}
