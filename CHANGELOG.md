@@ -2,6 +2,12 @@
 
 All notable changes are documented here. KubeMemLens follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- Bound the container count of an agent snapshot before it is decoded. The 10,000-container limit was checked only after decoding, so a request within the 4 MiB body limit could list over a million empty containers and make the collector allocate several gigabytes, enough to have it OOM-killed and lose its in-memory history. This needed an agent ServiceAccount token, or network access to the ingestion port in legacy mode. Such requests are now rejected with the same `containers exceeds maximum` response while they are still bytes.
+
 ## 1.0.4 - 2026-11-10
 
 Patch release. Candidate and publication gates are recorded in the
