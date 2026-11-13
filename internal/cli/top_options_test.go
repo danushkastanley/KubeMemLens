@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
 	"time"
@@ -77,7 +78,7 @@ func TestTopRowsExposeAndSortPrimaryResidual(t *testing.T) {
 func TestWatchTopStopsWhenContextIsCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	calls := 0
-	err := watchTop(ctx, &bytes.Buffer{}, topOptions{Watch: true, WatchInterval: time.Second}, func() error {
+	err := watchTop(ctx, &bytes.Buffer{}, topOptions{Watch: true, WatchInterval: time.Second}, func(io.Writer) error {
 		calls++
 		cancel()
 		return nil
