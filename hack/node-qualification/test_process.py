@@ -36,6 +36,12 @@ class BoundedProcessTest(unittest.TestCase):
                     failure_codes={13: "qualification API read failed: rate-limited"})
         self.assertNotIn("private-value", str(caught.exception))
 
+    def test_tolerated_exit_code_returns_stdout_only(self):
+        program = "import sys;sys.stdout.write('report');sys.stderr.write('private-value');sys.exit(1)"
+        self.assertEqual(execute([sys.executable, "-c", program], tolerated_codes=(1,)), "report")
+        with self.assertRaisesRegex(ContractError, "qualification command failed"):
+            execute([sys.executable, "-c", program.replace("exit(1)", "exit(2)")], tolerated_codes=(1,))
+
 
 if __name__ == "__main__":
     unittest.main()
