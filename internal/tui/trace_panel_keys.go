@@ -18,8 +18,8 @@ func (m appModel) tracePanelKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	p.viewport.resize(max(1, m.bodyRows()-1))
 	p.viewport.reconcile(len(wrapText(m.tracePanelLines(), m.layout().contentWidth())))
 	key := msg.String()
-	if key == "ctrl+c" || key == "q" && p.exportMode == "" {
-		return m, tea.Quit
+	if key == "q" && p.exportMode == "" {
+		return m.quit()
 	}
 	if p.exportMode != "" {
 		return m.traceExportKey(msg)

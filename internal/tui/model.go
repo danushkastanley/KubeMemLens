@@ -285,6 +285,10 @@ func (m *appModel) updatePodTrends(next []api.PodSnapshot) {
 }
 
 func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	// Before mode dispatch: Ctrl+C carries no text, so the text inputs would drop it.
+	if msg.String() == "ctrl+c" {
+		return m.quit()
+	}
 	if m.tracePanel.open {
 		return m.tracePanelKey(msg)
 	}
@@ -336,12 +340,8 @@ func (m appModel) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	case "T":
 		m.openTracePanel()
 		return m, nil
-	case "q", "ctrl+c":
-		m.clearSessionPanel()
-		m.cancelHistoryRequest()
-		m.cancelNodeRequest()
-		m.cancelVolumeRequest()
-		return m, tea.Quit
+	case "q":
+		return m.quit()
 	case "?":
 		m.help = !m.help
 	case "I":
