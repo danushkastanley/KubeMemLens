@@ -137,13 +137,20 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 	}
 	infrastructureCandidates := map[int]struct{}{}
 	for _, state := range parents {
+		// A Pod with no mapped container is identified by its cgroup path
+		// alone: one that cannot pull its image, or whose containers have all
+		// exited, still has a sandbox.
+		podUID, podKnown := state.mappedPodUID, false
+		if podUID == "" {
+			podUID, podKnown = idx.PodUIDs[state.cgroupPodUID]
+		}
 		expectedRunning := 0
-		for _, ref := range idx.ByPodUID[state.mappedPodUID] {
+		for _, ref := range idx.ByPodUID[podUID] {
 			if ref.Running {
 				expectedRunning++
 			}
 		}
-		if !state.ambiguous && expectedRunning > 0 && state.mappedRunning == expectedRunning &&
+		if !state.ambiguous && (expectedRunning > 0 || podKnown) && state.mappedRunning == expectedRunning &&
 			len(state.unmapped) == 1 {
 			infrastructureCandidates[state.unmapped[0]] = struct{}{}
 		}
@@ -187,7 +194,8 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 		} else if _, sandboxCandidate := infrastructureCandidates[i]; sandboxCandidate {
 			// CRI Pod sandboxes are charged in a sibling cgroup but are not
 			// exposed as Kubernetes containers. Classify only the single
-			// unmatched sibling after every currently running Pod container mapped.
+			// unmatched cgroup of a Pod once every container the Pod reports
+			// as running has mapped, which includes a known Pod reporting none.
 			infrastructure++
 			currentInfrastructure[entry.RelativePath] = struct{}{}
 			continue
