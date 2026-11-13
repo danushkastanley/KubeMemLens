@@ -162,6 +162,13 @@ func main() {
 		nodeContextCache = kube.NewNodeContextCache(kubeClient, *nodeName, 30*time.Second)
 		ownerResolver = kube.NewWorkloadOwnerResolver(kubeClient, 5*time.Minute)
 	}
+	var enrichment indexEnrichment
+	if ownerResolver != nil {
+		enrichment.resolveOwners = ownerResolver.ResolveIndex
+	}
+	if nodeContextCache != nil {
+		enrichment.nodeContext = nodeContextCache.Context
+	}
 
 	ticker := time.NewTicker(*interval)
 	defer ticker.Stop()
@@ -170,7 +177,6 @@ func main() {
 	workloadContextErrorReported := false
 	for {
 		start := time.Now()
-		scanCtx, cancel := context.WithTimeout(ctx, *scanTimeout)
 		index := kube.EmptyPodIndex()
 		metadataCachePods := 0
 		metadataSynced := podCache == nil || podCache.Synced()
@@ -178,26 +184,22 @@ func main() {
 			index = podCache.Index()
 			metadataCachePods = podCache.PodCount()
 		}
-		if ownerResolver != nil {
-			var resolutionErrors int
-			index, resolutionErrors = ownerResolver.ResolveIndex(scanCtx, index, time.Now().UTC())
-			if resolutionErrors > 0 && !workloadContextErrorReported {
-				fmt.Fprintf(os.Stderr, "Kubernetes workload owner context unavailable for %d containers\n", resolutionErrors)
-				workloadContextErrorReported = true
-			} else if resolutionErrors == 0 {
-				workloadContextErrorReported = false
-			}
+		index, resolutionErrors, nodeErr := enrichment.apply(ctx, enrichmentBudget, index)
+		if resolutionErrors > 0 && !workloadContextErrorReported {
+			fmt.Fprintf(os.Stderr, "Kubernetes workload owner context unavailable for %d containers\n", resolutionErrors)
+			workloadContextErrorReported = true
+		} else if resolutionErrors == 0 {
+			workloadContextErrorReported = false
 		}
-		if nodeContextCache != nil {
-			nodeContext, nodeErr := nodeContextCache.Context(scanCtx, time.Now().UTC())
-			index.NodeContext = nodeContext
-			if nodeErr != nil && !nodeContextErrorReported {
-				fmt.Fprintf(os.Stderr, "Kubernetes node context unavailable: %v\n", nodeErr)
-				nodeContextErrorReported = true
-			} else if nodeErr == nil {
-				nodeContextErrorReported = false
-			}
+		if nodeErr != nil && !nodeContextErrorReported {
+			fmt.Fprintf(os.Stderr, "Kubernetes node context unavailable: %v\n", nodeErr)
+			nodeContextErrorReported = true
+		} else if nodeErr == nil {
+			nodeContextErrorReported = false
 		}
+		// The scan timeout starts only now, so the cgroup walk always has all
+		// of it whatever the Kubernetes API did above.
+		scanCtx, cancel := context.WithTimeout(ctx, *scanTimeout)
 		result, scanErr := scanner.Scan(scanCtx, index)
 		cancel()
 		telemetry.RecordScan(time.Now().UTC(), time.Since(start), result, scanErr, metadataCachePods)
