@@ -189,12 +189,7 @@ func (s *Store) ListPodHistoryWithReliability(namespace, podName, nodeName strin
 }
 
 func (s *Store) ListContainers(now time.Time, ttl time.Duration) []api.ContainerSnapshot {
-	items := []api.ContainerSnapshot{}
-	for _, shard := range s.readShards(now, ttl) {
-		items = append(items, shard...)
-	}
-	sortContainers(items)
-	return items
+	return s.ListContainersScoped(ReadScope{}, now, ttl)
 }
 
 func (s *Store) ListPods(now time.Time, ttl time.Duration) []api.PodSnapshot {

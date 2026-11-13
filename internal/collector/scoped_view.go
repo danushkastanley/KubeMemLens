@@ -16,13 +16,9 @@ type ReadScope struct {
 
 func (s *Store) ListContainersScoped(scope ReadScope, now time.Time, ttl time.Duration) []api.ContainerSnapshot {
 	items := make([]api.ContainerSnapshot, 0)
-	for _, shard := range s.readShards(now, ttl) {
-		for _, container := range shard {
-			if scope.Namespace == "" || container.Namespace == scope.Namespace {
-				items = append(items, container)
-			}
-		}
-	}
+	visitScopedShards(s.readShards(now, ttl), scope, func(container api.ContainerSnapshot) {
+		items = append(items, container)
+	})
 	sortContainers(items)
 	return items
 }
