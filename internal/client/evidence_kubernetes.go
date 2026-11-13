@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"github.com/danushkastanley/kube-memlens/internal/capability"
-	"github.com/danushkastanley/kube-memlens/internal/kube"
 	"github.com/danushkastanley/kube-memlens/internal/resourcemetrics"
 	authorization "k8s.io/api/authorization/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,7 +23,7 @@ func discoverStatus(ctx context.Context, opts Options) (capability.SourceState, 
 }
 
 func discoverMetrics(ctx context.Context, opts Options) (capability.SourceState, error) {
-	config, err := kube.BuildConfig(opts.Kubeconfig, opts.Context)
+	config, err := loadKubeConfig(opts)
 	if err != nil {
 		return evidenceFailure(err), err
 	}
@@ -70,7 +69,7 @@ func discoverMetrics(ctx context.Context, opts Options) (capability.SourceState,
 // A self access review reveals no object identities. It is only a discovery
 // hint: subsequent reads must still enforce current API-server authorisation.
 func discoverAccess(ctx context.Context, opts Options, group, resource string) (capability.SourceState, error) {
-	config, err := kube.BuildConfig(opts.Kubeconfig, opts.Context)
+	config, err := loadKubeConfig(opts)
 	if err != nil {
 		return evidenceFailure(err), err
 	}

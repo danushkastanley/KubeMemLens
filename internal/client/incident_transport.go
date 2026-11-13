@@ -14,7 +14,6 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/incidentsession"
-	"github.com/danushkastanley/kube-memlens/internal/kube"
 	"k8s.io/client-go/rest"
 )
 
@@ -77,7 +76,7 @@ func NewIncidentSessionConnection(options Options) (*IncidentClient, error) {
 	if err != nil || mode != ConnectionModeKubernetesAPI || opts.EvidenceMode == capability.Restricted {
 		return nil, errors.New("incident sessions require the authenticated Kubernetes API connection")
 	}
-	config, err := kube.BuildConfig(opts.Kubeconfig, opts.Context)
+	config, err := loadKubeConfig(opts)
 	if err != nil {
 		return nil, incidentsession.ErrUnavailable
 	}

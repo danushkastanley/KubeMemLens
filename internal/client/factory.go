@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/danushkastanley/kube-memlens/internal/capability"
-
-	"github.com/danushkastanley/kube-memlens/internal/kube"
 )
 
 func NewSnapshotReader(ctx context.Context, opts Options) (SnapshotReader, string, error) {
@@ -26,7 +24,7 @@ func NewSnapshotReader(ctx context.Context, opts Options) (SnapshotReader, strin
 	switch mode {
 	case ConnectionModeKubernetesAPI:
 		description := Describe(opts)
-		config, err := kube.BuildConfig(opts.Kubeconfig, opts.Context)
+		config, err := loadKubeConfig(opts)
 		if err != nil {
 			return nil, description, err
 		}
@@ -50,7 +48,7 @@ func NewSnapshotReader(ctx context.Context, opts Options) (SnapshotReader, strin
 		return reader, description, nil
 	case ConnectionModeKubeProxy:
 		description := Describe(opts)
-		config, err := kube.BuildConfig(opts.Kubeconfig, opts.Context)
+		config, err := loadKubeConfig(opts)
 		if err != nil {
 			return nil, description, err
 		}

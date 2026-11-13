@@ -6,7 +6,6 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/agentless"
 	"github.com/danushkastanley/kube-memlens/internal/capability"
-	"github.com/danushkastanley/kube-memlens/internal/kube"
 	"github.com/danushkastanley/kube-memlens/internal/observation"
 )
 
@@ -14,7 +13,7 @@ func observationReader(opts Options, session EvidenceSession) (observation.Reade
 	if session.Plan.Mode == capability.Deep {
 		return deepObservationReader{reader: session.Reader}, nil
 	}
-	config, err := kube.BuildConfig(opts.Kubeconfig, opts.Context)
+	config, err := loadKubeConfig(opts)
 	if err != nil {
 		return nil, err
 	}

@@ -157,6 +157,10 @@ func Describe(opts Options) string {
 }
 
 func ConnectionError(opts Options, description string, err error) error {
+	var configErr *KubeConfigError
+	if errors.As(err, &configErr) {
+		return configErr
+	}
 	var selectionErr *capability.SelectionError
 	if errors.As(err, &selectionErr) {
 		return selectionErr
@@ -197,7 +201,7 @@ func ConnectionError(opts Options, description string, err error) error {
 	}
 	if mode == ConnectionModeKubernetesAPI {
 		if !IsUnavailable(err) {
-			return fmt.Errorf("The KubeMemLens aggregated API returned an invalid response")
+			return fmt.Errorf("The KubeMemLens aggregated API returned an invalid response.\n\nUnderlying error: %s", readFailureDetail(err))
 		}
 		return fmt.Errorf("Could not reach the KubeMemLens aggregated API through Kubernetes.\n\nTry:\n  kubectl get apiservice v1alpha1.memory.kubememlens.io\n  kubectl get --raw /apis/memory.kubememlens.io/v1alpha1\n\nUnderlying error: %w", err)
 	}
