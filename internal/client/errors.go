@@ -109,3 +109,21 @@ func readDecodeError(operation string, err error) error {
 		Cause:     fmt.Errorf("decode response: %w", err),
 	}
 }
+
+// readFailureDetail names what was wrong with a response. Status codes and
+// decode failures come from this client and carry no cluster data; a transport
+// cause is never printed.
+func readFailureDetail(err error) string {
+	var readErr *ReadError
+	if !errors.As(err, &readErr) {
+		return err.Error()
+	}
+	switch {
+	case readErr.StatusCode != 0:
+		return fmt.Sprintf("%s: HTTP %d", readErr.Operation, readErr.StatusCode)
+	case readErr.Kind == ReadErrorUnexpected && readErr.Cause != nil:
+		return readErr.Operation + ": " + readErr.Cause.Error()
+	default:
+		return readErr.Error()
+	}
+}

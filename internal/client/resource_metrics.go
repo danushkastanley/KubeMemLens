@@ -2,8 +2,6 @@ package client
 
 import (
 	"fmt"
-
-	"github.com/danushkastanley/kube-memlens/internal/kube"
 	"github.com/danushkastanley/kube-memlens/internal/resourcemetrics"
 )
 
@@ -25,7 +23,7 @@ func NewResourceMetricsSource(opts Options) (resourcemetrics.Source, error) {
 	if scope.AllNamespaces {
 		return nil, fmt.Errorf("resource metrics currently require one explicit namespace")
 	}
-	config, err := kube.BuildConfig(opts.Kubeconfig, opts.Context)
+	config, err := loadKubeConfig(opts)
 	if err != nil {
 		return nil, err
 	}

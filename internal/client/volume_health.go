@@ -21,7 +21,7 @@ func NewVolumeHealthSource(opts Options) (volumehealth.SourceReader, error) {
 	if mode != ConnectionModeKubernetesAPI || normalised.ReadScope.AllNamespaces {
 		return nil, fmt.Errorf("volume health requires a Kubernetes API connection and one namespace")
 	}
-	config, err := kube.BuildConfig(opts.Kubeconfig, opts.Context)
+	config, err := loadKubeConfig(opts)
 	if err != nil {
 		return nil, err
 	}
