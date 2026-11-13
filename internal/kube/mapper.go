@@ -10,17 +10,26 @@ import (
 )
 
 type PodIndex struct {
-	ByPodUID                 map[string][]PodRef
-	ByContainerID            map[string]PodRef
+	ByPodUID      map[string][]PodRef
+	ByContainerID map[string]PodRef
+	// PodUIDs maps every identity a Pod's cgroup path can carry to the Pod's
+	// UID. It includes Pods that have no container ID yet, and a static Pod's
+	// configuration hash, which names its cgroup in place of the UID.
+	PodUIDs                  map[string]string
 	NodeContext              api.NodeContext
 	WorkloadContextAvailable bool
 	WorkloadContextErrors    int
 }
 
+// staticPodHashAnnotation is set by the kubelet on static Pods. Their cgroup
+// is named after this hash, not after the mirror Pod's UID.
+const staticPodHashAnnotation = "kubernetes.io/config.hash"
+
 func EmptyPodIndex() PodIndex {
 	return PodIndex{
 		ByPodUID:      map[string][]PodRef{},
 		ByContainerID: map[string]PodRef{},
+		PodUIDs:       map[string]string{},
 	}
 }
 
@@ -36,6 +45,11 @@ func BuildPodIndexFromPods(pods []corev1.Pod) PodIndex {
 	idx := EmptyPodIndex()
 
 	for _, pod := range pods {
+		podUID := normalizePodUID(string(pod.UID))
+		idx.PodUIDs[podUID] = podUID
+		if hash := strings.TrimSpace(pod.Annotations[staticPodHashAnnotation]); hash != "" {
+			idx.PodUIDs[normalizePodUID(hash)] = podUID
+		}
 		statuses := make([]corev1.ContainerStatus, 0,
 			len(pod.Status.InitContainerStatuses)+
 				len(pod.Status.ContainerStatuses)+
