@@ -142,26 +142,7 @@ func inferReliability(data snapshotData) api.CollectorReliability {
 	if data.Reliability.State != "" {
 		return data.Reliability
 	}
-	result := api.CollectorReliability{State: api.CollectorRebuilding, Completeness: api.EvidencePartial}
-	fresh, stale := 0, 0
-	partial := false
-	for _, pod := range data.Pods {
-		if pod.Freshness == api.EvidenceFreshnessStale {
-			stale++
-		} else {
-			fresh++
-		}
-		partial = partial || pod.Completeness == api.EvidencePartial
-	}
-	switch {
-	case fresh > 0 && stale == 0 && !partial:
-		result.State, result.Completeness = api.CollectorReady, api.EvidenceComplete
-	case fresh > 0:
-		result.State = api.CollectorDegraded
-	case stale > 0:
-		result.State = api.CollectorStale
-	}
-	return result
+	return api.ReliabilityFromPods(data.Pods)
 }
 
 func (m *appModel) beginFetch() tea.Cmd {
