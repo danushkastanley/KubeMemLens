@@ -357,6 +357,7 @@ jobs:
           hack/test-replica-contract.sh
           hack/test-trace-chart-contract.sh
           hack/test-incident-session-contract.sh
+          hack/test-chart-value-guards.sh
 
       - name: Reject values outside the chart schema
         run: |

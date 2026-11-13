@@ -154,6 +154,7 @@ check-memory-history-contract:
 
 check-replica-contract:
 	hack/test-replica-contract.sh
+	hack/test-chart-value-guards.sh
 
 check-recommendation-evaluation:
 	go test ./hack/recommend-evaluation

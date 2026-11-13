@@ -90,10 +90,10 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `collector.resources.limits.memory` | `256Mi` | Default collector memory ceiling |
 | `collector.service.extensionPort` | `443` | Authenticated Service and APIService port; targets the collector's named `extension` listener |
 | `collector.service.extensionPortName` | `https-extension` | Authenticated Service port name |
-| `extensionTLS.rotateBefore` | `720h` | Serving-certificate rotation window |
+| `extensionTLS.rotateBefore` | `720h` | Serving-certificate rotation window. Must be shorter than `extensionTLS.validityDays` |
 | `networkPolicy.enabled` | `true` | Cluster-local read and APIService ingress policy |
 | `metrics.includeContainers` | `false` | High-cardinality container metrics opt-in |
-| `metrics.prometheusRule.enabled` | `false` | Optional recording and alert rules |
+| `metrics.prometheusRule.enabled` | `false` | Optional recording and alert rules. Requires `metrics.enabled` |
 | `metrics.grafanaDashboard.enabled` | `false` | Optional dashboard ConfigMap |
 
 See the repository [support and compatibility contract](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/compatibility.md), [installation guide](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/installation.md), [security model](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/security-model.md), and [qualification runbook](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/qualification.md) for the complete contract.
