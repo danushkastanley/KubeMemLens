@@ -237,6 +237,7 @@ fi
 kind create cluster "${kind_args[@]}"
 cluster_created=true
 source hack/lib/helm-hook-preflight.sh
+source hack/lib/namespace-guard-check.sh
 prefetch_helm_hook_image "${cluster_name}" "${chart}" "${work_dir}"
 if [ "${E2E_RUN_AGENTLESS_SMOKE:-false}" = true ]; then
   AGENTLESS_KUBECONFIG="${kubeconfig}" AGENTLESS_CONTEXT="kind-${cluster_name}" \
@@ -245,6 +246,9 @@ if [ "${E2E_RUN_AGENTLESS_SMOKE:-false}" = true ]; then
 fi
 kind load docker-image "${image}" --name "${cluster_name}"
 run_linux_fixture_benchmarks
+
+# Before the install: a server dry run refuses objects another release owns.
+verify_namespace_guard "${chart}" "${kubeconfig}" kube-public "${work_dir}"
 
 helm upgrade --install kube-memlens "${chart}" \
   --kubeconfig "${kubeconfig}" \

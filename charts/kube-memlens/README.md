@@ -74,6 +74,8 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `image.repository` | `ghcr.io/danushkastanley/kube-memlens` | Release image repository |
 | `image.tag` | chart `appVersion` | Mutable development/release tag when no digest is supplied |
 | `image.digest` | empty | Preferred immutable image identity |
+| `namespace.name` | `kube-memlens` | Namespace the workloads are installed into. It may differ from the release namespace, but must then already exist or be created with `namespace.create`; an install into a missing namespace is refused |
+| `namespace.create` | `false` | Create `namespace.name` as part of the release. Leave `false` when `--create-namespace` creates it |
 | `agent.nodeSelector` | `kubernetes.io/os: linux` | Linux-node targeting |
 | `agent.tolerations` | empty | Operator-reviewed node-pool tolerations |
 | `agent.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime |

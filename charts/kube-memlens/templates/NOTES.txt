@@ -1,9 +1,9 @@
-KubeMemLens {{ .Chart.AppVersion }} is installed in the {{ .Release.Namespace }} namespace.
+KubeMemLens {{ .Chart.AppVersion }} is installed in the {{ .Values.namespace.name }} namespace.
 
 1. Wait for the agent and collector:
 
-   kubectl rollout status daemonset/kube-memlens-agent -n {{ .Release.Namespace }}
-   kubectl rollout status deployment/kube-memlens-collector -n {{ .Release.Namespace }}
+   kubectl rollout status daemonset/kube-memlens-agent -n {{ .Values.namespace.name }}
+   kubectl rollout status deployment/kube-memlens-collector -n {{ .Values.namespace.name }}
 
 2. Grant read access. The chart creates reader roles but never binds them.
    Cluster administrators can already read every namespace. To let one user
