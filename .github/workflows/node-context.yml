@@ -15,6 +15,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The fuzz targets are pure Go decoders, independent of the Kubernetes
+  # version, so they run once here instead of in every matrix lane.
+  fuzz:
+    name: Node context / fuzzing
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Fuzz bounded Node and Summary decoders
+        run: |
+          go test ./internal/nodestats -run '^$' -fuzz '^FuzzSummary$' -fuzztime=10s
+          go test ./internal/nodestats -run '^$' -fuzz '^FuzzNode$' -fuzztime=10s
+          go test ./internal/nodecontext -run '^$' -fuzz '^FuzzObservationDecoder$' -fuzztime=10s
+          go test ./internal/extension -run '^$' -fuzz '^FuzzNodeWire$' -fuzztime=10s
+          go test ./internal/nodeanalysis -run '^$' -fuzz '^FuzzNodeAnalysis$' -fuzztime=10s
+          go test ./internal/incident -run '^$' -fuzz '^FuzzNodeIncidentDecoder$' -fuzztime=10s
+      - name: Fuzz bounded volume decoders
+        run: |
+          go test ./internal/nodestats -run '^$' -fuzz '^FuzzVolumes$' -fuzztime=10s
+          go test ./internal/kube -run '^$' -fuzz '^FuzzBoundedVolumeObject$' -fuzztime=10s
+          go test ./internal/api -run '^$' -fuzz '^FuzzPodVolumeContext$' -fuzztime=10s
+
   direct-kubelet:
     name: Node context / Kubernetes ${{ matrix.version }}
     runs-on: ubuntu-latest
@@ -68,19 +94,6 @@ jobs:
           sudo apt-get "${apt_options[@]}" install --yes --no-install-recommends expect
       - name: Verify PTY capture confirmation
         run: python3 hack/test_node_cockpit_pty.py
-      - name: Fuzz bounded Node and Summary decoders
-        run: |
-          go test ./internal/nodestats -run '^$' -fuzz '^FuzzSummary$' -fuzztime=10s
-          go test ./internal/nodestats -run '^$' -fuzz '^FuzzNode$' -fuzztime=10s
-          go test ./internal/nodecontext -run '^$' -fuzz '^FuzzObservationDecoder$' -fuzztime=10s
-          go test ./internal/extension -run '^$' -fuzz '^FuzzNodeWire$' -fuzztime=10s
-          go test ./internal/nodeanalysis -run '^$' -fuzz '^FuzzNodeAnalysis$' -fuzztime=10s
-          go test ./internal/incident -run '^$' -fuzz '^FuzzNodeIncidentDecoder$' -fuzztime=10s
-      - name: Fuzz bounded volume decoders
-        run: |
-          go test ./internal/nodestats -run '^$' -fuzz '^FuzzVolumes$' -fuzztime=10s
-          go test ./internal/kube -run '^$' -fuzz '^FuzzBoundedVolumeObject$' -fuzztime=10s
-          go test ./internal/api -run '^$' -fuzz '^FuzzPodVolumeContext$' -fuzztime=10s
       - name: Verify direct TLS, authenticated ingestion and reader isolation
         env:
           NODE_CONTEXT_ACKNOWLEDGE: create-and-remove-node-context-kind
