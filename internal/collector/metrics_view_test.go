@@ -47,7 +47,7 @@ func TestMetricsViewRendersWithinBudget(t *testing.T) {
 		t.Fatalf("ReplaceNodeSnapshot: %v", err)
 	}
 	view, effective := store.BuildMetricsView(now, time.Minute, metrics.DefaultOptions(), 16<<20)
-	content, err := (metrics.Exporter{Source: view, TTL: time.Minute, Now: func() time.Time { return now }, Opts: effective}).Render()
+	content, err := (metrics.Exporter{Source: view, TTL: time.Minute, Now: func() time.Time { return now }, Opts: effective, MaxBytes: 8 << 20}).Render()
 	if err != nil || !strings.Contains(content, `kubememlens_namespace_memory_bytes{namespace="team-a"`) ||
 		!strings.Contains(content, `kubememlens_pod_memory_bytes{namespace="team-a"`) {
 		t.Fatalf("Render err=%v content=%s", err, content)

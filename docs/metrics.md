@@ -107,8 +107,11 @@ Source collection time and collector receive time are separate. Use the source t
 
 - Type: gauge.
 - Labels: `level`, `reason`.
-- Level values: `pod`, `container`.
-- Reason values: `disabled`, `max_entities_exceeded`.
+- Level values: `namespace`, `pod`, `container`.
+- Reason values: `disabled`, `max_entities_exceeded`, `response_budget_exceeded`.
+- Value: the number of entities at that level whose series were left out.
+
+`response_budget_exceeded` means the level's series did not fit in the response. The scrape still succeeds: collector state, agent freshness, ingestion and store-count series are always returned, and the most detailed level is left out first (container, then Pod, then namespace). Alert on this series to learn that entity series are missing.
 
 ## Agent Metrics
 
@@ -287,7 +290,7 @@ metrics:
 
 The optional `PrometheusRule` includes `KubeMemLensCollectorUnavailable`, `KubeMemLensCollectorRecoveryDelayed`, `KubeMemLensCollectorEvidenceDegraded`, `KubeMemLensIngestionRejectionsHigh` and `KubeMemLensHistoryLoss`. It also retains stale-agent, mapping-coverage and Pod memory alerts. Reliability alerts link to the [collector reliability runbook](runbooks/reliability.md). The optional dashboard ConfigMap contains a small four-panel dashboard for top Pods, selected-Pod composition, diagnosis state, and agent freshness. Both resources require the operator's existing Prometheus/Grafana discovery setup and are disabled by default.
 
-`maxPods` and `maxContainers` are upper bounds. The collector also derives a conservative entity ceiling from `collector.maxResponseBytes`; a tighter response budget takes precedence. Namespace, Pod or container series that exceed these bounds are omitted and counted by `kubememlens_metrics_dropped_entities`. Store counts, agent freshness and ingestion outcomes remain available without materialising the full container view.
+`maxPods` and `maxContainers` are upper bounds. The collector also derives a conservative entity ceiling from `collector.maxResponseBytes`; a tighter response budget takes precedence. Namespace, Pod or container series that exceed these bounds, or that do not fit in the rendered response, are omitted and counted by `kubememlens_metrics_dropped_entities`. In v1.0.4 and earlier a level that passed the entity ceiling but did not fit made the whole resource return 507; at chart defaults that affected clusters of roughly 1,000 to 1,920 Pods. Store counts, agent freshness and ingestion outcomes remain available without materialising the full container view.
 
 Enable container metrics:
 
