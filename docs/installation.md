@@ -66,6 +66,12 @@ helm upgrade --install kube-memlens \
   --create-namespace
 ```
 
+Use the Helm CLI, or a tool that runs `helm upgrade` against the cluster.
+Rendering the chart without cluster access, as Argo CD and
+`helm template | kubectl apply` do, is not supported: it creates a new serving
+certificate on every render. See the
+[chart README](../charts/kube-memlens/README.md#supported-install-method-the-helm-cli).
+
 The chart selects the version-matched standard image. To pin its immutable
 digest, set `image.digest` to the complete `sha256:` value from the signed
 `promotion-subjects.txt` in the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.4).

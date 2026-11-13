@@ -26,6 +26,28 @@ a provider claim. [Send feedback through a GitHub issue](https://github.com/danu
 See the [support contract](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/compatibility.md)
 for the AWS EKS managed Linux profile and permission requirements.
 
+## Supported install method: the Helm CLI
+
+Install, upgrade and roll back this chart with `helm install`, `helm upgrade`
+and `helm rollback`, or with a tool that runs those Helm operations against the
+cluster.
+
+Rendering the chart without cluster access is not supported. That includes
+Argo CD and `helm template | kubectl apply`. The chart creates the aggregated
+API's serving CA, certificate and private key while it renders, and reuses the
+existing Secret on later upgrades by reading it from the cluster. A render that
+cannot read the cluster creates a new set every time, so:
+
+- the `kube-memlens-extension-tls` Secret and the APIService `caBundle` change
+  on every sync and never settle;
+- reads through the aggregated API can fail TLS verification for a short time
+  after each sync;
+- the rendered manifests contain the serving private key. Keep them out of
+  Git, build logs and shared storage.
+
+With the Helm CLI, the same private key is stored in the Helm release Secret in
+the release namespace. Restrict who can read Secrets there.
+
 ## Components
 
 - One agent Pod per selected Linux node reads `/sys/fs/cgroup` read-only and maps container cgroups to Kubernetes Pods.
