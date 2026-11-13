@@ -153,7 +153,7 @@ func (s *Store) GetPodBounded(namespace, name string, now time.Time, ttl time.Du
 
 type containerDigester func(*identityBuffer, api.ContainerSnapshot) (digestKey, bool)
 
-func containersForSelection(shards [][]api.ContainerSnapshot, scope ReadScope, keys []digestKey, digester containerDigester, maxNestedBytes int) ([]api.ContainerSnapshot, error) {
+func containersForSelection(shards []shardView, scope ReadScope, keys []digestKey, digester containerDigester, maxNestedBytes int) ([]api.ContainerSnapshot, error) {
 	selected := make(map[digestKey]struct{}, len(keys))
 	for _, key := range keys {
 		selected[key] = struct{}{}
@@ -175,36 +175,6 @@ func containersForSelection(shards [][]api.ContainerSnapshot, scope ReadScope, k
 		return nil, budgetErr
 	}
 	return containers, nil
-}
-
-func (s *Store) readShards(now time.Time, ttl time.Duration) [][]api.ContainerSnapshot {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	shards := make([][]api.ContainerSnapshot, 0, len(s.nodes))
-	for _, snapshot := range s.nodes {
-		if len(snapshot.containers) > 0 {
-			items := make([]api.ContainerSnapshot, len(snapshot.containers))
-			copy(items, snapshot.containers)
-			state := freshness(snapshot.capturedAt, now, ttl)
-			completeness := nodeCompleteness(snapshot)
-			for index := range items {
-				items[index].Freshness = state
-				items[index].Completeness = completeness
-			}
-			shards = append(shards, items)
-		}
-	}
-	return shards
-}
-
-func visitScopedShards(shards [][]api.ContainerSnapshot, scope ReadScope, visit func(api.ContainerSnapshot)) {
-	for _, shard := range shards {
-		for _, container := range shard {
-			if scope.Namespace == "" || container.Namespace == scope.Namespace {
-				visit(container)
-			}
-		}
-	}
 }
 
 type jsonBudget struct {

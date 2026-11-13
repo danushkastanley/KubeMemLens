@@ -17,17 +17,14 @@ func (s *Store) WorkloadVolumePods(namespace string, expected map[string]string,
 		return nil, ErrReadPageTooLarge
 	}
 	var containers []api.ContainerSnapshot
-	for _, shard := range s.readShards(now, ttl) {
-		for _, container := range shard {
-			uid, selected := expected[container.PodName]
-			if container.Namespace != namespace || !selected || container.PodUID != uid {
-				continue
-			}
-			if len(containers) >= MaxWorkloadVolumeContainers {
-				return nil, ErrReadPageTooLarge
-			}
+	visitScopedShards(s.readShards(now, ttl), ReadScope{Namespace: namespace}, func(container api.ContainerSnapshot) {
+		// One record past the ceiling is enough to refuse the read below.
+		if uid, selected := expected[container.PodName]; selected && container.PodUID == uid && len(containers) <= MaxWorkloadVolumeContainers {
 			containers = append(containers, container)
 		}
+	})
+	if len(containers) > MaxWorkloadVolumeContainers {
+		return nil, ErrReadPageTooLarge
 	}
 	return aggregate.Pods(containers), nil
 }
