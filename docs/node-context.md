@@ -136,7 +136,7 @@ capacity; raising a ceiling needs a contract review. These are not measurements.
 | History | 15 minutes, 61 points per Node instance, 1,000 instances and 64 MiB globally encoded |
 | Reads | At most 100 Node-context records per page, existing 16 MiB response ceiling, one selected Node history with bounded instance pagination |
 | Node-only POST | At most 24 KiB, also limited by the configured ingestion cap; reject cgroup and metadata collections before typed decoding |
-| Admission | Existing Node ceiling; at most two active producer roles per Node; bounded retired identities, shared per-Node rate and overall Node/concurrency limits |
+| Admission | Existing Node ceiling; at most two active producer roles per Node; bounded retired identities, a separate rate allowance for each producer role on a Node, and overall Node/concurrency limits |
 
 The max-width encoding test fills every optional value, all categories/maps and
 maximum-length fields. The result must fit 16 KiB. Check envelope bytes against

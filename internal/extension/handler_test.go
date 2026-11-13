@@ -135,14 +135,14 @@ func TestHandlerLimiterCapacityEvictsLeastRecentlySeenNode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}
-	if !handler.allowIdentity("node-a", now) || !handler.allowIdentity("node-b", now.Add(time.Second)) ||
-		!handler.allowIdentity("node-c", now.Add(2*time.Second)) {
+	if !handler.allowProducer(AgentClaims{NodeUID: "node-a"}, now) || !handler.allowProducer(AgentClaims{NodeUID: "node-b"}, now.Add(time.Second)) ||
+		!handler.allowProducer(AgentClaims{NodeUID: "node-c"}, now.Add(2*time.Second)) {
 		t.Fatal("new node was rejected at limiter capacity")
 	}
 	if len(handler.limiters) != 2 {
 		t.Fatalf("limiter count = %d, want 2", len(handler.limiters))
 	}
-	if _, exists := handler.limiters["node-a"]; exists {
+	if _, exists := handler.limiters[producerKey{nodeUID: "node-a"}]; exists {
 		t.Fatal("least recently seen limiter was not evicted")
 	}
 }

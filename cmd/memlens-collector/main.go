@@ -185,8 +185,10 @@ func main() {
 			VolumeNamespaces: volumeNamespaces, VolumeStatsEnabled: *volumeStatsEnabled, VolumeHealthEnabled: *volumeHealthEnabled, VolumeWorkloadsEnabled: *volumeWorkloadsEnabled,
 			NodeAccounting: accounting, AgentUsername: *agentUsername, NodeContextUsername: *nodeContextUsername, TopologyEnabled: *topologyEnabled, MaxSnapshotBytes: handlerOpts.MaxSnapshotBytes,
 			MaxConcurrent: *ingestionMaxConcurrent, RequestsPerSec: *ingestionRequestsPerSecond,
-			Burst: *ingestionBurst, MaxIdentities: storeLimits.MaxNodes,
-			Logf: func(format string, args ...any) { fmt.Printf(format+"\n", args...) },
+			Burst: *ingestionBurst,
+			// Each Node can run two producers: the cgroup agent and the Node-context producer.
+			MaxIdentities: 2 * storeLimits.MaxNodes,
+			Logf:          func(format string, args ...any) { fmt.Printf(format+"\n", args...) },
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "configure authenticated ingestion: %v\n", err)
