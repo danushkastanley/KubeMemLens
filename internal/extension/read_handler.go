@@ -3,7 +3,6 @@ package extension
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
@@ -87,16 +86,13 @@ func (h *ReadHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			writeReadError(w, http.StatusTooManyRequests, metav1.StatusReasonTooManyRequests, "a volume read is already in progress")
 			return
 		}
-	} else {
-		select {
-		case h.gate <- struct{}{}:
-			defer func() { <-h.gate }()
-		case <-r.Context().Done():
-			writeReadError(w, http.StatusServiceUnavailable, metav1.StatusReasonServiceUnavailable, "read request was cancelled")
-			return
-		}
+		h.serveResource(w, r, info, schema)
+		return
 	}
+	h.serveGated(w, r, info, schema)
+}
 
+func (h *ReadHandler) serveResource(w http.ResponseWriter, r *http.Request, info *apirequest.RequestInfo, schema int) {
 	switch info.Resource {
 	case "pods":
 		h.servePods(w, r, info, schema)
@@ -395,35 +391,6 @@ func writeReadPageError(w http.ResponseWriter, err error) bool {
 	}
 	writeReadError(w, http.StatusBadRequest, metav1.StatusReasonBadRequest, err.Error())
 	return true
-}
-
-func writeBoundedReadJSON(w http.ResponseWriter, value any, maxBytes int) {
-	writer := &limitedResponseCounter{remaining: maxBytes}
-	if err := json.NewEncoder(writer).Encode(value); err != nil {
-		if errors.Is(err, errResponseTooLarge) {
-			writeReadError(w, http.StatusInsufficientStorage, metav1.StatusReason("ResponseTooLarge"), "response exceeds the configured maximum")
-			return
-		}
-		writeReadError(w, http.StatusInternalServerError, metav1.StatusReasonInternalError, "response could not be encoded")
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(value)
-}
-
-var errResponseTooLarge = errors.New("response exceeds the configured maximum")
-
-type limitedResponseCounter struct {
-	remaining int
-}
-
-func (w *limitedResponseCounter) Write(data []byte) (int, error) {
-	if w.remaining <= 0 || len(data) > w.remaining {
-		return 0, errResponseTooLarge
-	}
-	w.remaining -= len(data)
-	return len(data), nil
 }
 
 func writeReadError(w http.ResponseWriter, status int, reason metav1.StatusReason, message string) {
