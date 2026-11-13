@@ -19,15 +19,16 @@ class ProductionCLITest(unittest.TestCase):
                        'kubeconfigPath':'/private/config','context':'approved-context','namespace':'qualification'}
         self.execution = SimpleNamespace(bundle=SimpleNamespace(configuration=self.config,profile={'workload':{'containers':32}}),
             binding={'nodes':self.nodes},verify_binding=Mock())
-        self.calls=[]
+        self.calls=[]; self.tolerated={}; self.doctor_text=None
         self.doctor={'checks':[{'status':'pass'}], 'nodes':[{'nodeName':n['name'],'stale':False} for n in self.nodes],
                      'mapping':{'containers':32,'mapped':32,'unmapped':0}}
         self.stale=False
 
     def read(self, args, **kwargs):
         self.calls.append(args)
+        self.tolerated[tuple(args)]=kwargs.get('tolerated_codes',())
         if 'doctor' in args:
-            return json.dumps(self.doctor)
+            return self.doctor_text if self.doctor_text is not None else json.dumps(self.doctor)
         name=args[args.index('node')+1]; node=next(n for n in self.nodes if n['name']==name)
         if 'explain' in args:
             return json.dumps({'record':{'nodeName':name,'nodeUID':node['uid'], 'freshness':'stale' if self.stale else 'fresh',
@@ -57,6 +58,26 @@ class ProductionCLITest(unittest.TestCase):
             elif scenario=='mapping':self.doctor['mapping']['mapped']=31
             else:self.stale=True
             with self.subTest(scenario=scenario),self.assertRaises(ContractError):verify(self.execution,self.read)
+
+    def test_failed_doctor_names_checks_without_their_messages(self):
+        self.doctor['checks']=[{'name':'build','status':'pass','message':'private-build'},
+                               {'name':'agent coverage','status':'fail','message':'private-node is stale'},
+                               {'name':'collector bounds','status':'warn','message':'private-capacity'},
+                               {'name':'private/untrusted\nname','status':'warn','message':'x'}]
+        with self.assertRaises(ContractError) as raised:verify(self.execution,self.read)
+        message=str(raised.exception)
+        self.assertIn('agent coverage=fail',message)
+        self.assertIn('collector bounds=warn',message)
+        self.assertIn('unnamed=warn',message)
+        self.assertNotIn('build',message)
+        self.assertNotIn('private',message)
+        doctor_call=next(args for args in self.calls if 'doctor' in args)
+        self.assertEqual(self.tolerated[tuple(doctor_call)],(1,))
+
+    def test_doctor_without_a_report_fails_as_a_contract_error(self):
+        self.doctor_text='connection refused'
+        with self.assertRaises(ContractError) as raised:verify(self.execution,self.read)
+        self.assertNotIn('connection refused',str(raised.exception))
 
 
 if __name__=='__main__':unittest.main()
