@@ -14,8 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/time/rate"
-
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/incidentsessionapi"
 	"github.com/danushkastanley/kube-memlens/internal/memorytopology"
@@ -62,12 +60,7 @@ type Handler struct {
 	opts             HandlerOptions
 	concurrent       chan struct{}
 	limiterMu        sync.Mutex
-	limiters         map[string]identityLimiter
-}
-
-type identityLimiter struct {
-	limiter  *rate.Limiter
-	lastSeen time.Time
+	limiters         map[producerKey]identityLimiter
 }
 
 func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error) {
@@ -140,7 +133,7 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 		reads:       reads,
 		opts:        opts,
 		concurrent:  make(chan struct{}, opts.MaxConcurrent),
-		limiters:    map[string]identityLimiter{},
+		limiters:    map[producerKey]identityLimiter{},
 	}, nil
 }
 
@@ -263,12 +256,6 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "snapshot exceeds maximum request size")
 		return
 	}
-	if !h.allowIdentity(claims.NodeUID, time.Now()) {
-		result = "rate_limited"
-		w.Header().Set("Retry-After", "1")
-		writeAPIError(w, http.StatusTooManyRequests, "rate_limited", "ingestion rate limit exceeded")
-		return
-	}
 	select {
 	case h.concurrent <- struct{}{}:
 		defer func() { <-h.concurrent }()
@@ -276,6 +263,14 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 		result = "concurrency_limited"
 		w.Header().Set("Retry-After", "1")
 		writeAPIError(w, http.StatusTooManyRequests, "concurrency_limited", "ingestion concurrency limit exceeded")
+		return
+	}
+	// Charged only once admitted: a request turned away because the collector
+	// was busy must not use up the allowance its own retries depend on.
+	if !h.allowProducer(claims, time.Now()) {
+		result = "rate_limited"
+		w.Header().Set("Retry-After", "1")
+		writeAPIError(w, http.StatusTooManyRequests, "rate_limited", "ingestion rate limit exceeded")
 		return
 	}
 
@@ -389,35 +384,6 @@ func validRequestID(value string) bool {
 		}
 	}
 	return true
-}
-
-func (h *Handler) allowIdentity(nodeUID string, now time.Time) bool {
-	h.limiterMu.Lock()
-	defer h.limiterMu.Unlock()
-	entry, exists := h.limiters[nodeUID]
-	if !exists {
-		cutoff := now.Add(-h.opts.IdentityTTL)
-		for key, candidate := range h.limiters {
-			if candidate.lastSeen.Before(cutoff) {
-				delete(h.limiters, key)
-			}
-		}
-		if len(h.limiters) >= h.opts.MaxIdentities {
-			oldestKey := ""
-			oldestSeen := now
-			for key, candidate := range h.limiters {
-				if oldestKey == "" || candidate.lastSeen.Before(oldestSeen) {
-					oldestKey = key
-					oldestSeen = candidate.lastSeen
-				}
-			}
-			delete(h.limiters, oldestKey)
-		}
-		entry = identityLimiter{limiter: rate.NewLimiter(rate.Limit(h.opts.RequestsPerSec), h.opts.Burst)}
-	}
-	entry.lastSeen = now
-	h.limiters[nodeUID] = entry
-	return entry.limiter.Allow()
 }
 
 func agentClaims(r *http.Request, expectedUsername string) (AgentClaims, error) {
