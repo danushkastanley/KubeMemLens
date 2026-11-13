@@ -127,12 +127,8 @@ func (m appModel) replicaPanelKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "B":
 		m.closeReplicaPanel()
-	case "q", "ctrl+c":
-		m.closeReplicaPanel()
-		m.cancelHistoryRequest()
-		m.cancelNodeRequest()
-		m.cancelVolumeRequest()
-		return m, tea.Quit
+	case "q":
+		return m.quit()
 	case "r":
 		command := m.fetchReplicaPanel()
 		return m, command

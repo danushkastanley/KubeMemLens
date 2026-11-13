@@ -14,12 +14,8 @@ import (
 func (m appModel) sessionPanelKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	p := &m.sessionPanel
 	key := message.String()
-	if key == "ctrl+c" || (key == "q" && p.mode == sessionMenu) {
-		m.clearSessionPanel()
-		m.cancelHistoryRequest()
-		m.cancelNodeRequest()
-		m.cancelVolumeRequest()
-		return m, tea.Quit
+	if key == "q" && p.mode == sessionMenu {
+		return m.quit()
 	}
 	if key == "esc" {
 		if p.loading {

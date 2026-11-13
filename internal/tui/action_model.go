@@ -50,6 +50,8 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 		switch key {
 		case "esc", "a":
 			m.action.mode = actionClosed
+		case "q":
+			return m.quit()
 		case "r":
 			return m, m.startRecommendation()
 		case "x":
@@ -86,6 +88,8 @@ func (m appModel) handleActionKey(message tea.KeyPressMsg) (tea.Model, tea.Cmd) 
 		case "esc", "enter":
 			m.action.viewport.reset()
 			m.action.mode = actionClosed
+		case "q":
+			return m.quit()
 		case "f":
 			if m.action.overwriteRequest != nil {
 				request := *m.action.overwriteRequest

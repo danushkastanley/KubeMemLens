@@ -179,12 +179,8 @@ func (m appModel) historyPanelKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc", "H":
 		m.closeHistoryPanel()
-	case "q", "ctrl+c":
-		m.closeHistoryPanel()
-		m.cancelHistoryRequest()
-		m.cancelNodeRequest()
-		m.cancelVolumeRequest()
-		return m, tea.Quit
+	case "q":
+		return m.quit()
 	case "l":
 		p.source = memoryhistory.Local
 		command := m.fetchHistoryPanel()
