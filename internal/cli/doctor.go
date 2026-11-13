@@ -101,21 +101,34 @@ func buildDoctorReport(ctx context.Context, opts client.Options) (doctorReport, 
 		return report, err
 	}
 	report.Nodes = nodes
+	// The collector lists every node the agent is expected on. One that has
+	// never sent a snapshot is marked missing; it is not stale, and it has no
+	// environment to assess.
+	reporting := make([]api.NodeSnapshotStatus, 0, len(nodes))
 	staleNodes := 0
 	for _, node := range nodes {
+		if node.Freshness == api.EvidenceFreshnessMissing {
+			continue
+		}
+		reporting = append(reporting, node)
 		if node.Stale {
 			staleNodes++
 		}
 	}
+	missingNodes := len(nodes) - len(reporting)
 	switch {
-	case len(nodes) == 0:
+	case len(reporting) == 0 && missingNodes == 0:
 		report.addCheck("agent coverage", "fail", "collector has not received a snapshot from any node")
+	case missingNodes > 0:
+		report.addCheck("agent coverage", "fail", fmt.Sprintf(
+			"%d of %d expected nodes have not reported a snapshot; check that the agent Pod is running on every node it is scheduled to",
+			missingNodes, len(nodes)))
 	case staleNodes > 0:
-		report.addCheck("agent coverage", "fail", fmt.Sprintf("%d of %d reporting nodes have stale snapshots", staleNodes, len(nodes)))
+		report.addCheck("agent coverage", "fail", fmt.Sprintf("%d of %d reporting nodes have stale snapshots", staleNodes, len(reporting)))
 	default:
-		report.addCheck("agent coverage", "pass", fmt.Sprintf("%d node snapshots are fresh", len(nodes)))
+		report.addCheck("agent coverage", "pass", fmt.Sprintf("%d node snapshots are fresh", len(reporting)))
 	}
-	report.addEnvironmentChecks(nodes)
+	report.addEnvironmentChecks(reporting)
 
 	containers, err := reader.Containers(ctx)
 	if err != nil {
@@ -276,6 +289,10 @@ func renderDoctorReport(report doctorReport) string {
 		sort.Slice(report.Nodes, func(i, j int) bool { return report.Nodes[i].NodeName < report.Nodes[j].NodeName })
 		b.WriteString("\nNodes:\n")
 		for _, node := range report.Nodes {
+			if node.Freshness == api.EvidenceFreshnessMissing {
+				fmt.Fprintf(&b, "  %-24s missing: no snapshot has been received from this node\n", node.NodeName)
+				continue
+			}
 			state := "fresh"
 			if node.Stale {
 				state = "stale"

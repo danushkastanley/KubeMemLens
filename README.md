@@ -458,7 +458,7 @@ kubectl memlens doctor --output=json
 kubectl memlens doctor --strict
 ```
 
-`doctor` checks build identity, collector connectivity, reporting agent nodes, snapshot freshness, cgroup/runtime access, Node MemoryPressure context, mapping coverage, and store consistency. Warnings are informational by default; `--strict` makes them fail for automation.
+`doctor` checks build identity, collector connectivity, reporting agent nodes, snapshot freshness, cgroup/runtime access, Node MemoryPressure context, mapping coverage, and store consistency. Agent coverage fails when a node the agent is expected on, by its node selector and tolerations, has never sent a snapshot, for example because its agent Pod cannot start; that node is listed as `missing`. Warnings are informational by default; `--strict` makes them fail for automation.
 
 Run the dashboard:
 
