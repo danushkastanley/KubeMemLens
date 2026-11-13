@@ -602,7 +602,7 @@ stays read-only. See the [roadmap](docs/roadmap.md) for details.
 ## Non-Goals
 
 - No web dashboard
-- No eBPF attribution yet
+- No supported eBPF attribution. The `trace` commands reach an optional, separately installed development extension that is not qualified
 - No persistent or long-term storage
 - No highly available collector or durable history
 - No SaaS or external telemetry
@@ -612,7 +612,7 @@ stays read-only. See the [roadmap](docs/roadmap.md) for details.
 
 ## Security Posture
 
-The candidate reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. It uses Kubernetes request-header authentication, exact delegated authorisation, server-side namespace filtering and node-bound ingestion. The secure Service exposes only TLS port `443`; the Pod's `8080` listener is health-only. Metrics use a separate cluster permission. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. The [support contract](docs/compatibility.md) records the v1 tenant boundary, exposed metadata and unsupported environments. The boundary passed the local [adversarial tenant-isolation gate](docs/security/tenant-isolation-validation.md); provider and enforcing-CNI qualification remain separate. Optional eBPF tracing remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
+The candidate reads cgroup files through a read-only `/sys/fs/cgroup` hostPath mount and reads Pod metadata through the Kubernetes API. It uses Kubernetes request-header authentication, exact delegated authorisation, server-side namespace filtering and node-bound ingestion. The secure Service exposes only TLS port `443`; the Pod's `8080` listener is health-only. Metrics use a separate cluster permission. KubeMemLens does not send telemetry, phone home, or persist workload data outside the in-memory collector. The [support contract](docs/compatibility.md) records the v1 tenant boundary, exposed metadata and unsupported environments. The boundary passed the local [adversarial tenant-isolation gate](docs/security/tenant-isolation-validation.md); provider and enforcing-CNI qualification remain separate. The standard chart installs no eBPF programmes. The CLI ships `trace` commands for an optional, separately installed extension; no trace profile is supported, and support for it remains deferred behind a separate [design](docs/ebpf/OPTIONAL_EBPF_DESIGN.md), [multi-tenant threat model](docs/security/KubeMemLens-threat-model.md), [benchmark protocol](docs/ebpf/BENCHMARK_PROTOCOL.md), and independent security review.
 
 ## Contributing
 

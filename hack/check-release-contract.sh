@@ -187,6 +187,9 @@ for guide in README.md docs/installation.md "${chart}/README.md"; do
     exit 1
   fi
 done
+# The roadmap is not a release guide, but it states which release is current.
+require_text docs/roadmap.md "current release is \`v${chart_version}\`"
+require_text docs/roadmap.md "already covered by \`v${chart_version}\`"
 require_text hack/release/create_candidate_draft.sh 'jq -er .chart.repository'
 require_text hack/release/create_candidate_draft.sh 'jq -er .image.digest'
 # shellcheck disable=SC2016 # The script variable is matched literally.
