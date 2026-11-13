@@ -81,7 +81,7 @@ authorisation text. Every later query still enforces current access. See
 [ADR 0006](adr/0006-select-evidence-sources-before-rendering.md) for this client-side
 trust boundary and failure behaviour.
 
-`capture` writes schema-versioned JSON with mode `0600` and refuses to replace an existing file unless `--force` is explicit. Bundles redact Pod UIDs, container IDs, cgroup paths, and bounded selector label maps by default; KubeMemLens does not collect images or file names. `--include-sensitive` is an explicit opt-in for local debugging. Recent history is opt-in and limited to 100 selected Pods per capture. `replay` makes no cluster connection, rejects unknown/trailing JSON, enforces a 64 MiB input/output limit and entity caps, and recomputes the explanation from the captured evidence.
+`capture` writes schema-versioned JSON with mode `0600` and refuses to replace an existing file unless `--force` is explicit. Bundles redact Pod UIDs, container IDs, cgroup paths, and bounded selector label maps by default; KubeMemLens does not collect images or file names. `--include-sensitive` is an explicit opt-in for local debugging. Recent history is opt-in and limited to 100 selected Pods per capture. `replay` makes no cluster connection, rejects unknown/trailing JSON, enforces a 64 MiB input/output limit and entity caps, and recomputes the explanation from the captured evidence. A capture is treated as untrusted text: `replay`, `compare` and `capture` refuse a bundle whose names, labels, reasons or tool version contain control or format characters, so a crafted file cannot send escape sequences to the terminal. Capture caveats are free text and are printed quoted.
 
 ## Future eBPF Mode
 
