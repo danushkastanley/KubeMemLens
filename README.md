@@ -388,6 +388,8 @@ go run ./cmd/kubectl-memlens compare --before before.json --after after.json --w
 
 `top pods`, `top containers`, and `top workloads` accept Kubernetes Pod label selectors with `-l`, safe field selectors, `--sort-by`, `--no-headers`, and `-o table|json|yaml|csv`. Add `--watch` for a two-second terminal refresh, or set a bounded interval with `--watch-interval`.
 
+The `LIMIT` column of `top pods` and `top containers` shows the limit, `unlimited` when the cgroup has none, or `unknown` when it was not read. JSON and YAML carry the same as `limitState` (`finite`, `unlimited` or `unknown`), with `limitBytes` present only for a finite limit. CSV adds a final `limit_state` column; `limit_bytes` is `0` unless the state is `finite`.
+
 Replaying or comparing a deep capture reads it as of its capture time. The diagnosis, including whether a container termination was recent, and every age shown are measured against the time recorded in the file, so the output does not change with the day it is read. A capture with no recorded time states that and claims no ages.
 
 Deep Pod comparisons across captures calculate rates from source sample times only when the Pod UID and selection match, both sample times are known and increasing, and neither observation is stale. Redacted captures omit Pod UIDs, so their values are shown without rates. Workload capture comparisons also omit rates because their totals can span different Pod instances and sample times.
