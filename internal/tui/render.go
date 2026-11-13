@@ -304,14 +304,27 @@ func (m appModel) renderEmpty(width int) string {
 	if m.restricted() {
 		return m.restrictedEmpty(width)
 	}
+	if namespace, all := m.activeNamespace(); !all {
+		return truncateLines(emptyNamespaceLines(namespace), width)
+	}
 	lines := []string{
 		"No collector snapshots are available yet. Collector state: " + m.evidenceStateLabel() + ".",
 		"",
 		"Check that the agent is running and posting snapshots:",
 		"  kubectl logs -n kube-memlens ds/kube-memlens-agent",
-		"  go run ./cmd/kubectl-memlens status",
+		"  kubectl memlens status",
 	}
 	return truncateLines(lines, width)
+}
+
+func emptyNamespaceLines(namespace string) []string {
+	return []string{
+		"No Pods in namespace " + namespace + " are reporting memory.",
+		"",
+		"To look at another namespace, start again with -n <namespace>, or with -A for all namespaces.",
+		"If you expected Pods here, check the collector:",
+		"  kubectl memlens status",
+	}
 }
 
 func (m appModel) renderConnectionError(width int) string {

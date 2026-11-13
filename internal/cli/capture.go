@@ -71,7 +71,7 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				}
 				reliability = debug.Reliability
 			} else {
-				reliability = captureReliabilityFromPods(pods)
+				reliability = api.ReliabilityFromPods(pods)
 			}
 			bundle := api.IncidentBundle{
 				SchemaVersion: api.IncidentSchema(pods),
@@ -160,30 +160,6 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	}
 	cmd.AddCommand(newCaptureTrendsCommand(collectorOptions))
 	return cmd
-}
-
-func captureReliabilityFromPods(pods []api.PodSnapshot) api.CollectorReliability {
-	result := api.CollectorReliability{State: api.CollectorRebuilding, Completeness: api.EvidencePartial}
-	fresh, stale := 0, 0
-	partial := false
-	for _, pod := range pods {
-		if pod.Freshness == api.EvidenceFreshnessStale {
-			stale++
-		} else {
-			fresh++
-		}
-		partial = partial || pod.Completeness == api.EvidencePartial
-	}
-	if fresh > 0 && stale == 0 && !partial {
-		result.State, result.Completeness = api.CollectorReady, api.EvidenceComplete
-	}
-	if fresh > 0 && (stale > 0 || partial) {
-		result.State = api.CollectorDegraded
-	}
-	if fresh == 0 && stale > 0 {
-		result.State = api.CollectorStale
-	}
-	return result
 }
 
 func selectCapturePods(pods []api.PodSnapshot, namespace, podName string) []api.PodSnapshot {
