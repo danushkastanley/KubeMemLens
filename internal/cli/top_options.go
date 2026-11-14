@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -87,28 +86,6 @@ func (o topOptions) validate() error {
 		}
 	}
 	return fmt.Errorf("invalid sort field %q", o.SortBy)
-}
-
-func watchTop(ctx context.Context, w io.Writer, opts topOptions, render func() error) error {
-	if err := render(); err != nil {
-		return err
-	}
-	if !opts.Watch {
-		return nil
-	}
-	ticker := time.NewTicker(opts.WatchInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-			fmt.Fprint(w, "\x1b[H\x1b[2J")
-			if err := render(); err != nil {
-				return err
-			}
-		}
-	}
 }
 
 func parseSelectors(labelSelector, fieldSelector string) (labels.Selector, fields.Selector, error) {

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"text/tabwriter"
 	"time"
@@ -50,7 +51,7 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 				return runRestrictedTop(cmd, session, capability.PodScope, podTopOptions, labelSelector, fieldSelector)
 			}
 			reader, description := session.Reader, session.Description
-			return watchTop(cmd.Context(), cmd.OutOrStdout(), podTopOptions, func() error {
+			return watchTop(cmd.Context(), cmd.OutOrStdout(), podTopOptions, func(out io.Writer) error {
 				pods, fetchErr := reader.Pods(cmd.Context())
 				if fetchErr != nil {
 					return collectorUnavailableError(opts, description, fetchErr)
@@ -58,7 +59,7 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 				if !allNamespaces {
 					pods = filterPodsByNamespace(pods, namespace)
 				}
-				return writeTopRows(cmd.OutOrStdout(), podRows(pods, labelSelector, fieldSelector), podTopOptions, printPodRows)
+				return writeTopRows(out, podRows(pods, labelSelector, fieldSelector), podTopOptions, printPodRows)
 			})
 		},
 	}
@@ -94,7 +95,7 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 				return runRestrictedTop(cmd, session, capability.ContainerScope, containerTopOptions, labelSelector, fieldSelector)
 			}
 			reader, description := session.Reader, session.Description
-			return watchTop(cmd.Context(), cmd.OutOrStdout(), containerTopOptions, func() error {
+			return watchTop(cmd.Context(), cmd.OutOrStdout(), containerTopOptions, func(out io.Writer) error {
 				containers, fetchErr := reader.Containers(cmd.Context())
 				if fetchErr != nil {
 					return collectorUnavailableError(opts, description, fetchErr)
@@ -102,7 +103,7 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 				if !containerAllNamespaces {
 					containers = filterContainersByNamespace(containers, containerNamespace)
 				}
-				return writeTopRows(cmd.OutOrStdout(), containerRows(containers, labelSelector, fieldSelector), containerTopOptions, printContainerRows)
+				return writeTopRows(out, containerRows(containers, labelSelector, fieldSelector), containerTopOptions, printContainerRows)
 			})
 		},
 	}
@@ -138,7 +139,7 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 				return runRestrictedTop(cmd, session, capability.WorkloadScope, workloadTopOptions, labelSelector, fieldSelector)
 			}
 			reader, description := session.Reader, session.Description
-			return watchTop(cmd.Context(), cmd.OutOrStdout(), workloadTopOptions, func() error {
+			return watchTop(cmd.Context(), cmd.OutOrStdout(), workloadTopOptions, func(out io.Writer) error {
 				workloads, fetchErr := reader.Workloads(cmd.Context())
 				if fetchErr != nil {
 					return collectorUnavailableError(opts, description, fetchErr)
@@ -146,7 +147,7 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 				if !workloadAllNamespaces {
 					workloads = filterWorkloadsByNamespace(workloads, workloadNamespace)
 				}
-				return writeTopRows(cmd.OutOrStdout(), workloadRows(workloads, labelSelector, fieldSelector), workloadTopOptions, printWorkloadRows)
+				return writeTopRows(out, workloadRows(workloads, labelSelector, fieldSelector), workloadTopOptions, printWorkloadRows)
 			})
 		},
 	}
@@ -183,12 +184,12 @@ func newTopCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
 				return runRestrictedTop(cmd, session, capability.NamespaceScope, namespaceTopOptions, nil, fieldSelector)
 			}
 			reader, description := session.Reader, session.Description
-			return watchTop(cmd.Context(), cmd.OutOrStdout(), namespaceTopOptions, func() error {
+			return watchTop(cmd.Context(), cmd.OutOrStdout(), namespaceTopOptions, func(out io.Writer) error {
 				namespaces, fetchErr := reader.Namespaces(cmd.Context())
 				if fetchErr != nil {
 					return collectorUnavailableError(opts, description, fetchErr)
 				}
-				return writeTopRows(cmd.OutOrStdout(), namespaceRows(namespaces, fieldSelector), namespaceTopOptions, printNamespaceRows)
+				return writeTopRows(out, namespaceRows(namespaces, fieldSelector), namespaceTopOptions, printNamespaceRows)
 			})
 		},
 	}
