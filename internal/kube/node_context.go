@@ -13,13 +13,18 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+// nodeContextErrorRetry bounds how long a failed Node GET is held. Authenticated
+// ingestion needs the node UID, so a failure held for a full TTL would withhold
+// every publish for that long.
+const nodeContextErrorRetry = 5 * time.Second
+
 type NodeContextCache struct {
 	client   kubernetes.Interface
 	nodeName string
 	ttl      time.Duration
 
 	mu        sync.Mutex
-	loadedAt  time.Time
+	refreshAt time.Time
 	context   api.NodeContext
 	lastError error
 }
@@ -31,10 +36,9 @@ func NewNodeContextCache(client kubernetes.Interface, nodeName string, ttl time.
 func (c *NodeContextCache) Context(ctx context.Context, now time.Time) (api.NodeContext, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !c.loadedAt.IsZero() && now.Sub(c.loadedAt) < c.ttl {
+	if now.Before(c.refreshAt) {
 		return c.context, c.lastError
 	}
-	c.loadedAt = now
 	node, err := c.client.CoreV1().Nodes().Get(ctx, c.nodeName, metav1.GetOptions{})
 	if err != nil {
 		// Node identity is immutable for the life of the Node object and remains
@@ -47,10 +51,12 @@ func (c *NodeContextCache) Context(ctx context.Context, now time.Time) (api.Node
 		}
 		c.context = api.NodeContext{NodeUID: nodeUID}
 		c.lastError = fmt.Errorf("get node context: %w", err)
+		c.refreshAt = now.Add(min(c.ttl, nodeContextErrorRetry))
 		return c.context, c.lastError
 	}
 	c.context = nodeContext(*node)
 	c.lastError = nil
+	c.refreshAt = now.Add(c.ttl)
 	return c.context, nil
 }
 
