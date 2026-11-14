@@ -22,7 +22,7 @@ func podRows(pods []api.PodSnapshot, labelSelector labels.Selector, fieldSelecto
 		result := explain.AnalyzePod(pod)
 		row.Diagnosis, row.Confidence = result.Diagnosis, result.Confidence
 		row.CapturedAt, row.Freshness, row.Completeness = pod.CapturedAt, pod.Freshness, pod.Completeness
-		row.LimitBytes = finiteLimit(pod.Memory)
+		row.LimitBytes, row.LimitState = memoryLimit(pod.Memory)
 		rows = append(rows, row)
 	}
 	return rows
@@ -36,7 +36,7 @@ func containerRows(containers []api.ContainerSnapshot, labelSelector labels.Sele
 		}
 		row := rowForMemory(container.Namespace, "Container", container.ContainerName, container.PodName, container.NodeName, 0, container.Memory)
 		row.CapturedAt, row.Freshness, row.Completeness = container.CapturedAt, container.Freshness, container.Completeness
-		row.LimitBytes = finiteLimit(container.Memory)
+		row.LimitBytes, row.LimitState = memoryLimit(container.Memory)
 		rows = append(rows, row)
 	}
 	return rows
@@ -78,20 +78,13 @@ func namespaceRows(namespaces []api.NamespaceSnapshot, fieldSelector fields.Sele
 	return rows
 }
 
-func finiteLimit(memory model.MemoryBreakdown) uint64 {
-	if memory.MaxKnown && !memory.MaxUnlimited {
-		return memory.MaxBytes
-	}
-	return 0
-}
-
 func printPodRows(w io.Writer, rows []topRow, noHeaders bool) {
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
 	if !noHeaders {
 		fmt.Fprintln(tw, "NAMESPACE\tPOD\tNODE\tTOTAL\tLIMIT\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
 	}
 	for _, row := range rows {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Name, row.Node, compact(row.TotalBytes), compactLimit(row.LimitBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Name, row.Node, compact(row.TotalBytes), compactLimit(row), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
 	}
 	_ = tw.Flush()
 }
@@ -102,7 +95,7 @@ func printContainerRows(w io.Writer, rows []topRow, noHeaders bool) {
 		fmt.Fprintln(tw, "NAMESPACE\tPOD\tCONTAINER\tNODE\tTOTAL\tLIMIT\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS\tCONFIDENCE\tSAMPLE\tFRESHNESS\tCOMPLETENESS")
 	}
 	for _, row := range rows {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Pod, row.Name, row.Node, compact(row.TotalBytes), compactLimit(row.LimitBytes), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n", row.Namespace, row.Pod, row.Name, row.Node, compact(row.TotalBytes), compactLimit(row), compact(row.AnonBytes), compact(row.CacheBytes), compact(row.ShmemBytes), compact(row.ResidualBytes), row.Diagnosis, row.Confidence, formatAge(row.CapturedAt), row.Freshness, row.Completeness)
 	}
 	_ = tw.Flush()
 }
@@ -131,9 +124,9 @@ func printNamespaceRows(w io.Writer, rows []topRow, noHeaders bool) {
 
 func compact(bytes uint64) string { return model.FormatCompactBytes(bytes) }
 
-func compactLimit(bytes uint64) string {
-	if bytes == 0 {
-		return "unknown"
+func compactLimit(row topRow) string {
+	if row.LimitState == limitFinite {
+		return compact(row.LimitBytes)
 	}
-	return compact(bytes)
+	return string(row.LimitState)
 }

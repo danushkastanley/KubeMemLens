@@ -38,6 +38,7 @@ type topRow struct {
 	Count         int                `json:"count,omitempty"`
 	TotalBytes    uint64             `json:"totalBytes"`
 	LimitBytes    uint64             `json:"limitBytes,omitempty"`
+	LimitState    limitState         `json:"limitState,omitempty"`
 	AnonBytes     uint64             `json:"anonBytes"`
 	CacheBytes    uint64             `json:"fileCacheBytes"`
 	ShmemBytes    uint64             `json:"shmemBytes"`
@@ -185,10 +186,10 @@ func writeTopRows(w io.Writer, rows []topRow, opts topOptions, table func(io.Wri
 	case "csv":
 		writer := csv.NewWriter(w)
 		if !opts.NoHeaders {
-			_ = writer.Write([]string{"namespace", "kind", "name", "pod", "node", "count", "total_bytes", "limit_bytes", "anon_bytes", "file_cache_bytes", "shmem_bytes", "kernel_bytes", "residual_bytes", "diagnosis", "confidence", "captured_at", "freshness", "completeness"})
+			_ = writer.Write([]string{"namespace", "kind", "name", "pod", "node", "count", "total_bytes", "limit_bytes", "anon_bytes", "file_cache_bytes", "shmem_bytes", "kernel_bytes", "residual_bytes", "diagnosis", "confidence", "captured_at", "freshness", "completeness", "limit_state"})
 		}
 		for _, row := range rows {
-			_ = writer.Write([]string{row.Namespace, row.Kind, row.Name, row.Pod, row.Node, strconv.Itoa(row.Count), strconv.FormatUint(row.TotalBytes, 10), strconv.FormatUint(row.LimitBytes, 10), strconv.FormatUint(row.AnonBytes, 10), strconv.FormatUint(row.CacheBytes, 10), strconv.FormatUint(row.ShmemBytes, 10), strconv.FormatUint(row.KernelBytes, 10), strconv.FormatUint(row.ResidualBytes, 10), string(row.Diagnosis), string(row.Confidence), row.CapturedAt.UTC().Format(time.RFC3339Nano), string(row.Freshness), string(row.Completeness)})
+			_ = writer.Write([]string{row.Namespace, row.Kind, row.Name, row.Pod, row.Node, strconv.Itoa(row.Count), strconv.FormatUint(row.TotalBytes, 10), strconv.FormatUint(row.LimitBytes, 10), strconv.FormatUint(row.AnonBytes, 10), strconv.FormatUint(row.CacheBytes, 10), strconv.FormatUint(row.ShmemBytes, 10), strconv.FormatUint(row.KernelBytes, 10), strconv.FormatUint(row.ResidualBytes, 10), string(row.Diagnosis), string(row.Confidence), row.CapturedAt.UTC().Format(time.RFC3339Nano), string(row.Freshness), string(row.Completeness), string(row.LimitState)})
 		}
 		writer.Flush()
 		return writer.Error()
