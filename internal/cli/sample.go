@@ -192,7 +192,7 @@ func printMemoryExplanation(w interface{ Write([]byte) (int, error) }, title str
 	fmt.Fprintln(w, "\nSecondary detail (overlaps primary composition):")
 	fmt.Fprintf(w, "Active file:          %s\n", model.FormatBytes(breakdown.ActiveFileBytes))
 	fmt.Fprintf(w, "Inactive file:        %s\n", model.FormatBytes(breakdown.InactiveFileBytes))
-	fmt.Fprintf(w, "Kernel total:         %s\n", model.FormatBytes(breakdown.KernelBytes))
+	fmt.Fprintf(w, "Kernel total:         %s\n", model.FormatKernelTotal(breakdown))
 	fmt.Fprintf(w, "Slab:                 %s\n", model.FormatBytes(breakdown.SlabBytes))
 	fmt.Fprintf(w, "  reclaimable:        %s\n", model.FormatBytes(breakdown.SlabReclaimableBytes))
 	fmt.Fprintf(w, "  unreclaimable:      %s\n", model.FormatBytes(breakdown.SlabUnreclaimableBytes))
@@ -200,7 +200,7 @@ func printMemoryExplanation(w interface{ Write([]byte) (int, error) }, title str
 	fmt.Fprintf(w, "Page tables:          %s\n", model.FormatBytes(breakdown.PageTableBytes))
 	fmt.Fprintf(w, "Mapped file:          %s\n", model.FormatBytes(breakdown.FileMappedBytes))
 	fmt.Fprintf(w, "THP anon/file/shmem:  %s / %s / %s\n", model.FormatBytes(breakdown.AnonTHPBytes), model.FormatBytes(breakdown.FileTHPBytes), model.FormatBytes(breakdown.ShmemTHPBytes))
-	fmt.Fprintf(w, "Other kernel:         %s\n", model.FormatBytes(breakdown.KernelOtherBytes()))
+	fmt.Fprintf(w, "Other kernel:         %s\n", model.FormatKernelOther(breakdown))
 	fmt.Fprintf(w, "Dirty/writeback:      %s\n", model.FormatDirtyWriteback(breakdown))
 	if breakdown.PeakKnown {
 		fmt.Fprintf(w, "Peak:                 %s\n", model.FormatBytes(breakdown.PeakBytes))

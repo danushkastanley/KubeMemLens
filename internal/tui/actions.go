@@ -142,15 +142,21 @@ func compareResult(request actionRequest) (actionResult, error) {
 	for _, row := range []struct {
 		name          string
 		before, after uint64
+		unreported    bool
 	}{
 		{name: "Total", before: before.Memory.TotalBytes, after: after.Memory.TotalBytes},
 		{name: "Anon", before: before.Memory.RSSBytes(), after: after.Memory.RSSBytes()},
 		{name: "File cache", before: before.Memory.CacheBytes(), after: after.Memory.CacheBytes()},
 		{name: "Shmem", before: before.Memory.ShmemBytes, after: after.Memory.ShmemBytes},
 		{name: "Other", before: before.Memory.ResidualBytes(), after: after.Memory.ResidualBytes()},
-		{name: "Kernel", before: before.Memory.KernelBytes, after: after.Memory.KernelBytes},
+		{name: "Kernel", before: before.Memory.KernelBytes, after: after.Memory.KernelBytes,
+			unreported: !before.Memory.KernelReported() || !after.Memory.KernelReported()},
 		{name: "Swap", before: before.Memory.SwapCurrentBytes, after: after.Memory.SwapCurrentBytes},
 	} {
+		if row.unreported {
+			lines = append(lines, fmt.Sprintf("%-16s %s", row.name, model.KernelNotReported))
+			continue
+		}
 		lines = append(lines, fmt.Sprintf("%-16s %12s %12s %12s", row.name, model.FormatCompactBytes(row.before), model.FormatCompactBytes(row.after), signedTrend(row.before, row.after)))
 	}
 	beforeFinding, afterFinding := explain.AnalyzePod(before), explain.AnalyzePod(after)

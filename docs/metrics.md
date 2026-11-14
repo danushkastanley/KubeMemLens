@@ -198,6 +198,8 @@ The mutually exclusive primary composition is `anon`, `file_cache`, `shmem`, and
 
 Raw `file` includes shmem/tmpfs; `file_cache` is raw `file` minus `shmem`, floored at zero. Raw `kernel` includes slab; `kernel_other` is raw `kernel` minus `slab`, floored at zero. Active/inactive file, kernel, slab, socket, page-table, mapped-file, THP, dirty, and writeback metrics are overlapping secondary detail and must not be summed with the primary composition.
 
+The `kernel` and `kernel_other` types are omitted for a workload whose node kernel does not report a kernel total (Linux before 5.18). See [memory semantics](memory-semantics.md#kernel-detail).
+
 ## Event Metrics
 
 `kubememlens_namespace_memory_events`

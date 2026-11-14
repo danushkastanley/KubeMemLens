@@ -93,7 +93,7 @@ func (m appModel) podDetailLines(pod api.PodSnapshot, width int, historyTitle st
 		"Secondary detail (overlaps primary composition):",
 		"Active file:          "+memmodel.FormatBytes(pod.Memory.ActiveFileBytes),
 		"Inactive file:        "+memmodel.FormatBytes(pod.Memory.InactiveFileBytes),
-		"Kernel total:         "+memmodel.FormatBytes(pod.Memory.KernelBytes),
+		"Kernel total:         "+memmodel.FormatKernelTotal(pod.Memory),
 		"Slab:                 "+memmodel.FormatBytes(pod.Memory.SlabBytes),
 		"  reclaimable:        "+memmodel.FormatBytes(pod.Memory.SlabReclaimableBytes),
 		"  unreclaimable:      "+memmodel.FormatBytes(pod.Memory.SlabUnreclaimableBytes),
@@ -101,7 +101,7 @@ func (m appModel) podDetailLines(pod api.PodSnapshot, width int, historyTitle st
 		"Page tables:          "+memmodel.FormatBytes(pod.Memory.PageTableBytes),
 		"Mapped file:          "+memmodel.FormatBytes(pod.Memory.FileMappedBytes),
 		"THP anon/file/shmem:  "+memmodel.FormatBytes(pod.Memory.AnonTHPBytes)+" / "+memmodel.FormatBytes(pod.Memory.FileTHPBytes)+" / "+memmodel.FormatBytes(pod.Memory.ShmemTHPBytes),
-		"Other kernel:         "+memmodel.FormatBytes(pod.Memory.KernelOtherBytes()),
+		"Other kernel:         "+memmodel.FormatKernelOther(pod.Memory),
 		"Dirty/writeback:      "+memmodel.FormatDirtyWriteback(pod.Memory),
 	)
 	lines = append(lines, memorySignalLines(pod.Memory)...)
