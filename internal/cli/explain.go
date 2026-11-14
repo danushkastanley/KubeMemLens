@@ -126,7 +126,7 @@ func printWorkloadExplanation(w interface{ Write([]byte) (int, error) }, workloa
 	fmt.Fprintf(w, "Replicas: %d  Largest: %s (%s)\n\n", workload.PodCount, workload.LargestPodName, model.FormatCompactBytes(workload.LargestPodBytes))
 	fmt.Fprintln(w, "Pods (largest first):")
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "POD\tNODE\tTOTAL\tLIMIT\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
+	fmt.Fprintln(tw, "POD\tNODE\tTOTAL\tLIMIT\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
 	for _, pod := range workload.Pods {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 			pod.PodName, pod.NodeName, model.FormatCompactBytes(pod.Memory.TotalBytes), limitUsage(pod.Memory),
@@ -152,7 +152,7 @@ func printPodExplanation(w interface{ Write([]byte) (int, error) }, pod api.PodS
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Containers:")
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(tw, "CONTAINER\tTOTAL\tRSS\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
+	fmt.Fprintln(tw, "CONTAINER\tTOTAL\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
 	for _, container := range pod.Containers {
 		fmt.Fprintf(
 			tw,

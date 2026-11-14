@@ -74,7 +74,7 @@ func newStatusCommand(collectorOptions collectorOptionsProvider) *cobra.Command 
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&output, "output", "text", "output format: text or json")
+	cmd.Flags().StringVarP(&output, "output", "o", "text", "output format: text or json")
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "", "check evidence in one namespace; default checks cluster scope")
 	return cmd
 }
