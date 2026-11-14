@@ -58,7 +58,7 @@ func addTopFlags(cmd *cobra.Command, opts *topOptions, selectors bool) {
 		cmd.Flags().StringVarP(&opts.LabelSelector, "selector", "l", "", "Pod label selector")
 	}
 	cmd.Flags().StringVar(&opts.FieldSelector, "field-selector", "", "field selector for metadata.name, metadata.namespace, spec.nodeName, status.phase, or kind")
-	cmd.Flags().StringVar(&opts.SortBy, "sort-by", "total", "sort by total, rss, cache, shmem, kernel, residual, name, namespace, or diagnosis")
+	cmd.Flags().StringVar(&opts.SortBy, "sort-by", "total", "sort by total, anon, cache, shmem, kernel, residual, name, namespace, or diagnosis; rss is accepted as the older name for anon")
 	cmd.Flags().StringVarP(&opts.Output, "output", "o", "table", "output format: table, json, yaml, or csv")
 	cmd.Flags().BoolVar(&opts.NoHeaders, "no-headers", false, "omit table or CSV headers")
 	cmd.Flags().BoolVarP(&opts.Watch, "watch", "w", false, "refresh the table until interrupted")
@@ -80,7 +80,7 @@ func (o topOptions) validate() error {
 	if o.WatchInterval < 500*time.Millisecond || o.WatchInterval > time.Minute {
 		return fmt.Errorf("--watch-interval must be between 500ms and 1m")
 	}
-	for _, field := range []string{"total", "rss", "cache", "shmem", "kernel", "residual", "name", "namespace", "diagnosis"} {
+	for _, field := range []string{"total", "anon", "rss", "cache", "shmem", "kernel", "residual", "name", "namespace", "diagnosis"} {
 		if o.SortBy == field {
 			return nil
 		}
@@ -145,7 +145,7 @@ func sortRows(rows []topRow, field string) {
 				return left.Diagnosis < right.Diagnosis
 			}
 			return left.TotalBytes > right.TotalBytes
-		case "rss":
+		case "anon", "rss":
 			return left.AnonBytes > right.AnonBytes
 		case "cache":
 			return left.CacheBytes > right.CacheBytes
