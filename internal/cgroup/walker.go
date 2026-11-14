@@ -138,25 +138,50 @@ func ExtractPodUIDFromPath(path string) string {
 	return strings.ToLower(strings.ReplaceAll(match[1], "_", "-"))
 }
 
+// ExtractContainerIDFromPath returns the container a cgroup path belongs to.
+//
+// A Pod's containers sit directly below its Pod cgroup, so when the path has
+// a Pod component the container is the first container-looking component
+// below the first one. Anything above the Pod is not that container: a node
+// that is itself a container (kind, k3d) puts its own scope there. Anything
+// deeper belongs to the same container, including a nested runtime or a
+// nested Kubernetes node.
+//
+// A path without a Pod component keeps the older rule: the longest ID wins.
 func ExtractContainerIDFromPath(path string) string {
-	var longest string
-	for _, part := range splitPath(path) {
-		part = strings.TrimSuffix(part, ".scope")
-		for _, prefix := range []string{"cri-containerd-", "docker-", "crio-"} {
-			if strings.HasPrefix(part, prefix) {
-				id := strings.TrimPrefix(part, prefix)
-				if isHexID(id, 12, 128) && len(id) > len(longest) {
-					longest = strings.ToLower(id)
+	parts := splitPath(path)
+	for index, part := range parts {
+		if podUIDPattern.MatchString(part) {
+			for _, below := range parts[index+1:] {
+				if id := containerIDComponent(below); id != "" {
+					return id
 				}
 			}
-		}
-
-		if isHexID(part, 12, 128) && len(part) > len(longest) {
-			longest = strings.ToLower(part)
+			return ""
 		}
 	}
-
+	var longest string
+	for _, part := range parts {
+		if id := containerIDComponent(part); len(id) > len(longest) {
+			longest = id
+		}
+	}
 	return longest
+}
+
+// containerIDComponent returns the lower-case container ID a single path
+// component names, or "" when it does not look like a container cgroup.
+func containerIDComponent(part string) string {
+	part = strings.TrimSuffix(part, ".scope")
+	for _, prefix := range []string{"cri-containerd-", "docker-", "crio-"} {
+		if id, found := strings.CutPrefix(part, prefix); found && isHexID(id, 12, 128) {
+			return strings.ToLower(id)
+		}
+	}
+	if isHexID(part, 12, 128) {
+		return strings.ToLower(part)
+	}
+	return ""
 }
 
 func nestedInContainer(containerDirs map[string]string, root, path, containerID string) bool {
