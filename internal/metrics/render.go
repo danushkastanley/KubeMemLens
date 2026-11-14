@@ -245,8 +245,6 @@ func memoryMetrics(memory model.MemoryBreakdown) []memoryMetric {
 		{"slab", memory.SlabBytes},
 		{"slab_reclaimable", memory.SlabReclaimableBytes},
 		{"slab_unreclaimable", memory.SlabUnreclaimableBytes},
-		{"kernel_other", memory.KernelOtherBytes()},
-		{"kernel", memory.KernelBytes},
 		{"socket", memory.SocketBytes},
 		{"page_tables", memory.PageTableBytes},
 		{"file_mapped", memory.FileMappedBytes},
@@ -256,6 +254,10 @@ func memoryMetrics(memory model.MemoryBreakdown) []memoryMetric {
 		{"residual", memory.ResidualBytes()},
 		{"dirty", memory.DirtyBytes},
 		{"writeback", memory.WritebackBytes},
+	}
+	// Linux before 5.18 has no kernel total; a zero series would claim there is none.
+	if memory.KernelReported() {
+		items = append(items, memoryMetric{"kernel_other", memory.KernelOtherBytes()}, memoryMetric{"kernel", memory.KernelBytes})
 	}
 	if memory.PeakKnown {
 		items = append(items, memoryMetric{"peak", memory.PeakBytes})

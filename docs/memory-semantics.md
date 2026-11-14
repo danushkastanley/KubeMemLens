@@ -54,6 +54,8 @@ The raw cgroup `file` value includes shmem/tmpfs. KubeMemLens therefore displays
 
 Raw `kernel` includes slab. KubeMemLens exposes total kernel, total slab, slab reclaimable/unreclaimable, socket memory, page tables (including secondary page tables where the kernel reports them), and `kernel - slab` as overlapping secondary detail. These values help distinguish reclaimable caches from unreclaimable or workload-facing kernel charges; they do not form another additive partition of total memory.
 
+Linux added the `kernel` total to `memory.stat` in 5.18. On an older node kernel the total is not reported, although slab and page tables are. KubeMemLens recognises this when the total is zero while slab or page tables are not, which cannot happen on a kernel that reports the total. Text views then show "not reported by this kernel" for the kernel total and for `kernel - slab`, and the `kernel` and `kernel_other` metrics are omitted. Structured output keeps `kernelBytes` and `kernelOtherBytes` at `0` in that case; apply the same rule when reading them.
+
 Mapped-file and transparent huge page counters (`file_mapped`, `anon_thp`, `file_thp`, and `shmem_thp`) are also retained as overlapping secondary evidence.
 
 ## Pressure, events, and swap

@@ -212,13 +212,15 @@ func printPodComparison(w interface{ Write([]byte) (int, error) }, title string,
 		name        string
 		beforeBytes uint64
 		afterBytes  uint64
+		unreported  bool
 	}{
 		{name: "Total", beforeBytes: before.Memory.TotalBytes, afterBytes: after.Memory.TotalBytes},
 		{name: "Anonymous (anon)", beforeBytes: before.Memory.RSSBytes(), afterBytes: after.Memory.RSSBytes()},
 		{name: "File cache", beforeBytes: before.Memory.CacheBytes(), afterBytes: after.Memory.CacheBytes()},
 		{name: "Shmem / tmpfs", beforeBytes: before.Memory.ShmemBytes, afterBytes: after.Memory.ShmemBytes},
 		{name: "Residual / other", beforeBytes: before.Memory.ResidualBytes(), afterBytes: after.Memory.ResidualBytes()},
-		{name: "Kernel", beforeBytes: before.Memory.KernelBytes, afterBytes: after.Memory.KernelBytes},
+		{name: "Kernel", beforeBytes: before.Memory.KernelBytes, afterBytes: after.Memory.KernelBytes,
+			unreported: !before.Memory.KernelReported() || !after.Memory.KernelReported()},
 		{name: "Slab reclaimable", beforeBytes: before.Memory.SlabReclaimableBytes, afterBytes: after.Memory.SlabReclaimableBytes},
 		{name: "Slab unreclaimable", beforeBytes: before.Memory.SlabUnreclaimableBytes, afterBytes: after.Memory.SlabUnreclaimableBytes},
 		{name: "Socket memory", beforeBytes: before.Memory.SocketBytes, afterBytes: after.Memory.SocketBytes},
@@ -229,6 +231,10 @@ func printPodComparison(w interface{ Write([]byte) (int, error) }, title string,
 		{name: "THP shmem", beforeBytes: before.Memory.ShmemTHPBytes, afterBytes: after.Memory.ShmemTHPBytes},
 		{name: "Swap", beforeBytes: before.Memory.SwapCurrentBytes, afterBytes: after.Memory.SwapCurrentBytes},
 	} {
+		if row.unreported {
+			fmt.Fprintf(tw, "%s\t%s\n", row.name, model.KernelNotReported)
+			continue
+		}
 		if elapsed > 0 {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s/s\n", row.name, model.FormatCompactBytes(row.beforeBytes), model.FormatCompactBytes(row.afterBytes), signedBytes(row.beforeBytes, row.afterBytes), signedBytesRate(row.beforeBytes, row.afterBytes, elapsed))
 		} else {
