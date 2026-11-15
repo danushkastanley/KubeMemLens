@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/danushkastanley/kube-memlens/internal/agent"
 )
 
 type agentFailureReason string
@@ -14,8 +16,8 @@ const (
 	agentFailureScanCancelled agentFailureReason = "scan_cancelled"
 	agentFailureScanTimeout   agentFailureReason = "scan_timeout"
 	agentFailureSnapshotPost  agentFailureReason = "snapshot_post_failed"
-	agentFailureMetadataSync  agentFailureReason = "metadata_cache_unsynchronised"
-	agentFailurePartialScan   agentFailureReason = "partial_scan_not_published"
+	agentFailureMetadataSync  agentFailureReason = agentFailureReason(agent.WithheldMetadataCacheUnsynchronised)
+	agentFailurePartialScan   agentFailureReason = agentFailureReason(agent.WithheldPartialScan)
 )
 
 func boundedScanFailureReason(err error) agentFailureReason {

@@ -209,20 +209,11 @@ func main() {
 		}
 		posted := false
 		if scanErr == nil && (*collectorURL != "" || publisher != nil) {
-			if blockReason := snapshotPublishBlockReason(metadataSynced, result); blockReason != "" {
-				failureReason = blockReason
-			} else {
+			posted, failureReason = publishScan(telemetry, metadataSynced, result, func() error {
 				publishCtx, publishCancel := context.WithTimeout(ctx, *publishTimeout)
-				postErr := publishSnapshot(publishCtx, *ingestionMode, *collectorURL, publisher, index.NodeContext.NodeUID, result.Snapshot)
-				publishCancel()
-				if postErr != nil {
-					telemetry.RecordPost(postErr)
-					failureReason = agentFailureSnapshotPost
-				} else {
-					telemetry.RecordPost(nil)
-					posted = true
-				}
-			}
+				defer publishCancel()
+				return publishSnapshot(publishCtx, *ingestionMode, *collectorURL, publisher, index.NodeContext.NodeUID, result.Snapshot)
+			})
 		}
 
 		if failureReason != "" {

@@ -117,10 +117,13 @@ Source collection time and collector receive time are separate. Use the source t
 
 - `kubememlens_agent_scans_total{result="success|failure"}`
 - `kubememlens_agent_snapshot_posts_total{result="success|failure"}`
+- `kubememlens_agent_snapshots_withheld_total{reason="metadata_cache_unsynchronised|partial_scan_not_published"}`
 - `kubememlens_agent_last_scan_timestamp_seconds`
 - `kubememlens_agent_last_scan_duration_seconds`
 - `kubememlens_agent_last_scan_containers{kind="found|mapped|unmapped"}`
 - `kubememlens_agent_metadata_cache_pods`
+
+A scan can succeed and still not be published. The agent withholds a snapshot while its Pod metadata cache has not synchronised (`metadata_cache_unsynchronised`) and when the cgroup walk was incomplete (`partial_scan_not_published`), so the collector keeps the last complete data. A withheld snapshot counts as a successful scan and as no post attempt, so alert on `kubememlens_agent_snapshots_withheld_total` rising while `kubememlens_agent_snapshot_posts_total{result="success"}` stays flat. Both reasons are always present, starting at zero, and match the `reason` in the agent log line.
 
 The chart binds agent metrics to `127.0.0.1:8082` inside each agent Pod. It does not declare a metrics container port or add Prometheus scrape annotations, so another workload cannot scrape node-local density counts through the Pod network by default. Set `agent.metrics.enabled=false` to disable even this loopback diagnostics endpoint.
 
