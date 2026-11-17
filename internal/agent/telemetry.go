@@ -17,6 +17,7 @@ type Telemetry struct {
 	scanFailure uint64
 	postSuccess uint64
 	postFailure uint64
+	withheld    [len(withheldReasons)]uint64
 
 	lastScanAt        time.Time
 	lastScanDuration  time.Duration
@@ -94,6 +95,7 @@ func (t *Telemetry) renderLocked() string {
 	writeMetricHeader(&b, "kubememlens_agent_snapshot_posts_total", "KubeMemLens agent snapshot post attempts by result.", "counter")
 	fmt.Fprintf(&b, "kubememlens_agent_snapshot_posts_total{result=\"success\"} %d\n", t.postSuccess)
 	fmt.Fprintf(&b, "kubememlens_agent_snapshot_posts_total{result=\"failure\"} %d\n", t.postFailure)
+	t.writeWithheldLocked(&b)
 	writeMetricHeader(&b, "kubememlens_agent_last_scan_timestamp_seconds", "Unix timestamp of the latest KubeMemLens agent scan attempt.", "gauge")
 	fmt.Fprintf(&b, "kubememlens_agent_last_scan_timestamp_seconds %d\n", unixOrZero(t.lastScanAt))
 	writeMetricHeader(&b, "kubememlens_agent_last_scan_duration_seconds", "Duration in seconds of the latest KubeMemLens agent scan attempt.", "gauge")
