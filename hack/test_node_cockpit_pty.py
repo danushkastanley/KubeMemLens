@@ -133,5 +133,54 @@ class NodeSelectionPTYTest(unittest.TestCase):
                                   text=True, capture_output=True, timeout=8, check=False)
 
 
+PANE_RUNNER = r"""
+source [lindex $argv 0]
+set timeout 2
+set log [lindex $argv 1]
+log_user 0
+spawn -noecho python3 -c [lindex $argv 2] [lindex $argv 3]
+log_file -noappend -a $log
+send -- "h\r"
+require_node_pane {Node usage:} "wide Node memory pane" $log
+log_file
+file delete $log
+"""
+PANE_PRODUCER = r"""
+import sys
+sys.stdin.readline()
+if sys.argv[1]=='drawn':
+    print('Source: available\r\n Node usage: 100Mi private-node',flush=True)
+else:
+    print('Node context unavailable: private-node; observed-charge fallback',flush=True)
+    print('\x1b[6;98HSource: available\x1b[7;99Hode usage: 100Mi',flush=True)
+sys.stdin.readline()
+"""
+
+
+class NodePanePTYTest(unittest.TestCase):
+    def run_pane(self, scenario):
+        with tempfile.TemporaryDirectory(prefix="node-pane-pty-") as folder:
+            root = pathlib.Path(folder)
+            runner = root / "pane.exp"
+            runner.write_text(PANE_RUNNER)
+            result = subprocess.run(["expect", str(runner), str(HELPER), str(root / "pane.log"), PANE_PRODUCER, scenario],
+                                    text=True, capture_output=True, timeout=8, check=False)
+            return result, (root / "pane.log").exists()
+
+    def test_drawn_pane_passes_and_leaves_no_terminal_log(self):
+        result, log_left = self.run_pane("drawn")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("PASS wide Node memory pane", result.stdout)
+        self.assertFalse(log_left)
+
+    def test_timeout_reports_pane_state_without_terminal_content(self):
+        result, log_left = self.run_pane("retained-cell")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Node PTY timed out: wide Node memory pane: label_seen=0 partial_label_seen=1 "
+                      "evidence_pane_seen=1 loading_seen=0 fallback_seen=1 error_seen=1", result.stderr)
+        self.assertNotIn("private-node", result.stdout + result.stderr)
+        self.assertFalse(log_left)
+
+
 if __name__ == "__main__":
     unittest.main()

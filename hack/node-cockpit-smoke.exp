@@ -23,12 +23,16 @@ require_pattern {A/F/S/O} "initial Pod view"
 send -- "N"
 require_pattern {CHARGE} "Node table"
 select_node_cockpit $node
+set pane_log $capture.pane
+log_file -noappend -a $pane_log
 send -- "h"
 require_pattern {CHARGE} "qualified Node table"
 if {$columns >= 150} {
-  require_pattern {Node usage:} "wide Node memory pane"
-  require_pattern {Observed Pod charge:} "separate observed Pod charge"
+  require_node_pane {Node usage:} "wide Node memory pane" $pane_log
+  require_node_pane {Observed Pod charge:} "separate observed Pod charge" $pane_log
 }
+log_file
+file delete $pane_log
 send -- "e"
 require_pattern $node_cockpit_title_pattern "Node detail"
 require_pattern {Source completeness:} "source completeness"

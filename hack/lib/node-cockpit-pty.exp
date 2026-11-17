@@ -74,6 +74,47 @@ proc require_node_capture {capture} {
   puts stderr "Node PTY capture timed out: file_created=[file isfile $capture] confirmation_seen=$confirmed"
   exit 1
 }
+# The wide pane's labels are written once: later refreshes rewrite only changed
+# cells. A timeout therefore reports which pane state the terminal showed, as
+# fixed yes/no facts. Names and values stay in the private log, which is removed.
+proc node_pane_facts {log} {
+  set text ""
+  if {![catch {open $log r} channel]} {
+    fconfigure $channel -translation binary
+    set text [read $channel]
+    close $channel
+  }
+  set facts {}
+  foreach {name fragment} {
+    label_seen {Node usage:} partial_label_seen {usage: } evidence_pane_seen {Source: }
+    loading_seen {Refreshing Node evidence} fallback_seen {observed-charge fallback}
+    error_seen {Node context unavailable}
+  } {
+    lappend facts "$name=[expr {[string first $fragment $text] >= 0}]"
+  }
+  return [join $facts " "]
+}
+
+# The caller starts `log_file -noappend -a $log` before the key press that
+# draws the pane, and stops and deletes it once the pane checks have passed.
+proc require_node_pane {pattern description log} {
+  expect {
+    -re $pattern { puts "PASS $description" }
+    timeout {
+      log_file
+      puts stderr "Node PTY timed out: $description: [node_pane_facts $log]"
+      file delete $log
+      exit 1
+    }
+    eof {
+      log_file
+      file delete $log
+      puts stderr "Node PTY exited early: $description"
+      exit 1
+    }
+  }
+}
+
 # The renderer can retain the table heading's N at row 3, column 1 and
 # redraw the detail title from column 2. Require that exact cursor position.
 set node_cockpit_title_pattern {(?:Node cockpit:|\x1b\[3;2Hode cockpit:) ([a-z0-9.-]+)[\s\x1b]}
