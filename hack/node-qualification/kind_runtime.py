@@ -11,6 +11,7 @@ from common import ContractError, number, require
 PREFIX = "/apis/memory.kubememlens.io/v1alpha1"
 NAMESPACE = "kube-memlens-node-context"
 LOAD_NAMESPACE = "node-qualification-load"
+HTTP_REFUSAL = re.compile(rb"The requested URL returned error: ([1-5][0-9]{2})\b")
 
 
 def command(argv, timeout=12):
@@ -21,7 +22,10 @@ def command(argv, timeout=12):
         reasons = {b"Permission denied": "permission-denied", b"No such file or directory": "missing-path",
                    b"Connection refused": "connection-refused", b"Couldn't connect to server": "connection-refused",
                    b"Operation not permitted": "operation-not-permitted"}
-        reason = next((value for key, value in reasons.items() if key in stderr), "exit-" + str(error.returncode))
+        refusal = HTTP_REFUSAL.search(stderr)
+        # A status code identifies nothing private; the rest of stderr is discarded.
+        fallback = "http-" + refusal.group(1).decode() if refusal else "exit-" + str(error.returncode)
+        reason = next((value for key, value in reasons.items() if key in stderr), fallback)
         raise ContractError("local command failed: " + reason) from error
     except (OSError, subprocess.SubprocessError) as error:
         # Command arguments/output can contain private cluster identities.
@@ -103,7 +107,12 @@ class KindRuntime:
                 "--cert", str(self.private / "api-client.crt"),
                 "--key", str(self.private / "api-client.key"),
                 "--header", "X-KubeMemLens-Snapshot-Schema: 3", server.rstrip("/") + PREFIX + path]
-        return json.loads(self.run(args))
+        try:
+            return json.loads(self.run(args))
+        except ContractError as error:
+            # Only the resource is named; object names and queries stay out of logs.
+            resource = path.split("?")[0].strip("/").split("/")[0]
+            raise ContractError(f"fixture API read {resource}: {error}") from error
 
     def containers(self):
         raw = json.loads(self.host("crictl", "ps", "-o", "json"))
