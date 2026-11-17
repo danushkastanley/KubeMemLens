@@ -1,0 +1,100 @@
+# Verification
+
+How to decide what to run for a change, and which tests are worth writing. [CONTRIBUTING.md](../CONTRIBUTING.md#verification-scope) states the policy; this page is the working reference.
+
+The rule: read the diff, run the checks whose trigger matches, then run the change itself. CI runs everything else.
+
+## Order
+
+1. **Cheap, every change** (seconds): focused package tests, `make fmt-check`, `go vet ./...`, `go build ./cmd/...`.
+2. **Triggered checks** (seconds to a few minutes): the rows below that match the diff.
+3. **Run the change** (under a second for samples, several minutes for kind): see [Run the change](#run-the-change).
+4. **Before opening a PR**: `make test-race` if the change touches goroutines, locks or shared state.
+
+`make check` is the full local gate, including the trace prototype, release, provider and terminal contracts. Run it when a change spans several areas or touches the Makefile; otherwise the rows below are enough and CI covers the rest.
+
+## Trigger table
+
+Paths are prefixes. Run a row only when the diff touches its trigger.
+
+| Diff touches | Run | Why |
+| --- | --- | --- |
+| `internal/cgroup/` parsers | `go test ./internal/cgroup -run='^$' -fuzz='^<FuzzTarget>$' -fuzztime=10s` for the parser changed | Kernel files vary by version and runtime; hand-picked cases miss them |
+| Any decoder or wire type with a `Fuzz*` target in its package | The matching fuzz target for 10s | Decoders take untrusted bytes |
+| `internal/collector/` pagination, snapshots, ingestion | `go test -race ./internal/collector/...` and the ingestion smoke | Read gate, rate limit and record copying have regressed here |
+| `internal/recommend/`, `internal/explain/` | `make check-recommendation-evaluation`, then `make run-sample-explain` | Diagnosis quality is scored against fixtures, not asserted line by line |
+| `internal/tui/`, `internal/*view/` | `E2E_RUN_TUI_SMOKE=true` kind run, or `make run-sample-top` for layout-only changes | Key handling and quit paths only fail in a real terminal |
+| `internal/kubeauth/`, `internal/kubeprincipal/`, `internal/extension/` | Ingestion, tenant-scoped read and tenant isolation smokes | Authorisation is only proven against a real API server |
+| `internal/resourcemetrics/` | `E2E_RUN_RESOURCE_METRICS_SMOKE=true` | Depends on the metrics API being served |
+| `internal/qosview/` | `E2E_RUN_MEMORY_QOS_SMOKE=true` | Depends on the kubelet feature gate |
+| `internal/volumehealth/`, `internal/volumecontext/` | `make check-provider-contract`; `hack/verify-volume-health-kind.sh` for health changes | CSI behaviour differs with the alpha gate on and off |
+| `internal/memoryhistory/`, `internal/promhistory/` | `make check-memory-history-contract` | History wire format is a published contract |
+| `internal/incidentsession*/`, `internal/incident/` | `make check-incident-session-contract` | Bundles must stay bounded and redacted |
+| `internal/replica*/` or chart replica values | `make check-replica-contract` | Chart guards and replica logic must agree |
+| `charts/kube-memlens/` | `helm template` with the changed values, `hack/test-chart-value-guards.sh`, then a base kind run | The kind run covers install, upgrade, rollback and uninstall |
+| `charts/kube-memlens-trace/`, `prototype/trace/` | `make check-trace-chart-contract`, `make check-trace-preflight` | Separate module with its own gate |
+| `prototype/trace/worker/` | `make check-trace-worker` | Separate module and SDK preparation |
+| RBAC, NetworkPolicy, Service ports, security context | Tenant isolation smoke, and re-read [security-model.md](security-model.md) | A privilege change needs a stated reason |
+| Metric names or labels | Scrape `metrics/current` on a kind run; update [metrics.md](metrics.md) | Dashboards and alerts depend on the names |
+| `hack/*.sh`, `hack/lib/` | `bash -n` on the file, its `hack/test-*.sh` partner if one exists | Shell errors surface late in CI |
+| `hack/ci_scope.py` | `python3 hack/test_ci_scope.py` | Decides whether kind lanes run at all |
+| `.github/workflows/` | `go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7` | |
+| `go.mod`, `go.sum`, `Dockerfile` | `go mod verify`, `make vuln`, `make build`, base kind run | Supply chain and image contents |
+| `hack/release/`, `.goreleaser.yml`, release workflows | `make check-release-contract` | |
+| `hack/scale-profiles/`, density code paths | `make check-scale-contract` | Live soak stays opt-in; see [scale-qualification.md](scale-qualification.md) |
+| `README.md`, `SUPPORT.md`, community files | `make check-support-contract`, `make check-community-contract` | These files are checked for required content |
+| Other `docs/` only | Check local links resolve | No Go or kind run needed |
+
+Never run without an explicit request: `make soak-live-density`, `make qualify-cluster`, anything under `hack/ebpf-*qualification/`, or any script against a cluster that is not a disposable kind cluster created for the run.
+
+## Reliability checklist
+
+Each item came from a shipped fix. Ask the question only when the trigger matches.
+
+| Trigger in the diff | Question | Origin |
+| --- | --- | --- |
+| A numeric field gains a new source or default | Can "unknown", "unreported" and "unlimited" still be told apart from zero in every output? | unreported kernel total shown as zero; unlimited versus unknown limit in `top` |
+| A cache or TTL around a Kubernetes lookup | Does a failed lookup retry soon, or wait out the full TTL? | Node lookup retry |
+| The agent drops, filters or withholds data | Is the withheld amount counted in a metric? | withheld snapshots |
+| A walk over cgroups or Pods | What happens when an entry disappears mid-walk? | cgroups that stop during the walk |
+| A timeout wrapped around a scan | Does the budget include API calls it should not? | Kubernetes lookups inside the scan timeout |
+| A lock or gate around a read path | Is it released before writing the response? | read gate held during response write |
+| A rate limit or quota | Is it charged after admission and per producer? | ingestion rate limit |
+| A decoder for agent or tenant input | Is count and size bounded before decoding? | snapshot container count |
+| A `--watch` or long-running loop | Does it survive a collector outage and recover? | deep `top --watch` |
+| A new TUI screen or key binding | Do Ctrl+C and `q` quit from it? | quit from every screen |
+| An empty result set | Is "empty" distinguishable from "rebuilding" or "never reported"? | empty namespace; `doctor` and silent nodes |
+| A new chart value | Is an invalid combination refused at render time? | chart value guards |
+| Container-to-Pod mapping | Does it hold on nested runtimes and for idle Pod sandboxes? | nested cgroup layout; sandbox as infrastructure |
+
+## Which tests to write
+
+A test earns its place when it would catch a defect a user would notice. In order of value for this project:
+
+1. **Kind end-to-end.** The agent reads a real cgroup tree and the CLI shows the result. Hard to fool. Extend the kind harness or a `hack/verify-*-kind.sh` script when a new runtime behaviour has no smoke.
+2. **Property and fuzz tests.** State something that cannot break and let the fuzzer attack it: decode never panics and respects its bounds; encode then decode returns the input; pagination visits every key exactly once; an optimised path equals the plain one. Add the target next to the existing `Fuzz*` functions.
+3. **Fixture tests.** A synthetic cgroup fixture or sample workload with an expected explanation. Use these for parser, aggregation and presentation changes.
+4. **Regression tests.** One per bug fix, failing before the fix. Name it after the behaviour, not the function.
+
+Do not write:
+
+- tests that repeat the implementation's arithmetic or assert on unexported fields;
+- mocks of the Kubernetes API or collector standing in for a runtime path the kind harness can run;
+- tests for getters, constructors, constants or flag wiring;
+- extra table rows that take the same branch;
+- tests whose only purpose is a coverage number.
+
+If a test is slow or flaky it will be re-run instead of read. Keep unit tests fast and deterministic, and move anything that needs a cluster into the kind harness.
+
+## Run the change
+
+The `verify` skill at [.claude/skills/verify/SKILL.md](../.claude/skills/verify/SKILL.md) holds the commands. In short:
+
+- **Presentation, diagnosis, CLI flags:** `go run ./cmd/kubectl-memlens sample list|top|explain <sample>` and read the output.
+- **Agent, collector, chart, RBAC, TUI:** `hack/e2e-kind.sh` with its own cluster name and only the smoke flags the diff needs. The script creates the cluster, uses a temporary kubeconfig and deletes the cluster on exit.
+
+## Keeping this page honest
+
+- A defect that reached review or `main` and matches no row adds one row, in the PR that fixes it.
+- A row that has not caught anything and costs real time is removed.
+- A change must not edit a check, fixture or row that judges it in the same commit as the code it judges.
