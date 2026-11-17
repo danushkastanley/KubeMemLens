@@ -6,6 +6,10 @@ import (
 	"debug/elf"
 )
 
+// pinnedGoVersion is the only compiler a release executable may record. It
+// moves with the toolchain in go.mod and the build images.
+const pinnedGoVersion = "go1.27.4"
+
 // The owned bytes were size/hash checked before parsing. Binary metadata is an
 // integrity cross-check, not independent proof of reproducible compilation.
 func inspectExecutable(data []byte, architecture, binary string) error {
@@ -33,7 +37,7 @@ func inspectExecutable(data []byte, architecture, binary string) error {
 		return ErrArchive
 	}
 	info, err := buildinfo.Read(bytes.NewReader(data))
-	if err != nil || info.GoVersion != "go1.27.4" {
+	if err != nil || info.GoVersion != pinnedGoVersion {
 		return ErrArchive
 	}
 	packagePath := "github.com/danushkastanley/kube-memlens/prototype/trace/cmd/memlens-trace"
