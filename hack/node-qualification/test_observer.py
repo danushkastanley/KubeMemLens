@@ -55,6 +55,30 @@ class ObserverTest(unittest.TestCase):
                 command(["private-command", "private-credential"])
         self.assertEqual(str(caught.exception), "local command failed: permission-denied")
 
+    def test_refused_http_read_reports_only_the_status_code(self):
+        error = subprocess.CalledProcessError(
+            22, ["curl", "https://private-host/private-path"],
+            stderr=b"curl: (22) The requested URL returned error: 503\nprivate-node")
+        with patch("kind_runtime.subprocess.run", side_effect=error):
+            with self.assertRaises(ContractError) as caught:
+                command(["curl", "https://private-host/private-path"])
+        self.assertEqual(str(caught.exception), "local command failed: http-503")
+
+    def test_failed_api_read_names_the_resource_but_not_the_object(self):
+        with tempfile.TemporaryDirectory() as folder:
+            r = object.__new__(KindRuntime)
+            r.private = Path(folder)
+            (r.private / "api-server").write_text("https://127.0.0.1:6443")
+            def run(argv):
+                raise ContractError("local command failed: http-503")
+            r.run = run
+            for path, resource in (("/containers?limit=500", "containers"),
+                                   ("/nodecontexts/private-node/history?limit=1", "nodecontexts")):
+                with self.subTest(path=path), self.assertRaises(ContractError) as caught:
+                    r.api(path)
+                self.assertEqual(str(caught.exception),
+                                 f"fixture API read {resource}: local command failed: http-503")
+
     def test_live_timestamp_is_serialisable_and_matches_the_evidence_contract(self):
         import json
         timestamp = utc_text()
