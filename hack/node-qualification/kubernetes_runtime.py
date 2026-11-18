@@ -4,10 +4,11 @@ import json
 import re
 from pathlib import PurePosixPath
 
-from common import require
+from common import ContractError, require
 from kind_runtime import metrics
 from observer_specs import HOST_OBSERVER, IDENTITY_OBSERVER, METRICS_OBSERVER
 from process import execute
+from rate_limit import RateLimited, read_with_retry_after
 
 API_FAILURE_CODES = {code: "qualification API read failed: " + category for code, category in {
     10: "authentication", 11: "forbidden", 12: "not-found", 13: "rate-limited", 14: "server-unavailable",
@@ -49,8 +50,17 @@ class KubernetesRuntime:
             operation, args = "history", ["--node", self.node]
         else:
             raise ValueError("unsupported qualification API read")
-        return json.loads(self.run(self.bridge + ["--namespace", namespace, "--operation", operation] + args,
-                                   failure_codes=API_FAILURE_CODES))
+        command = self.bridge + ["--namespace", namespace, "--operation", operation] + args
+
+        def read():
+            try:
+                return self.run(command, failure_codes=API_FAILURE_CODES)
+            except ContractError as error:
+                if str(error) == API_FAILURE_CODES[13]:
+                    raise RateLimited(str(error)) from error
+                raise
+
+        return json.loads(read_with_retry_after(read))
 
     def pods(self):
         self.verify_namespace()
