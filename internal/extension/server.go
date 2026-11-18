@@ -76,6 +76,7 @@ func (o ServerOptions) Run(ctx context.Context) error {
 	config.MaxRequestBodyBytes = o.MaxBodyBytes
 	config.MaxRequestsInFlight = o.MaxRead
 	config.MaxMutatingRequestsInFlight = o.MaxMutating
+	config.LongRunningFunc = outsideRequestLimits(config.LongRunningFunc)
 	config.RequestTimeout = o.RequestTimeout
 	config.ShutdownDelayDuration = shutdownDelay
 	config.FeatureGate = utilfeature.DefaultFeatureGate
