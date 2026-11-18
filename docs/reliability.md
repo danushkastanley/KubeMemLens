@@ -15,6 +15,8 @@ The collector has separate probes:
 
 The production Service exposes neither probe. Kubelet calls them inside the Pod network. Liveness must not restart a process because snapshots are missing or the Kubernetes API is temporarily unavailable. Readiness removes the Pod from the `APIService` path when its authentication or delegated-authorisation contract is unavailable.
 
+Readiness is not affected by read load. Health probes on the extension port are served outside `collector.read.maxConcurrentRequests`, so a burst of reads is answered with `429` and `Retry-After` for the excess requests while the Pod stays behind the `APIService`.
+
 Readiness does not mean that current memory evidence exists. A ready extension may report `rebuilding`, `degraded` or `stale` data. Clients must inspect the evidence state as well as transport health.
 
 ## Lifecycle and evidence states
