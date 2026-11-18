@@ -36,6 +36,7 @@ Paths are prefixes. Run a row only when the diff touches its trigger.
 | `prototype/trace/worker/` | `make check-trace-worker` | Separate module and SDK preparation |
 | RBAC, NetworkPolicy, Service ports, security context | Tenant isolation smoke, and re-read [security-model.md](security-model.md) | A privilege change needs a stated reason |
 | Metric names or labels | Scrape `metrics/current` on a kind run; update [metrics.md](metrics.md) | Dashboards and alerts depend on the names |
+| Go files with an OS build tag (`_linux.go`, `//go:build`) | `go build ./...` and `GOOS=linux go build ./...` | A `main` package declared for one OS breaks the build on the others |
 | `hack/*.sh`, `hack/lib/` | `bash -n` on the file, its `hack/test-*.sh` partner if one exists | Shell errors surface late in CI |
 | `hack/ci_scope.py` | `python3 hack/test_ci_scope.py` | Decides whether kind lanes run at all |
 | `.github/workflows/` | `go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.7` | |

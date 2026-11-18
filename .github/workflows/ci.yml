@@ -202,6 +202,11 @@ jobs:
       - name: Build commands
         run: go build ./cmd/...
 
+      - name: Build every package for Linux and macOS
+        run: |
+          go build ./...
+          GOOS=darwin GOARCH=arm64 go build ./...
+
       - name: Check GoReleaser configuration
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
         with:
