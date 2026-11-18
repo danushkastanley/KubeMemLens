@@ -111,9 +111,15 @@ func (t *Telemetry) renderLocked() string {
 	return b.String()
 }
 
+// writeMetricHeader takes the name the samples use. OpenMetrics declares a
+// counter's family without the _total suffix its samples carry.
 func writeMetricHeader(b *strings.Builder, name, help, metricType string) {
-	fmt.Fprintf(b, "# HELP %s %s\n", name, help)
-	fmt.Fprintf(b, "# TYPE %s %s\n", name, metricType)
+	family := name
+	if metricType == "counter" {
+		family = strings.TrimSuffix(name, "_total")
+	}
+	fmt.Fprintf(b, "# HELP %s %s\n", family, help)
+	fmt.Fprintf(b, "# TYPE %s %s\n", family, metricType)
 }
 
 func unixOrZero(value time.Time) int64 {

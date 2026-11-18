@@ -320,8 +320,10 @@ helm upgrade --install kube-memlens ./charts/kube-memlens \
 | `Accept` header | Response |
 | --- | --- |
 | Lists `application/openmetrics-text` (no version, `1.0.0` or `0.0.1`) with a quality at least as high as JSON | OpenMetrics text, `Content-Type: application/openmetrics-text; version=1.0.0; charset=utf-8` |
-| Lists `text/plain` (no version or `0.0.4`) with a quality at least as high as JSON | The same text, `Content-Type: text/plain; version=0.0.4; charset=utf-8` |
+| Lists `text/plain` (no version or `0.0.4`) with a quality at least as high as JSON | Prometheus text, `Content-Type: text/plain; version=0.0.4; charset=utf-8` |
 | Missing, `*/*`, `application/json` or anything else | `Metrics` JSON object with the text in `content`, as used by `kubectl get --raw` and the CLI |
+
+The two text forms carry the same series and differ only in how a counter is declared. OpenMetrics names the family without the `_total` suffix (`# TYPE kubememlens_collector_history_loss counter`); the Prometheus text format names the series itself (`# TYPE kubememlens_collector_history_loss_total counter`). Series names, labels and values are identical, so queries, dashboards and alerts are unaffected. The agent and Node-context producer endpoints serve OpenMetrics only.
 
 Prometheus sends a suitable `Accept` header by default. The OpenTelemetry Collector's Prometheus receiver and Grafana Alloy use the same scrape library, but only Prometheus has been verified. Both forms use the same authorisation, size limit and cardinality guardrails, and responses carry `Vary: Accept`.
 

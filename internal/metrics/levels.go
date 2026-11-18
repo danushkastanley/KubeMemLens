@@ -95,7 +95,7 @@ func (r *renderer) section(used int, render func(*renderer)) (string, bool) {
 			return "", false
 		}
 	}
-	section := newRenderer(remaining)
+	section := newRenderer(remaining, r.format)
 	render(section)
 	return section.b.String(), section.b.err == nil
 }

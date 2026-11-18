@@ -41,7 +41,8 @@ func (r *renderer) operational(s Operational) {
 
 func (r *renderer) operation(suffix, help, kind string, value any) {
 	name := "kubememlens_" + suffix
-	fmt.Fprintf(&r.b, "# HELP %s %s\n# TYPE %s %s\n%s %v\n", name, help, name, kind, name, value)
+	r.helpType(name, help, kind)
+	fmt.Fprintf(&r.b, "%s %v\n", name, value)
 }
 
 func enabledNumber(value bool) int {
