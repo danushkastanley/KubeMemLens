@@ -10,6 +10,16 @@ import (
 
 const ContentType = "application/openmetrics-text; version=1.0.0; charset=utf-8"
 
+// Format is the exposition dialect. The two differ in how a counter is
+// declared: OpenMetrics names the family without the _total suffix its samples
+// carry, while the classic Prometheus text format names the sample itself.
+type Format int
+
+const (
+	OpenMetrics Format = iota
+	PrometheusText
+)
+
 var ErrOutputTooLarge = errors.New("metrics output exceeds the configured maximum")
 
 type Source interface {
@@ -26,6 +36,7 @@ type Exporter struct {
 	Now         func() time.Time
 	Opts        Options
 	MaxBytes    int
+	Format      Format
 	Operational *Operational
 }
 
@@ -44,14 +55,14 @@ func (e Exporter) Render() (string, error) {
 
 	// Operational series follow the entity levels in the exposition, so they
 	// are rendered first and their size is held back from the level budget.
-	tail := newRenderer(e.MaxBytes)
+	tail := newRenderer(e.MaxBytes, e.Format)
 	if e.Operational != nil {
 		tail.operational(*e.Operational)
 	}
 	if tail.b.err != nil {
 		return "", tail.b.err
 	}
-	renderer := newRenderer(e.MaxBytes)
+	renderer := newRenderer(e.MaxBytes, e.Format)
 	renderer.render(e.Source, now, e.TTL, opts, tail.b.Len()+len(eofLine))
 	_, _ = renderer.b.WriteString(tail.b.String())
 	return renderer.String()

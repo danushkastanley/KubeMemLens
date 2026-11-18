@@ -303,10 +303,11 @@ func (h *ReadHandler) serveMetrics(w http.ResponseWriter, r *http.Request, info 
 		return
 	}
 	now := h.now()
+	format := negotiateMetricsFormat(r.Header.Get("Accept"))
 	view, effectiveMetrics := h.store.BuildMetricsView(now, h.opts.SnapshotTTL, h.opts.Metrics, h.opts.MaxResponseBytes)
 	content, err := (metrics.Exporter{
 		Source: view, TTL: h.opts.SnapshotTTL, Now: func() time.Time { return now },
-		Opts: effectiveMetrics, MaxBytes: h.nestedReadBudget(),
+		Opts: effectiveMetrics, MaxBytes: h.nestedReadBudget(), Format: format.exposition(),
 		Operational: h.operationalMetrics(),
 	}).Render()
 	if err != nil {
@@ -317,7 +318,7 @@ func (h *ReadHandler) serveMetrics(w http.ResponseWriter, r *http.Request, info 
 		writeReadError(w, http.StatusInternalServerError, metav1.StatusReasonInternalError, "metrics could not be rendered")
 		return
 	}
-	if format := negotiateMetricsFormat(r.Header.Get("Accept")); format != metricsJSON {
+	if format != metricsJSON {
 		writeMetricsText(w, format, content)
 		return
 	}

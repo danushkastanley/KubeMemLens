@@ -13,7 +13,7 @@ func TestTelemetryCountsWithheldSnapshotsByReason(t *testing.T) {
 
 	metrics := telemetry.Render()
 	for _, want := range []string{
-		"# TYPE kubememlens_agent_snapshots_withheld_total counter",
+		"# TYPE kubememlens_agent_snapshots_withheld counter",
 		`kubememlens_agent_snapshots_withheld_total{reason="metadata_cache_unsynchronised"} 1`,
 		`kubememlens_agent_snapshots_withheld_total{reason="partial_scan_not_published"} 2`,
 	} {

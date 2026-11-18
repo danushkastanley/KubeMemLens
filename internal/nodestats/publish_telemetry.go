@@ -20,7 +20,7 @@ func (t *Telemetry) RecordPublish(duration time.Duration, err error) {
 
 // Render holds the telemetry read lock while invoking this helper.
 func (t *Telemetry) renderPosts(out *strings.Builder) {
-	out.WriteString("# HELP kubememlens_node_context_posts_total Snapshot delivery attempts through the production publisher.\n# TYPE kubememlens_node_context_posts_total counter\n")
+	out.WriteString("# HELP kubememlens_node_context_posts Snapshot delivery attempts through the production publisher.\n# TYPE kubememlens_node_context_posts counter\n")
 	fmt.Fprintf(out, "kubememlens_node_context_posts_total{result=\"success\"} %d\n", t.postAttempts-t.postFailures)
 	fmt.Fprintf(out, "kubememlens_node_context_posts_total{result=\"failure\"} %d\n", t.postFailures)
 	if t.postAttempts > 0 {
