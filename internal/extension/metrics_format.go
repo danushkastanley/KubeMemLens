@@ -77,6 +77,15 @@ func parseMetricsMediaRange(part string) (metricsFormat, int, float64, bool) {
 	}
 }
 
+// exposition is the dialect the exporter renders for this representation. The
+// JSON envelope carries OpenMetrics text, as its contentType field states.
+func (f metricsFormat) exposition() metrics.Format {
+	if f == metricsPrometheusText {
+		return metrics.PrometheusText
+	}
+	return metrics.OpenMetrics
+}
+
 // writeMetricsText writes exposition text that the exporter has already
 // bounded to the nested read budget.
 func writeMetricsText(w http.ResponseWriter, format metricsFormat, content string) {

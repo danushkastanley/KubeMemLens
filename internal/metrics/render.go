@@ -13,7 +13,8 @@ import (
 )
 
 type renderer struct {
-	b boundedBuilder
+	b      boundedBuilder
+	format Format
 }
 
 type memoryMetric struct {
@@ -26,8 +27,8 @@ type eventMetric struct {
 	value uint64
 }
 
-func newRenderer(maxBytes int) *renderer {
-	return &renderer{b: boundedBuilder{max: maxBytes}}
+func newRenderer(maxBytes int, format Format) *renderer {
+	return &renderer{b: boundedBuilder{max: maxBytes}, format: format}
 }
 
 func (r *renderer) String() (string, error) {
@@ -225,8 +226,18 @@ func (r *renderer) renderContainers(items []api.ContainerSnapshot, opts Options)
 }
 
 func (r *renderer) helpType(name string, help string, typ string) {
-	fmt.Fprintf(&r.b, "# HELP %s %s\n", name, help)
-	fmt.Fprintf(&r.b, "# TYPE %s %s\n", name, typ)
+	family := r.family(name, typ)
+	fmt.Fprintf(&r.b, "# HELP %s %s\n", family, help)
+	fmt.Fprintf(&r.b, "# TYPE %s %s\n", family, typ)
+}
+
+// family is the name HELP and TYPE declare for a metric whose samples are
+// called name. Only OpenMetrics counters differ from their samples.
+func (r *renderer) family(name string, typ string) string {
+	if typ == "counter" && r.format == OpenMetrics {
+		return strings.TrimSuffix(name, "_total")
+	}
+	return name
 }
 
 func (r *renderer) sample(name string, labels labels, value float64) {

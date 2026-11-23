@@ -73,9 +73,10 @@ func TestMetricsServeExpositionTextToScrapers(t *testing.T) {
 	for _, tc := range []struct {
 		accept      string
 		contentType string
+		counterType string
 	}{
-		{accept: prometheus3Accept, contentType: metrics.ContentType},
-		{accept: "text/plain;version=0.0.4", contentType: prometheusTextContentType},
+		{accept: prometheus3Accept, contentType: metrics.ContentType, counterType: "# TYPE kubememlens_collector_history_loss counter\n"},
+		{accept: "text/plain;version=0.0.4", contentType: prometheusTextContentType, counterType: "# TYPE kubememlens_collector_history_loss_total counter\n"},
 	} {
 		w := serveMetricsWithAccept(t, h, tc.accept, true)
 		if w.Code != http.StatusOK {
@@ -90,6 +91,9 @@ func TestMetricsServeExpositionTextToScrapers(t *testing.T) {
 		body := w.Body.String()
 		if strings.HasPrefix(body, "{") || !strings.Contains(body, "\nkubememlens_collector_heap_objects_bytes ") || !strings.HasSuffix(body, "# EOF\n") {
 			t.Fatalf("Accept %q: body is not exposition text: %.200q", tc.accept, body)
+		}
+		if !strings.Contains(body, tc.counterType) {
+			t.Fatalf("Accept %q: body lacks %q", tc.accept, tc.counterType)
 		}
 	}
 }
