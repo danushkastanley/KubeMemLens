@@ -3,7 +3,7 @@ module github.com/danushkastanley/kube-memlens
 go 1.27.4
 
 require (
-	charm.land/bubbletea/v2 v2.1.1
+	charm.land/bubbletea/v2 v2.1.2
 	github.com/charmbracelet/lipgloss v1.1.0
 	github.com/charmbracelet/x/ansi v0.11.10
 	github.com/go-logr/logr v1.4.4
