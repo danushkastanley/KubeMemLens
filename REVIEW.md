@@ -21,7 +21,8 @@ Flag as **Important**:
 - a bug fix with no test that would have failed before it;
 - a test edited or deleted so that the change passes;
 - a skip, retry, sleep or widened timeout added to quiet a failure;
-- a change to a check, contract script, fixture or CI scope rule that also benefits from that edit.
+- a change to a check, contract script, fixture, CI scope rule, trigger row, the `verify` skill or this file that also benefits from that edit;
+- a rewrite or migration that claims unchanged behaviour with no differential test or list of approved differences.
 
 Flag as **Nit**, and ask for removal rather than improvement:
 
@@ -34,7 +35,11 @@ Do not ask for more tests to raise coverage. Ask for a test only when you can na
 
 ## Verification evidence
 
-The PR description must state what was run and what was observed. Check it against [docs/verification.md](docs/verification.md): if the diff matches a trigger row and the description shows no evidence for it, say which row. A runtime change verified only by unit tests is an **Important** finding.
+The PR description must give a [verification method](docs/verification.md#verification-method) and state what was run and what was observed. Check it against [docs/verification.md](docs/verification.md): if the diff matches a trigger row and the description shows no evidence for it, say which row. A runtime change verified only by unit tests is an **Important** finding.
+
+Evidence that predates the latest commit to the code it covers is stale. Name the commits it does not cover.
+
+If this is a later review round, start from the earlier findings. Say which are fixed, which remain, and what is new. Do not re-report findings that were resolved.
 
 ## Do not report
 

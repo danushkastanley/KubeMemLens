@@ -58,7 +58,9 @@ If the harness has no step that shows the changed behaviour, the run proves only
 - Do not set an acknowledgement variable for a script you have not read.
 - Do not edit the harness to make a failing run pass. Three failed attempts at the same step: stop and report.
 - Confirm afterwards that the cluster is gone: `kind get clusters`.
+- When a kind run fails, read the artefacts in `E2E_ARTIFACT_DIR` and report the failing step and its output, not only the exit code.
+- This skill is the smoke-test harness and must stay fast and reliable. If a command here is wrong, slow or flaky, fix the skill in its own commit and say why.
 
 ## Report
 
-State the commands run, the output that shows the behaviour (a few lines, with identifiers redacted), and what was not run and why. Put the same text under "Verification" in the PR description.
+Start with the verification method: `kind`, `sample`, `checks` or `none` (see `docs/verification.md`, "Verification method"). Then give the commit you verified, the commands run, the output that shows the behaviour (a few lines, with identifiers redacted), and what was not run and why. Put the same text under "Verification" in the PR description. If you push more commits, re-run the affected steps and update the report.
