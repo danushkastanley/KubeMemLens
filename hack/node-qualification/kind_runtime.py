@@ -7,6 +7,7 @@ from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 from common import ContractError, number, require
+from rate_limit import RateLimited, read_with_retry_after
 
 PREFIX = "/apis/memory.kubememlens.io/v1alpha1"
 NAMESPACE = "kube-memlens-node-context"
@@ -26,7 +27,8 @@ def command(argv, timeout=12):
         # A status code identifies nothing private; the rest of stderr is discarded.
         fallback = "http-" + refusal.group(1).decode() if refusal else "exit-" + str(error.returncode)
         reason = next((value for key, value in reasons.items() if key in stderr), fallback)
-        raise ContractError("local command failed: " + reason) from error
+        failure = RateLimited if reason == "http-429" else ContractError
+        raise failure("local command failed: " + reason) from error
     except (OSError, subprocess.SubprocessError) as error:
         # Command arguments/output can contain private cluster identities.
         raise ContractError("local qualification command failed") from error
@@ -108,7 +110,7 @@ class KindRuntime:
                 "--key", str(self.private / "api-client.key"),
                 "--header", "X-KubeMemLens-Snapshot-Schema: 3", server.rstrip("/") + PREFIX + path]
         try:
-            return json.loads(self.run(args))
+            return json.loads(read_with_retry_after(lambda: self.run(args)))
         except ContractError as error:
             # Only the resource is named; object names and queries stay out of logs.
             resource = path.split("?")[0].strip("/").split("/")[0]
