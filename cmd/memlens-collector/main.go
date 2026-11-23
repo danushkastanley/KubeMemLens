@@ -200,7 +200,7 @@ func main() {
 			return (extension.ServerOptions{
 				BindPort: *extensionPort, CertFile: *extensionCertFile, KeyFile: *extensionKeyFile,
 				KubeconfigFile: *extensionKubeconfig, MaxBodyBytes: handlerOpts.MaxSnapshotBytes,
-				MaxRead: *readMaxConcurrent, MaxMutating: 32, RequestTimeout: 10 * time.Second,
+				MaxRead: *readMaxConcurrent, MaxMutating: 32, RequestTimeout: extension.RequestTimeout,
 				ShutdownDelay: extensionShutdownDelay, NodeSelector: expectedNodeSelector,
 				NodeTolerations: expectedNodeTolerations, Handler: handler,
 			}).Run(ctx)

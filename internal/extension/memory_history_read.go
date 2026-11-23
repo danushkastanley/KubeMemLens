@@ -14,6 +14,23 @@ import (
 	apirequest "k8s.io/apiserver/pkg/endpoints/request"
 )
 
+// historyReadMargin is the time a history read leaves itself to report its own
+// failure before the server gives up on the request.
+const historyReadMargin = time.Second
+
+// historyReadContext ends a history read a margin before the request ends.
+// The server cancels the request context at its deadline and answers for the
+// handler, so a later deadline here never applies, and an equal one races the
+// server's answer and can drop the connection. The deadline is counted from the
+// request, not from here, because authentication and authorisation have already
+// used part of it. A request with no deadline gets the same budget from now.
+func historyReadContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if deadline, ok := ctx.Deadline(); ok {
+		return context.WithDeadline(ctx, deadline.Add(-historyReadMargin))
+	}
+	return context.WithTimeout(ctx, RequestTimeout-historyReadMargin)
+}
+
 type memoryHistoryService struct {
 	resolver         memoryhistory.Resolver
 	contextResolver  memoryhistory.Resolver
@@ -94,11 +111,11 @@ func (h *ReadHandler) serveMemoryHistory(w http.ResponseWriter, r *http.Request,
 		writeReadError(w, http.StatusTooManyRequests, metav1.StatusReasonTooManyRequests, "a memory history query is already in progress")
 		return
 	}
-	resolver, timeout := s.resolver, 9*time.Second
+	resolver := s.resolver
 	if withChanges {
-		resolver, timeout = s.contextResolver, 12*time.Second
+		resolver = s.contextResolver
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), timeout)
+	ctx, cancel := historyReadContext(r.Context())
 	defer cancel()
 	var markerReader changemarkers.Provider
 	if withChanges {
