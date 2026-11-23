@@ -74,8 +74,9 @@ A test earns its place when it would catch a defect a user would notice. In orde
 
 1. **Kind end-to-end.** The agent reads a real cgroup tree and the CLI shows the result. Hard to fool. Extend the kind harness or a `hack/verify-*-kind.sh` script when a new runtime behaviour has no smoke.
 2. **Property and fuzz tests.** State something that cannot break and let the fuzzer attack it: decode never panics and respects its bounds; encode then decode returns the input; pagination visits every key exactly once; an optimised path equals the plain one. Add the target next to the existing `Fuzz*` functions.
-3. **Fixture tests.** A synthetic cgroup fixture or sample workload with an expected explanation. Use these for parser, aggregation and presentation changes.
-4. **Regression tests.** One per bug fix, failing before the fix. Name it after the behaviour, not the function.
+3. **Differential tests.** For a rewrite or migration that must keep behaviour, such as a new reader, decoder or history backend: the old path is the oracle. Run old and new on the same inputs, generated or taken from fixtures. Normalise differences that do not matter, such as ordering or whitespace. Keep a written list of approved differences next to the test. Any other difference is a bug or an unapproved breaking change.
+4. **Fixture tests.** A synthetic cgroup fixture or sample workload with an expected explanation. Use these for parser, aggregation and presentation changes.
+5. **Regression tests.** One per bug fix, failing before the fix. Name it after the behaviour, not the function.
 
 Do not write:
 
@@ -94,8 +95,63 @@ The `verify` skill at [.claude/skills/verify/SKILL.md](../.claude/skills/verify/
 - **Presentation, diagnosis, CLI flags:** `go run ./cmd/kubectl-memlens sample list|top|explain <sample>` and read the output.
 - **Agent, collector, chart, RBAC, TUI:** `hack/e2e-kind.sh` with its own cluster name and only the smoke flags the diff needs. The script creates the cluster, uses a temporary kubeconfig and deletes the cluster on exit.
 
+## Verification method
+
+Start the PR's Verification section with one method, so unverified changes can be found later:
+
+| Method | Meaning |
+| --- | --- |
+| `kind` | The change ran on a disposable kind cluster and the output showed the behaviour |
+| `sample` | The change ran through the sample commands and the output showed the behaviour |
+| `checks` | Only the cheap and triggered checks ran; nothing exercised the behaviour |
+| `none` | Nothing ran. Say why |
+
+`checks` and `none` are allowed. They must be stated, not implied. The evidence must come from the commit being merged; see [Stale evidence](#stale-evidence).
+
+## Stale evidence
+
+Verification and review results belong to the commit they ran on. After a new push, re-run the steps whose trigger the new commits match, and re-review if the code changed. A pass on an earlier commit is not evidence for the current one.
+
+## Writing a check
+
+A check is a test, smoke, contract script, trigger row or review rule.
+
+- The person who owns the area writes its checks, and refines them until they flag what that person would flag in review.
+- A failing check says why: the defect, the input or state that caused it, and the step that failed. A reviewer should not have to rebuild the reasoning from the diff.
+- A runtime check leaves evidence when it fails: the step, the command output and the artefacts under `E2E_ARTIFACT_DIR`, not only a timeout.
+- Keep checks fast and deterministic. A slow check gets run less often. A flaky one gets re-run instead of read.
+- A check is never weakened in the commit that it judges. A wrong check is fixed in its own commit, with the reason.
+
+## Adding a gate
+
+A gate blocks a merge or a release: a required CI job, a new contract script in `make check`, or a hook.
+
+1. **Observe.** Run it without blocking, for example with `continue-on-error: true` in CI, and record what it would have blocked.
+2. **Review.** Read every would-be block. Fix false positives before the gate affects anyone.
+3. **Enforce.** Make it required only when the false positives are understood. Document how to record a justified exception, so a correct change is never stuck behind the gate.
+
+There is no local commit gate today. Add one through these three steps if needed.
+
+## Turning misses into rules
+
+A miss is a defect that reached review, `main` or a release when a check should have caught it.
+
+- **From a fix or revert.** Write the trigger as something visible in a diff, plus the question or command that catches it. Add it to the trigger table, the reliability checklist or [REVIEW.md](../REVIEW.md) in the fixing PR, in its own commit.
+- **From review comments.** A pattern becomes a candidate rule only when it has appeared in at least two PRs and can be recognised from a diff. Try to disprove it first: find merged, clean changes that it would wrongly flag. A maintainer approves it in a PR.
+- **Replay before adding.** Run `/code-review` on the original diff with the current rules. If the defect is already found, no new rule is needed. If a small diff still misses it, add the rule to REVIEW.md.
+
+## Reviewing the checks
+
+At each release, when the changelog is written from merged PRs:
+
+- List the PRs since the last tag that were reverted or needed a follow-up fix. For each, record whether a row, rule or test caught it, and at which stage: local checks, `/code-review`, CI or human review.
+- List rows and rules that fired but caught nothing a maintainer cared about.
+- Add rules for the misses as described above. Remove or narrow the noisy ones.
+
 ## Keeping this page honest
 
 - A defect that reached review or `main` and matches no row adds one row, in the PR that fixes it.
 - A row that has not caught anything and costs real time is removed.
 - A change must not edit a check, fixture or row that judges it in the same commit as the code it judges.
+
+Background: this page follows the practices in [How the Claude Code team thinks about verification](https://claude.dev/blog/how-the-claude-code-team-thinks-about-verification/).

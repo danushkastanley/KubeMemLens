@@ -8,7 +8,9 @@
 
 ## Verification
 
-<!-- List exact checks and runtime paths completed. State anything not verified. -->
+Method: <!-- kind | sample | checks | none (say why). See docs/verification.md#verification-method -->
+
+<!-- List exact checks and runtime paths completed, on the commit being merged. State anything not verified. -->
 <!-- Managed-provider and large-cluster tests are not required unless this change makes or alters those claims. -->
 
 ## Risk checklist
