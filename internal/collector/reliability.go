@@ -41,9 +41,11 @@ func (s *Store) Generation() string {
 func (s *Store) reliabilityLocked(now time.Time, ttl time.Duration) api.CollectorReliability {
 	freshNodes, staleNodes := 0, 0
 	partial := false
+	var expired expirySpan
 	for _, snapshot := range s.nodes {
 		if isStale(snapshot.capturedAt, now, ttl) {
 			staleNodes++
+			expired.add(snapshot.capturedAt.Add(ttl))
 		} else {
 			freshNodes++
 		}
@@ -69,8 +71,9 @@ func (s *Store) reliabilityLocked(now time.Time, ttl time.Duration) api.Collecto
 		state, completeness = api.CollectorDegraded, api.EvidencePartial
 	}
 	if state != s.state {
+		staleOnly := missingNodes == 0 && !partial
+		s.transitionedAt = transitionTime(s.state, state, staleOnly, expired, s.transitionedAt, now)
 		s.state = state
-		s.transitionedAt = now
 	}
 
 	return api.CollectorReliability{
