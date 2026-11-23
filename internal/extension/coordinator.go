@@ -2,9 +2,7 @@ package extension
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -52,7 +50,7 @@ type agentState struct {
 	nodeName string
 	role     ProducerRole
 	sequence uint64
-	digest   [sha256.Size]byte
+	digest   requestDigest
 	response api.NodeSnapshotResponse
 }
 
@@ -114,11 +112,10 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 	if err := validateProducerSnapshot(claims, request.Snapshot); err != nil {
 		return api.NodeSnapshotResponse{}, false, reject(403, "producer_scope", err.Error(), "node_mismatch")
 	}
-	canonical, err := json.Marshal(request)
+	digest, err := digestRequest(request)
 	if err != nil {
 		return api.NodeSnapshotResponse{}, false, reject(400, "invalid_snapshot", "snapshot request cannot be canonicalised", "invalid_snapshot")
 	}
-	digest := sha256.Sum256(canonical)
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.pruneRetired(c.opts.Now())
@@ -140,7 +137,7 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 		return api.NodeSnapshotResponse{}, false, reject(403, "node_claim_mismatch", "producer instance changed Node identity", "node_mismatch")
 	}
 	if exists && request.Sequence == state.sequence {
-		if state.digest != digest {
+		if state.digest.request != digest.request {
 			return api.NodeSnapshotResponse{}, false, reject(409, "sequence_conflict", "sequence was already used for different content", "replay_conflict")
 		}
 		response := state.response
@@ -181,6 +178,15 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 	} else {
 		count, err = c.store.ReplaceAuthenticatedNodeSnapshot(request.Snapshot, claims.NodeUID)
 	}
+	// The agent sent its last accepted snapshot again under a new sequence.
+	// Nothing new was stored, so the answer is a duplicate, not a plain accept.
+	resent := errors.Is(err, collector.ErrSnapshotAlreadyStored) && exists && state.digest.content == digest.content
+	if resent {
+		count, err = state.response.Containers, nil
+	}
+	if errors.Is(err, collector.ErrSnapshotAlreadyStored) {
+		return api.NodeSnapshotResponse{}, false, reject(409, "snapshot_out_of_order", err.Error(), "out_of_order")
+	}
 	if errors.Is(err, collector.ErrNodeIdentityUnavailable) {
 		return api.NodeSnapshotResponse{}, false, reject(409, "node_inventory", err.Error(), "node_mismatch")
 	}
@@ -205,6 +211,7 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 	response := api.NodeSnapshotResponse{
 		TypeMeta:   metav1.TypeMeta{APIVersion: api.MemoryAPIGroup + "/" + api.MemoryAPIVersion, Kind: "NodeSnapshotResult"},
 		Accepted:   true,
+		Duplicate:  resent,
 		Containers: count,
 	}
 	if newOwner {
@@ -214,7 +221,7 @@ func (c *Coordinator) Accept(claims AgentClaims, request api.NodeSnapshotRequest
 	}
 	c.nodes[claims.nodeKey()] = claims.instanceKey()
 	c.agents[claims.instanceKey()] = agentState{nodeUID: claims.NodeUID, nodeKey: claims.nodeKey(), nodeName: claims.NodeName, role: claims.Role, sequence: request.Sequence, digest: digest, response: response}
-	return response, false, nil
+	return response, resent, nil
 }
 
 func (c *Coordinator) pruneRetired(now time.Time) {
