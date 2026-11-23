@@ -88,7 +88,7 @@ KubeMemLens intentionally does not export pod UID, container ID, image, cgroup p
 | `kubememlens_collector_user_visible_available` | gauge | `1` when ready, degraded or stale evidence exists. `0` while rebuilding. |
 | `kubememlens_collector_snapshot_ttl_seconds` | gauge | Configured freshness TTL. |
 | `kubememlens_collector_started_timestamp_seconds` | gauge | Start of the current in-memory collector generation. |
-| `kubememlens_collector_state_transition_timestamp_seconds` | gauge | Latest reliability state transition. |
+| `kubememlens_collector_state_transition_timestamp_seconds` | gauge | Latest reliability state transition. An expiry is dated by the snapshot TTL passing, not by the read that noticed it; see [reliability](reliability.md). |
 | `kubememlens_collector_first_snapshot_timestamp_seconds` | gauge | Earliest source collection time accepted in this generation. |
 | `kubememlens_collector_last_snapshot_timestamp_seconds` | gauge | Newest source collection time accepted in this generation. |
 | `kubememlens_collector_ingestion_last_received_timestamp_seconds` | gauge | Collector receive time of the latest accepted snapshot. |

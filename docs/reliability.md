@@ -33,6 +33,8 @@ Startup is a component lifecycle phase. Before the servers start, Kubernetes rep
 
 The cluster status includes `generation`, `startedAt`, `transitionedAt`, first and last snapshot times, last receive time, expected, fresh, stale and missing node counts, the last inventory refresh, completeness, `snapshotTTLSeconds` and history reliability. Current container, Pod, namespace and workload records carry freshness and completeness.
 
+`transitionedAt` is when the collector entered its current state. The state is worked out when the status is read. A change caused by evidence passing the snapshot TTL is dated by that expiry, so it does not depend on when the status was next read. A change caused by new evidence or a node inventory refresh, such as a recovery, is dated by the first read that saw it.
+
 The deep-mode `top` views preserve freshness, completeness and sample time in table, JSON, YAML and CSV output. Tables show sample age; structured output includes the source timestamp.
 
 Namespace-only callers do not gain access to cluster status. Their client derives the visible state from authorised rows. Server-side namespace filtering remains the security boundary.
