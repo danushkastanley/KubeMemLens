@@ -32,6 +32,10 @@ var errDelegatedAuthorisation = errors.New("delegated authorisation failed")
 
 const defaultShutdownDelay = 3 * time.Second
 
+// RequestTimeout is how long the API server lets a read or write run before it
+// cancels the request and answers 504 itself.
+const RequestTimeout = 10 * time.Second
+
 type ServerOptions struct {
 	BindPort        int
 	CertFile        string
