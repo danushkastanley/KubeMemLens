@@ -241,7 +241,7 @@ func printPodComparison(w interface{ Write([]byte) (int, error) }, title string,
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", row.name, model.FormatCompactBytes(row.beforeBytes), model.FormatCompactBytes(row.afterBytes), signedBytes(row.beforeBytes, row.afterBytes))
 		}
 	}
-	fmt.Fprintf(tw, "PSI some avg10\t%.2f%%\t%.2f%%\t%+.2fpp\n", before.Memory.PSISomeAvg10, after.Memory.PSISomeAvg10, after.Memory.PSISomeAvg10-before.Memory.PSISomeAvg10)
+	fmt.Fprintf(tw, "PSI some avg10\t%s\t%s\t%s\n", pressureValue(before.Memory), pressureValue(after.Memory), pressureDelta(before.Memory, after.Memory))
 	_ = tw.Flush()
 	for _, line := range append(resourceview.ComparisonLines(before, after), qosview.ComparisonLines(before, after)...) {
 		fmt.Fprintln(w, line)
@@ -254,6 +254,21 @@ func printPodComparison(w interface{ Write([]byte) (int, error) }, title string,
 	if elapsed > 0 {
 		fmt.Fprintf(w, "Elapsed: %s  Total rate: %s/s\n", elapsed.Round(time.Second), signedBytesRate(before.Memory.TotalBytes, after.Memory.TotalBytes, elapsed))
 	}
+}
+
+// pressureValue keeps an unread memory.pressure apart from a measured zero.
+func pressureValue(memory model.MemoryBreakdown) string {
+	if !memory.PressureKnown {
+		return "unknown"
+	}
+	return fmt.Sprintf("%.2f%%", memory.PSISomeAvg10)
+}
+
+func pressureDelta(before, after model.MemoryBreakdown) string {
+	if !before.PressureKnown || !after.PressureKnown {
+		return "n/a"
+	}
+	return fmt.Sprintf("%+.2fpp", after.PSISomeAvg10-before.PSISomeAvg10)
 }
 
 func signedBytes(before, after uint64) string {
