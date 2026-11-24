@@ -31,6 +31,7 @@ fmt:
 	python3 hack/format_go.py --write
 
 fmt-check:
+	python3 hack/test_format_go.py
 	python3 hack/format_go.py
 
 vet:

@@ -70,6 +70,14 @@ run_resource_metrics_smoke() {
     RESOURCE_METRICS_ACKNOWLEDGE=run-and-remove-metrics-api-fixture hack/verify-resource-metrics-kind.sh
 }
 
+# Off by default and not set in CI: it starts as an observed check.
+run_evidence_discovery_smoke() {
+  if [ "${E2E_RUN_EVIDENCE_DISCOVERY_SMOKE:-false}" != true ]; then return; fi
+  EVIDENCE_KUBECONFIG="${kubeconfig}" EVIDENCE_CONTEXT="kind-${cluster_name}" EVIDENCE_CLI="${cli}" \
+    EVIDENCE_ARTIFACT_DIR="${artifact_dir:-${work_dir}/artifacts}/evidence-discovery" \
+    EVIDENCE_ACKNOWLEDGE=run-and-remove-evidence-fixture hack/verify-evidence-discovery-kind.sh
+}
+
 run_memory_qos_smoke() {
   if [ "${E2E_RUN_MEMORY_QOS_SMOKE:-false}" != true ]; then return; fi
   QOS_KUBECONFIG="${kubeconfig}" QOS_CONTEXT="kind-${cluster_name}" QOS_CLI="${cli}" \
@@ -389,6 +397,7 @@ if KUBECONFIG="${kubeconfig}" kubectl get --raw \
 fi
 run_resource_metrics_smoke
 run_memory_qos_smoke
+run_evidence_discovery_smoke
 run_pod_resource_smoke
 run_tui_smoke
 run_live_density_smoke

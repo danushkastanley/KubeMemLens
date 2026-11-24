@@ -86,6 +86,13 @@ EVIDENCE_ACKNOWLEDGE=run-and-remove-evidence-fixture \
   hack/verify-evidence-discovery-kind.sh
 ```
 
+The kind end-to-end run includes it when asked. It is off by default and CI
+does not set it:
+
+```sh
+E2E_RUN_EVIDENCE_DISCOVERY_SMOKE=true hack/e2e-kind.sh
+```
+
 The fixture requires the deep API to be installed so its scoped denial can be
 verified. The [agentless harness](agentless-reader.md#local-verification-and-rollback)
 verifies data queries without a collector. This harness proves discovery and authorisation, not provider support.

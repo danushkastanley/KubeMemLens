@@ -201,6 +201,15 @@ Only a local Docker socket is accepted. Serving private keys remain inside the
 owned Nodes; public CSRs and certificates use bounded exec streams because
 Docker's archive-copy API cannot reliably read kind's tmpfs mounts.
 
+After changing that transfer in `hack/node-qualification/prepare_execution_kind.py`,
+run its regression check by hand. It needs a local Docker socket and the node
+image of the `kind-137` profile, starts one container with no network, and
+removes it. It is not part of `make check` or CI.
+
+```sh
+python3 hack/node-qualification/check_public_transfer.py
+```
+
 The saved field summary requires each selected Node to report a field before
 marking it available for the pool. Measured zero remains available; a missing
 field on either Node stays unreported. Mixed or unknown source provenance is
