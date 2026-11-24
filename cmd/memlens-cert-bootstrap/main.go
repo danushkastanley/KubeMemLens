@@ -21,6 +21,7 @@ func main() {
 	validity := flag.Duration("validity", 365*24*time.Hour, "new certificate validity")
 	rotateBefore := flag.Duration("rotate-before", 30*24*time.Hour, "rotate when less validity remains")
 	force := flag.Bool("force", false, "rotate even when the current certificate remains valid")
+	prepare := flag.Bool("prepare", false, "create the serving Secret when it is absent, then stop")
 	flag.Parse()
 
 	config, err := kube.BuildConfig("", "")
@@ -32,10 +33,15 @@ func main() {
 	defer stop()
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	if err := certbootstrap.Run(ctx, config, certbootstrap.Options{
+	opts := certbootstrap.Options{
 		Namespace: *namespace, SecretName: *secret, APIService: *apiService, ServiceName: *service,
 		Validity: *validity, RotateBefore: *rotateBefore, ForceRotation: *force,
-	}); err != nil {
+	}
+	action := certbootstrap.Run
+	if *prepare {
+		action = certbootstrap.Prepare
+	}
+	if err := action(ctx, config, opts); err != nil {
 		fmt.Fprintf(os.Stderr, "certificate bootstrap failed: %v\n", err)
 		os.Exit(1)
 	}

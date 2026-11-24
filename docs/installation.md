@@ -66,11 +66,13 @@ helm upgrade --install kube-memlens \
   --create-namespace
 ```
 
-Use the Helm CLI, or a tool that runs `helm upgrade` against the cluster.
-Rendering the chart without cluster access, as Argo CD and
-`helm template | kubectl apply` do, is not supported: it creates a new serving
-certificate on every render. See the
-[chart README](../charts/kube-memlens/README.md#supported-install-method-the-helm-cli).
+By default, use the Helm CLI or a tool that runs `helm upgrade` against the
+cluster. With the default `extensionTLS.source=chart`, rendering the chart
+without cluster access, as Argo CD and `helm template | kubectl apply` do, is
+not supported: it creates a new serving certificate on every render. Set
+`extensionTLS.source=bootstrap` to have the certificate created in the cluster
+instead. See the
+[chart README](../charts/kube-memlens/README.md#install-methods-and-the-serving-certificate).
 
 The chart selects the version-matched standard image. To pin its immutable
 digest, set `image.digest` to the complete `sha256:` value from the signed

@@ -26,17 +26,21 @@ a provider claim. [Send feedback through a GitHub issue](https://github.com/danu
 See the [support contract](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/compatibility.md)
 for the AWS EKS managed Linux profile and permission requirements.
 
-## Supported install method: the Helm CLI
+## Install methods and the serving certificate
 
-Install, upgrade and roll back this chart with `helm install`, `helm upgrade`
-and `helm rollback`, or with a tool that runs those Helm operations against the
+The aggregated API needs a serving CA, certificate and private key. The value
+`extensionTLS.source` says who creates them.
+
+### `chart` (default): the Helm CLI only
+
+Install, upgrade and roll back with `helm install`, `helm upgrade` and
+`helm rollback`, or with a tool that runs those Helm operations against the
 cluster.
 
-Rendering the chart without cluster access is not supported. That includes
-Argo CD and `helm template | kubectl apply`. The chart creates the aggregated
-API's serving CA, certificate and private key while it renders, and reuses the
-existing Secret on later upgrades by reading it from the cluster. A render that
-cannot read the cluster creates a new set every time, so:
+In this mode the chart creates the key material while it renders, and reuses
+the existing Secret on later upgrades by reading it from the cluster. Rendering
+without cluster access is not supported. That includes Argo CD and
+`helm template | kubectl apply`: such a render creates a new set every time, so
 
 - the `kube-memlens-extension-tls` Secret and the APIService `caBundle` change
   on every sync and never settle;
@@ -47,6 +51,39 @@ cannot read the cluster creates a new set every time, so:
 
 With the Helm CLI, the same private key is stored in the Helm release Secret in
 the release namespace. Restrict who can read Secrets there.
+
+### `bootstrap`: key material created in the cluster
+
+With `extensionTLS.source=bootstrap` the chart renders no Secret and no
+`caBundle`, so two renders are identical and neither the manifests nor the Helm
+release Secret hold the private key. A Job creates the Secret
+`<extensionTLS.secretName>-bootstrap` before the workloads start, and a second
+Job writes the APIService `caBundle` once the collector serves.
+
+What to know before choosing it:
+
+- The namespace must exist before the install. `namespace.create=true` is
+  refused in this mode; use `--create-namespace` or create it yourself.
+- The Job's Role may `create` Secrets in the install namespace. Kubernetes
+  cannot limit `create` to one name. The ServiceAccount and Role exist only
+  while a Job runs.
+- The Secret is not part of the release. `helm uninstall` leaves it behind;
+  delete it yourself if you do not plan to reinstall:
+  `kubectl delete secret <extensionTLS.secretName>-bootstrap -n <namespace>`.
+- Switching an existing release between `chart` and `bootstrap`, in either
+  direction or by rollback, replaces the serving CA. Reads through the
+  aggregated API fail until the new `caBundle` is in place. On a local kind
+  cluster that lasted from a few seconds to about half a minute.
+- The `caBundle` is written in the cluster and is absent from the manifests. A
+  GitOps tool may report that field as drift; tell it to ignore
+  `/spec/caBundle` on the APIService `v1alpha1.memory.kubememlens.io`.
+- With `helm template | kubectl apply` nothing orders the Jobs before the
+  workloads. The collector Pod waits for the Secret and starts once it exists.
+  The finished Jobs stay in the namespace; delete them before applying a
+  render in which their spec has changed, because a Job cannot be updated.
+
+This mode has been run on kind with the Helm CLI and with
+`helm template | kubectl apply`. It has not been run under Argo CD or Flux.
 
 ## Components
 
@@ -114,6 +151,7 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `collector.resources.limits.memory` | `256Mi` | Default collector memory ceiling |
 | `collector.service.extensionPort` | `443` | Authenticated Service and APIService port; targets the collector's named `extension` listener |
 | `collector.service.extensionPortName` | `https-extension` | Authenticated Service port name |
+| `extensionTLS.source` | `chart` | Who creates the serving CA, certificate and key: `chart` or `bootstrap`. See [Install methods and the serving certificate](#install-methods-and-the-serving-certificate) |
 | `extensionTLS.rotateBefore` | `720h` | Serving-certificate rotation window. Must be shorter than `extensionTLS.validityDays` |
 | `networkPolicy.enabled` | `true` | Cluster-local read and APIService ingress policy |
 | `metrics.includeContainers` | `false` | High-cardinality container metrics opt-in |

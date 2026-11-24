@@ -127,6 +127,11 @@ collector:
     extensionPortName: https-extension
 
 extensionTLS:
+  # Who creates the aggregated API's serving CA, certificate and key.
+  # chart: the chart creates them while it renders. Helm CLI only.
+  # bootstrap: a Job creates them in the cluster, in a Secret named
+  # <secretName>-bootstrap, and the chart renders no key material.
+  source: chart
   secretName: kube-memlens-extension-tls
   validityDays: 365
   rotateBefore: 720h

@@ -133,7 +133,7 @@ Non-capabilities at the start of an abuse path:
 | `nodesnapshots` create | Identity extras, epoch, sequence, time and bounded snapshot JSON | Kubernetes authentication plus the PROD-003 extension node binding and `internal/collector` validation |
 | `ingestionepochs` get | Agent identity | Exact agent RBAC and extension identity check |
 | Aggregation listener | TLS client certificate and forwarded identity headers | Request-header authenticator configured from `extension-apiserver-authentication` |
-| Serving certificate bootstrap | Secret and `APIService` names, CA bundle and expiry | Name-scoped update permissions for Helm-created objects |
+| Serving certificate bootstrap | Secret and `APIService` names, CA bundle and expiry | Name-scoped update permissions for Helm-created objects. With `extensionTLS.source=bootstrap` the hook account may also create Secrets in the install namespace, which Kubernetes cannot scope by name; the account exists only while a hook Job runs |
 | Alpha `/api/v1/*` and `/metrics` | HTTP path, query and bodies | Retained in the binary for trusted pre-v1 rollback; the production chart cannot enable or expose them |
 | CLI and TUI | Flags, selectors, capture paths and local terminal | `cmd/kubectl-memlens`, `internal/client`, `internal/tui`, `internal/incident` |
 | Cgroup scanner | Host cgroup files and container identifiers | `internal/cgroup`, `internal/agent/scanner.go` and read-only host mount |
