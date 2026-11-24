@@ -180,6 +180,7 @@
           "properties": {"kubernetes.io/os": {"const": "linux"}}
         },
         "replicas": {"const": 1},
+        "tokenExpirationSeconds": {"type": "integer", "minimum": 600, "maximum": 86400},
         "snapshotTTL": {"$ref": "#/definitions/duration"},
         "read": {
           "type": "object",

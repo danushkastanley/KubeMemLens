@@ -66,6 +66,7 @@ Each item came from a shipped fix. Ask the question only when the trigger matche
 | A new TUI screen or key binding | Do Ctrl+C and `q` quit from it? | quit from every screen |
 | An empty result set | Is "empty" distinguishable from "rebuilding" or "never reported"? | empty namespace; `doctor` and silent nodes |
 | A new chart value | Is an invalid combination refused at render time? | chart value guards |
+| A test assigns a process-wide variable (`time.Local`, an environment variable, a package-level default) | Can another test in the package read it while this one runs? Run `go test -race` on the package | history test set `time.Local` under parallel tests |
 | Container-to-Pod mapping | Does it hold on nested runtimes and for idle Pod sandboxes? | nested cgroup layout; sandbox as infrastructure |
 
 ## Which tests to write

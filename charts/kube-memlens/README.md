@@ -137,11 +137,12 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `namespace.create` | `false` | Create `namespace.name` as part of the release. Leave `false` when `--create-namespace` creates it |
 | `agent.nodeSelector` | `kubernetes.io/os: linux` | Linux-node targeting |
 | `agent.tolerations` | empty | Operator-reviewed node-pool tolerations |
-| `agent.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime |
+| `agent.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime for the agent and the Node-context producer |
 | `agent.resources.requests.memory` | `96Mi` | Local `rc-5000` p95-derived agent scheduling request |
 | `agent.resources.limits.memory` | `128Mi` | Default per-agent memory ceiling |
 | `collector.nodeSelector` | `{}` | Additional placement labels; `kubernetes.io/os: linux` is always required |
 | `collector.replicas` | `1` | Required single in-memory collector |
+| `collector.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime for the collector |
 | `collector.read.maxConcurrentRequests` | `4` | Authenticated read admission ceiling; aggregate construction is serialised |
 | `collector.ingestion.maxConcurrentRequests` | `4` | Concurrent snapshot decode ceiling |
 | `collector.ingestion.requestsPerSecondPerAgent` | `1` | Per-agent sustained ingestion rate |
