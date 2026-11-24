@@ -27,6 +27,9 @@ once installed. Rendered from validate.yaml so every render runs them.
 {{- end -}}
 {{- end -}}
 {{- end -}}
+{{- if and .Values.collector.enabled (eq (include "kube-memlens.tlsSource" .) "bootstrap") .Values.namespace.create -}}
+{{- fail "extensionTLS.source=bootstrap cannot be combined with namespace.create=true: the certificate Job runs before the chart creates the namespace. Create the namespace first, for example with --create-namespace" -}}
+{{- end -}}
 {{- if and .Values.metrics.prometheusRule.enabled (not .Values.metrics.enabled) -}}
 {{- fail "metrics.prometheusRule.enabled requires metrics.enabled; without metrics the collector-unavailable alert would fire permanently" -}}
 {{- end -}}

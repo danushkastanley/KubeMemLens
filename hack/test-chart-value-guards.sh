@@ -19,6 +19,30 @@ rejects() {
   fi
 }
 
+# bootstrap_render fails unless a render with a bootstrap-owned Secret is the
+# same twice and holds no key material: that is what makes it safe to render
+# without cluster access.
+bootstrap_render() {
+  local first="${work_dir}/bootstrap-1.yaml" second="${work_dir}/bootstrap-2.yaml" unwanted
+  helm template kube-memlens charts/kube-memlens --set extensionTLS.source=bootstrap > "${first}"
+  helm template kube-memlens charts/kube-memlens --set extensionTLS.source=bootstrap > "${second}"
+  if ! cmp -s "${first}" "${second}"; then
+    echo 'two renders with extensionTLS.source=bootstrap differ:' >&2
+    diff "${first}" "${second}" | cut -c1-80 >&2
+    exit 1
+  fi
+  for unwanted in 'caBundle:' 'kind: Secret' 'BEGIN '; do
+    if grep -Fq "${unwanted}" "${first}"; then
+      echo "render with extensionTLS.source=bootstrap contains ${unwanted}" >&2
+      exit 1
+    fi
+  done
+  if ! grep -Fq 'name: kube-memlens-cert-prepare' "${first}"; then
+    echo 'render with extensionTLS.source=bootstrap has no Job that creates the Secret before the workloads' >&2
+    exit 1
+  fi
+}
+
 accepts() {
   local description=$1
   shift
@@ -63,6 +87,9 @@ rejects 'a snapshot lifetime shorter than the agent interval in mixed units' 'co
   --set collector.snapshotTTL=900ms --set agent.interval=1s
 rejects 'alert rules without metrics' 'metrics.prometheusRule.enabled' \
   --set metrics.enabled=false --set metrics.prometheusRule.enabled=true
+rejects 'a bootstrap-owned Secret in a namespace the chart creates' 'extensionTLS.source=bootstrap' \
+  --set extensionTLS.source=bootstrap --set namespace.create=true
+bootstrap_render
 
 accepts 'the default values'
 accepts 'a rotation window just inside the validity' \

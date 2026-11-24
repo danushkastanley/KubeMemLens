@@ -24,3 +24,25 @@ kube-system is visible; helm template and client dry runs are unaffected.
 {{- end -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Who creates the serving CA, certificate and key: the chart while it renders, or
+the certificate bootstrap Job in the cluster. Values stored by an older release
+have no source and keep the chart.
+*/}}
+{{- define "kube-memlens.tlsSource" -}}
+{{- .Values.extensionTLS.source | default "chart" -}}
+{{- end -}}
+
+{{/*
+The bootstrap keeps its Secret under its own name. Helm deletes the
+chart-rendered Secret when a release switches source, and the collector must
+already have the other one to mount.
+*/}}
+{{- define "kube-memlens.tlsSecretName" -}}
+{{- if eq (include "kube-memlens.tlsSource" .) "bootstrap" -}}
+{{- printf "%s-bootstrap" .Values.extensionTLS.secretName -}}
+{{- else -}}
+{{- .Values.extensionTLS.secretName -}}
+{{- end -}}
+{{- end -}}

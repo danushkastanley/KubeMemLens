@@ -203,7 +203,7 @@ spec:
 {{- end }}
         - name: extension-tls
           secret:
-            secretName: {{ .Values.extensionTLS.secretName | quote }}
+            secretName: {{ include "kube-memlens.tlsSecretName" . | quote }}
             defaultMode: 0440
         - name: kubernetes-api-access
           projected:

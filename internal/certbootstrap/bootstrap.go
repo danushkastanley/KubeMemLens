@@ -42,17 +42,9 @@ type Options struct {
 }
 
 func Run(ctx context.Context, config *rest.Config, opts Options) error {
-	if config == nil {
-		return fmt.Errorf("Kubernetes config is required")
-	}
-	if opts.Namespace == "" || opts.SecretName == "" || opts.APIService == "" || opts.ServiceName == "" {
-		return fmt.Errorf("namespace, Secret, APIService and Service names are required")
-	}
-	if opts.Validity <= 0 || opts.RotateBefore <= 0 || opts.RotateBefore >= opts.Validity {
-		return fmt.Errorf("certificate validity and rotation window are invalid")
-	}
-	if opts.Now == nil {
-		opts.Now = func() time.Time { return time.Now().UTC() }
+	opts, err := checked(config, opts)
+	if err != nil {
+		return err
 	}
 	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
@@ -62,9 +54,9 @@ func Run(ctx context.Context, config *rest.Config, opts Options) error {
 	if err != nil {
 		return fmt.Errorf("create APIService client: %w", err)
 	}
-	secret, err := client.CoreV1().Secrets(opts.Namespace).Get(ctx, opts.SecretName, metav1.GetOptions{})
+	secret, err := ensureSecret(ctx, client, opts)
 	if err != nil {
-		return fmt.Errorf("get serving Secret: %w", err)
+		return err
 	}
 	rotate := opts.ForceRotation || needsRotation(secret, opts, opts.Now())
 	if !rotate {

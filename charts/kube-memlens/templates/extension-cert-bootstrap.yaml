@@ -1,81 +1,17 @@
-{{- if .Values.collector.enabled }}
-{{- $hookAnnotations := dict
-      "meta.helm.sh/release-name" .Release.Name
-      "meta.helm.sh/release-namespace" .Release.Namespace
-      "helm.sh/hook" "post-install,post-upgrade,post-rollback"
-      "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded" -}}
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kube-memlens-cert-bootstrap
-  namespace: {{ .Values.namespace.name | quote }}
-  annotations:
-{{ toYaml (merge (dict "helm.sh/hook-weight" "-30") $hookAnnotations) | nindent 4 }}
-automountServiceAccountToken: false
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: kube-memlens-cert-bootstrap
-  namespace: {{ .Values.namespace.name | quote }}
-  annotations:
-{{ toYaml (merge (dict "helm.sh/hook-weight" "-20") $hookAnnotations) | nindent 4 }}
-rules:
-  - apiGroups: [""]
-    resources: ["secrets"]
-    resourceNames: [{{ .Values.extensionTLS.secretName | quote }}]
-    verbs: ["get", "update"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: kube-memlens-cert-bootstrap
-  annotations:
-{{ toYaml (merge (dict "helm.sh/hook-weight" "-20") $hookAnnotations) | nindent 4 }}
-rules:
-  - apiGroups: ["apiregistration.k8s.io"]
-    resources: ["apiservices"]
-    resourceNames: ["v1alpha1.memory.kubememlens.io"]
-    verbs: ["get", "update"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: kube-memlens-cert-bootstrap
-  namespace: {{ .Values.namespace.name | quote }}
-  annotations:
-{{ toYaml (merge (dict "helm.sh/hook-weight" "-10") $hookAnnotations) | nindent 4 }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: kube-memlens-cert-bootstrap
-subjects:
-  - kind: ServiceAccount
-    name: kube-memlens-cert-bootstrap
-    namespace: {{ .Values.namespace.name | quote }}
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: kube-memlens-cert-bootstrap
-  annotations:
-{{ toYaml (merge (dict "helm.sh/hook-weight" "-10") $hookAnnotations) | nindent 4 }}
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: kube-memlens-cert-bootstrap
-subjects:
-  - kind: ServiceAccount
-    name: kube-memlens-cert-bootstrap
-    namespace: {{ .Values.namespace.name | quote }}
----
+{{/*
+One certificate bootstrap Job. root is the chart context; name, annotations
+and prepare distinguish the Job that only creates the Secret from the one that
+reconciles the APIService.
+*/}}
+{{- define "kube-memlens.certBootstrapJob" -}}
+{{- $root := .root -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: kube-memlens-cert-bootstrap
-  namespace: {{ .Values.namespace.name | quote }}
+  name: {{ .name }}
+  namespace: {{ $root.Values.namespace.name | quote }}
   annotations:
-{{ toYaml (merge (dict "helm.sh/hook-weight" "0") $hookAnnotations) | nindent 4 }}
+{{ toYaml .annotations | nindent 4 }}
 spec:
   backoffLimit: 1
   activeDeadlineSeconds: 150
@@ -98,18 +34,21 @@ spec:
           type: RuntimeDefault
       containers:
         - name: bootstrap
-          image: {{ include "kube-memlens.image" . | quote }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: {{ include "kube-memlens.image" $root | quote }}
+          imagePullPolicy: {{ $root.Values.image.pullPolicy }}
           command: ["/memlens-cert-bootstrap"]
           args:
-            - "--namespace={{ .Values.namespace.name }}"
-            - "--secret={{ .Values.extensionTLS.secretName }}"
+            - "--namespace={{ $root.Values.namespace.name }}"
+            - "--secret={{ include "kube-memlens.tlsSecretName" $root }}"
             - "--api-service=v1alpha1.memory.kubememlens.io"
             - "--service=kube-memlens-collector"
-            - "--validity={{ mul (int .Values.extensionTLS.validityDays) 24 }}h"
-            - "--rotate-before={{ .Values.extensionTLS.rotateBefore }}"
-{{- if .Values.extensionTLS.forceRotate }}
+            - "--validity={{ mul (int $root.Values.extensionTLS.validityDays) 24 }}h"
+            - "--rotate-before={{ $root.Values.extensionTLS.rotateBefore }}"
+{{- if $root.Values.extensionTLS.forceRotate }}
             - "--force"
+{{- end }}
+{{- if .prepare }}
+            - "--prepare"
 {{- end }}
           securityContext:
             privileged: false
@@ -145,4 +84,95 @@ spec:
                     - path: namespace
                       fieldRef:
                         fieldPath: metadata.namespace
+{{- end -}}
+
+{{- if .Values.collector.enabled }}
+{{- $bootstrapOwned := eq (include "kube-memlens.tlsSource" .) "bootstrap" -}}
+{{- $release := dict
+      "meta.helm.sh/release-name" .Release.Name
+      "meta.helm.sh/release-namespace" .Release.Namespace
+      "helm.sh/hook-delete-policy" "before-hook-creation,hook-succeeded" -}}
+{{- $after := "post-install,post-upgrade,post-rollback" -}}
+{{- $before := "pre-install,pre-upgrade,pre-rollback" -}}
+{{- $postAnnotations := merge (dict "helm.sh/hook" $after) $release -}}
+{{- /* With a bootstrap-owned Secret the account and its grants also serve the Job that runs before the workloads. */ -}}
+{{- $rbacAnnotations := merge (dict "helm.sh/hook" (ternary (printf "%s,%s" $before $after) $after $bootstrapOwned)) $release -}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-memlens-cert-bootstrap
+  namespace: {{ .Values.namespace.name | quote }}
+  annotations:
+{{ toYaml (merge (dict "helm.sh/hook-weight" "-30") $rbacAnnotations) | nindent 4 }}
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kube-memlens-cert-bootstrap
+  namespace: {{ .Values.namespace.name | quote }}
+  annotations:
+{{ toYaml (merge (dict "helm.sh/hook-weight" "-20") $rbacAnnotations) | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: [{{ include "kube-memlens.tlsSecretName" . | quote }}]
+    verbs: ["get", "update"]
+{{- if $bootstrapOwned }}
+  # Kubernetes cannot limit create to one name.
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["create"]
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-memlens-cert-bootstrap
+  annotations:
+{{ toYaml (merge (dict "helm.sh/hook-weight" "-20") $rbacAnnotations) | nindent 4 }}
+rules:
+  - apiGroups: ["apiregistration.k8s.io"]
+    resources: ["apiservices"]
+    resourceNames: ["v1alpha1.memory.kubememlens.io"]
+    verbs: ["get", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kube-memlens-cert-bootstrap
+  namespace: {{ .Values.namespace.name | quote }}
+  annotations:
+{{ toYaml (merge (dict "helm.sh/hook-weight" "-10") $rbacAnnotations) | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kube-memlens-cert-bootstrap
+subjects:
+  - kind: ServiceAccount
+    name: kube-memlens-cert-bootstrap
+    namespace: {{ .Values.namespace.name | quote }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-memlens-cert-bootstrap
+  annotations:
+{{ toYaml (merge (dict "helm.sh/hook-weight" "-10") $rbacAnnotations) | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-memlens-cert-bootstrap
+subjects:
+  - kind: ServiceAccount
+    name: kube-memlens-cert-bootstrap
+    namespace: {{ .Values.namespace.name | quote }}
+---
+{{- if $bootstrapOwned }}
+{{ include "kube-memlens.certBootstrapJob" (dict "root" . "name" "kube-memlens-cert-prepare" "prepare" true
+      "annotations" (merge (dict "helm.sh/hook" $before "helm.sh/hook-weight" "0") $release)) }}
+---
+{{- end }}
+{{ include "kube-memlens.certBootstrapJob" (dict "root" . "name" "kube-memlens-cert-bootstrap" "prepare" false
+      "annotations" (merge (dict "helm.sh/hook-weight" "0") $postAnnotations)) }}
 {{- end }}
