@@ -47,3 +47,26 @@ func TestFilterHistorySinceKeepsRecentPointsAndInstances(t *testing.T) {
 		t.Fatalf("unexpected filtered history: %#v", got)
 	}
 }
+
+// The reader may sit in any time zone, or replay a capture days later. The
+// TIME column has to line up with the UTC windows printed around it.
+func TestPrintPodHistoryTimesAreDatedUTCWhateverTheLocalZone(t *testing.T) {
+	local := time.Local
+	time.Local = time.FixedZone("UTC+05:30", 5*3600+30*60)
+	t.Cleanup(func() { time.Local = local })
+
+	output := &bytes.Buffer{}
+	printPodHistory(output, []api.PodHistory{{
+		Namespace: "default", PodName: "api", NodeName: "node-a",
+		Points: []api.MemoryHistoryPoint{
+			{CapturedAt: time.Date(2026, 7, 18, 23, 59, 30, 0, time.UTC)},
+			{CapturedAt: time.Date(2026, 7, 19, 0, 0, 30, 0, time.UTC)},
+		},
+	}})
+
+	for _, want := range []string{"TIME (UTC)", "18 Jul 23:59:30", "19 Jul 00:00:30"} {
+		if !strings.Contains(output.String(), want) {
+			t.Fatalf("history output missing %q:\n%s", want, output.String())
+		}
+	}
+}

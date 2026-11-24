@@ -80,10 +80,10 @@ func printPodHistory(w interface{ Write([]byte) (int, error) }, series []api.Pod
 		sort.Slice(series[i].Points, func(a, b int) bool { return series[i].Points[a].CapturedAt.Before(series[i].Points[b].CapturedAt) })
 		fmt.Fprintf(w, "Pod: %s/%s  Node: %s  Instance: %s\n", series[i].Namespace, series[i].PodName, series[i].NodeName, shortUID(series[i].PodUID))
 		tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(tw, "TIME\tTOTAL\tANON\tCACHE\tSHMEM\tOTHER\tSWAP\tPSI SOME/FULL\tEVENTS\tRECLAIM")
+		fmt.Fprintln(tw, "TIME (UTC)\tTOTAL\tANON\tCACHE\tSHMEM\tOTHER\tSWAP\tPSI SOME/FULL\tEVENTS\tRECLAIM")
 		for _, point := range series[i].Points {
 			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%.2f/%.2f\t%s\t%s\n",
-				point.CapturedAt.Local().Format("15:04:05"),
+				point.CapturedAt.UTC().Format("02 Jan 15:04:05"),
 				model.FormatCompactBytes(point.TotalBytes), model.FormatCompactBytes(point.AnonBytes),
 				model.FormatCompactBytes(point.FileCacheBytes), model.FormatCompactBytes(point.ShmemBytes),
 				model.FormatCompactBytes(point.ResidualBytes), model.FormatCompactBytes(point.SwapBytes),
