@@ -2,7 +2,7 @@
 
 Date: 24 November 2026
 
-Status: proposed for review; no chart or code change is made by this ADR
+Status: proposed for review; implemented in PR 385
 
 ## Context
 
@@ -54,10 +54,13 @@ current mode as the default until the migration has been observed.
    `create` on Secrets in the install namespace. Kubernetes cannot restrict
    `create` by resource name, so this is a wider grant than today, held only by
    a hook-scoped ServiceAccount that exists while the Job runs.
-5. The chart refuses `extensionTLS.source=bootstrap` together with
+5. With `bootstrap`, the Secret is named `<extensionTLS.secretName>-bootstrap`.
+   Helm deletes the chart-rendered Secret when a release switches source, and
+   the collector must already have the other one to mount.
+6. The chart refuses `extensionTLS.source=bootstrap` together with
    `namespace.create=true`, because a pre-install hook runs before the chart's
    Namespace exists.
-6. The default stays `chart`. Changing the default, or removing `chart`, is a
+7. The default stays `chart`. Changing the default, or removing `chart`, is a
    separate decision after `bootstrap` has been run on real installs.
 
 In `bootstrap` mode the private key is no longer in the rendered manifests or
@@ -98,19 +101,27 @@ the Helm release Secret.
 - Rotation stays tied to install, upgrade and rollback. Scheduled rotation is
   issue 294 and is not decided here.
 
-## Not yet verified
+## What running it showed
 
-These are inferred from reading and must be shown by running before the
-implementation merges:
+Run on a disposable kind cluster with Kubernetes 1.37.0, for the implementation
+in PR 385:
 
-- That the API server accepts an APIService with no `caBundle` and
-  `insecureSkipTLSVerify: false`, and reports it unavailable until patched.
-- That `helm upgrade` leaves a `caBundle` written by the bootstrap untouched
-  when the manifest has none in both revisions.
-- What Argo CD reports for the bootstrap-written `caBundle`, and whether its
-  PreSync phase runs after the namespace exists.
-- That switching an existing release from `chart` to `bootstrap` keeps the
-  aggregated API available, or how long it is unavailable if not.
+- The API server accepts an APIService with no `caBundle` and
+  `insecureSkipTLSVerify: false`. It became available once the bootstrap wrote
+  the `caBundle`.
+- `helm upgrade` leaves a `caBundle` written by the bootstrap untouched when
+  neither revision's manifest has one. No read failed during such an upgrade.
+- Switching an existing release between `chart` and `bootstrap`, in either
+  direction or by rollback, replaces the serving CA. Reads through the
+  aggregated API failed for a few seconds to about half a minute each time.
+- `helm template | kubectl apply`, done twice, converged without hook ordering
+  and left the Secret and the `caBundle` unchanged on the second apply.
+- `helm uninstall` leaves the bootstrap Secret behind, because it is not part
+  of the release.
+
+Still not run: Argo CD and Flux. How they report the bootstrap-written
+`caBundle`, and whether Argo CD's PreSync phase runs after the namespace
+exists, remain open.
 
 ## Verification, migration and rollback
 
