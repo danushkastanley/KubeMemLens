@@ -36,11 +36,11 @@ func entityLevels(namespaces []api.NamespaceSnapshot, pods []api.PodSnapshot, co
 	return append(levels,
 		entityLevel{
 			name: "pod", count: podCount, dropped: cardinalityGuardrail(opts.IncludePodMetrics, podCount, opts.MaxPods),
-			render: func(r *renderer) { r.renderPods(pods, opts) },
+			render: func(r *renderer) { r.renderPods(mergePodSeries(pods), opts) },
 		},
 		entityLevel{
 			name: "container", count: containerCount, dropped: cardinalityGuardrail(opts.IncludeContainerMetrics, containerCount, opts.MaxContainers),
-			render: func(r *renderer) { r.renderContainers(containers, opts) },
+			render: func(r *renderer) { r.renderContainers(mergeContainerSeries(containers), opts) },
 		},
 	)
 }

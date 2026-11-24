@@ -46,6 +46,8 @@ Container metrics use:
 
 KubeMemLens intentionally does not export pod UID, container ID, image, cgroup path, file path, owner references, or arbitrary Kubernetes labels in the v1 candidate.
 
+Because those identifiers are not labels, two instances that share every label above are reported as one series whose values are their sum. This happens when a Pod is recreated under the same name on the same node while the old cgroup still exists. `kubememlens_collector_store_entities` still counts each instance.
+
 ## Collector Metrics
 
 `kubememlens_collector_store_entities`
