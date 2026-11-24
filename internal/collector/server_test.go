@@ -229,6 +229,30 @@ func TestSnapshotEndpointRejectsOutOfOrderSnapshot(t *testing.T) {
 	}
 }
 
+func TestSnapshotEndpointRefusesASecondSnapshotWithTheStoredCaptureTime(t *testing.T) {
+	now := time.Now().UTC()
+	store := NewStore()
+	handler := NewHandler(store, time.Minute, func(string, ...any) {})
+	first := api.AgentSnapshot{
+		SchemaVersion: api.CurrentSnapshotSchemaVersion, NodeName: "node-a", CapturedAt: now,
+		Containers: []api.ContainerSnapshot{container("default", "pod-a", "app", "id-a", now, 100)},
+	}
+	if rec := postSnapshot(t, handler, first); rec.Code != http.StatusOK {
+		t.Fatalf("first status = %d, want 200: %s", rec.Code, rec.Body.String())
+	}
+	changed := first
+	changed.Containers = []api.ContainerSnapshot{container("default", "pod-b", "app", "id-b", now, 200)}
+
+	rec := postSnapshot(t, handler, changed)
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("snapshot that was not stored: status = %d, want 409: %s", rec.Code, rec.Body.String())
+	}
+	if stored := store.ListContainers(now, time.Minute); len(stored) != 1 || stored[0].ContainerID != "id-a" {
+		t.Fatalf("refused snapshot changed the store: %#v", stored)
+	}
+}
+
 func TestSnapshotEndpointRejectsOversizedPayload(t *testing.T) {
 	handler := NewHandlerWithOptions(NewStore(), HandlerOptions{
 		SnapshotTTL:      time.Minute,

@@ -14,6 +14,10 @@ import (
 )
 
 var ErrSnapshotOutOfOrder = errors.New("snapshot is older than the latest snapshot for this node")
+
+// ErrSnapshotAlreadyStored reports that nothing was stored: the node already
+// has a snapshot with this capture time, and the store does not compare content.
+var ErrSnapshotAlreadyStored = errors.New("a snapshot with this capture time is already stored for this node")
 var ErrStoreCapacity = errors.New("snapshot would exceed collector storage capacity")
 
 type StoreLimits struct {
@@ -123,7 +127,7 @@ func (s *Store) ReplaceAuthenticatedNodeSnapshot(snapshot api.AgentSnapshot, uid
 			return 0, ErrSnapshotOutOfOrder
 		}
 		if snapshot.CapturedAt.Equal(previousNode.capturedAt) {
-			return len(previousNode.containers), nil
+			return 0, ErrSnapshotAlreadyStored
 		}
 	}
 	previousByContainer := map[string]api.ContainerSnapshot{}

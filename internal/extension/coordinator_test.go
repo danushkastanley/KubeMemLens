@@ -153,6 +153,38 @@ func TestCoordinatorConcurrentDuplicateMutatesOnce(t *testing.T) {
 	}
 }
 
+func TestCoordinatorRejectsADifferentSnapshotWithTheStoredCaptureTime(t *testing.T) {
+	now := time.Unix(1_800_000_000, 0).UTC()
+	store := collector.NewStore()
+	coordinator := testCoordinator(t, store, now, 10)
+	claims := testClaims("pod-a", "node-a", "node-uid-a")
+	if _, _, err := coordinator.Accept(claims, testRequest(now, "epoch-a", 1, "node-a", "node-uid-a")); err != nil {
+		t.Fatalf("first snapshot rejected: %v", err)
+	}
+
+	changed := testRequest(now, "epoch-a", 2, "node-a", "node-uid-a")
+	changed.Snapshot.Containers[0].ContainerID = "container-b"
+	response, _, err := coordinator.Accept(claims, changed)
+	if err == nil {
+		t.Fatalf("snapshot that was not stored was reported as accepted: %#v", response)
+	}
+	assertIngestionCode(t, err, "snapshot_out_of_order")
+	stored := store.ListContainers(now, time.Minute)
+	if len(stored) != 1 || stored[0].ContainerID != "container-a" {
+		t.Fatalf("rejected snapshot changed the store: %#v", stored)
+	}
+
+	resent, duplicate, err := coordinator.Accept(claims, testRequest(now, "epoch-a", 2, "node-a", "node-uid-a"))
+	if err != nil || !duplicate || !resent.Duplicate || resent.Containers != 1 {
+		t.Fatalf("stored snapshot sent again under a new sequence = %#v, duplicate=%t, err=%v; want a duplicate", resent, duplicate, err)
+	}
+
+	later := testRequest(now.Add(time.Second), "epoch-a", 3, "node-a", "node-uid-a")
+	if _, _, err := coordinator.Accept(claims, later); err != nil {
+		t.Fatalf("next snapshot was refused: %v", err)
+	}
+}
+
 func testCoordinator(t *testing.T, store *collector.Store, now time.Time, maxAgents int) *Coordinator {
 	t.Helper()
 	coordinator, err := NewCoordinator(store, CoordinatorOptions{

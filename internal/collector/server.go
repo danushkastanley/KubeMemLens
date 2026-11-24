@@ -127,7 +127,7 @@ func registerIngestion(mux *http.ServeMux, store *Store, opts HandlerOptions, lo
 		}
 
 		count, err := store.ReplaceNodeSnapshot(snapshot)
-		if errors.Is(err, ErrSnapshotOutOfOrder) {
+		if errors.Is(err, ErrSnapshotOutOfOrder) || errors.Is(err, ErrSnapshotAlreadyStored) {
 			result = "out_of_order"
 			writeError(w, http.StatusConflict, err.Error())
 			return
