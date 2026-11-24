@@ -206,8 +206,13 @@ func withConfidence(result Result, memory model.MemoryBreakdown) Result {
 func oomRisk(m model.MemoryBreakdown) Result {
 	signals := []string{}
 	oom, oomKill, high, maxEvents := m.RecentEventCounts()
-	source := "memory.events"
-	if m.EventDeltasKnown {
+	// Name the file RecentEventCounts read, and call the counts a delta only
+	// when that file's deltas are known.
+	source, deltas := "memory.events", m.EventDeltasKnown
+	if m.LocalEventsKnown {
+		source, deltas = "memory.events.local", m.LocalEventDeltasKnown
+	}
+	if deltas {
 		source += " delta"
 	}
 	if oom > 0 {

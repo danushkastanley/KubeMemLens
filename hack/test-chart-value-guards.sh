@@ -29,6 +29,28 @@ accepts() {
   fi
 }
 
+# renders_without fails when the rendered chart contains the given text.
+renders_without() {
+  local description=$1 unwanted=$2
+  shift 2
+  helm template kube-memlens charts/kube-memlens "$@" > "${work_dir}/rendered.yaml"
+  if grep -Fq "${unwanted}" "${work_dir}/rendered.yaml"; then
+    echo "chart rendered ${description}:" >&2
+    grep -Fn -B3 "${unwanted}" "${work_dir}/rendered.yaml" >&2
+    exit 1
+  fi
+}
+
+renders_with() {
+  local description=$1 wanted=$2
+  shift 2
+  helm template kube-memlens charts/kube-memlens "$@" > "${work_dir}/rendered.yaml"
+  if ! grep -Fq "${wanted}" "${work_dir}/rendered.yaml"; then
+    echo "chart did not render ${description}: no line contains ${wanted}" >&2
+    exit 1
+  fi
+}
+
 rejects 'a rotation window as long as the certificate validity' 'extensionTLS.rotateBefore' \
   --set extensionTLS.validityDays=30 --set extensionTLS.rotateBefore=720h
 rejects 'a rotation window longer than the certificate validity' 'extensionTLS.rotateBefore' \
@@ -51,4 +73,12 @@ accepts 'a short snapshot lifetime with the agent disabled' \
   --set agent.enabled=false --set collector.snapshotTTL=1s
 accepts 'metrics disabled without alert rules' --set metrics.enabled=false
 accepts 'alert rules with metrics' --set metrics.prometheusRule.enabled=true
+renders_without 'agent RBAC with the agent disabled' 'name: kube-memlens-agent' --set agent.enabled=false
+renders_with 'agent RBAC with the agent enabled' 'name: kube-memlens-agent'
+# The collector has its own token lifetime: 7200 must appear, and with the agent
+# disabled it can only come from the collector Deployment.
+renders_with 'the collector token lifetime from its own value' 'expirationSeconds: 7200' \
+  --set agent.enabled=false --set collector.tokenExpirationSeconds=7200
+renders_without 'the agent token lifetime on the collector' 'expirationSeconds: 900' \
+  --set agent.enabled=false --set agent.tokenExpirationSeconds=900
 echo 'chart value guards passed; no resources installed'

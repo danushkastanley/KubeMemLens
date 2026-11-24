@@ -48,19 +48,20 @@ func TestFilterHistorySinceKeepsRecentPointsAndInstances(t *testing.T) {
 	}
 }
 
-// The reader may sit in any time zone, or replay a capture days later. The
-// TIME column has to line up with the UTC windows printed around it.
-func TestPrintPodHistoryTimesAreDatedUTCWhateverTheLocalZone(t *testing.T) {
-	local := time.Local
-	time.Local = time.FixedZone("UTC+05:30", 5*3600+30*60)
-	t.Cleanup(func() { time.Local = local })
-
+// The TIME column has to line up with the UTC windows printed around it,
+// whatever zone a timestamp carries: a capture replayed elsewhere, or days
+// later, must read the same.
+//
+// The points carry a non-UTC zone of their own. The test must not change
+// time.Local: other tests in this package read it while running in parallel.
+func TestPrintPodHistoryTimesAreDatedUTCWhateverTheirZone(t *testing.T) {
+	zone := time.FixedZone("UTC+05:30", 5*3600+30*60)
 	output := &bytes.Buffer{}
 	printPodHistory(output, []api.PodHistory{{
 		Namespace: "default", PodName: "api", NodeName: "node-a",
 		Points: []api.MemoryHistoryPoint{
-			{CapturedAt: time.Date(2026, 7, 18, 23, 59, 30, 0, time.UTC)},
-			{CapturedAt: time.Date(2026, 7, 19, 0, 0, 30, 0, time.UTC)},
+			{CapturedAt: time.Date(2026, 7, 19, 5, 29, 30, 0, zone)},
+			{CapturedAt: time.Date(2026, 7, 19, 5, 30, 30, 0, zone)},
 		},
 	}})
 
