@@ -90,6 +90,9 @@ collector:
   nodeSelector: {}
   # Multiple replicas would each hold an independent in-memory view.
   replicas: 1
+  # Lifetime of the collector's own projected token. The agent's is set by
+  # agent.tokenExpirationSeconds.
+  tokenExpirationSeconds: 3600
   snapshotTTL: 30s
   read:
     # Aggregate construction is serialised inside the collector; this admission

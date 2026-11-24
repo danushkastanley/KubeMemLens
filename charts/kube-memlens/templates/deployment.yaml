@@ -211,7 +211,9 @@ spec:
             sources:
               - serviceAccountToken:
                   path: token
-                  expirationSeconds: {{ .Values.agent.tokenExpirationSeconds }}
+                  # Values stored by an older release have no collector
+                  # lifetime; they keep the agent's, as before.
+                  expirationSeconds: {{ .Values.collector.tokenExpirationSeconds | default .Values.agent.tokenExpirationSeconds }}
               - configMap:
                   name: kube-root-ca.crt
                   items:
