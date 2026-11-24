@@ -202,11 +202,17 @@ owned Nodes; public CSRs and certificates use bounded exec streams because
 Docker's archive-copy API cannot reliably read kind's tmpfs mounts.
 
 After changing that transfer in `hack/node-qualification/prepare_execution_kind.py`,
-run its regression check by hand. It needs a local Docker socket and the node
-image of the `kind-137` profile, starts one container with no network, and
-removes it. It is not part of `make check` or CI.
+run its regression check by hand. It is not part of `make check` or CI.
+
+- Run it from the repository root; it reads the `kind-137` profile by a
+  relative path.
+- It uses the `docker` command, and starts one container with no network from
+  that profile's node image, then removes it.
+- Pull that image first. The check allows 30 seconds for the container to
+  start, which a pull will exceed.
 
 ```sh
+docker pull "$(jq -r .nodeImage hack/node-qualification/profiles/kind-137.json)"
 python3 hack/node-qualification/check_public_transfer.py
 ```
 

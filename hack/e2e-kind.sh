@@ -70,7 +70,7 @@ run_resource_metrics_smoke() {
     RESOURCE_METRICS_ACKNOWLEDGE=run-and-remove-metrics-api-fixture hack/verify-resource-metrics-kind.sh
 }
 
-# Off by default and not set in CI: it starts as an observed check.
+# Opt-in: off by default and not run in CI.
 run_evidence_discovery_smoke() {
   if [ "${E2E_RUN_EVIDENCE_DISCOVERY_SMOKE:-false}" != true ]; then return; fi
   EVIDENCE_KUBECONFIG="${kubeconfig}" EVIDENCE_CONTEXT="kind-${cluster_name}" EVIDENCE_CLI="${cli}" \
