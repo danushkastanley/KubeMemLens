@@ -89,3 +89,10 @@ EVIDENCE_ACKNOWLEDGE=run-and-remove-evidence-fixture \
 The fixture requires the deep API to be installed so its scoped denial can be
 verified. The [agentless harness](agentless-reader.md#local-verification-and-rollback)
 verifies data queries without a collector. This harness proves discovery and authorisation, not provider support.
+
+The kind end-to-end run includes this harness when asked, and installs the deep
+API itself. The stage is opt-in: off by default and not run in CI.
+
+```sh
+E2E_RUN_EVIDENCE_DISCOVERY_SMOKE=true hack/e2e-kind.sh
+```

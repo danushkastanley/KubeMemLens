@@ -1,6 +1,7 @@
 /kubectl-memlens
 /memlens-agent
 /memlens-collector
+/*.exe
 *.test
 __pycache__/
 *.pyc
