@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -79,9 +81,30 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	return cmd
 }
 
+// ErrInterrupted is returned when the command line was stopped by Ctrl+C or a
+// termination signal. Whatever the command reported after that describes the
+// cancelled read, not a fault, so the caller should exit without printing it.
+var ErrInterrupted = errors.New("interrupted")
+
 func Execute(stdout, stderr io.Writer) error {
+	ctx, stop := interruptContext(context.Background())
+	defer stop()
+	return interruptedOr(ctx, ExecuteContext(ctx, stdout, stderr))
+}
+
+func interruptedOr(ctx context.Context, err error) error {
+	if ctx.Err() != nil {
+		return ErrInterrupted
+	}
+	return err
+}
+
+// ExecuteContext runs the command line until it finishes or ctx is cancelled.
+// Commands read cmd.Context(), so cancelling it ends a read in progress and
+// lets a command remove what it has staged.
+func ExecuteContext(ctx context.Context, stdout, stderr io.Writer) error {
 	cmd := NewRootCommand(stdout, stderr)
-	if err := cmd.Execute(); err != nil {
+	if err := cmd.ExecuteContext(ctx); err != nil {
 		return fmt.Errorf("%w", err)
 	}
 

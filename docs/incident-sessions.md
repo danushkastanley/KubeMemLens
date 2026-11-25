@@ -96,7 +96,7 @@ labels, times, schema references and gaps. It excludes real identities, digests,
 paths, annotations and capture bytes. Full export requires explicit permission
 and `--include-sensitive`. Files use mode `0600` and are never silently replaced;
 CLI replacement requires `--overwrite`. Offline replay sanitises by default and
-contacts no cluster. Export files persist until their owner deletes them.
+contacts no cluster. Export files persist until their owner deletes them. A full export (`--include-sensitive`) is not written to a terminal: give `--output FILE` or redirect the output. On a filesystem without hard links the file is created exclusively and copied, which still never replaces an existing file but is not atomic. Ctrl+C cancels the command, which exits with code 130 and prints nothing; a file being staged is removed, and a second Ctrl+C ends the process at once.
 
 A timeout or malformed mutation acknowledgement may mean the action completed.
 The client does not retry automatically. Inspect a known session ID before a

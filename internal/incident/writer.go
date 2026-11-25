@@ -38,6 +38,12 @@ func writeDocument(stdout io.Writer, output string, overwrite bool, document any
 }
 
 func writeIncidentFile(stdout io.Writer, output string, overwrite bool, encode func(io.Writer) error) error {
+	return publishIncidentFile(stdout, output, overwrite, encode, os.Link)
+}
+
+// publishIncidentFile takes link so that a filesystem without hard links can
+// be reproduced in a test.
+func publishIncidentFile(stdout io.Writer, output string, overwrite bool, encode func(io.Writer) error, link func(oldname, newname string) error) error {
 	directory := filepath.Dir(output)
 	if output == "-" {
 		directory = ""
@@ -77,10 +83,42 @@ func writeIncidentFile(stdout io.Writer, output string, overwrite bool, encode f
 	}
 	// Linking in the same directory atomically fails if any destination exists,
 	// including a symlink. Never fall back to an overwriting rename.
-	if err := os.Link(name, output); err != nil {
-		if os.IsExist(err) {
-			return ExistsError{Path: output}
-		}
+	err = link(name, output)
+	if err == nil {
+		return nil
+	}
+	if os.IsExist(err) {
+		return ExistsError{Path: output}
+	}
+	return copyWithoutReplacing(name, output)
+}
+
+// copyWithoutReplacing publishes on a filesystem that has no hard links. An
+// exclusive create fails if any destination exists, including a symlink, so
+// nothing is ever replaced. Unlike a link it is not atomic: another process
+// can see the file while it is being written. A failed copy is removed.
+func copyWithoutReplacing(staged, output string) error {
+	source, err := os.Open(staged)
+	if err != nil {
+		return fmt.Errorf("publish incident file: %w", err)
+	}
+	defer source.Close()
+	destination, err := os.OpenFile(output, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if os.IsExist(err) {
+		return ExistsError{Path: output}
+	}
+	if err != nil {
+		return fmt.Errorf("publish incident file: %w", err)
+	}
+	_, err = io.Copy(destination, source)
+	if err == nil {
+		err = destination.Sync()
+	}
+	if closeErr := destination.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(output)
 		return fmt.Errorf("publish incident file: %w", err)
 	}
 	return nil

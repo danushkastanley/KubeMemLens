@@ -16,12 +16,14 @@ import (
 type incidentCommands struct {
 	options   collectorOptionsProvider
 	namespace string
+	// terminal reports whether a writer is an interactive terminal.
+	terminal func(io.Writer) bool
 }
 
 type incidentAction func(*cobra.Command, client.IncidentSessions, []string) (incidentsession.Summary, error)
 
 func newIncidentSessionCommand(options collectorOptionsProvider) *cobra.Command {
-	c := &incidentCommands{options: options}
+	c := &incidentCommands{options: options, terminal: isTerminal}
 	root := &cobra.Command{Use: "session", Short: "Keep a bounded incident timeline with authorised evidence"}
 	root.PersistentFlags().StringVarP(&c.namespace, "namespace", "n", "default", "namespace owning the incident session")
 	root.AddCommand(c.action("start", "Start an owner-only incident session", 0, func(cmd *cobra.Command, client client.IncidentSessions, _ []string) (incidentsession.Summary, error) {
