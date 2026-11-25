@@ -104,6 +104,16 @@ func TestFinishingExecutionReschedulesReplayExpiry(t *testing.T) {
 		if !retained {
 			t.Fatal("finished execution lost an unexpired replay record")
 		}
+		// The bind request stays acceptable until its own expiry at five
+		// seconds, so the record outlives the 250 ms stream deadline.
+		time.Sleep(4750 * time.Millisecond)
+		synctest.Wait()
+		s.mu.Lock()
+		leases, records := len(s.leases), len(s.seen)
+		s.mu.Unlock()
+		if leases != 0 || records != 1 {
+			t.Fatal("replay record dropped while its bind request was still acceptable")
+		}
 		time.Sleep(time.Millisecond)
 		synctest.Wait()
 		s.mu.Lock()
@@ -152,6 +162,15 @@ func TestSweepDoesNotPreemptActiveDeadlineContext(t *testing.T) {
 		if err := e.finish(); err != nil {
 			t.Fatal(err)
 		}
+		synctest.Wait()
+		s.mu.Lock()
+		leases, records := len(s.leases), len(s.seen)
+		s.mu.Unlock()
+		if leases != 0 || records != 1 {
+			t.Fatal("finished execution kept its lease or lost a replay record its bind request still needs")
+		}
+		// The bind request expires four seconds after the stream deadline.
+		time.Sleep(4 * time.Second)
 		synctest.Wait()
 		s.mu.Lock()
 		remaining := len(s.leases) + len(s.seen)

@@ -57,7 +57,11 @@ func (s *Service) activate(parent context.Context, id string, deadline time.Time
 	e.stopParent = context.AfterFunc(parent, func() { cancel(context.Canceled); stopDeadline() })
 	l.execution = e
 	l.expires = deadline
-	s.seen[id] = deadline
+	// The bind request stays acceptable until its own expiry, which can be
+	// later than a short trace. Never shorten its replay record.
+	if deadline.After(s.seen[id]) {
+		s.seen[id] = deadline
+	}
 	s.wakeExpiry()
 	return e, nil
 }
