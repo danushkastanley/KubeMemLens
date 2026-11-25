@@ -1,0 +1,52 @@
+name: Nightly fuzzing
+
+# Pull requests fuzz a few targets for ten seconds and only replay the seeds
+# of the rest. This gives every target real fuzzing time, once a night. It is
+# a scheduled report, not a pull request check.
+on:
+  schedule:
+    - cron: '40 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-fuzzing
+  cancel-in-progress: true
+
+jobs:
+  fuzz:
+    name: Fuzz every target
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Download modules with bounded retry
+        run: |
+          source hack/lib/retry.sh
+          retry_capture 3 5 go mod download >/dev/null
+
+      - name: Fuzz every target for 45 seconds
+        run: python3 hack/fuzz_all.py --seconds 45
+
+      # A failing input is written under testdata/fuzz in its package. Keep it,
+      # so the failure can be replayed with "go test" and committed as a seed.
+      - name: Keep failing inputs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-failures
+          path: '**/testdata/fuzz/**'
+          if-no-files-found: ignore
+          retention-days: 14
