@@ -7,6 +7,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	memmodel "github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/nextcommand"
 )
 
 func (m appModel) fallbackNodeDetailLines(name string) []string {
@@ -34,10 +35,11 @@ func (m appModel) fallbackNodeDetailLines(name string) []string {
 			"Important:",
 			"Summed Pod cgroup charge is not total node memory and must not be compared as if it were node usage.",
 			"Use Node MemoryPressure and allocatable context to decide whether evidence is node-wide.",
-			"",
-			"Next commands:",
-			"kubectl describe node/" + node.name,
-			"kubectl memlens top pods -A --field-selector spec.nodeName=" + node.name,
+		}
+		if nextcommand.SafeNames(node.name) {
+			lines = append(lines, "", "Next commands:",
+				"kubectl describe node/"+node.name,
+				"kubectl memlens top pods -A --field-selector spec.nodeName="+node.name)
 		}
 		return lines
 	}
@@ -50,10 +52,13 @@ func (m appModel) namespaceDetailLines() []string {
 			continue
 		}
 		result := explain.Analyze(namespace.Memory)
-		return append(memorySummaryLines("Namespace", namespace.Namespace, namespace.Memory, result),
+		lines := append(memorySummaryLines("Namespace", namespace.Namespace, namespace.Memory, result),
 			"", fmt.Sprintf("Pods: %d", namespace.PodCount),
-			"Captured: "+namespace.CapturedAt.Format("2006-01-02 15:04:05 MST"),
-			"", "Next command:", "kubectl memlens top pods -n "+namespace.Namespace)
+			"Captured: "+namespace.CapturedAt.Format("2006-01-02 15:04:05 MST"))
+		if nextcommand.SafeNames(namespace.Namespace) {
+			lines = append(lines, "", "Next command:", "kubectl memlens top pods -n "+namespace.Namespace)
+		}
+		return lines
 	}
 	return []string{"Selected namespace is no longer present in collector snapshots."}
 }
@@ -75,8 +80,10 @@ func (m appModel) workloadDetailLines() []string {
 		for _, pod := range pods {
 			lines = append(lines, fmt.Sprintf("- %-36s %10s  %s", pod.PodName, memmodel.FormatCompactBytes(pod.Memory.TotalBytes), explain.AnalyzePod(pod).Diagnosis))
 		}
-		lines = append(lines, "", "Next command:",
-			"kubectl memlens explain workload "+workload.Kind+"/"+workload.Name+" -n "+workload.Namespace)
+		if nextcommand.SafeKind(workload.Kind) && nextcommand.SafeNames(workload.Name, workload.Namespace) {
+			lines = append(lines, "", "Next command:",
+				"kubectl memlens explain workload "+workload.Kind+"/"+workload.Name+" -n "+workload.Namespace)
+		}
 		lines = append(lines, m.workloadVolumeSummaryLines(workload.Namespace, workload.Kind, workload.Name)...)
 		return lines
 	}
