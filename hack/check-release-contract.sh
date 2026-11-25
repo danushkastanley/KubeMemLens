@@ -33,6 +33,17 @@ for registry_workflow in "${workflow}" "${candidate_workflow}"; do
 done
 require_text hack/release/publish_candidate.sh '/check_skopeo.sh'
 require_text "${promotion}" '/check_skopeo.sh'
+# Signed archives are built from modules verified in the job, never from a
+# cache another workflow could have written.
+for build_workflow in "${workflow}" "${candidate_workflow}"; do
+  require_text "${build_workflow}" 'cache: false'
+  require_text "${build_workflow}" 'go mod verify'
+  if grep -Eq -- '^[[:space:]]+cache: true' "${build_workflow}"; then
+    echo "release contract: ${build_workflow} restores a shared Go cache (cache: true)" >&2
+    exit 1
+  fi
+done
+require_text "${candidate_workflow}" 'go clean -cache -modcache'
 require_text "${ci}" 'run: make check-release-contract'
 require_text "${ci}" 'name: Verify pinned registry tool'
 require_text "${workflow}" "- 'v*-alpha.*'"
