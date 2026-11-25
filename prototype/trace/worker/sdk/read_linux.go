@@ -90,6 +90,10 @@ func forwardRecord(data []byte, kind trace.Kind, decoder *filecache.Decoder, out
 	}
 	if kind == trace.Files {
 		event, err := decoder.File(data)
+		if errors.Is(err, filecache.ErrUnrepresentablePath) {
+			// Seen but not forwarded: reconcileCounts reports it as rejected.
+			return nil
+		}
 		if err != nil {
 			return ErrWorker
 		}

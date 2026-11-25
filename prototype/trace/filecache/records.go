@@ -3,6 +3,7 @@ package filecache
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"math/bits"
 	"time"
 	"unicode/utf8"
@@ -11,6 +12,10 @@ import (
 )
 
 var ErrRecord = errors.New("invalid file/cache observation")
+
+// ErrUnrepresentablePath marks a well-formed record whose path is legal on
+// Linux but not valid UTF-8, so the stream cannot carry it. It is an ErrRecord.
+var ErrUnrepresentablePath = fmt.Errorf("%w: path is not valid UTF-8", ErrRecord)
 
 // Alignment binds one monotonic observation interval to the node's wall clock.
 // The worker must measure uncertainty and recheck drift before correlation.
@@ -81,8 +86,12 @@ func (d *Decoder) File(data []byte) (trace.FileActivity, error) {
 		return trace.FileActivity{}, ErrRecord
 	}
 	raw := data[32 : 32+length]
-	if !utf8.Valid(raw) || containsZero(raw) {
+	// A Linux path cannot hold NUL, so one here is a corrupt record.
+	if containsZero(raw) {
 		return trace.FileActivity{}, ErrRecord
+	}
+	if !utf8.Valid(raw) {
+		return trace.FileActivity{}, ErrUnrepresentablePath
 	}
 	path, err := trace.NewSensitiveText(string(raw), d.spec.Bounds().PathBytes)
 	if err != nil {

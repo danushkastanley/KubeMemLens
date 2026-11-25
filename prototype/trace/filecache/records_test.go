@@ -2,6 +2,7 @@ package filecache
 
 import (
 	"encoding/binary"
+	"errors"
 	"math"
 	"strings"
 	"testing"
@@ -82,6 +83,15 @@ func TestMalformedFileRecords(t *testing.T) {
 	}
 	if _, err := d.File(fileRecord("")); err == nil {
 		t.Fatal("confirmed record accepted a missing path")
+	}
+}
+func TestOnlyInvalidUTF8PathIsUnrepresentable(t *testing.T) {
+	d := decoder(t, trace.Files, trace.ConfirmedPaths)
+	if _, err := d.File(fileRecord("/\xff\xfe")); !errors.Is(err, ErrUnrepresentablePath) || !errors.Is(err, ErrRecord) {
+		t.Fatalf("invalid UTF-8 path: got %v", err)
+	}
+	if _, err := d.File(fileRecord("/a\x00b")); !errors.Is(err, ErrRecord) || errors.Is(err, ErrUnrepresentablePath) {
+		t.Fatalf("embedded NUL path: got %v", err)
 	}
 }
 func TestCacheAndCounterSemantics(t *testing.T) {
