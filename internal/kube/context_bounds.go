@@ -3,13 +3,16 @@ package kube
 import (
 	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/profiler"
 	corev1 "k8s.io/api/core/v1"
 )
 
-// Limits the collector enforces on one container's context. It rejects the
+// Limits the collector enforces on one container's context, with the text it
+// refuses in unprintable below. It rejects the
 // whole node snapshot when any container is over one, and Kubernetes accepts
 // Pods beyond each of them, so the agent has to stay inside these itself or
 // one Pod could stop its node from publishing.
@@ -94,23 +97,32 @@ func boundedVolumeCounts(count, limited int) (int, int) {
 	return count, count - min(unbounded, count)
 }
 
-// reportableOwner returns an owner's kind and name only when both fit. The
-// workload resolver uses it too: a ReplicaSet's or Job's own owner reference
-// is as unrestricted as a Pod's.
+// reportableOwner returns an owner's kind and name only when the collector
+// accepts both. The workload resolver uses it too: a ReplicaSet's or Job's own
+// owner reference is as unrestricted as a Pod's.
 func reportableOwner(kind, name string) (string, string) {
-	if len(kind) > maxContextKindBytes || len(name) > maxContextNameBytes {
+	if boundedText(kind, maxContextKindBytes) == "" || boundedText(name, maxContextNameBytes) == "" {
 		return "", ""
 	}
 	return kind, name
 }
 
-// boundedText omits a value that is over the limit. A cut-off name would read
-// as a different object, so it is reported as absent instead.
+// boundedText omits a value that is over the limit or that holds text the
+// collector refuses. A cut-off or rewritten name would read as a different
+// object, so it is reported as absent instead.
 func boundedText(value string, limit int) string {
-	if len(value) > limit {
+	if len(value) > limit || !utf8.ValidString(value) || strings.ContainsFunc(value, unprintable) {
 		return ""
 	}
 	return value
+}
+
+// unprintable matches the characters the collector refuses in agent text,
+// control and format characters, and the line and paragraph separators. The
+// API server does not restrict an owner reference's kind or name, and a
+// termination reason comes from the container runtime.
+func unprintable(r rune) bool {
+	return unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp)
 }
 
 // ReducedContextPods counts the Pods in the index whose metadata was reduced
