@@ -111,18 +111,17 @@ commit is named, they ran against this preparation branch.
 - The published Scorecard readback for `9109ff2` on 25 November 2026 was 9.1
   overall, against 8.8 for v1.0.4. Vulnerabilities scored 9, listing only
   `GO-2026-5932`. Branch-Protection scored 3, unchanged.
-- On `main` at `9109ff2`, CodeQL, Trace worker checks and Scorecard passed. CI
-  and Node-context verification were still running when this record was
-  written; gate 1 below requires them on the final commit.
+- `main` at `9109ff2` passed CI, CodeQL, Node-context verification, Trace
+  worker checks and Scorecard.
+- The full kind end-to-end run (`hack/e2e-kind.sh`, Kubernetes 1.37.0, every
+  smoke, then upgrade, rollback and uninstall) passed on the first commit of
+  this preparation, `6700eb7`. Later commits in it change this record only.
 - `deploy/krew/memlens.yaml.tmpl` is unchanged since `v1.0.4`, so the Krew
   index pull request should change only the version, address and checksum
   lines.
 
 Not verified in this preparation:
 
-- The full kind end-to-end run on the merged tree as one unit. It ran for each
-  behaviour change on its own branch before that pull request merged; the CI
-  kind matrix runs it on `main`.
 - An upgrade from a published `v1.0.4` install to this chart. Upgrade and
   rollback were exercised within one build only.
 - The Krew index workflow on a real release. It has never run on one.
