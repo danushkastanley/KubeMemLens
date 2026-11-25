@@ -5,7 +5,7 @@ go 1.27.4
 require (
 	github.com/cilium/ebpf v0.22.0
 	github.com/danushkastanley/kube-memlens v0.0.0
-	go.yaml.in/yaml/v2 v2.4.4
+	go.yaml.in/yaml/v2 v2.4.5
 	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.49.0
 	golang.org/x/time v0.16.0
