@@ -1,9 +1,9 @@
 # Installation, Upgrade, and Uninstall
 
-Install KubeMemLens `v1.0.4` and use the terminal dashboard to inspect workload
+Install KubeMemLens `v1.0.5` and use the terminal dashboard to inspect workload
 memory. The essential EKS evidence
 recorded for v1.0.0 covers the core inspection and incident paths, access
-isolation, recovery and cleanup. v1.0.4 does not add a provider claim.
+isolation, recovery and cleanup. v1.0.5 does not add a provider claim.
 [Send feedback through a GitHub issue](https://github.com/danushkastanley/KubeMemLens/issues/new/choose).
 
 Use the [support and compatibility contract](compatibility.md) for environment
@@ -77,12 +77,12 @@ by default. Follow the [Node-context enablement guide](node-context.md#enablemen
 for CA, audience, network ranges, explicit collector sizing and the separate
 Node-only viewer role. Managed-provider support remains unqualified.
 
-## Install v1.0.4
+## Install v1.0.5
 
 ```sh
 helm upgrade --install kube-memlens \
   oci://ghcr.io/danushkastanley/charts/kube-memlens \
-  --version 1.0.4 \
+  --version 1.0.5 \
   --namespace kube-memlens \
   --create-namespace
 ```
@@ -97,7 +97,7 @@ instead. See the
 
 The chart selects the version-matched standard image. To pin its immutable
 digest, set `image.digest` to the complete `sha256:` value from the signed
-`promotion-subjects.txt` in the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.4).
+`promotion-subjects.txt` in the [release assets](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.5).
 
 ## Verify an install
 

@@ -2,17 +2,104 @@
 
 All notable changes are documented here. KubeMemLens follows [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 1.0.5 - 2026-11-25
+
+Patch release. Candidate and publication gates are recorded in the
+[release preparation record](docs/release-preparation-1.0.5.md). It carries the
+fixes from the November 2026 codebase audit. Read "Changed" before upgrading:
+several defaults behave differently.
 
 ### Security
 
 - Update Go to 1.27.4 across all three modules, pinned builders and trace executable validation to address GO-2026-6859 (CVE-2026-97054), an HTTP/1 server crash in `net/http` when a handler that uses `MaxBytesReader` reads the request body while writing response headers. Published release artefacts are unchanged.
+- Keep a node reporting when one of its Pods has metadata beyond the collector's limits. A Pod the API server accepts, with more than 64 labels, an owner or workload name or kind over the limit, or more than 256 memory-backed `emptyDir` volumes, made the collector reject every snapshot from that Pod's node, so one workload could hide a node's memory evidence. The agent now fits such metadata inside the limits before posting, keeps the labels KubeMemLens reads first, never drops an unbounded volume from the count, and reports reduced Pods as `kubememlens_agent_metadata_reduced_pods`.
+- Refuse control characters, Unicode format characters and invalid UTF-8 in every string an agent supplies. Names were checked for length only, although they reach metric labels, log lines and the terminal.
+- Refuse terminal control sequences in deep incident bundles on replay.
+- Give the certificate bootstrap an install mode, `extensionTLS.source=bootstrap`, in which the chart renders no private key. See "Added".
+
+### Changed
+
+- `kubectl memlens` commands without `-n` now use the namespace of the kubeconfig context, as `kubectl` does, and `default` only when the context names none. Scripts that relied on `default` need `-n default`.
+- `MEMLENS_COLLECTOR_URL` on its own no longer switches the CLI to unauthenticated HTTP. It supplies the address only with `--connect-mode=http`; `--collector-url` is still an explicit choice. Plaintext use prints a warning, and a variable that is set but unused prints a note.
+- The collector binary defaults to `--ingestion-mode=authenticated` and refuses to start without its serving certificate files. The unauthenticated mode needs `--ingestion-mode=legacy`. Chart installs already passed the flag and are unaffected.
+- Continue tokens for paged reads have a new format. A token from before a collector restart, or from an earlier version, returns `410 Expired` where it used to return `400`; start the list again. A token used against a different view still returns `400`.
+- The chart installs a weekly `kube-memlens-cert-rotation` CronJob with its own ServiceAccount, limited to the one serving Secret and the one APIService by name. Set `extensionTLS.rotation.enabled=false` to opt out. See "Added".
+- The agent walks only the kubelet's part of the cgroup tree. Containers outside Kubernetes on the same node are no longer listed as unmapped, so the unmapped count and mapping coverage change on mixed-use nodes.
+- The agent sets `GOMEMLIMIT` to 90% of `agent.resources.limits.memory`.
+- History times are printed as dated UTC and labelled, where they were unlabelled local times.
+- OpenMetrics counter families are declared without the `_total` suffix, as the format requires. Sample names are unchanged.
+- Ctrl+C cancels a command, which exits with code 130 and prints nothing.
+
+### Added
+
+- Scheduled serving-certificate rotation. The certificate was rotated only on install, upgrade and rollback, so a release left alone for a year lost the aggregated API. The weekly CronJob runs the same check; the collector reports the mounted certificate's expiry as `kubememlens_extension_serving_certificate_not_after_seconds`; the optional alert rules gain `KubeMemLensServingCertificateExpiring` with a runbook. [ADR 0030](docs/adr/0030-rotate-the-serving-certificate-on-a-schedule.md) records the decision.
+- `extensionTLS.source=bootstrap`: a Job creates the serving Secret in the cluster, so two renders are identical and neither the manifests nor the Helm release Secret hold the private key. The default, `chart`, is unchanged and supports the Helm CLI only. This mode has been run on kind with the Helm CLI and with `helm template | kubectl apply`, not under Argo CD or Flux. [ADR 0028](docs/adr/0028-let-the-certificate-bootstrap-own-serving-tls.md).
+- Agent chart values: `agent.priorityClassName`, `agent.updateStrategy`, `agent.podAnnotations`, `agent.affinity`, `image.pullSecrets`, and opt-in `agent.probes`. The probes need a listener on the Pod address that serves `/livez` and `/healthz` only; `/livez` fails when the scan loop stops.
+- `collector.tokenExpirationSeconds`, separate from the agent's.
+- `namespace.podSecurityEnforce`, to label a namespace the chart creates. The installation guide now states that the agent needs the `privileged` Pod Security level, because of its read-only `hostPath` volume.
+- `--request-timeout` on every command, from `1s` to `5m`.
+- `kubememlens_collector_agent_capture_skew_seconds`, the collector's receive time minus the agent's capture time per node, and `kubememlens_agent_snapshots_withheld_total`.
+- The Krew index version bump is requested automatically when a stable release is published.
+- A chart icon.
 
 ### Fixed
 
 - Keep a node's memory evidence when `memory.pressure` cannot be read or parsed. Any read error other than a missing file failed the whole container, so on a kernel with PSI compiled in but disabled at boot, where the file exists and every read fails, the agent reported `scan_failed` for the node indefinitely. Pressure is now reported as unknown, as `io.pressure` already was, and the rest of the sample is kept. PSI averages that are not a percentage between 0 and 100, including `NaN`, are rejected in the parser; a `NaN` previously failed JSON encoding of the node's whole snapshot.
 - Bound the container count of an agent snapshot before it is decoded. The 10,000-container limit was checked only after decoding, so a request within the 4 MiB body limit could list over a million empty containers and make the collector allocate several gigabytes, enough to have it OOM-killed and lose its in-memory history. This needed an agent ServiceAccount token, or network access to the ingestion port in legacy mode. Such requests are now rejected with the same `containers exceeds maximum` response while they are still bytes.
 - Keep `metrics/current` scrapeable when per-entity series do not fit in the response. The entity ceiling was derived from the full response limit, but the exposition text is rendered within half of it, so at chart defaults a cluster of roughly 1,000 to 1,920 Pods got HTTP 507 for the whole resource and lost every series, including the collector state that the reliability alerts read. A level that does not fit is now left out on its own, most detailed first, and reported as `kubememlens_metrics_dropped_entities{reason="response_budget_exceeded"}`. Output is unchanged when everything fits.
+- Flag a Pod when one of its containers is near its own memory limit, and rank it accordingly.
+- Skip cgroups that stop during the agent's walk; a container that exits mid-scan no longer makes the scan partial.
+- Keep Kubernetes lookups out of the agent's scan timeout, and retry a failed Node lookup after 5 seconds, not the full cache lifetime.
+- Treat the sandbox of an idle Pod as infrastructure, and identify a container below its Pod cgroup on nested runtimes.
+- Stop reporting an unreported kernel total as zero, and tell an unlimited memory limit from an unknown one in `top`.
+- Read deep captures as of their capture time on replay.
+- Fail `doctor` when an expected node has never reported, and name the checks that fail.
+- Stop reporting an empty namespace as a rebuilding collector.
+- Name kubeconfig and context problems; they were hidden behind a generic message.
+- Stop copying every container record on each collector read, release the read gate before writing the response, and serve health probes outside the read concurrency limit.
+- Charge the ingestion rate limit after admission and per producer.
+- Refuse a chart install into a namespace that does not exist, and refuse four value combinations that break at run time.
+- Render the agent's RBAC only when the agent is enabled.
+- Make Ctrl+C and `q` quit from every TUI screen.
+- Keep deep `top --watch` running through a collector outage.
+- Accept `status -o` and `--sort-by anon`, and head `explain` tables `ANON`.
+- Date a stale or degraded transition by the expiry that caused it.
+- End a history read before the server's request timeout.
+- Refuse a snapshot that repeats the stored capture time with different content; it was reported as accepted and discarded.
+- Render each Pod and container metric series once when two instances share every label.
+- Label the event source and unknown PSI truthfully in `explain` and `compare`.
+- Bound cgroup file reads at 256 KiB and read each cgroup through its own directory.
+- Bound the legacy direct-HTTP and Service-proxy readers at 16 MiB.
+- Publish incident files on filesystems without hard links, still without replacing an existing file, and refuse a full session export to a terminal.
+- Let `go build ./...` link on hosts that are not Linux.
+- Correct stale release, history and eBPF claims in the roadmap and README.
+
+### Performance
+
+- Cache the TUI's filtered and sorted Pod list and score each Pod once per sort. One keypress plus a render at 5,000 Pods fell from about 169 ms to under 1 ms in the benchmark.
+
+### Trace extension
+
+The trace extension is built and installed separately and is in no release artefact. [ADR 0031](docs/adr/0031-keep-the-trace-extension-as-a-separately-built-extension.md) records the decision to keep it that way.
+
+- `kubectl memlens trace --help` says the extension is separately built.
+- Keep the final counts of a trace whose target is active at expiry; the worker stops forwarding 20 ms before the deadline.
+- Tolerate one second of clock skew between the trace controller and a node. [ADR 0029](docs/adr/0029-tolerate-bounded-clock-skew-between-trace-controller-and-node.md).
+- Keep a bind request's replay record until the request expires; it could be replayed after a short trace.
+- Skip file records whose path is not valid UTF-8, reject bounds that cannot run, and report an exhausted output budget as `output_limit`.
+- Give each principal its own admission request budget, so one caller cannot stop another from cancelling a trace.
+
+### Dependencies
+
+- Update the Go builder image digest, `charm.land/bubbletea/v2` to 2.1.2 and `github.com/charmbracelet/x/ansi` to 0.11.10, and OpenTelemetry to 1.47.0 across all three modules.
+- Update the pinned GitHub Actions `ossf/scorecard-action` to 2.6.0 and `actions/setup-go` to 7.1.0.
+- Dependabot now also covers the trace prototype Go module and Dockerfiles in nine more directories, and a weekly workflow reports image digests pinned in workflows, scripts and chart templates whose tag has moved.
+
+### Documentation
+
+- State that the default chart mode supports the Helm CLI only.
+- Make Krew the first CLI install path.
+- Add diff-driven verification and review guidance for contributors.
 
 ## 1.0.4 - 2026-11-10
 

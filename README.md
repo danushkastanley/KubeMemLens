@@ -37,10 +37,10 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
    ```
 
    Or install a release archive on macOS or Linux (Windows archives are on the
-   [release page](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.4)):
+   [release page](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.5)):
 
    ```sh
-   VERSION=1.0.4
+   VERSION=1.0.5
    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
    ARCH=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
    curl -fsSLO "https://github.com/danushkastanley/KubeMemLens/releases/download/v${VERSION}/kube-memlens_${VERSION}_${OS}_${ARCH}.tar.gz"
@@ -62,7 +62,7 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
    ```sh
    helm upgrade --install kube-memlens \
      oci://ghcr.io/danushkastanley/charts/kube-memlens \
-     --version 1.0.4 \
+     --version 1.0.5 \
      --namespace kube-memlens \
      --create-namespace
    ```
@@ -164,6 +164,7 @@ install cluster components, and these are their permissions:
 | Agent (DaemonSet on Linux nodes) | `get`, `list`, `watch` Pods; `get` Nodes (it reads only its own); `get` ReplicaSets and Jobs to find the owning workload; `create` node snapshots and `get` ingestion epochs in the KubeMemLens API | Read-only hostPath mount of `/sys/fs/cgroup`. Runs as UID 65532, not privileged, all capabilities dropped, read-only root filesystem. |
 | Collector (Deployment, one replica) | `list` Nodes; `system:auth-delegator` to check each reader's permissions; read the `extension-apiserver-authentication` ConfigMap in `kube-system` | No host access. Same restricted security context. |
 | Certificate bootstrap (Helm hook Job) | `get` and `update` only the `v1alpha1.memory.kubememlens.io` APIService and the `kube-memlens-extension-tls` Secret | No host access. Same restricted security context. |
+| Certificate rotation (weekly CronJob, on by default) | The same two permissions, through its own ServiceAccount, which exists for the life of the release. Set `extensionTLS.rotation.enabled=false` to leave it out | No host access. Same restricted security context. |
 | APIService | Registers `memory.kubememlens.io/v1alpha1`, so every read and agent write goes through the Kubernetes API server | Not applicable |
 
 The chart also creates NetworkPolicies and three reader ClusterRoles, which it
