@@ -107,7 +107,7 @@ func (a *Adapter) Run(parent context.Context, spec trace.Specification, output t
 		return result, ErrWorker
 	}
 	startup.Stop()
-	read, readErr := readEvents(ctx, owned, decoder, output, cancel)
+	read, readErr := readEvents(ctx, owned, decoder, output, cancel, deadline.Add(-deliveryMargin))
 	// Quiesce emission and detach before reading final cumulative counters.
 	if lifetime.stop() != nil {
 		return result, ErrWorker

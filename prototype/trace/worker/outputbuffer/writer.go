@@ -12,7 +12,9 @@ import (
 )
 
 const capacity = workeripc.MaxMessageBytes + 4
-const flushDelay = 5 * time.Millisecond
+
+// FlushDelay is the longest a partial batch waits before it is written.
+const FlushDelay = 5 * time.Millisecond
 
 // Writer holds at most one maximum-sized framed message. Its owner must bound
 // underlying writes and Flush readiness and terminal messages synchronously.
@@ -32,7 +34,7 @@ type Writer struct {
 func (*Writer) Format(w fmt.State, _ rune)   { _, _ = io.WriteString(w, "[private worker buffer]") }
 func (*Writer) MarshalJSON() ([]byte, error) { return nil, workeripc.ErrProtocol }
 
-func New(out io.Writer) *Writer { return &Writer{out: out, delay: flushDelay} }
+func New(out io.Writer) *Writer { return &Writer{out: out, delay: FlushDelay} }
 
 func (w *Writer) Write(data []byte) (int, error) {
 	w.mu.Lock()
