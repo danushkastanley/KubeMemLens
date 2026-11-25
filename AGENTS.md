@@ -14,6 +14,11 @@
 - Do not add automated `Co-authored-by` trailers or similar metadata unless the user explicitly requests them.
 - Keep commit authorship and trailers limited to the human-configured Git identity and metadata the user has explicitly approved.
 
+## Pull Request Reviewer
+
+- Request `legolas296` as a reviewer on every pull request you open in this repository, for example `gh pr create --reviewer legolas296`.
+- For an existing pull request, check its review requests first and add the reviewer only if missing: `gh pr edit <number> --add-reviewer legolas296`.
+
 ## Release tag gate
 
 - Before creating or pushing any release tag, read `README.md` and `docs/release-process.md` from the exact commit that will be tagged.
