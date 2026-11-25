@@ -74,7 +74,7 @@ vulnerability reporting is not a private support channel.
 
 ## Security update history
 
-### Unreleased
+### v1.0.5
 
 The source uses Go 1.27.4 across all three modules and pinned builders to
 address [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859)
@@ -82,9 +82,20 @@ address [GO-2026-6859](https://pkg.go.dev/vuln/GO-2026-6859)
 uses `MaxBytesReader` when a handler reads the request body while writing
 response headers. govulncheck reports the affected package as reachable; no
 crash has been reproduced in KubeMemLens. Trace bundle validation requires the
-same compiler version. This change does not replace published binaries or
-previously signed engine bundles; deployment requires a separately verified
-release.
+same compiler version.
+
+The same source bounds an agent snapshot's container count before decoding,
+keeps a node reporting when one Pod's metadata exceeds the collector's limits,
+refuses control characters in agent-supplied text and in replayed incident
+bundles, makes authenticated ingestion the collector binary's default, and
+requires an explicit choice for the plaintext client path. The
+[changelog](CHANGELOG.md) lists each change.
+
+Installed v1.0.4 binaries, its immutable artefacts and previously signed
+engine bundles are unchanged; deploy the new version only after its signed
+release is published. The
+[v1.0.5 preparation record](docs/release-preparation-1.0.5.md) tracks the fresh
+scans and remaining publication gates.
 
 ### v1.0.3
 
