@@ -5,6 +5,7 @@ workflow=.github/workflows/release.yml
 candidate_workflow=.github/workflows/candidate.yml
 promotion_workflow=.github/workflows/promote.yml
 candidate_publish_workflow=.github/workflows/publish-candidate.yml
+krew_workflow=.github/workflows/krew-index.yml
 ci=.github/workflows/ci.yml
 chart=charts/kube-memlens
 consumer=hack/release/verify_consumer.sh
@@ -169,6 +170,30 @@ subjects_line=$(grep -n -m 1 'release-subjects.txt' "${workflow}" | cut -d: -f1)
 release_line=$(grep -n -m 1 'hack/release/create_draft.sh' "${workflow}" | cut -d: -f1)
 if [ -z "${subjects_line}" ] || [ -z "${release_line}" ] || [ "${subjects_line}" -ge "${release_line}" ]; then
   echo 'release subject inventory must exist before draft creation' >&2
+  exit 1
+fi
+
+# The Krew job hands a manifest to third-party code that posts it to a hosted
+# service. It may run only for a published stable release, after the signed
+# manifest is verified, from an immutable image, and with nothing to leak.
+require_text "${krew_workflow}" 'permissions: {}'
+require_text "${krew_workflow}" 'types: [published]'
+# shellcheck disable=SC2016 # Workflow expression is matched literally.
+require_text "${krew_workflow}" 'if: ${{ !github.event.release.prerelease }}'
+require_text "${krew_workflow}" 'persist-credentials: false'
+require_text "${krew_workflow}" 'uses: docker://ghcr.io/rajatjindal/krew-release-bot@sha256:'
+if grep -Eq 'secrets\.|github\.token|GITHUB_TOKEN|:[[:space:]]*write|environment:' "${krew_workflow}"; then
+  echo 'Krew index workflow gives the third-party bot a token, secret or write permission' >&2
+  exit 1
+fi
+krew_verify_line=$(grep -n -m 1 'hack/release/verify_krew_release.sh' "${krew_workflow}" | cut -d: -f1)
+krew_bot_line=$(grep -n -m 1 'uses: docker://ghcr.io/rajatjindal/krew-release-bot@' "${krew_workflow}" | cut -d: -f1)
+if [ -z "${krew_verify_line}" ] || [ -z "${krew_bot_line}" ] || [ "${krew_verify_line}" -ge "${krew_bot_line}" ]; then
+  echo 'Krew index workflow must verify the signed manifest before the bot runs' >&2
+  exit 1
+fi
+if [ -e .krew.yaml ]; then
+  echo '.krew.yaml would be a second Krew template; deploy/krew/memlens.yaml.tmpl is the only one' >&2
   exit 1
 fi
 

@@ -178,7 +178,27 @@ Before promotion:
 
 ## Promotion and rollback
 
-Publish the GitHub draft only after the audit passes. Repository release immutability locks the assets and associated tag at publication; the draft remains editable so the audit can finish first. Submit Krew and Artifact Hub metadata after the immutable release artefacts exist.
+Publish the GitHub draft only after the audit passes. Repository release immutability locks the assets and associated tag at publication; the draft remains editable so the audit can finish first. Krew and Artifact Hub metadata follow only after the immutable release artefacts exist.
+
+### Krew index update
+
+Publishing a stable draft starts `.github/workflows/krew-index.yml` from the released tag. It asks for the `memlens` version bump on [kubernetes-sigs/krew-index](https://github.com/kubernetes-sigs/krew-index) so that no pull request is written by hand. Unlike the candidate and promotion workflows it needs no dispatch and no approval: it runs after publication, has `contents: read` and no secret, and cannot change the release, so it is not part of the protected `release` environment.
+
+The job is skipped for prereleases. Candidate drafts published by `publish-candidate.yml` use the workflow token, which starts no workflow at all. Before anything leaves the repository, `hack/release/verify_krew_release.sh` rejects any tag that is not `vX.Y.Z`, downloads the published assets without a credential, which fails for a draft, and requires that:
+
+- `promotion-checksums.txt` is signed by `promote.yml` at the released tag and covers `checksums.txt` and `memlens.yaml`;
+- `memlens.yaml` is byte for byte what `deploy/krew/memlens.yaml.tmpl` renders with the signed checksums;
+- every archive that the manifest names downloads publicly and matches the signed checksums.
+
+The job then hands that signed `memlens.yaml` to [krew-release-bot](https://github.com/rajatjindal/krew-release-bot) as its template. The file contains no template actions, so the bot forwards it unchanged. `deploy/krew/memlens.yaml.tmpl` stays the only Krew template; do not add a `.krew.yaml`, which would be a second rendering with checksums computed outside the signed set.
+
+krew-release-bot is a third-party client and hosted service. The client sends the tag, the repository name, the login of the maintainer who published and the manifest to `krew-release-bot.rajatjindal.com`, and that service opens the pull request from the `krew-release-bot` account. The published action only wraps a container image that it names by mutable tag, so the workflow runs the image directly, pinned by digest, and gives it no token. Update the digest by hand: read the upstream changes, then run the new image against the latest stable release with `KREW_RELEASE_BOT_WEBHOOK_URL` pointing at a local listener and confirm that the captured `processedTemplate` equals the release's `memlens.yaml`.
+
+krew-index merges a bot pull request without a reviewer only when the diff changes nothing but the `version`, `uri` and `sha256` lines and the version moves forward. A release that also changes the description, caveats or platforms in the template still gets its pull request, but waits for a krew-index maintainer.
+
+After publishing, confirm that the workflow run succeeded and that the pull request appeared on krew-index. Re-run a failed job only when the log shows a transient cause, such as the bot service being unavailable or an unauthenticated GitHub API rate limit. A verification failure means the published release and its signed records disagree; investigate it as a release-integrity problem and do not re-run. The manual fallback is unchanged: open the krew-index pull request by hand with the release's `memlens.yaml`.
+
+The workflow runs from the released tag, so it first applies to the first stable release tagged after it reached `main`.
 
 For Artifact Hub, register one Helm OCI repository at `oci://ghcr.io/danushkastanley/charts/kube-memlens`. Artifact Hub then supplies the repository ID. Render `deploy/artifacthub/artifacthub-repo.yml.tmpl` with that ID and the maintainer's public Artifact Hub account email, review the public contact, and push it as the registry's special `artifacthub.io` metadata tag using the media types in the official Artifact Hub OCI instructions. The chart package includes a chart-local README and version-aligned `artifacthub.io/images` metadata so the indexed package can resolve its installation documentation and release image.
 
