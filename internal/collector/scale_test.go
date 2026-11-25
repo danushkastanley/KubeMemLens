@@ -116,7 +116,7 @@ func TestContainerPageRejectsPreviousCollectorGeneration(t *testing.T) {
 
 	second := httptest.NewRecorder()
 	newHandler("second").ServeHTTP(second, httptest.NewRequest(http.MethodGet, "/api/v1/pages/containers?continue="+url.QueryEscape(page.Continue), nil))
-	if second.Code != http.StatusBadRequest {
+	if second.Code != http.StatusGone {
 		t.Fatalf("previous-generation token status=%d body=%s", second.Code, second.Body.String())
 	}
 }

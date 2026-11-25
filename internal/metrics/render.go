@@ -145,6 +145,19 @@ func (r *renderer) renderAgentFreshness(source Source, now time.Time) {
 	for _, node := range nodes {
 		r.sample("kubememlens_collector_agent_last_seen_timestamp_seconds", labels{"node": node}, float64(latest[node].Unix()))
 	}
+	skewSource, ok := source.(interface {
+		CaptureSkewByNode() map[string]time.Duration
+	})
+	if !ok {
+		return
+	}
+	skew := skewSource.CaptureSkewByNode()
+	r.helpType("kubememlens_collector_agent_capture_skew_seconds", "Collector receive time minus agent capture time for the newest snapshot of a node. Clock difference plus delivery delay; a large positive value means the node clock is behind.", "gauge")
+	for _, node := range nodes {
+		if value, known := skew[node]; known {
+			r.sample("kubememlens_collector_agent_capture_skew_seconds", labels{"node": node}, value.Seconds())
+		}
+	}
 }
 
 func (r *renderer) renderNamespaces(items []api.NamespaceSnapshot, opts Options) {

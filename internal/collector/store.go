@@ -56,8 +56,10 @@ type Store struct {
 }
 
 type nodeSnapshot struct {
-	uid         string
-	capturedAt  time.Time
+	uid        string
+	capturedAt time.Time
+	// receivedAt is this collector's clock when the snapshot was stored.
+	receivedAt  time.Time
 	environment api.NodeEnvironment
 	containers  []api.ContainerSnapshot
 }
@@ -152,6 +154,7 @@ func (s *Store) ReplaceAuthenticatedNodeSnapshot(snapshot api.AgentSnapshot, uid
 	s.nodes[snapshot.NodeName] = nodeSnapshot{
 		uid:         uid,
 		capturedAt:  snapshot.CapturedAt,
+		receivedAt:  s.now(),
 		environment: snapshot.Environment,
 		containers:  containers,
 	}
@@ -258,6 +261,24 @@ func (s *Store) LatestByNode(_ time.Time) map[string]time.Time {
 		latest[node] = snapshot.capturedAt
 	}
 	return latest
+}
+
+// CaptureSkewByNode returns, for each node, the collector's receive time minus
+// the agent's capture time for the newest stored snapshot. It combines clock
+// difference and delivery delay: a node whose clock is behind shows a large
+// positive value and is reported stale although it posts on time.
+func (s *Store) CaptureSkewByNode() map[string]time.Duration {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	skew := map[string]time.Duration{}
+	for node, snapshot := range s.nodes {
+		if node == "" || snapshot.capturedAt.IsZero() || snapshot.receivedAt.IsZero() {
+			continue
+		}
+		skew[node] = snapshot.receivedAt.Sub(snapshot.capturedAt)
+	}
+	return skew
 }
 
 func (s *Store) ListNodes(now time.Time, ttl time.Duration) []api.NodeSnapshotStatus {

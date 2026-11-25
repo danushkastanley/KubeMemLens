@@ -33,7 +33,7 @@ func (s *Store) PageNodeContexts(now time.Time, query url.Values) ([]api.NodeCon
 			keys = append(keys, name)
 		}
 	}
-	page, err := nodeContextPage(keys, query, "nodecontexts:"+s.generation)
+	page, err := nodeContextPage(keys, query, GenerationScope("nodecontexts", s.generation))
 	if err != nil {
 		return nil, "", err
 	}
@@ -72,7 +72,7 @@ func (s *Store) PageNodeContextHistory(name string, now time.Time, query url.Val
 		result.Completeness = capability.Complete
 	}
 
-	page, err := nodeContextPage(keys, query, "nodecontext-history:"+name+":"+s.generation)
+	page, err := nodeContextPage(keys, query, GenerationScope("nodecontext-history:"+name, s.generation))
 	if err != nil {
 		return result, err
 	}
