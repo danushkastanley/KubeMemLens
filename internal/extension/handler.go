@@ -10,6 +10,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -52,6 +53,7 @@ type HandlerOptions struct {
 	Burst                  int
 	MaxIdentities          int
 	IdentityTTL            time.Duration
+	BodyReadTimeout        time.Duration
 	Logf                   func(string, ...any)
 }
 
@@ -63,6 +65,7 @@ type Handler struct {
 	concurrent       chan struct{}
 	limiterMu        sync.Mutex
 	limiters         map[producerKey]identityLimiter
+	inFlight         map[producerKey]struct{}
 }
 
 func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error) {
@@ -109,6 +112,9 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	if opts.IdentityTTL <= 0 {
 		opts.IdentityTTL = 2 * time.Hour
 	}
+	if opts.BodyReadTimeout <= 0 {
+		opts.BodyReadTimeout = defaultBodyReadTimeout
+	}
 	if opts.Logf == nil {
 		opts.Logf = func(string, ...any) {}
 	}
@@ -137,6 +143,7 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 		opts:        opts,
 		concurrent:  make(chan struct{}, opts.MaxConcurrent),
 		limiters:    map[producerKey]identityLimiter{},
+		inFlight:    map[producerKey]struct{}{},
 	}, nil
 }
 
@@ -259,6 +266,15 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusRequestEntityTooLarge, "payload_too_large", "snapshot exceeds maximum request size")
 		return
 	}
+	// One snapshot at a time per producer, decided before a shared slot is
+	// taken: one credential must not be able to hold them all.
+	if !h.beginProducer(claims) {
+		result = "producer_busy"
+		w.Header().Set("Retry-After", "1")
+		writeAPIError(w, http.StatusTooManyRequests, "producer_busy", "an earlier snapshot from this producer is still being received")
+		return
+	}
+	defer h.endProducer(claims)
 	select {
 	case h.concurrent <- struct{}{}:
 		defer func() { <-h.concurrent }()
@@ -277,9 +293,22 @@ func (h *Handler) snapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The request context does not interrupt a blocked body read, so a body
+	// that stops arriving would keep its slot. Without a transport deadline
+	// that cannot be bounded, and the snapshot is refused.
+	if http.NewResponseController(w).SetReadDeadline(time.Now().Add(h.opts.BodyReadTimeout)) != nil {
+		result = "body_deadline_unavailable"
+		writeAPIError(w, http.StatusServiceUnavailable, "unavailable", "ingestion cannot bound the request body read")
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			result = "body_timeout"
+			writeAPIError(w, http.StatusRequestTimeout, "body_timeout", "snapshot body did not arrive in time")
+			return
+		}
 		var limitErr *http.MaxBytesError
 		if errors.As(err, &limitErr) {
 			result = "payload_too_large"
@@ -347,6 +376,9 @@ type statusWriter struct {
 	http.ResponseWriter
 	status int
 }
+
+// Unwrap lets http.ResponseController reach the connection's deadlines.
+func (w *statusWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func (w *statusWriter) WriteHeader(status int) {
 	w.status = status
