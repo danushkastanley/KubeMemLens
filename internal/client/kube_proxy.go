@@ -3,7 +3,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -157,13 +156,8 @@ func (c *KubeProxyCollectorClient) getJSON(ctx context.Context, path string, out
 }
 
 func decodeKubeProxyJSON(path string, body []byte, out any) error {
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(out); err != nil {
+	if err := decodeBoundedJSON(bytes.NewReader(body), legacyMaxResponseBytes, out); err != nil {
 		return fmt.Errorf("decode %s via Kubernetes service proxy: %w", path, err)
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return fmt.Errorf("decode %s via Kubernetes service proxy: unexpected trailing JSON", path)
 	}
 	return nil
 }
@@ -211,7 +205,13 @@ func (c *KubeProxyCollectorClient) doRaw(ctx context.Context, serviceName string
 		req.Timeout(c.timeout)
 	}
 	req.SetHeader(api.SnapshotSchemaHeader, strconv.Itoa(api.CurrentSnapshotSchemaVersion))
-	return req.DoRaw(ctx)
+	stream, err := req.Stream(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer stream.Close()
+	// One byte past the limit is kept so that the decoder reports the excess.
+	return io.ReadAll(io.LimitReader(stream, legacyMaxResponseBytes+1))
 }
 
 func (c *KubeProxyCollectorClient) serviceNamesToTry() []string {
