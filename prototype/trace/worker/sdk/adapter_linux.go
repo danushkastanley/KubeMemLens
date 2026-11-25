@@ -12,6 +12,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/filecache"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/targetfs"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/workeripc"
 	"github.com/inspektor-gadget/inspektor-gadget/pkg/logger"
 	"github.com/inspektor-gadget/inspektor-gadget/pkg/operators"
 )
@@ -120,16 +121,7 @@ func (a *Adapter) Run(parent context.Context, spec trace.Specification, output t
 	if countErr == nil {
 		result.Counts = counts
 	}
-	switch {
-	case errors.Is(ctx.Err(), context.DeadlineExceeded):
-		result.Termination = trace.Expired
-	case parent.Err() != nil:
-		result.Termination = trace.Cancelled
-	case readErr != nil:
-		result.Termination = trace.EngineFailed
-	default:
-		result.Termination = trace.Cancelled
-	}
+	result.Termination, readErr = terminalState(ctx, parent, readErr)
 	// Only normal expiry may extend sampling into the process-exit grace.
 	// The independent signal lifetime is never detached from cancellation.
 	if result.Termination == trace.Expired && readErr == nil && countErr == nil && a.lifetime.Err() == nil {
@@ -156,4 +148,23 @@ func (a *Adapter) Run(parent context.Context, spec trace.Specification, output t
 		return result, ErrWorker
 	}
 	return result, nil
+}
+
+// terminalState names how reading ended and returns the read error that still
+// invalidates the result's evidence. The private pipe's byte budget is an
+// admitted bound: reaching it stops reading but leaves the counts valid. Read
+// errors cannot mean the event limit, which readEvents enforces before output.
+func terminalState(ctx, parent context.Context, readErr error) (trace.Termination, error) {
+	switch {
+	case errors.Is(readErr, workeripc.ErrLimit):
+		return trace.OutputLimit, nil
+	case errors.Is(ctx.Err(), context.DeadlineExceeded):
+		return trace.Expired, readErr
+	case parent.Err() != nil:
+		return trace.Cancelled, readErr
+	case readErr != nil:
+		return trace.EngineFailed, readErr
+	default:
+		return trace.Cancelled, nil
+	}
 }

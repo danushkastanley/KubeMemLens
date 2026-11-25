@@ -114,7 +114,7 @@ func DecodeRequest(namespace string, reader io.Reader) (Request, error) {
 	setBound(&bounds.OutputBytes, body.MaxOutputBytes)
 	setBound(&bounds.MapBytes, body.MaxMapBytes)
 	setBound(&bounds.PathBytes, body.MaxPathBytes)
-	if err := bounds.Validate(); err != nil {
+	if err := trace.ValidateIntent(body.Kind, paths, bounds); err != nil {
 		return Request{}, ErrInvalidRequest
 	}
 	return Request{schemaVersion: body.SchemaVersion, namespace: namespace, pod: body.Pod, container: body.Container, kind: body.Kind, paths: paths, bounds: bounds, selection: selection}, nil

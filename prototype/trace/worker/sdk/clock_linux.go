@@ -15,11 +15,7 @@ import (
 // owned allocations are checked before attachment; a profile that exceeds its
 // reservation fails qualification rather than silently raising the budget.
 func validateProfile(spec trace.Specification) error {
-	minimum := uint64(8 << 20)
-	if spec.Kind() == trace.Cache {
-		minimum = 4 << 20
-	}
-	if spec.Bounds().MapBytes < minimum {
+	if spec.Bounds().MapBytes < trace.MinimumMapBytes(spec.Kind()) {
 		return ErrWorker
 	}
 	var system unix.Utsname

@@ -33,12 +33,12 @@ func TestRequestDefaultsAreBoundedAndDoNotDisclosePaths(t *testing.T) {
 }
 
 func TestRequestPreservesExplicitIntentAndBounds(t *testing.T) {
-	body := `{"schemaVersion":1,"pod":"pod","container":"worker","kind":"files","rawPaths":true,"durationSeconds":2,"maxEvents":1,"maxOutputBytes":1024,"maxMapBytes":4096,"maxPathBytes":64}`
+	body := `{"schemaVersion":1,"pod":"pod","container":"worker","kind":"files","rawPaths":true,"durationSeconds":2,"maxEvents":1,"maxOutputBytes":1024,"maxMapBytes":8388608,"maxPathBytes":64}`
 	request, err := DecodeRequest("tenant-a", strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if request.Paths() != trace.ConfirmedPaths || request.Bounds() != (trace.Bounds{Duration: 2 * time.Second, Events: 1, OutputBytes: 1024, MapBytes: 4096, PathBytes: 64}) {
+	if request.Paths() != trace.ConfirmedPaths || request.Bounds() != (trace.Bounds{Duration: 2 * time.Second, Events: 1, OutputBytes: 1024, MapBytes: 8 << 20, PathBytes: 64}) {
 		t.Fatal("explicit intent was changed")
 	}
 	for _, kind := range []trace.Kind{trace.Cache, trace.OOM} {
@@ -92,6 +92,25 @@ func TestBoundsRejectZeroOverflowAndInapplicableConsent(t *testing.T) {
 		body := strings.TrimSuffix(strings.Replace(validRequest, "files", kind, 1), "}") + `,"rawPaths":true}`
 		if _, err := DecodeRequest("tenant-a", strings.NewReader(body)); !errors.Is(err, ErrInvalidRequest) {
 			t.Fatal("inapplicable raw-path consent accepted")
+		}
+	}
+}
+
+// A map budget below the kind's fixed reservation cannot run, so admitting it
+// would hold the node's trace slot for an execution that always fails.
+func TestRequestRejectsMapBudgetTheKindCannotRunWith(t *testing.T) {
+	for _, item := range []struct {
+		kind     trace.Kind
+		mapBytes uint64
+		valid    bool
+	}{
+		{trace.Files, 4096, false}, {trace.Files, 8<<20 - 1, false}, {trace.OOM, 8<<20 - 1, false}, {trace.Cache, 4<<20 - 1, false},
+		{trace.Files, 8 << 20, true}, {trace.OOM, 8 << 20, true}, {trace.Cache, 4 << 20, true},
+	} {
+		body := fmt.Sprintf(`{"schemaVersion":1,"pod":"pod","container":"worker","kind":%q,"maxMapBytes":%d}`, item.kind, item.mapBytes)
+		_, err := DecodeRequest("tenant-a", strings.NewReader(body))
+		if item.valid != (err == nil) || (err != nil && !errors.Is(err, ErrInvalidRequest)) {
+			t.Fatalf("%s trace with %d map bytes: valid=%t, err=%v", item.kind, item.mapBytes, item.valid, err)
 		}
 	}
 }

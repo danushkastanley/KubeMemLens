@@ -64,7 +64,7 @@ func TestSpecificationEnforcesAbsoluteCeilings(t *testing.T) {
 	}
 	for _, bounds := range []Bounds{
 		DefaultBounds(),
-		{Duration: time.Second, Events: 1, OutputBytes: 1024, MapBytes: 4096, PathBytes: 16},
+		{Duration: time.Second, Events: 1, OutputBytes: 1024, MapBytes: 8 << 20, PathBytes: 16},
 		{Duration: 5 * time.Minute, Events: 100_000, OutputBytes: 32 << 20, MapBytes: 32 << 20, PathBytes: 512},
 	} {
 		spec, err := NewSpecification(Files, targetFixture(), OmitPaths, bounds)
