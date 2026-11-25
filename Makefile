@@ -84,6 +84,7 @@ check-release-contract:
 	hack/release/test_resume_draft.sh
 	hack/release/test_validate_candidate_manifest.sh
 	hack/release/test_validate_tag.sh
+	hack/release/test_verify_krew_release.sh
 	hack/check-release-contract.sh
 
 check-community-contract:

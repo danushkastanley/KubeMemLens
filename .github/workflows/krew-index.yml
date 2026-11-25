@@ -1,0 +1,47 @@
+name: Krew index update
+
+# Runs when a maintainer publishes a release draft. Candidate drafts published
+# by publish-candidate.yml use the workflow token, which raises no event.
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+concurrency:
+  group: krew-index-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    name: Submit signed Krew manifest
+    # A prerelease published by hand is expected and skipped. Any other tag
+    # that is not vX.Y.Z fails in the verification step.
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the released tag without a persisted credential
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+        with:
+          cosign-release: v3.1.2
+
+      - name: Verify the published release and stage its signed Krew manifest
+        run: hack/release/verify_krew_release.sh "$GITHUB_REF_NAME" krew-submission/memlens.yaml
+
+      # The upstream action is a wrapper that runs this image by mutable tag,
+      # so the image is pinned by digest instead. It receives no token or
+      # secret. The staged manifest holds no template actions, so the bot
+      # forwards it to its hosted service unchanged, and that service opens
+      # the kubernetes-sigs/krew-index pull request.
+      - name: Request the krew-index version bump
+        uses: docker://ghcr.io/rajatjindal/krew-release-bot@sha256:6932be48286bacb7a7e45d375ded48a97e7edc36959cd693473b8d08730d62ba # v0.0.50
+        env:
+          INPUT_KREW_TEMPLATE_FILE: krew-submission/memlens.yaml
