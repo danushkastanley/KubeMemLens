@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/client"
@@ -10,25 +13,35 @@ import (
 )
 
 type collectorFlags struct {
-	evidenceMode       string
-	connectMode        string
-	collectorURL       string
-	collectorNamespace string
-	collectorService   string
-	collectorPort      int
-	kubeconfig         string
-	context            string
+	evidenceMode string
+	connectMode  string
+	collectorURL string
+	// environmentCollectorURL is MEMLENS_COLLECTOR_URL as read at start-up.
+	environmentCollectorURL string
+	collectorNamespace      string
+	collectorService        string
+	collectorPort           int
+	kubeconfig              string
+	context                 string
+	requestTimeout          time.Duration
 }
 
 func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
+	cmd, _ := newRootCommand(stdout, stderr)
+	return cmd
+}
+
+func newRootCommand(stdout, stderr io.Writer) (*cobra.Command, *collectorFlags) {
 	defaults := client.DefaultOptions()
 	flags := &collectorFlags{
-		evidenceMode:       string(capability.Auto),
-		connectMode:        string(defaults.Mode),
-		collectorURL:       defaults.CollectorURL,
-		collectorNamespace: defaults.CollectorNamespace,
-		collectorService:   defaults.CollectorService,
-		collectorPort:      defaults.CollectorPort,
+		evidenceMode: string(capability.Auto),
+		connectMode:  string(defaults.Mode),
+		// The variable supplies the address for --connect-mode=http. It does
+		// not choose that mode: see connection_notice.go.
+		environmentCollectorURL: defaults.CollectorURL,
+		collectorNamespace:      defaults.CollectorNamespace,
+		collectorService:        defaults.CollectorService,
+		collectorPort:           defaults.CollectorPort,
 	}
 	cmd := &cobra.Command{
 		Use:   "kubectl-memlens",
@@ -43,13 +56,24 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
+	cmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if notice := flags.connectionNotice(); notice != "" {
+			fmt.Fprintln(cmd.ErrOrStderr(), notice)
+		}
+		if err := flags.checkRequestTimeout(); err != nil {
+			return err
+		}
+		flags.applyContextNamespace(cmd)
+		return nil
+	}
 	cmd.PersistentFlags().StringVar(&flags.evidenceMode, "mode", flags.evidenceMode, "evidence mode: auto, deep or restricted; status reports available sources")
 	cmd.PersistentFlags().StringVar(&flags.connectMode, "connect-mode", flags.connectMode, "collector connection mode: auto, kubernetes-api, http, or kube-proxy")
-	cmd.PersistentFlags().StringVar(&flags.collectorURL, "collector-url", flags.collectorURL, "collector base URL for HTTP mode")
+	cmd.PersistentFlags().StringVar(&flags.collectorURL, "collector-url", "", "collector base URL for unauthenticated HTTP mode; MEMLENS_COLLECTOR_URL is used only with --connect-mode=http")
 	cmd.PersistentFlags().StringVar(&flags.collectorNamespace, "collector-namespace", flags.collectorNamespace, "collector service namespace for kube-proxy mode")
 	cmd.PersistentFlags().StringVar(&flags.collectorService, "collector-service", flags.collectorService, "collector service name for kube-proxy mode")
 	cmd.PersistentFlags().IntVar(&flags.collectorPort, "collector-port", flags.collectorPort, "collector service port for kube-proxy mode")
 	cmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "", "path to the kubeconfig file")
+	cmd.PersistentFlags().DurationVar(&flags.requestTimeout, "request-timeout", defaults.Timeout, "time allowed for one read from the cluster, from 1s to 5m")
 	cmd.PersistentFlags().StringVar(&flags.context, "context", "", "kubeconfig context to use")
 	// These flags exist only for controlled rollback of pre-v1 installations.
 	// They keep working but are hidden so new users see the supported path.
@@ -75,13 +99,35 @@ func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
 	cmd.AddCommand(newCompareCommand(flags.options))
 	cmd.AddCommand(newRecommendCommand(flags.options))
 	cmd.AddCommand(newVersionCommand())
+	describeContextNamespace(cmd)
 
-	return cmd
+	return cmd, flags
 }
 
+// ErrInterrupted is returned when the command line was stopped by Ctrl+C or a
+// termination signal. Whatever the command reported after that describes the
+// cancelled read, not a fault, so the caller should exit without printing it.
+var ErrInterrupted = errors.New("interrupted")
+
 func Execute(stdout, stderr io.Writer) error {
+	ctx, stop := interruptContext(context.Background())
+	defer stop()
+	return interruptedOr(ctx, ExecuteContext(ctx, stdout, stderr))
+}
+
+func interruptedOr(ctx context.Context, err error) error {
+	if ctx.Err() != nil {
+		return ErrInterrupted
+	}
+	return err
+}
+
+// ExecuteContext runs the command line until it finishes or ctx is cancelled.
+// Commands read cmd.Context(), so cancelling it ends a read in progress and
+// lets a command remove what it has staged.
+func ExecuteContext(ctx context.Context, stdout, stderr io.Writer) error {
 	cmd := NewRootCommand(stdout, stderr)
-	if err := cmd.Execute(); err != nil {
+	if err := cmd.ExecuteContext(ctx); err != nil {
 		return fmt.Errorf("%w", err)
 	}
 
@@ -92,11 +138,12 @@ func (f *collectorFlags) options() client.Options {
 	return client.Options{
 		EvidenceMode:       capability.Mode(f.evidenceMode),
 		Mode:               client.ConnectionMode(f.connectMode),
-		CollectorURL:       f.collectorURL,
+		CollectorURL:       f.effectiveCollectorURL(),
 		CollectorNamespace: f.collectorNamespace,
 		CollectorService:   f.collectorService,
 		CollectorPort:      f.collectorPort,
 		Kubeconfig:         f.kubeconfig,
 		Context:            f.context,
+		Timeout:            f.requestTimeout,
 	}
 }

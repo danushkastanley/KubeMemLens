@@ -45,11 +45,12 @@ jobs:
           echo "run-kind=${run_kind}" >> "${GITHUB_OUTPUT}"
 
 
-  # "Go checks" is a required status check. It gates two parallel jobs so the
-  # lint and contract suite no longer waits behind the race-enabled test run.
+  # "Go checks" is a required status check. It gates three parallel jobs so
+  # that neither the lint and contract suite nor the trace module's own gate
+  # waits behind another.
   go:
     name: Go checks
-    needs: [go-lint, go-test]
+    needs: [go-lint, go-test, go-trace]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -94,6 +95,38 @@ jobs:
             echo
             echo 'Coverage is reported for visibility; behaviour and risk determine required tests.'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # The trace prototype is a separate Go module with its own race-enabled
+  # tests, vet, vulnerability scan and cross-builds. It was the longest step of
+  # the lint job, about eight of its sixteen minutes, and shares nothing with
+  # the steps around it.
+  go-trace:
+    name: Trace preflight module
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: prototype/trace/go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            prototype/trace/go.sum
+
+      - name: Download modules with bounded retry
+        run: |
+          source hack/lib/retry.sh
+          retry_capture 3 5 go -C prototype/trace mod download >/dev/null
+          # The gate runs this scanner with "go run"; fetch it here, with
+          # retries, so a registry blip does not fail the required check.
+          retry_capture 3 5 go install golang.org/x/vuln/cmd/govulncheck@v1.7.0 >/dev/null
+
+      - name: Verify isolated trace preflight module
+        run: make check-trace-preflight
 
   go-lint:
     name: Go lint and contracts
@@ -140,13 +173,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # The same check a contributor runs locally: every Go file Git tracks or
+      # would track, and the formatter script's own test.
       - name: Check formatting
-        run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "$unformatted"
-            exit 1
-          fi
+        run: make fmt-check
 
       - name: Check shell script syntax
         run: bash -n hack/*.sh hack/community/*.sh hack/lib/*.sh hack/release/*.sh hack/terminal-qualification/*.sh
@@ -195,9 +225,6 @@ jobs:
           source hack/lib/retry.sh
           retry_capture 3 5 go install golang.org/x/vuln/cmd/govulncheck@v1.7.0 >/dev/null
           govulncheck ./...
-
-      - name: Verify isolated trace preflight module
-        run: make check-trace-preflight
 
       - name: Build commands
         run: go build ./cmd/...

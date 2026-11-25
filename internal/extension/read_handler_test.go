@@ -155,7 +155,7 @@ func TestReadHandlerRejectsContinuationFromPreviousCollectorGeneration(t *testin
 	}
 	secondHandler, _ := populatedReadHandler(t)
 	response := serveRead(t, secondHandler, "/apis/memory.kubememlens.io/v1alpha1/containers?continue="+page.Continue)
-	assertStatus(t, response, http.StatusBadRequest, metav1.StatusReasonBadRequest)
+	assertStatus(t, response, http.StatusGone, metav1.StatusReasonExpired)
 }
 
 func TestReadHandlerScopeBindsContainerContinuation(t *testing.T) {

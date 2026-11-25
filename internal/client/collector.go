@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -161,17 +160,12 @@ func (c *CollectorClient) get(ctx context.Context, path string, out any) error {
 	}
 
 	if out == nil {
-		_, _ = io.Copy(io.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 		return nil
 	}
 
-	decoder := json.NewDecoder(resp.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(out); err != nil {
+	if err := decodeBoundedJSON(resp.Body, legacyMaxResponseBytes, out); err != nil {
 		return fmt.Errorf("decode %s: %w", endpoint, err)
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
-		return fmt.Errorf("decode %s: unexpected trailing JSON", endpoint)
 	}
 	return nil
 }

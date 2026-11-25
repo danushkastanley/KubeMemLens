@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -14,6 +15,9 @@ func (c *incidentCommands) export() *cobra.Command {
 	var output string
 	var sensitive, overwrite bool
 	cmd := &cobra.Command{Use: "export <id>", Short: "Export a sanitised timeline or an explicitly authorised full record", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		if sensitive && output == "-" && c.terminal(cmd.OutOrStdout()) {
+			return errors.New("a full export contains private annotations, identities and capture bytes, and is not written to a terminal; use --output FILE or redirect the output")
+		}
 		connection, err := c.connect()
 		if err != nil {
 			return err

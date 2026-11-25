@@ -100,6 +100,12 @@ renders_with 'the certificate expiry alert with alert rules enabled' 'KubeMemLen
   --set metrics.prometheusRule.enabled=true
 rejects 'a rotation schedule that is not five cron fields' 'extensionTLS.rotation.schedule' \
   --set-string extensionTLS.rotation.schedule=monthly
+renders_with 'the chosen Pod Security level on a namespace the chart creates' 'pod-security.kubernetes.io/enforce: "privileged"' \
+  --set namespace.create=true --set namespace.podSecurityEnforce=privileged
+renders_without 'a Pod Security level nobody chose' 'pod-security.kubernetes.io/enforce' \
+  --set namespace.create=true
+rejects 'a Pod Security level that does not exist' 'podSecurityEnforce' \
+  --set namespace.create=true --set namespace.podSecurityEnforce=open
 renders_without 'the agent health listener by default' 'health-listen'
 renders_with 'the agent liveness probe when asked' 'health-listen=:8083' --set agent.probes.enabled=true
 renders_with 'the agent priority class' 'priorityClassName: "system-node-critical"' \

@@ -456,9 +456,11 @@ Use a specific kubeconfig or context:
 go run ./cmd/kubectl-memlens top pods -A --kubeconfig=/path/to/config --context=minikube
 ```
 
+Without `-n`, namespace commands use the namespace of the kubeconfig context, as `kubectl` does, and `default` when the context names none. `--request-timeout` sets the time allowed for one read from the cluster, from `1s` to `5m`; the default is `5s`.
+
 ## Pre-v1 rollback tooling
 
-The binaries retain direct HTTP client and collector modes only for controlled rollback of pre-v1 installations. The production Helm chart does not render those listeners, plaintext Service ports or a direct collector `ServiceMonitor`. Use the authenticated aggregated API for every chart installation.
+The binaries retain direct HTTP client and collector modes only for controlled rollback of pre-v1 installations. The client uses plain HTTP only when asked: `--collector-url`, or `--connect-mode=http` with `MEMLENS_COLLECTOR_URL`. The variable on its own does nothing, and plaintext use prints a warning. The production Helm chart does not render those listeners, plaintext Service ports or a direct collector `ServiceMonitor`. Use the authenticated aggregated API for every chart installation.
 
 ## Terminal Dashboard
 
