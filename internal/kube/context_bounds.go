@@ -24,12 +24,8 @@ func snapshotContext(context api.ContainerContext) api.ContainerContext {
 	context.Labels = boundedLabels(context.Labels)
 	context.RuntimeClassName = boundedText(context.RuntimeClassName, maxContextKindBytes)
 	context.LastTerminationReason = boundedText(context.LastTerminationReason, maxContextKindBytes)
-	// The workload fields are still the owner's here; a later lookup may
-	// replace them, and only for an owner that was reported.
-	if len(context.OwnerKind) > maxContextKindBytes || len(context.OwnerName) > maxContextNameBytes {
-		context.OwnerKind, context.OwnerName = "", ""
-		context.WorkloadKind, context.WorkloadName = "", ""
-	}
+	context.OwnerKind, context.OwnerName = reportableOwner(context.OwnerKind, context.OwnerName)
+	context.WorkloadKind, context.WorkloadName = reportableOwner(context.WorkloadKind, context.WorkloadName)
 	context.MemoryEmptyDirCount = min(context.MemoryEmptyDirCount, maxContextMemoryVolumes)
 	context.MemoryEmptyDirLimited = min(context.MemoryEmptyDirLimited, context.MemoryEmptyDirCount)
 	return context
@@ -54,6 +50,16 @@ func boundedLabels(labels map[string]string) map[string]string {
 		bounded[key] = labels[key]
 	}
 	return bounded
+}
+
+// reportableOwner returns an owner's kind and name only when both fit. The
+// workload resolver uses it too: a ReplicaSet's or Job's own owner reference
+// is as unrestricted as a Pod's.
+func reportableOwner(kind, name string) (string, string) {
+	if len(kind) > maxContextKindBytes || len(name) > maxContextNameBytes {
+		return "", ""
+	}
+	return kind, name
 }
 
 // boundedText omits a value that is over the limit. A cut-off name would read

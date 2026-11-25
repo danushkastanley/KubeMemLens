@@ -8,8 +8,10 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/collector"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 // The collector rejects a whole node snapshot when one container's context is
@@ -56,18 +58,51 @@ func TestOversizedPodMetadataStillYieldsAnAcceptedSnapshot(t *testing.T) {
 			if !ok {
 				t.Fatal("Lookup returned false")
 			}
-			now := time.Unix(1_700_000_000, 0).UTC()
-			snapshot := api.AgentSnapshot{
-				SchemaVersion: api.CurrentSnapshotSchemaVersion, NodeName: ref.NodeName, CapturedAt: now,
-				Containers: []api.ContainerSnapshot{{
-					Namespace: ref.Namespace, PodName: ref.PodName, PodUID: ref.PodUID,
-					ContainerName: ref.ContainerName, ContainerID: ref.ContainerID, Context: ref.Context,
-				}},
-			}
-			if err := collector.ValidateSnapshot(snapshot, now, collector.DefaultHandlerOptions(time.Minute)); err != nil {
-				t.Fatalf("collector would reject the whole node snapshot for this Pod: %v", err)
-			}
+			requireAcceptedSnapshot(t, ref)
 		})
+	}
+}
+
+// A ReplicaSet's own owner reference is as unrestricted as a Pod's, and the
+// agent reports it as the workload after the Pod's context has been built.
+func TestOversizedResolvedWorkloadStillYieldsAnAcceptedSnapshot(t *testing.T) {
+	controller := true
+	for name, owner := range map[string]metav1.OwnerReference{
+		"long workload kind": {Kind: strings.Repeat("K", 65), Name: "owner", Controller: &controller},
+		"long workload name": {Kind: "Custom", Name: strings.Repeat("n", 254), Controller: &controller},
+	} {
+		t.Run(name, func(t *testing.T) {
+			replicaSet := &appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{
+				Namespace: "default", Name: "api-rs", OwnerReferences: []metav1.OwnerReference{owner},
+			}}
+			pod := podWithStatuses("tenant-pod", "uid-a", []corev1.ContainerStatus{{Name: "app", ContainerID: "containerd://abcdef1234567890"}})
+			pod.OwnerReferences = []metav1.OwnerReference{{Kind: "ReplicaSet", Name: "api-rs", Controller: &controller}}
+			resolver := NewWorkloadOwnerResolver(fake.NewSimpleClientset(replicaSet), time.Minute)
+			idx, failed := resolver.ResolveIndex(t.Context(), BuildPodIndexFromPods([]corev1.Pod{pod}), time.Unix(1_700_000_000, 0))
+			if failed != 0 {
+				t.Fatalf("owner lookup failed %d times", failed)
+			}
+			ref, ok := idx.Lookup("abcdef1234567890", "")
+			if !ok {
+				t.Fatal("Lookup returned false")
+			}
+			requireAcceptedSnapshot(t, ref)
+		})
+	}
+}
+
+func requireAcceptedSnapshot(t *testing.T, ref PodRef) {
+	t.Helper()
+	now := time.Unix(1_700_000_000, 0).UTC()
+	snapshot := api.AgentSnapshot{
+		SchemaVersion: api.CurrentSnapshotSchemaVersion, NodeName: ref.NodeName, CapturedAt: now,
+		Containers: []api.ContainerSnapshot{{
+			Namespace: ref.Namespace, PodName: ref.PodName, PodUID: ref.PodUID,
+			ContainerName: ref.ContainerName, ContainerID: ref.ContainerID, Context: ref.Context,
+		}},
+	}
+	if err := collector.ValidateSnapshot(snapshot, now, collector.DefaultHandlerOptions(time.Minute)); err != nil {
+		t.Fatalf("collector would reject the whole node snapshot for this Pod: %v", err)
 	}
 }
 
