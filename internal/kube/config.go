@@ -28,6 +28,25 @@ func BuildConfig(kubeconfigPath string, contextName string) (*rest.Config, error
 }
 
 func buildKubeconfig(kubeconfigPath string, contextName string) (*rest.Config, error) {
+	config, err := clientConfig(kubeconfigPath, contextName).ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("build kubeconfig: %w", err)
+	}
+	return config, nil
+}
+
+// ContextNamespace returns the namespace of the selected kubeconfig context,
+// as kubectl would use it: "default" when the context names none, and the
+// Pod's own namespace when running in a cluster without a kubeconfig.
+func ContextNamespace(kubeconfigPath string, contextName string) (string, error) {
+	namespace, _, err := clientConfig(strings.TrimSpace(kubeconfigPath), strings.TrimSpace(contextName)).Namespace()
+	if err != nil {
+		return "", fmt.Errorf("read kubeconfig namespace: %w", err)
+	}
+	return namespace, nil
+}
+
+func clientConfig(kubeconfigPath string, contextName string) clientcmd.ClientConfig {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if kubeconfigPath != "" {
 		loadingRules.ExplicitPath = kubeconfigPath
@@ -37,10 +56,5 @@ func buildKubeconfig(kubeconfigPath string, contextName string) (*rest.Config, e
 	if contextName != "" {
 		overrides.CurrentContext = contextName
 	}
-
-	config, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides).ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("build kubeconfig: %w", err)
-	}
-	return config, nil
+	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, overrides)
 }
