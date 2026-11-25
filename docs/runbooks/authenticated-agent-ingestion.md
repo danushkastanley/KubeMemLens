@@ -48,6 +48,9 @@ No token, certificate, key, Pod UID, node UID, container path or raw response bo
 | `replayed` or `replay_conflict` | A lower sequence or changed duplicate reached the collector. | Replace the agent Pod if the event was not an intentional negative test. |
 | `rate_limited` | One authenticated node exceeded its rate or burst. | Check a tight restart loop or changed interval. Do not raise the limit without a measured cold-start test. |
 | `concurrency_limited` | The collector reached its bounded decode ceiling. | Check synchronised recovery and collector memory before changing the ceiling. |
+| `producer_busy` | An earlier snapshot from the same producer was still being received. Each producer may send one at a time. | Expected briefly after a slow post. If it persists for one node, look for two agents sharing a node identity or a stalled connection. |
+| `body_timeout` | A snapshot body did not arrive within five seconds and the collector gave up its slot. | Check the network path between the API server and the collector. Repeated results from one node without a network cause are a reason to replace that agent Pod. |
+| `body_deadline_unavailable` | The collector could not set a read deadline on the connection, so it refused the snapshot rather than read without a bound. | Not expected on a chart install. Report it with the collector version. |
 | `agent_capacity` or `store_capacity` | A configured in-memory identity or snapshot ceiling was reached. | Check unexpected agents or cluster size. Keep the failure closed. |
 
 ## Rotate the serving certificate

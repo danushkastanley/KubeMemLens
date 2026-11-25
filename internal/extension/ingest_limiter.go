@@ -14,6 +14,30 @@ type producerKey struct {
 	nodeUID string
 }
 
+// defaultBodyReadTimeout bounds how long one snapshot body may take to arrive.
+// A full-size body crosses the cluster network in well under a second.
+const defaultBodyReadTimeout = 5 * time.Second
+
+// beginProducer admits a snapshot only when no earlier one from the same
+// producer is still being received. The entry is removed by endProducer, so
+// the map holds at most one key per request in progress.
+func (h *Handler) beginProducer(claims AgentClaims) bool {
+	key := producerKey{role: claims.Role, nodeUID: claims.NodeUID}
+	h.limiterMu.Lock()
+	defer h.limiterMu.Unlock()
+	if _, busy := h.inFlight[key]; busy {
+		return false
+	}
+	h.inFlight[key] = struct{}{}
+	return true
+}
+
+func (h *Handler) endProducer(claims AgentClaims) {
+	h.limiterMu.Lock()
+	defer h.limiterMu.Unlock()
+	delete(h.inFlight, producerKey{role: claims.Role, nodeUID: claims.NodeUID})
+}
+
 type identityLimiter struct {
 	limiter  *rate.Limiter
 	lastSeen time.Time
