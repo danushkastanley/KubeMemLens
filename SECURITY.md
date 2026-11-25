@@ -87,8 +87,12 @@ same compiler version.
 The same source bounds an agent snapshot's container count before decoding,
 keeps a node reporting when one Pod's metadata exceeds the collector's limits,
 refuses control characters in agent-supplied text and in replayed incident
-bundles, makes authenticated ingestion the collector binary's default, and
-requires an explicit choice for the plaintext client path. The
+bundles, replaces them in every response the CLI and TUI decode, offers a
+copyable command only for plain Kubernetes names, limits each producer to one
+snapshot in progress with a bounded body read, builds release archives from
+modules verified in the build job, makes authenticated ingestion the collector
+binary's default, and requires an explicit choice for the plaintext client
+path. The
 [changelog](CHANGELOG.md) lists each change.
 
 Installed v1.0.4 binaries, its immutable artefacts and previously signed

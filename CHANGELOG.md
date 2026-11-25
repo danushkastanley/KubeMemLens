@@ -15,6 +15,10 @@ several defaults behave differently.
 - Keep a node reporting when one of its Pods has metadata beyond the collector's limits. A Pod the API server accepts, with more than 64 labels, an owner or workload name or kind over the limit, or more than 256 memory-backed `emptyDir` volumes, made the collector reject every snapshot from that Pod's node, so one workload could hide a node's memory evidence. The agent now fits such metadata inside the limits before posting, keeps the labels KubeMemLens reads first, never drops an unbounded volume from the count, and reports reduced Pods as `kubememlens_agent_metadata_reduced_pods`.
 - Refuse control characters, Unicode format characters and invalid UTF-8 in every string an agent supplies. Names were checked for length only, although they reach metric labels, log lines and the terminal.
 - Refuse terminal control sequences in deep incident bundles on replay.
+- Replace terminal control, format and line-separator characters with U+FFFD in every response the CLI and TUI decode. The kind and name in a Pod's owner reference are not restricted by the Kubernetes API server and were printed as received, so a tenant who could create a Pod could send escape sequences to an operator's terminal and into CSV output.
+- Offer a "next command" only when every name in it is a plain Kubernetes name. `explain` and the TUI built copyable commands from the workload kind and name, so a crafted owner reference could put shell text into a line the operator is invited to run.
+- Stop one producer credential from holding every ingestion slot. A producer may have one snapshot in progress, and a snapshot body must arrive within five seconds. A holder of one agent token could previously trickle request bodies, keep all four slots busy and have every other node turned away.
+- Build release archives from modules downloaded and verified in the build job. The release and candidate builds restored a Go cache shared with other workflows, and the candidate's second build reused the first build's caches, so the reproducibility comparison could not have detected a tampered cache entry. Published artefacts are unchanged.
 - Give the certificate bootstrap an install mode, `extensionTLS.source=bootstrap`, in which the chart renders no private key. See "Added".
 
 ### Changed
@@ -29,6 +33,7 @@ several defaults behave differently.
 - History times are printed as dated UTC and labelled, where they were unlabelled local times.
 - OpenMetrics counter families are declared without the `_total` suffix, as the format requires. Sample names are unchanged.
 - Ctrl+C cancels a command, which exits with code 130 and prints nothing.
+- The collector answers a second concurrent snapshot from the same producer with `429 producer_busy`, and a snapshot body that takes more than five seconds with `408 body_timeout`. Agents send one snapshot at a time and retry, so chart installs are unaffected.
 
 ### Added
 
@@ -58,6 +63,7 @@ several defaults behave differently.
 - Name kubeconfig and context problems; they were hidden behind a generic message.
 - Stop copying every container record on each collector read, release the read gate before writing the response, and serve health probes outside the read concurrency limit.
 - Charge the ingestion rate limit after admission and per producer.
+- Report an owner, workload or termination reason that holds control characters as absent, and count the Pod as reduced.
 - Refuse a chart install into a namespace that does not exist, and refuse four value combinations that break at run time.
 - Render the agent's RBAC only when the agent is enabled.
 - Make Ctrl+C and `q` quit from every TUI screen.

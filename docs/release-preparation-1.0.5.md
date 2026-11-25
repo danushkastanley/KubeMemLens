@@ -10,7 +10,7 @@ not publish a release.
 | --- | --- |
 | Target stable version | `v1.0.5` |
 | Proposed candidate | `v1.0.5-rc.1`; exact-tag approval remains required |
-| Implementation baseline | `9109ff2` on `main` (82 merged pull requests since `v1.0.4`, #248 to #423), plus this preparation update |
+| Implementation baseline | `3437f3b` on `main`: 82 pull requests merged since `v1.0.4` up to `9109ff2` (#248 to #423), the first preparation update (#424), and the four security fixes described under [Security fixes merged after the first preparation](#security-fixes-merged-after-the-first-preparation), plus this update |
 | Candidate source | Must be the final reviewed preparation commit merged to `main` |
 | Publication | No candidate or stable release published |
 | Rollback reference | Published `v1.0.4` |
@@ -45,6 +45,11 @@ The [changelog](../CHANGELOG.md) lists every user-visible change. In groups:
   use it. `make check` and CI run the same checks (#407), every fuzz target
   runs nightly (#415), and Dependabot covers more of the tree (#404).
 
+- **Security fixes merged after the first preparation.** Response text
+  cleaning and plain-name next commands, the per-producer ingestion limit, and
+  release builds from verified modules (#425). See the section of that name
+  below.
+
 ## Compatibility and rollback
 
 This patch introduces no capture-format or stored data migration. It does
@@ -63,6 +68,9 @@ change behaviour that scripts and installs can depend on:
   from 27 to 33 resources.
 - On nodes that also run containers outside Kubernetes, the unmapped count
   and mapping coverage change.
+- The collector answers a second concurrent snapshot from one producer with
+  `429 producer_busy` and a snapshot body that takes more than five seconds
+  with `408 body_timeout`. Agents send one snapshot at a time and retry.
 
 The [upstream Kubernetes support window](https://kubernetes.io/releases/) on
 25 November 2026 is 1.35, 1.36 and 1.37, as for v1.0.4. The CI kind matrix
@@ -130,6 +138,47 @@ Not verified in this preparation:
   not part of this release. None changes a released artefact.
 - The weekly image-digest report names two moved tags in a qualification
   script and the trace release assembler. Neither is in a release artefact.
+
+## Security fixes merged after the first preparation
+
+Four fixes merged to `main` on 25 November 2026 after the first preparation
+update. Two came through private security advisory forks, which run no CI;
+their required checks first ran on `main` after the merge.
+
+| Fix | Merged as | Verified before merge |
+| --- | --- | --- |
+| Terminal control characters in decoded responses are replaced; a next command is offered only for plain Kubernetes names; the agent reports an owner that holds control characters as absent | `3437f3b`, from an advisory fork | Tests that failed first; full kind end-to-end run on `58d1bac`; a kind check with a Pod whose owner reference holds an escape sequence and shell text |
+| One snapshot in progress per producer, and a five-second body read deadline | `b44a6f5`, from an advisory fork | Tests over real connections that failed first; full kind end-to-end run on `26fc48f` |
+| Release and candidate archives are built from modules verified in the job, with no restored cache | #425 | `actionlint`, the release contract, and a local demonstration with private caches |
+
+The kind check for the first row also showed a defect that was on `main` but
+in no release. Since #403 the collector refuses a node's whole snapshot when
+any text holds a control character, and the agent still sent owner kind and
+name as received. On `main` at `9109ff2` one such Pod made the collector
+refuse 10 of 11 snapshots and `doctor` reported the node stale. With the fix
+there were no refusals and the node stayed fresh.
+
+Checks on `main` at `3437f3b`, the tree that holds all four:
+
+- CI, CodeQL, Trace worker checks and Scorecard passed.
+- The full kind end-to-end run (`hack/e2e-kind.sh`, Kubernetes 1.37.0, every
+  smoke, then upgrade, rollback and uninstall) passed.
+- `make -k check` in a clean clone: every target passed except
+  `check-trace-worker`, for the macOS reason given above. Total statement
+  coverage was 75.0%.
+- With this update, all 636 local links in 189 Markdown files resolve, and
+  the release, support and community contracts pass.
+- The Go module files are unchanged from `9109ff2`, so the `govulncheck` and
+  Trivy results above still describe the dependency set.
+
+Not verified for these fixes:
+
+- The slow-body attack through the API server on kind. The regression test
+  connects to the handler directly.
+- The terminal interface against the hostile Pod on a live cluster.
+- The changed release and candidate workflows. They run only on a tag; the
+  `v1.0.5-rc.1` candidate is their first run, and it builds twice from empty
+  caches, so expect it to take longer.
 
 ## Remaining release gates
 
