@@ -38,6 +38,9 @@ Supply these prerequisites outside Helm ownership:
   cluster permission is `get` on the exact configured Node resource names. The
   chart creates no hook-owned cluster grants. Keep this account inaccessible to
   tenants; administrators remove its binding separately after final removal.
+- Clocks on the controller's node and each trace node synchronised to within
+  one second. A node further behind refuses every trace; see
+  [admission](ADMISSION.md).
 - Both reviewed Localhost seccomp profiles on each node:
   `kube-memlens-trace/binding-node.json` for host preflight and
   `kube-memlens-trace/filecache-node.json` for the incident runtime. See the

@@ -155,10 +155,17 @@ func (s *Service) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Service) bind(ctx context.Context, r bindRequest) (bindResponse, error) {
 	w := r.workload()
-	remaining := time.Until(r.Expires)
-	if trace.ValidateIntent(r.Kind, r.Paths, r.bounds()) != nil || !validID(r.ID) || remaining <= 0 || remaining > maxLease || w.Target.ValidateLifetime() != nil || r.NodeUID != s.nodeUID || r.NodeName != s.nodeName {
+	if trace.ValidateIntent(r.Kind, r.Paths, r.bounds()) != nil || !validID(r.ID) || w.Target.ValidateLifetime() != nil || r.NodeUID != s.nodeUID || r.NodeName != s.nodeName {
 		return bindResponse{}, admission.ErrTargetChanged
 	}
+	// The request stays acceptable until the instant the controller sent, so
+	// its replay record lasts that long. The lease lasts only as long as granted.
+	replayUntil := r.Expires
+	expires, err := s.grantedUntil(r.Expires, time.Now(), maxLease)
+	if err != nil {
+		return bindResponse{}, err
+	}
+	r.Expires = expires
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.prune(time.Now())
@@ -171,7 +178,7 @@ func (s *Service) bind(ctx context.Context, r bindRequest) (bindResponse, error)
 	if len(s.leases) >= 2 || len(s.seen) >= 256 {
 		return bindResponse{}, admission.ErrCapacity
 	}
-	s.seen[r.ID] = r.Expires
+	s.seen[r.ID] = replayUntil
 	s.wakeExpiry()
 	// The preflight adapter must report an observed successful baseline; merely
 	// naming a profile is not a substitute for executing it in the node runtime.

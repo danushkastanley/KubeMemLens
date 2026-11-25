@@ -78,7 +78,13 @@ func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, id string)
 	}
 	// Validate before claiming the one-use execution or writing headers.
 	now := time.Now().UTC()
-	if _, err := traceframe.NewMetadataVersion(traceframe.Metadata{SessionID: id, EngineDigest: prepared.EngineDigest, ProgrammeDigest: prepared.ProgrammeDigest, Specification: spec, SessionStartedAt: now, Deadline: request.Deadline}, prepared.StreamVersion); err != nil {
+	deadline, err := s.grantedUntil(request.Deadline, now, spec.Bounds().Duration)
+	if err != nil {
+		cancel()
+		writeError(w, err)
+		return
+	}
+	if _, err := traceframe.NewMetadataVersion(traceframe.Metadata{SessionID: id, EngineDigest: prepared.EngineDigest, ProgrammeDigest: prepared.ProgrammeDigest, Specification: spec, SessionStartedAt: now, Deadline: deadline}, prepared.StreamVersion); err != nil {
 		cancel()
 		writeError(w, admission.ErrUnavailable)
 		return
@@ -89,7 +95,7 @@ func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, id string)
 		return
 	}
 	cancel()
-	execution, err := s.activate(r.Context(), id, request.Deadline)
+	execution, err := s.activate(r.Context(), id, deadline)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -122,7 +128,7 @@ func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, id string)
 			s.audit("cleanup_unconfirmed")
 		}
 	}()
-	scope, stopScope := streamContext(execution.ctx, request.Deadline)
+	scope, stopScope := streamContext(execution.ctx, deadline)
 	defer stopScope()
 	outcome := session.Run(scope)
 	if err := execution.finish(); err != nil {
