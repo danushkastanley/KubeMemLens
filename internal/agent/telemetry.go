@@ -26,6 +26,7 @@ type Telemetry struct {
 	unmapped          int
 	infrastructure    int
 	metadataCachePods int
+	reducedPods       int
 	recentScans       [scanHistoryLimit]scanTiming
 }
 
@@ -107,6 +108,7 @@ func (t *Telemetry) renderLocked() string {
 	fmt.Fprintf(&b, "kubememlens_agent_last_scan_containers{kind=\"infrastructure\"} %d\n", t.infrastructure)
 	writeMetricHeader(&b, "kubememlens_agent_metadata_cache_pods", "Pods in the node-filtered KubeMemLens agent metadata cache.", "gauge")
 	fmt.Fprintf(&b, "kubememlens_agent_metadata_cache_pods %d\n", t.metadataCachePods)
+	t.writeReducedMetadataLocked(&b)
 	b.WriteString("# EOF\n")
 	return b.String()
 }

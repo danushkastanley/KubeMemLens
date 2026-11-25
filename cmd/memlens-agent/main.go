@@ -203,6 +203,7 @@ func main() {
 		result, scanErr := scanner.Scan(scanCtx, index)
 		cancel()
 		telemetry.RecordScan(time.Now().UTC(), time.Since(start), result, scanErr, metadataCachePods)
+		telemetry.RecordReducedMetadata(index.ReducedContextPods())
 		failureReason := agentFailureReason("")
 		if scanErr != nil {
 			failureReason = boundedScanFailureReason(scanErr)

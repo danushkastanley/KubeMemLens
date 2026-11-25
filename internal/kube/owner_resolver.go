@@ -97,6 +97,7 @@ func (r *WorkloadOwnerResolver) ResolveIndex(ctx context.Context, idx PodIndex, 
 		}
 		if result.err == nil {
 			ref.Context.WorkloadKind, ref.Context.WorkloadName = reportableOwner(result.kind, result.name)
+			ref.ContextReduced = ref.ContextReduced || ref.Context.WorkloadKind != result.kind || ref.Context.WorkloadName != result.name
 		} else {
 			ref.Context.WorkloadKind = ""
 			ref.Context.WorkloadName = ""

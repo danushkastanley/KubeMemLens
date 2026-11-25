@@ -8,8 +8,10 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/collector"
+	"github.com/danushkastanley/kube-memlens/internal/profiler"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
@@ -125,5 +127,78 @@ func TestExcessLabelsAreDroppedInKeyOrder(t *testing.T) {
 		if _, kept := ref.Context.Labels["label-64"]; kept {
 			t.Fatal("label-64 was kept; selection must not depend on map order")
 		}
+	}
+}
+
+// An operator is told to review memory-backed volumes that have no size limit.
+// Fitting the count inside the collector's limit must not report them as limited.
+func TestUnboundedMemoryVolumesStayVisibleOverTheVolumeLimit(t *testing.T) {
+	pod := podWithStatuses("tenant-pod", "uid-a", []corev1.ContainerStatus{{Name: "app", ContainerID: "containerd://abcdef1234567890"}})
+	limit := resource.MustParse("1Mi")
+	for i := range 300 {
+		source := &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMediumMemory}
+		if i < 260 {
+			source.SizeLimit = &limit
+		}
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: fmt.Sprintf("memory-%03d", i), VolumeSource: corev1.VolumeSource{EmptyDir: source},
+		})
+	}
+	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890", "")
+	if !ok {
+		t.Fatal("Lookup returned false")
+	}
+	requireAcceptedSnapshot(t, ref)
+	if unbounded := ref.Context.MemoryEmptyDirCount - ref.Context.MemoryEmptyDirLimited; unbounded != 40 {
+		t.Fatalf("300 volumes with 40 unbounded reported %d unbounded (count=%d limited=%d)",
+			unbounded, ref.Context.MemoryEmptyDirCount, ref.Context.MemoryEmptyDirLimited)
+	}
+}
+
+// The profiler handoff reads this label. A Pod with more labels than the
+// collector accepts must not be reported as having declared no workflow.
+func TestProfilingDeclarationSurvivesExcessLabels(t *testing.T) {
+	pod := podWithStatuses("tenant-pod", "uid-a", []corev1.ContainerStatus{{Name: "app", ContainerID: "containerd://abcdef1234567890"}})
+	pod.Labels = map[string]string{profiler.LabelPrefix + "app": profiler.GoHeapProfile}
+	for i := range 70 {
+		pod.Labels[fmt.Sprintf("label-%02d", i)] = "value"
+	}
+	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890", "")
+	if !ok {
+		t.Fatal("Lookup returned false")
+	}
+	requireAcceptedSnapshot(t, ref)
+	if got := ref.Context.Labels[profiler.LabelPrefix+"app"]; got != profiler.GoHeapProfile {
+		t.Fatalf("profiling declaration was dropped from a Pod with 71 labels; got %q", got)
+	}
+}
+
+// The snapshot cannot say that metadata was left out, so the agent has to
+// count the Pods it reduced or an omitted owner reads as no owner.
+func TestReducedPodsAreCounted(t *testing.T) {
+	controller := true
+	manyLabels := podWithStatuses("many-labels", "uid-a", []corev1.ContainerStatus{
+		{Name: "app", ContainerID: "containerd://aaaaaaaaaaaaaaaa"}, {Name: "sidecar", ContainerID: "containerd://bbbbbbbbbbbbbbbb"},
+	})
+	manyLabels.Labels = map[string]string{}
+	for i := range 65 {
+		manyLabels.Labels[fmt.Sprintf("label-%02d", i)] = "value"
+	}
+	longWorkload := podWithStatuses("long-workload", "uid-b", []corev1.ContainerStatus{{Name: "app", ContainerID: "containerd://cccccccccccccccc"}})
+	longWorkload.OwnerReferences = []metav1.OwnerReference{{Kind: "ReplicaSet", Name: "api-rs", Controller: &controller}}
+	ordinary := podWithStatuses("ordinary", "uid-c", []corev1.ContainerStatus{{Name: "app", ContainerID: "containerd://dddddddddddddddd"}})
+	ordinary.Labels = map[string]string{"app": "ordinary"}
+
+	idx := BuildPodIndexFromPods([]corev1.Pod{manyLabels, longWorkload, ordinary})
+	if got := idx.ReducedContextPods(); got != 1 {
+		t.Fatalf("before owner resolution %d Pods counted as reduced, want 1 (the Pod with 65 labels)", got)
+	}
+	replicaSet := &appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{
+		Namespace: "default", Name: "api-rs",
+		OwnerReferences: []metav1.OwnerReference{{Kind: "Custom", Name: strings.Repeat("n", 254), Controller: &controller}},
+	}}
+	idx, _ = NewWorkloadOwnerResolver(fake.NewSimpleClientset(replicaSet), time.Minute).ResolveIndex(t.Context(), idx, time.Unix(1_700_000_000, 0))
+	if got := idx.ReducedContextPods(); got != 2 {
+		t.Fatalf("after owner resolution %d Pods counted as reduced, want 2 (65 labels, and an omitted workload)", got)
 	}
 }
