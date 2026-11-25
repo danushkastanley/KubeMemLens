@@ -261,6 +261,19 @@ func newTestRouteMux() *testRouteMux {
 	return &testRouteMux{ServeMux: http.NewServeMux()}
 }
 
+// ServeHTTP gives an in-memory recorder the read deadline a real connection
+// has. Ingestion refuses a writer whose body read it cannot bound.
+func (m *testRouteMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if recorder, ok := w.(*httptest.ResponseRecorder); ok {
+		w = recorderWithDeadline{recorder}
+	}
+	m.ServeMux.ServeHTTP(w, r)
+}
+
+type recorderWithDeadline struct{ *httptest.ResponseRecorder }
+
+func (recorderWithDeadline) SetReadDeadline(time.Time) error { return nil }
+
 func (m *testRouteMux) HandlePrefix(path string, handler http.Handler) {
 	m.Handle(path, handler)
 }
