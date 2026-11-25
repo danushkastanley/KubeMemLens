@@ -46,3 +46,28 @@ already have the other one to mount.
 {{- .Values.extensionTLS.secretName -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Pull secrets for every Pod that runs the project image. Values stored by an
+older release have none.
+*/}}
+{{- define "kube-memlens.imagePullSecrets" -}}
+{{- with .Values.image.pullSecrets -}}
+imagePullSecrets:
+{{- toYaml . | nindent 2 }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+The agent's Go soft heap limit: 90% of its memory limit, in MiB. Empty when
+the limit is absent or not a whole number of Mi or Gi. Deriving it keeps the
+two from disagreeing when an operator raises the limit.
+*/}}
+{{- define "kube-memlens.agentGoMemLimit" -}}
+{{- $limit := dig "limits" "memory" "" .Values.agent.resources | toString -}}
+{{- if regexMatch "^[0-9]+Mi$" $limit -}}
+{{- printf "%dMiB" (div (mul (trimSuffix "Mi" $limit | int64) 9) 10) -}}
+{{- else if regexMatch "^[0-9]+Gi$" $limit -}}
+{{- printf "%dMiB" (div (mul (trimSuffix "Gi" $limit | int64) 9216) 10) -}}
+{{- end -}}
+{{- end -}}

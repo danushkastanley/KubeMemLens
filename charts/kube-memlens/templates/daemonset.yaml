@@ -5,6 +5,7 @@
 {{- if not .Values.security.readOnlyRootFilesystem }}
 {{- fail "security.readOnlyRootFilesystem must remain true for the standard cgroup-read profile" }}
 {{- end }}
+{{- $probes := .Values.agent.probes | default dict }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -14,14 +15,30 @@ spec:
   selector:
     matchLabels:
       app.kubernetes.io/name: kube-memlens-agent
+{{- with .Values.agent.updateStrategy }}
+  updateStrategy:
+{{ toYaml . | nindent 4 }}
+{{- end }}
   template:
     metadata:
       labels:
         app.kubernetes.io/name: kube-memlens-agent
+{{- with .Values.agent.podAnnotations }}
+      annotations:
+{{ toYaml . | nindent 8 }}
+{{- end }}
     spec:
       serviceAccountName: kube-memlens-agent
       automountServiceAccountToken: false
       terminationGracePeriodSeconds: 30
+{{- with .Values.agent.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+{{- end }}
+{{- with (include "kube-memlens.imagePullSecrets" .) }}{{ . | nindent 6 }}{{- end }}
+{{- with .Values.agent.affinity }}
+      affinity:
+{{ toYaml . | nindent 8 }}
+{{- end }}
       nodeSelector:
 {{ toYaml .Values.agent.nodeSelector | nindent 8 }}
 {{- with .Values.agent.tolerations }}
@@ -50,9 +67,36 @@ spec:
 {{- else }}
             - "--metrics-listen="
 {{- end }}
+{{- if $probes.enabled }}
+            - "--health-listen=:{{ $probes.port | default 8083 }}"
+            - "--liveness-window={{ $probes.livenessWindow | default "2m" }}"
+          ports:
+            - name: health
+              containerPort: {{ $probes.port | default 8083 }}
+          # /livez fails when the scan loop has made no attempt within the
+          # liveness window. /healthz only says the process answers.
+          livenessProbe:
+            httpGet:
+              path: /livez
+              port: health
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+{{- end }}
           env:
             - name: GODEBUG
               value: disablethp=1
+{{- with (include "kube-memlens.agentGoMemLimit" .) }}
+            - name: GOMEMLIMIT
+              value: {{ . | quote }}
+{{- end }}
             - name: NODE_NAME
               valueFrom:
                 fieldRef:

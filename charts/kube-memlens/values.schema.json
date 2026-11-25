@@ -120,7 +120,12 @@
         "repository": {"type": "string", "minLength": 1},
         "tag": {"type": "string"},
         "digest": {"type": "string", "pattern": "^(|sha256:[a-f0-9]{64})$"},
-        "pullPolicy": {"enum": ["Always", "IfNotPresent", "Never"]}
+        "pullPolicy": {"enum": ["Always", "IfNotPresent", "Never"]},
+        "pullSecrets": {
+          "type": "array", "maxItems": 8,
+          "items": {"type": "object", "additionalProperties": false, "required": ["name"],
+            "properties": {"name": {"type": "string", "minLength": 1, "maxLength": 253}}}
+        }
       }
     },
     "namespace": {
@@ -165,7 +170,20 @@
             "port": {"type": "integer", "minimum": 1, "maximum": 65535}
           }
         },
-        "resources": {"$ref": "#/definitions/resources"}
+        "resources": {"$ref": "#/definitions/resources"},
+        "priorityClassName": {"type": "string", "maxLength": 253},
+        "updateStrategy": {"type": "object"},
+        "podAnnotations": {"type": "object", "additionalProperties": {"type": "string"}},
+        "affinity": {"type": "object"},
+        "probes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "port": {"type": "integer", "minimum": 1024, "maximum": 65535},
+            "livenessWindow": {"$ref": "#/definitions/duration"}
+          }
+        }
       }
     },
     "collector": {

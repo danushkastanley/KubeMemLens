@@ -94,6 +94,23 @@ This mode has been run on kind with the Helm CLI and with
 
 The collector must remain at one replica because replicas do not share state. The chart rejects other replica counts.
 
+### Agent probes
+
+By default the agent has no probes, because it listens only on loopback and the
+kubelet cannot reach it there. A hung agent then shows only as a stale snapshot.
+
+With `agent.probes.enabled=true` the agent opens a second listener on the Pod
+address, port `agent.probes.port` (`8083`). It serves `/livez` and `/healthz`
+and nothing else: no metrics and no workload names. `/livez` fails when the
+scan loop has made no attempt for `agent.probes.livenessWindow` (`2m`), and
+the kubelet then restarts the agent. A failed scan still counts as an attempt.
+The window must be at least three times `agent.interval`.
+
+This changes the agent's network exposure: with the probes on, any workload
+that can reach the Pod address and is not blocked by a NetworkPolicy can read
+those two endpoints. The chart's agent NetworkPolicy denies Pod ingress; the
+kubelet's probes come from the node.
+
 With `networkPolicy.enabled`, the agent, certificate-bootstrap Job and test Job have
 explicit ingress-only policies that deny incoming Pod traffic. Their listeners
 are loopback-only or absent. These policies also cover their startup on CNIs
@@ -139,7 +156,13 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `agent.tolerations` | empty | Operator-reviewed node-pool tolerations |
 | `agent.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime for the agent and the Node-context producer |
 | `agent.resources.requests.memory` | `96Mi` | Local `rc-5000` p95-derived agent scheduling request |
-| `agent.resources.limits.memory` | `128Mi` | Default per-agent memory ceiling |
+| `agent.resources.limits.memory` | `128Mi` | Default per-agent memory ceiling. The agent's `GOMEMLIMIT` is set to 90% of it when it is a whole number of `Mi` or `Gi` |
+| `agent.priorityClassName` | empty | Priority class for agent Pods. Without one the agent is an early eviction candidate under node memory pressure |
+| `agent.updateStrategy` | empty | DaemonSet update strategy. Empty keeps the Kubernetes default of one node at a time |
+| `agent.podAnnotations` | empty | Annotations for agent Pods |
+| `agent.affinity` | empty | Affinity for agent Pods, in addition to `agent.nodeSelector` |
+| `agent.probes.enabled` | `false` | Liveness and readiness probes for the agent. See [Agent probes](#agent-probes) |
+| `image.pullSecrets` | empty | Pull secrets for every Pod that runs the project image |
 | `collector.nodeSelector` | `{}` | Additional placement labels; `kubernetes.io/os: linux` is always required |
 | `collector.replicas` | `1` | Required single in-memory collector |
 | `collector.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime for the collector |
