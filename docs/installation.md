@@ -58,6 +58,15 @@ Do not use `collector.replicas` above `1`; the chart rejects this because each c
 
 The chart validates all values strictly. Before upgrading from a pre-v1 chart, remove retired keys such as `agent.ingestionMode`, `agent.collectorURL`, `collector.ingestion.port`, `metrics.serviceAnnotations` and `metrics.serviceMonitor`. Do not use `--reuse-values` across that boundary; supply reviewed current values or use Helm's reset-values path.
 
+The install namespace must allow the `privileged` Pod Security level. The agent mounts the node's cgroup tree through a read-only `hostPath` volume, which the `baseline` and `restricted` levels forbid; that is its only violation, and the collector meets `restricted`. A namespace made by `--create-namespace` has no Pod Security label and takes the cluster's default. Where that default enforces `baseline` or `restricted`, the agent Pods are refused; label the namespace first:
+
+```sh
+kubectl create namespace kube-memlens
+kubectl label namespace kube-memlens pod-security.kubernetes.io/enforce=privileged
+```
+
+With `namespace.create=true`, set `namespace.podSecurityEnforce=privileged` to have the chart label the namespace it creates. The chart sets no Pod Security label unless you ask, so it never changes the level of an existing namespace on its own. Keep write access to the namespace tight: anyone who can create Pods in it can use the level it allows.
+
 The agent targets `kubernetes.io/os: linux`. Node pools with custom taints require explicitly reviewed `agent.tolerations`; the chart does not grant a blanket toleration by default.
 
 ## Optional Node-context development profile

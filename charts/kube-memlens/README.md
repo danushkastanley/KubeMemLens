@@ -152,6 +152,7 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `image.digest` | empty | Preferred immutable image identity |
 | `namespace.name` | `kube-memlens` | Namespace the workloads are installed into. It may differ from the release namespace, but must then already exist or be created with `namespace.create`; an install into a missing namespace is refused |
 | `namespace.create` | `false` | Create `namespace.name` as part of the release. Leave `false` when `--create-namespace` creates it |
+| `namespace.podSecurityEnforce` | empty | Pod Security level to enforce on a namespace the chart creates. The agent needs `privileged`; see the [installation guide](https://github.com/danushkastanley/KubeMemLens/blob/main/docs/installation.md) |
 | `agent.nodeSelector` | `kubernetes.io/os: linux` | Linux-node targeting |
 | `agent.tolerations` | empty | Operator-reviewed node-pool tolerations |
 | `agent.tokenExpirationSeconds` | `3600` | Projected Pod-bound token lifetime for the agent and the Node-context producer |

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title">
+  <title id="title">KubeMemLens</title>
+  <rect width="128" height="128" rx="24" fill="#0f1b2d"/>
+  <!-- One cgroup's memory, split into its parts. -->
+  <rect x="24" y="36" width="80" height="14" rx="4" fill="#5b8def"/>
+  <rect x="24" y="57" width="56" height="14" rx="4" fill="#4fc3a1"/>
+  <rect x="24" y="78" width="34" height="14" rx="4" fill="#f2b84b"/>
+  <!-- The lens. -->
+  <circle cx="86" cy="80" r="17" fill="none" stroke="#ffffff" stroke-width="6"/>
+  <path d="M98 93l12 12" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+</svg>
