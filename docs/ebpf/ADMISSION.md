@@ -150,6 +150,19 @@ not hold the node lease lock or consume control-operation slots, so cancellation
 can proceed concurrently. Shutdown cancels and joins the temporary inspection.
 Unconfirmed handle cleanup fails closed and poisons subsequent node work.
 
+The controller sends the node two instants from its own clock: when a pending
+binding expires and when a stream ends. The clocks must agree to within one
+second. A node whose clock is behind sees those instants further in its future
+than it grants. Within one second it grants its own limit instead, so a pending
+binding still lasts at most 15 seconds and a trace at most its admitted
+duration by the node's clock. The stream metadata then carries the node's
+deadline, which the controller accepts when it is no later than its own and at
+most one second earlier. Beyond one second the node returns 503 and writes
+`binding_node clock_skew` to its standard error. A node whose clock is ahead
+grants less time by the difference, and returns 410 once none is left.
+Timestamps in a stream are in the node's clock. See
+[ADR 0029](../adr/0029-tolerate-bounded-clock-skew-between-trace-controller-and-node.md).
+
 GET the individual admission to revalidate, or DELETE it to cancel. The optional
 single-consumer `GET traces/ID/stream` route additionally requires exact
 `get traces/stream` permission and reports the `active` state and deadline after

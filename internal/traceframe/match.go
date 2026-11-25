@@ -7,9 +7,15 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 )
 
+// ClockSkewAllowance is how far a node's clock may be behind the controller's.
+// A node that sees a controller instant further in its future than it can
+// grant shortens it to its own clock by at most this much. See ADR 0029.
+const ClockSkewAllowance = time.Second
+
 // MatchAdmission checks authenticated node metadata against the controller's
 // immutable claim and independently selected programme digest. The node may
-// choose its session start, but cannot replace identity, policy or deadline.
+// choose its session start, but cannot replace identity or policy. It cannot
+// extend the deadline; it may shorten it by at most ClockSkewAllowance.
 func (f Frame) MatchAdmission(id, engineDigest, programmeDigest string, spec trace.Specification, deadline time.Time) error {
 	return f.MatchAdmissionVersion(id, engineDigest, programmeDigest, spec, deadline, Version)
 }
@@ -22,7 +28,11 @@ func (f Frame) MatchAdmissionVersion(id, engineDigest, programmeDigest string, s
 	if json.Unmarshal([]byte(f.data), &received) != nil || received.Metadata == nil {
 		return ErrInvalid
 	}
-	expected, err := NewMetadataVersion(Metadata{SessionID: id, EngineDigest: engineDigest, ProgrammeDigest: programmeDigest, Specification: spec, SessionStartedAt: received.Metadata.SessionStartedAt, Deadline: deadline}, version)
+	nodeDeadline := received.Metadata.Deadline
+	if nodeDeadline.After(deadline) || nodeDeadline.Before(deadline.Add(-ClockSkewAllowance)) {
+		return ErrInvalid
+	}
+	expected, err := NewMetadataVersion(Metadata{SessionID: id, EngineDigest: engineDigest, ProgrammeDigest: programmeDigest, Specification: spec, SessionStartedAt: received.Metadata.SessionStartedAt, Deadline: nodeDeadline}, version)
 	if err != nil {
 		return err
 	}
