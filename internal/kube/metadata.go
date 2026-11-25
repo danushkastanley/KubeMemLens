@@ -33,4 +33,7 @@ type PodRef struct {
 	Runtime       string
 	Running       bool
 	Context       api.ContainerContext
+	// ContextReduced is set when Context leaves out metadata the Pod carries,
+	// because it would not fit the collector's limits.
+	ContextReduced bool
 }

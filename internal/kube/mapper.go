@@ -65,16 +65,18 @@ func BuildPodIndexFromPods(pods []corev1.Pod) PodIndex {
 				continue
 			}
 
+			context, reduced := snapshotContext(containerContext(pod, status), statuses)
 			ref := PodRef{
-				Namespace:     pod.Namespace,
-				PodName:       pod.Name,
-				PodUID:        normalizePodUID(string(pod.UID)),
-				ContainerName: status.Name,
-				NodeName:      pod.Spec.NodeName,
-				ContainerID:   containerID,
-				Runtime:       ContainerRuntime(status.ContainerID),
-				Running:       status.State.Running != nil,
-				Context:       containerContext(pod, status),
+				Namespace:      pod.Namespace,
+				PodName:        pod.Name,
+				PodUID:         normalizePodUID(string(pod.UID)),
+				ContainerName:  status.Name,
+				NodeName:       pod.Spec.NodeName,
+				ContainerID:    containerID,
+				Runtime:        ContainerRuntime(status.ContainerID),
+				Running:        status.State.Running != nil,
+				Context:        context,
+				ContextReduced: reduced,
 			}
 			idx.ByContainerID[containerID] = ref
 			idx.ByPodUID[ref.PodUID] = append(idx.ByPodUID[ref.PodUID], ref)
