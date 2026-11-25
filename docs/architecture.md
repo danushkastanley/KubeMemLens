@@ -19,7 +19,7 @@ KubeMemLens is designed as a terminal-first tool that can start locally and grow
 ## Cluster Flow
 
 1. The agent runs on each node as a DaemonSet.
-2. The agent walks `/host/sys/fs/cgroup`, parses composition, peak, boundaries, PSI, swap, local events, and reclaim signals, and returns only container-looking cgroups.
+2. The agent walks the kubelet's part of `/host/sys/fs/cgroup`, parses composition, peak, boundaries, PSI, swap, local events, and reclaim signals, and returns only container-looking cgroups. It looks for directories whose name contains `kubepods` at most two levels below the root, which covers the systemd and cgroupfs drivers, kind nodes and a kubelet with a one-level `--cgroup-root`, and walks only those. System and user slices are left alone. If it finds none it walks the whole tree, as it always did. Each cgroup file is read through its own directory, and a file larger than 256 KiB is an error.
 3. The agent performs one node-filtered Pod list, follows changes through a Kubernetes watch, and builds a local pod/container index.
 4. The agent maps container cgroup IDs to namespace, Pod, container, node, resource request/limit, QoS, restart/termination, phase, creation-time, runtime class, memory-backed `emptyDir` counts/limits, direct owner, and top-level workload metadata. Its cached own-node GET adds MemoryPressure and allocatable memory. ReplicaSet and Job owner GETs are cached and bounded.
 5. The agent uses its rotating, Pod-bound ServiceAccount token to read the collector epoch and create a node snapshot through the Kubernetes aggregated API.
