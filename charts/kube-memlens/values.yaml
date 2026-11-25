@@ -167,6 +167,14 @@ extensionTLS:
   validityDays: 365
   rotateBefore: 720h
   forceRotate: false
+  # Rotates the certificate on a schedule as well as on install, upgrade and
+  # rollback, so a release that is left alone does not let it expire. A run
+  # does nothing until the certificate is within rotateBefore of its expiry.
+  # The schedule must run more often than rotateBefore, or a run can fall on
+  # each side of the window and miss it. The default is weekly.
+  rotation:
+    enabled: true
+    schedule: "23 3 * * 0"
 
 metrics:
   enabled: true

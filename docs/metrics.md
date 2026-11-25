@@ -56,6 +56,12 @@ Because those identifiers are not labels, two instances that share every label a
 - Labels: `kind`.
 - Kind values: `containers`, `stale_containers`, `pods`, `namespaces`, `history_series`, `history_points`.
 
+`kubememlens_extension_serving_certificate_not_after_seconds`
+
+- Type: gauge.
+- Labels: none.
+- Expiry of the aggregated API serving certificate as Unix seconds, read from the certificate file mounted in the collector. Absent when the file cannot be read. After a rotation it changes once the kubelet has refreshed the mounted Secret.
+
 `kubememlens_collector_agent_snapshot_age_seconds`
 
 - Type: gauge.
@@ -304,7 +310,7 @@ metrics:
       grafana_dashboard: "1"
 ```
 
-The optional `PrometheusRule` includes `KubeMemLensCollectorUnavailable`, `KubeMemLensCollectorRecoveryDelayed`, `KubeMemLensCollectorEvidenceDegraded`, `KubeMemLensIngestionRejectionsHigh` and `KubeMemLensHistoryLoss`. It also retains stale-agent, mapping-coverage and Pod memory alerts. Reliability alerts link to the [collector reliability runbook](runbooks/reliability.md). The optional dashboard ConfigMap contains a small four-panel dashboard for top Pods, selected-Pod composition, diagnosis state, and agent freshness. Both resources require the operator's existing Prometheus/Grafana discovery setup and are disabled by default.
+The optional `PrometheusRule` includes `KubeMemLensCollectorUnavailable`, `KubeMemLensCollectorRecoveryDelayed`, `KubeMemLensCollectorEvidenceDegraded`, `KubeMemLensIngestionRejectionsHigh` and `KubeMemLensHistoryLoss`. `KubeMemLensServingCertificateExpiring` fires when the serving certificate expires within 14 days and links to the [serving certificate runbook](runbooks/serving-certificate-expiring.md). It also retains stale-agent, mapping-coverage and Pod memory alerts. Reliability alerts link to the [collector reliability runbook](runbooks/reliability.md). The optional dashboard ConfigMap contains a small four-panel dashboard for top Pods, selected-Pod composition, diagnosis state, and agent freshness. Both resources require the operator's existing Prometheus/Grafana discovery setup and are disabled by default.
 
 `maxPods` and `maxContainers` are upper bounds. The collector also derives a conservative entity ceiling from `collector.maxResponseBytes`; a tighter response budget takes precedence. Namespace, Pod or container series that exceed these bounds, or that do not fit in the rendered response, are omitted and counted by `kubememlens_metrics_dropped_entities`. In v1.0.4 and earlier a level that passed the entity ceiling but did not fit made the whole resource return 507; at chart defaults that affected clusters of roughly 1,000 to 1,920 Pods. Store counts, agent freshness and ingestion outcomes remain available without materialising the full container view.
 

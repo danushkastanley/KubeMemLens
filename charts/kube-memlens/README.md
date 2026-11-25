@@ -85,6 +85,28 @@ What to know before choosing it:
 This mode has been run on kind with the Helm CLI and with
 `helm template | kubectl apply`. It has not been run under Argo CD or Flux.
 
+### Rotation
+
+In both modes a Job rotates the certificate on install, upgrade and rollback
+when it is within `extensionTLS.rotateBefore` of its expiry. A release that is
+left alone would otherwise let the certificate expire after
+`extensionTLS.validityDays`, and the aggregated API would stop working.
+
+The `kube-memlens-cert-rotation` CronJob therefore runs the same check once a
+week. A run does nothing until the certificate is due. Its ServiceAccount
+exists for the life of the release, unlike the hook's: it can read and update
+the one serving Secret and the one APIService by name, and can create nothing.
+Set `extensionTLS.rotation.enabled=false` to remove the CronJob and that
+account, and rotate by upgrading instead.
+
+Keep `extensionTLS.rotation.schedule` more frequent than
+`extensionTLS.rotateBefore`. `extensionTLS.forceRotate` applies to the next
+install, upgrade or rollback only, never to a scheduled run.
+
+The collector reports the certificate's expiry as
+`kubememlens_extension_serving_certificate_not_after_seconds`, and the optional
+alert rules include `KubeMemLensServingCertificateExpiring`.
+
 ## Components
 
 - One agent Pod per selected Linux node reads `/sys/fs/cgroup` read-only and maps container cgroups to Kubernetes Pods.
@@ -178,6 +200,8 @@ Values from pre-v1 rollback charts such as `agent.ingestionMode`, `agent.collect
 | `collector.service.extensionPortName` | `https-extension` | Authenticated Service port name |
 | `extensionTLS.source` | `chart` | Who creates the serving CA, certificate and key: `chart` or `bootstrap`. See [Install methods and the serving certificate](#install-methods-and-the-serving-certificate) |
 | `extensionTLS.rotateBefore` | `720h` | Serving-certificate rotation window. Must be shorter than `extensionTLS.validityDays` |
+| `extensionTLS.rotation.enabled` | `true` | Weekly CronJob that rotates the serving certificate when it is due. See [Rotation](#rotation) |
+| `extensionTLS.rotation.schedule` | `23 3 * * 0` | Cron schedule for that CronJob. Must run more often than `extensionTLS.rotateBefore` |
 | `networkPolicy.enabled` | `true` | Cluster-local read and APIService ingress policy |
 | `metrics.includeContainers` | `false` | High-cardinality container metrics opt-in |
 | `metrics.prometheusRule.enabled` | `false` | Optional recording and alert rules. Requires `metrics.enabled` |

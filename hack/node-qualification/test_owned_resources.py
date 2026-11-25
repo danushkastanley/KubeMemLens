@@ -113,6 +113,16 @@ class OwnershipTest(unittest.TestCase):
             with self.assertRaises(ContractError):
                 Resource(*args)
 
+    def test_scheduled_certificate_rotation_is_inside_the_contract(self):
+        # The chart installs one CronJob. An unknown kind stops qualification
+        # before anything is installed, so a new chart kind must be listed here.
+        rotation = Resource("batch/v1", "CronJob", "kube-memlens-cert-rotation", "kube-memlens")
+        self.assertEqual(rotation.uri, "/apis/batch/v1/namespaces/kube-memlens/cronjobs/kube-memlens-cert-rotation")
+        with self.assertRaises(ContractError):
+            Resource("batch/v1", "CronJob", "kube-memlens-cert-rotation")
+        with self.assertRaises(ContractError):
+            Resource("batch/v1beta1", "CronJob", "kube-memlens-cert-rotation", "kube-memlens")
+
 
 if __name__ == "__main__":
     unittest.main()

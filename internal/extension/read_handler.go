@@ -29,6 +29,7 @@ type ReadHandler struct {
 	nodeContextEnabled     bool
 	topologyEnabled        bool
 	volumeStatsEnabled     bool
+	servingCertFile        string
 	volumeWorkloadsEnabled bool
 	volumeNamespaces       map[string]bool
 	volumeResolver         kube.VolumeResolver

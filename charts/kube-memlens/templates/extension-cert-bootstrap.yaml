@@ -1,90 +1,99 @@
 {{/*
-One certificate bootstrap Job. root is the chart context; name, annotations
-and prepare distinguish the Job that only creates the Secret from the one that
-reconciles the APIService.
+The Job spec shared by the certificate hooks and the scheduled rotation. root
+is the chart context. serviceAccount names the account to run as. prepare only
+creates the Secret. scheduled never forces a rotation, so extensionTLS.forceRotate
+applies to the next install, upgrade or rollback and not to every run.
+*/}}
+{{- define "kube-memlens.certBootstrapJobSpec" -}}
+{{- $root := .root -}}
+backoffLimit: 1
+activeDeadlineSeconds: 150
+template:
+  metadata:
+    labels:
+      app.kubernetes.io/name: kube-memlens-cert-bootstrap
+  spec:
+    restartPolicy: Never
+    serviceAccountName: {{ .serviceAccount }}
+    automountServiceAccountToken: false
+{{- with (include "kube-memlens.imagePullSecrets" $root) }}{{ . | nindent 4 }}{{- end }}
+    nodeSelector:
+      kubernetes.io/os: linux
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65532
+      runAsGroup: 65532
+      fsGroup: 65532
+      seccompProfile:
+        type: RuntimeDefault
+    containers:
+      - name: bootstrap
+        image: {{ include "kube-memlens.image" $root | quote }}
+        imagePullPolicy: {{ $root.Values.image.pullPolicy }}
+        command: ["/memlens-cert-bootstrap"]
+        args:
+          - "--namespace={{ $root.Values.namespace.name }}"
+          - "--secret={{ include "kube-memlens.tlsSecretName" $root }}"
+          - "--api-service=v1alpha1.memory.kubememlens.io"
+          - "--service=kube-memlens-collector"
+          - "--validity={{ mul (int $root.Values.extensionTLS.validityDays) 24 }}h"
+          - "--rotate-before={{ $root.Values.extensionTLS.rotateBefore }}"
+{{- if and $root.Values.extensionTLS.forceRotate (not .scheduled) }}
+          - "--force"
+{{- end }}
+{{- if .prepare }}
+          - "--prepare"
+{{- end }}
+        securityContext:
+          privileged: false
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: ["ALL"]
+        resources:
+          requests:
+            cpu: 5m
+            memory: 16Mi
+          limits:
+            memory: 64Mi
+        volumeMounts:
+          - name: kubernetes-api-access
+            mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+            readOnly: true
+    volumes:
+      - name: kubernetes-api-access
+        projected:
+          defaultMode: 0440
+          sources:
+            - serviceAccountToken:
+                path: token
+                expirationSeconds: 600
+            - configMap:
+                name: kube-root-ca.crt
+                items:
+                  - key: ca.crt
+                    path: ca.crt
+            - downwardAPI:
+                items:
+                  - path: namespace
+                    fieldRef:
+                      fieldPath: metadata.namespace
+{{- end -}}
+
+{{/*
+One certificate hook Job. name, annotations and prepare distinguish the Job
+that only creates the Secret from the one that reconciles the APIService.
 */}}
 {{- define "kube-memlens.certBootstrapJob" -}}
-{{- $root := .root -}}
 apiVersion: batch/v1
 kind: Job
 metadata:
   name: {{ .name }}
-  namespace: {{ $root.Values.namespace.name | quote }}
+  namespace: {{ .root.Values.namespace.name | quote }}
   annotations:
 {{ toYaml .annotations | nindent 4 }}
 spec:
-  backoffLimit: 1
-  activeDeadlineSeconds: 150
-  template:
-    metadata:
-      labels:
-        app.kubernetes.io/name: kube-memlens-cert-bootstrap
-    spec:
-      restartPolicy: Never
-      serviceAccountName: kube-memlens-cert-bootstrap
-      automountServiceAccountToken: false
-{{- with (include "kube-memlens.imagePullSecrets" $root) }}{{ . | nindent 6 }}{{- end }}
-      nodeSelector:
-        kubernetes.io/os: linux
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 65532
-        runAsGroup: 65532
-        fsGroup: 65532
-        seccompProfile:
-          type: RuntimeDefault
-      containers:
-        - name: bootstrap
-          image: {{ include "kube-memlens.image" $root | quote }}
-          imagePullPolicy: {{ $root.Values.image.pullPolicy }}
-          command: ["/memlens-cert-bootstrap"]
-          args:
-            - "--namespace={{ $root.Values.namespace.name }}"
-            - "--secret={{ include "kube-memlens.tlsSecretName" $root }}"
-            - "--api-service=v1alpha1.memory.kubememlens.io"
-            - "--service=kube-memlens-collector"
-            - "--validity={{ mul (int $root.Values.extensionTLS.validityDays) 24 }}h"
-            - "--rotate-before={{ $root.Values.extensionTLS.rotateBefore }}"
-{{- if $root.Values.extensionTLS.forceRotate }}
-            - "--force"
-{{- end }}
-{{- if .prepare }}
-            - "--prepare"
-{{- end }}
-          securityContext:
-            privileged: false
-            readOnlyRootFilesystem: true
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: ["ALL"]
-          resources:
-            requests:
-              cpu: 5m
-              memory: 16Mi
-            limits:
-              memory: 64Mi
-          volumeMounts:
-            - name: kubernetes-api-access
-              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-              readOnly: true
-      volumes:
-        - name: kubernetes-api-access
-          projected:
-            defaultMode: 0440
-            sources:
-              - serviceAccountToken:
-                  path: token
-                  expirationSeconds: 600
-              - configMap:
-                  name: kube-root-ca.crt
-                  items:
-                    - key: ca.crt
-                      path: ca.crt
-              - downwardAPI:
-                  items:
-                    - path: namespace
-                      fieldRef:
-                        fieldPath: metadata.namespace
+  {{- include "kube-memlens.certBootstrapJobSpec" (dict "root" .root "serviceAccount" "kube-memlens-cert-bootstrap" "prepare" .prepare "scheduled" false) | nindent 2 }}
 {{- end -}}
 
 {{- if .Values.collector.enabled }}

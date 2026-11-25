@@ -40,3 +40,18 @@ func TestOperationalMetricsKeepHeapAndRetentionSeparate(t *testing.T) {
 		t.Fatal("bounded diagnostics returned partial content")
 	}
 }
+
+func TestServingCertificateExpiryIsAbsentWhenUnknown(t *testing.T) {
+	notAfter := int64(1_900_000_000)
+	r := newRenderer(8192, OpenMetrics)
+	r.operational(Operational{ServingCertificateNotAfter: &notAfter})
+	text, err := r.String()
+	if err != nil || !strings.Contains(text, "kubememlens_extension_serving_certificate_not_after_seconds 1900000000\n") {
+		t.Fatalf("known expiry not reported: %v\n%s", err, text)
+	}
+	r = newRenderer(8192, OpenMetrics)
+	r.operational(Operational{})
+	if text, _ = r.String(); strings.Contains(text, "serving_certificate") {
+		t.Fatal("unknown expiry was reported as a value")
+	}
+}

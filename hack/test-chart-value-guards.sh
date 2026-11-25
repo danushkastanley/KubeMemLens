@@ -91,6 +91,15 @@ rejects 'a bootstrap-owned Secret in a namespace the chart creates' 'extensionTL
   --set extensionTLS.source=bootstrap --set namespace.create=true
 bootstrap_render
 
+renders_with 'the scheduled certificate rotation by default' 'kind: CronJob'
+renders_without 'the scheduled certificate rotation when it is turned off' 'kube-memlens-cert-rotation' \
+  --set extensionTLS.rotation.enabled=false
+renders_without 'the scheduled certificate rotation with the collector disabled' 'kube-memlens-cert-rotation' \
+  --set collector.enabled=false
+renders_with 'the certificate expiry alert with alert rules enabled' 'KubeMemLensServingCertificateExpiring' \
+  --set metrics.prometheusRule.enabled=true
+rejects 'a rotation schedule that is not five cron fields' 'extensionTLS.rotation.schedule' \
+  --set-string extensionTLS.rotation.schedule=monthly
 renders_with 'the chosen Pod Security level on a namespace the chart creates' 'pod-security.kubernetes.io/enforce: "privileged"' \
   --set namespace.create=true --set namespace.podSecurityEnforce=privileged
 renders_without 'a Pod Security level nobody chose' 'pod-security.kubernetes.io/enforce' \

@@ -18,6 +18,9 @@ once installed. Rendered from validate.yaml so every render runs them.
 {{- if ge (int64 (include "kube-memlens.durationMillis" .Values.extensionTLS.rotateBefore)) $validity -}}
 {{- fail (printf "extensionTLS.rotateBefore (%s) must be shorter than extensionTLS.validityDays (%d days), or the certificate would always be due for rotation" .Values.extensionTLS.rotateBefore (int .Values.extensionTLS.validityDays)) -}}
 {{- end -}}
+{{- if not (regexMatch "^(\\S+\\s+){4}\\S+$" (include "kube-memlens.certRotationSchedule" .)) -}}
+{{- fail (printf "extensionTLS.rotation.schedule (%s) must be a cron schedule with five fields, for example \"23 3 * * 0\"" (include "kube-memlens.certRotationSchedule" .)) -}}
+{{- end -}}
 {{- if eq (int .Values.collector.service.port) (int .Values.collector.ingestion.extensionPort) -}}
 {{- fail (printf "collector.service.port and collector.ingestion.extensionPort are both %d; the collector's health and extension listeners need different ports" (int .Values.collector.service.port)) -}}
 {{- end -}}
