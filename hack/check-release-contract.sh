@@ -182,7 +182,7 @@ require_text "${krew_workflow}" 'types: [published]'
 require_text "${krew_workflow}" 'if: ${{ !github.event.release.prerelease }}'
 require_text "${krew_workflow}" 'persist-credentials: false'
 require_text "${krew_workflow}" 'uses: docker://ghcr.io/rajatjindal/krew-release-bot@sha256:'
-if grep -Eq 'secrets\.|github\.token|GITHUB_TOKEN|: write$|environment:' "${krew_workflow}"; then
+if grep -Eq 'secrets\.|github\.token|GITHUB_TOKEN|:[[:space:]]*write|environment:' "${krew_workflow}"; then
   echo 'Krew index workflow gives the third-party bot a token, secret or write permission' >&2
   exit 1
 fi
