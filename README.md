@@ -28,7 +28,15 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
 
 ## Quick start
 
-1. Install the CLI on macOS or Linux (Windows archives are on the
+1. Install the CLI with
+   [Krew](https://krew.sigs.k8s.io/docs/user-guide/setup/install/):
+
+   ```sh
+   kubectl krew install memlens
+   kubectl memlens version
+   ```
+
+   Or install a release archive on macOS or Linux (Windows archives are on the
    [release page](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.4)):
 
    ```sh
@@ -41,10 +49,12 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
    kubectl memlens version
    ```
 
-   [Verify the download](#verify-a-download) before installing it on a shared
-   machine. A Krew package is not published yet. `go install` is not supported
-   because the Go module path differs from the repository name; use a release
-   archive or [build from source](docs/installation.md#build-the-cli-from-source).
+   Krew fetches the same release archive and checks its SHA-256 against the
+   Krew index. To check the signature and provenance as well,
+   [verify the download](#verify-a-download) of a release archive before
+   installing it on a shared machine. `go install` is not supported because the
+   Go module path differs from the repository name; use Krew, a release archive
+   or [build from source](docs/installation.md#build-the-cli-from-source).
 
 2. Install the in-cluster components (needs permission to install a chart with
    cluster-scoped RBAC):
