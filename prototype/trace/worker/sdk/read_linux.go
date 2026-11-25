@@ -10,11 +10,20 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/trace"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/filecache"
 	"github.com/danushkastanley/kube-memlens/prototype/trace/targetfs"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/worker/outputbuffer"
 )
+
+// deliveryMargin is how long before expiry the worker stops passing records to
+// Output. The supervisor refuses an event it reads after the shared deadline
+// and then discards the final counts. A record may wait one flush interval in
+// the output buffer; the rest of the margin is for the pipe and its reader.
+const deliveryMargin = 4 * outputbuffer.FlushDelay
 
 type readCounts struct{ seen, forwarded uint64 }
 
-func readEvents(ctx context.Context, owned *resources, decoder *filecache.Decoder, output trace.Output, cancel context.CancelFunc) (counts readCounts, err error) {
+// readEvents passes records to output until forwardUntil and keeps reading
+// until ctx ends, so that later records are still counted.
+func readEvents(ctx context.Context, owned *resources, decoder *filecache.Decoder, output trace.Output, cancel context.CancelFunc, forwardUntil time.Time) (counts readCounts, err error) {
 	finishInterrupt := interruptRead(ctx, owned.reader)
 	defer func() {
 		if finishInterrupt() != nil {
@@ -59,14 +68,18 @@ func readEvents(ctx context.Context, owned *resources, decoder *filecache.Decode
 		if ctx.Err() != nil {
 			return counts, nil
 		}
-		if err := forwardRecord(record.RawSample, owned.spec.Kind(), decoder, output, &counts); err != nil {
+		if err := forwardRecord(record.RawSample, owned.spec.Kind(), decoder, output, &counts, forwardUntil); err != nil {
 			cancel()
 			return counts, err
 		}
 	}
 }
 
-func forwardRecord(data []byte, kind trace.Kind, decoder *filecache.Decoder, output trace.Output, counts *readCounts) error {
+func forwardRecord(data []byte, kind trace.Kind, decoder *filecache.Decoder, output trace.Output, counts *readCounts, forwardUntil time.Time) error {
+	if !time.Now().Before(forwardUntil) {
+		// Seen but not forwarded: reconcileCounts reports it as rejected.
+		return nil
+	}
 	if kind == trace.OOM {
 		event, err := decoder.OOM(data)
 		if err != nil {

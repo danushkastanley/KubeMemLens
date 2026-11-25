@@ -66,6 +66,13 @@ activation and the terminal result flushes before successful exit. Short or fail
 writes are terminal and never retried; pending bytes are cleared on exit. Framing,
 event quotas, cumulative byte limits and parent supervision remain unchanged.
 
+The worker stops forwarding records 20 ms before the request deadline, four
+flush intervals, so that buffered events reach the supervisor before event
+callbacks stop. It keeps reading until the deadline. Records read in that
+interval are not forwarded and are reported in the final `rejected` count. A
+supervisor that is stalled for longer than the remaining margin still reads an
+event late, and the trace then fails as before.
+
 The request carries the immutable specification, issue time, absolute deadline
 and accepted programme-manifest digest. It has no executable path, gadget
 reference, bytecode, attach point or arbitrary parameter dictionary. It is not an
