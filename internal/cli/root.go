@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/client"
@@ -20,6 +21,7 @@ type collectorFlags struct {
 	collectorPort           int
 	kubeconfig              string
 	context                 string
+	requestTimeout          time.Duration
 }
 
 func NewRootCommand(stdout, stderr io.Writer) *cobra.Command {
@@ -52,10 +54,15 @@ func newRootCommand(stdout, stderr io.Writer) (*cobra.Command, *collectorFlags) 
 
 	cmd.SetOut(stdout)
 	cmd.SetErr(stderr)
-	cmd.PersistentPreRun = func(cmd *cobra.Command, _ []string) {
+	cmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
 		if notice := flags.connectionNotice(); notice != "" {
 			fmt.Fprintln(cmd.ErrOrStderr(), notice)
 		}
+		if err := flags.checkRequestTimeout(); err != nil {
+			return err
+		}
+		flags.applyContextNamespace(cmd)
+		return nil
 	}
 	cmd.PersistentFlags().StringVar(&flags.evidenceMode, "mode", flags.evidenceMode, "evidence mode: auto, deep or restricted; status reports available sources")
 	cmd.PersistentFlags().StringVar(&flags.connectMode, "connect-mode", flags.connectMode, "collector connection mode: auto, kubernetes-api, http, or kube-proxy")
@@ -64,6 +71,7 @@ func newRootCommand(stdout, stderr io.Writer) (*cobra.Command, *collectorFlags) 
 	cmd.PersistentFlags().StringVar(&flags.collectorService, "collector-service", flags.collectorService, "collector service name for kube-proxy mode")
 	cmd.PersistentFlags().IntVar(&flags.collectorPort, "collector-port", flags.collectorPort, "collector service port for kube-proxy mode")
 	cmd.PersistentFlags().StringVar(&flags.kubeconfig, "kubeconfig", "", "path to the kubeconfig file")
+	cmd.PersistentFlags().DurationVar(&flags.requestTimeout, "request-timeout", defaults.Timeout, "time allowed for one read from the cluster, from 1s to 5m")
 	cmd.PersistentFlags().StringVar(&flags.context, "context", "", "kubeconfig context to use")
 	// These flags exist only for controlled rollback of pre-v1 installations.
 	// They keep working but are hidden so new users see the supported path.
@@ -89,6 +97,7 @@ func newRootCommand(stdout, stderr io.Writer) (*cobra.Command, *collectorFlags) 
 	cmd.AddCommand(newCompareCommand(flags.options))
 	cmd.AddCommand(newRecommendCommand(flags.options))
 	cmd.AddCommand(newVersionCommand())
+	describeContextNamespace(cmd)
 
 	return cmd, flags
 }
@@ -112,5 +121,6 @@ func (f *collectorFlags) options() client.Options {
 		CollectorPort:      f.collectorPort,
 		Kubeconfig:         f.kubeconfig,
 		Context:            f.context,
+		Timeout:            f.requestTimeout,
 	}
 }
