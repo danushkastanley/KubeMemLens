@@ -17,6 +17,7 @@ COLLECTIONS = {
     ("apps/v1", "Deployment"): ("/apis/apps/v1", True),
     ("apps/v1", "DaemonSet"): ("/apis/apps/v1", True),
     ("batch/v1", "Job"): ("/apis/batch/v1", True),
+    ("batch/v1", "CronJob"): ("/apis/batch/v1", True),
     ("networking.k8s.io/v1", "NetworkPolicy"): ("/apis/networking.k8s.io/v1", True),
     ("rbac.authorization.k8s.io/v1", "ClusterRole"): ("/apis/rbac.authorization.k8s.io/v1/clusterroles", False),
     ("rbac.authorization.k8s.io/v1", "ClusterRoleBinding"): ("/apis/rbac.authorization.k8s.io/v1/clusterrolebindings", False),
@@ -26,7 +27,7 @@ COLLECTIONS = {
 }
 PLURALS = {"ConfigMap": "configmaps", "ServiceAccount": "serviceaccounts", "Service": "services",
            "Secret": "secrets", "Pod": "pods", "Deployment": "deployments", "DaemonSet": "daemonsets",
-           "NetworkPolicy": "networkpolicies", "RoleBinding": "rolebindings", "Role": "roles", "Job": "jobs"}
+           "NetworkPolicy": "networkpolicies", "RoleBinding": "rolebindings", "Role": "roles", "Job": "jobs", "CronJob": "cronjobs"}
 
 
 @dataclass(frozen=True)
