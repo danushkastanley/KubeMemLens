@@ -46,3 +46,17 @@ already have the other one to mount.
 {{- .Values.extensionTLS.secretName -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Scheduled rotation of the serving certificate. Values stored by an older
+release have no rotation block; they get the defaults.
+*/}}
+{{- define "kube-memlens.certRotationEnabled" -}}
+{{- $rotation := .Values.extensionTLS.rotation | default dict -}}
+{{- ne (toString (get $rotation "enabled")) "false" -}}
+{{- end -}}
+
+{{- define "kube-memlens.certRotationSchedule" -}}
+{{- $rotation := .Values.extensionTLS.rotation | default dict -}}
+{{- get $rotation "schedule" | default "23 3 * * 0" -}}
+{{- end -}}

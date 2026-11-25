@@ -17,6 +17,7 @@ func (h *ReadHandler) operationalMetrics() *metrics.Operational {
 		value := samples[0].Value.Uint64()
 		result.HeapObjectsBytes = &value
 	}
+	result.ServingCertificateNotAfter = servingCertificateNotAfter(h.servingCertFile)
 	if h.volumeResolver == nil {
 		result.Health = &metrics.HealthOperational{}
 		return result

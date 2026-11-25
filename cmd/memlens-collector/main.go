@@ -182,7 +182,7 @@ func main() {
 			MemoryHistory:    remoteHistory,
 			IncidentSessions: sessions,
 			Replicas:         replicas,
-			VolumeNamespaces: volumeNamespaces, VolumeStatsEnabled: *volumeStatsEnabled, VolumeHealthEnabled: *volumeHealthEnabled, VolumeWorkloadsEnabled: *volumeWorkloadsEnabled,
+			VolumeNamespaces: volumeNamespaces, VolumeStatsEnabled: *volumeStatsEnabled, ServingCertFile: *extensionCertFile, VolumeHealthEnabled: *volumeHealthEnabled, VolumeWorkloadsEnabled: *volumeWorkloadsEnabled,
 			NodeAccounting: accounting, AgentUsername: *agentUsername, NodeContextUsername: *nodeContextUsername, TopologyEnabled: *topologyEnabled, MaxSnapshotBytes: handlerOpts.MaxSnapshotBytes,
 			MaxConcurrent: *ingestionMaxConcurrent, RequestsPerSec: *ingestionRequestsPerSecond,
 			Burst: *ingestionBurst,

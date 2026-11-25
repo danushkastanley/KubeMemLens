@@ -246,7 +246,15 @@
         "secretName": {"type": "string", "minLength": 1, "maxLength": 243},
         "validityDays": {"type": "integer", "minimum": 1},
         "rotateBefore": {"$ref": "#/definitions/duration"},
-        "forceRotate": {"type": "boolean"}
+        "forceRotate": {"type": "boolean"},
+        "rotation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "schedule": {"type": "string", "minLength": 9, "maxLength": 100}
+          }
+        }
       }
     },
     "metrics": {

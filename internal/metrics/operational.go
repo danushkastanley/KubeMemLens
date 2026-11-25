@@ -10,6 +10,8 @@ type Operational struct {
 	UsageEntries, UsageBytes int
 	UsageCommits             uint64
 	Health                   *HealthOperational
+	// ServingCertificateNotAfter is nil when the expiry could not be read.
+	ServingCertificateNotAfter *int64
 }
 
 type HealthOperational struct {
@@ -21,6 +23,9 @@ type HealthOperational struct {
 func (r *renderer) operational(s Operational) {
 	if s.HeapObjectsBytes != nil {
 		r.operation("collector_heap_objects_bytes", "Collector Go heap objects, including objects not yet reclaimed by GC; not RSS or cgroup charge.", "gauge", *s.HeapObjectsBytes)
+	}
+	if s.ServingCertificateNotAfter != nil {
+		r.operation("extension_serving_certificate_not_after_seconds", "Expiry of the aggregated API serving certificate as Unix seconds, read from the mounted file; absent when it cannot be read.", "gauge", *s.ServingCertificateNotAfter)
 	}
 	r.operation("volume_usage_enabled", "Whether volume usage ingestion is configured.", "gauge", enabledNumber(s.UsageEnabled))
 	r.operation("volume_usage_entries", "Retained volume usage entries, without identities.", "gauge", s.UsageEntries)

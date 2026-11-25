@@ -33,14 +33,16 @@ const (
 )
 
 type HandlerOptions struct {
-	IncidentSessions       *IncidentSessionOptions
-	MemoryHistory          *MemoryHistoryOptions
-	Replicas               *ReplicaOptions
-	NodeAccounting         map[string]nodeanalysis.Qualification
-	AgentUsername          string
-	NodeContextUsername    string
-	TopologyEnabled        bool
-	VolumeStatsEnabled     bool
+	IncidentSessions    *IncidentSessionOptions
+	MemoryHistory       *MemoryHistoryOptions
+	Replicas            *ReplicaOptions
+	NodeAccounting      map[string]nodeanalysis.Qualification
+	AgentUsername       string
+	NodeContextUsername string
+	TopologyEnabled     bool
+	VolumeStatsEnabled  bool
+	// ServingCertFile is read only to report the certificate's expiry.
+	ServingCertFile        string
 	VolumeHealthEnabled    bool
 	VolumeWorkloadsEnabled bool
 	VolumeNamespaces       []string
@@ -119,6 +121,7 @@ func NewHandler(coordinator *Coordinator, opts HandlerOptions) (*Handler, error)
 	reads.nodeContextEnabled = opts.NodeContextUsername != ""
 	reads.topologyEnabled = opts.TopologyEnabled
 	reads.volumeStatsEnabled = opts.VolumeStatsEnabled
+	reads.servingCertFile = opts.ServingCertFile
 	reads.volumeWorkloadsEnabled = opts.VolumeWorkloadsEnabled
 	reads.volumeNamespaces = map[string]bool{}
 	for _, namespace := range namespaces {

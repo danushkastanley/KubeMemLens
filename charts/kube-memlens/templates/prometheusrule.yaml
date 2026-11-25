@@ -40,6 +40,17 @@ spec:
             summary: KubeMemLens agent snapshot is stale
             description: The collector has not received a snapshot from node {{ "{{ $labels.node }}" }} within the configured freshness window.
             runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "agent-snapshot-stale.md" | quote }}
+        - alert: KubeMemLensServingCertificateExpiring
+          expr: |
+            min(kubememlens_extension_serving_certificate_not_after_seconds) - time()
+            < 14 * 86400
+          for: 1h
+          labels:
+            severity: warning
+          annotations:
+            summary: KubeMemLens serving certificate expires within 14 days
+            description: The aggregated API stops working when the certificate expires. Check the kube-memlens-cert-rotation CronJob, or upgrade the release to rotate it.
+            runbook_url: {{ printf "%s/%s" .Values.metrics.prometheusRule.runbookBaseURL "serving-certificate-expiring.md" | quote }}
         - alert: KubeMemLensCollectorUnavailable
           expr: |
             max_over_time(kubememlens_collector_user_visible_available[2m]) == 0
