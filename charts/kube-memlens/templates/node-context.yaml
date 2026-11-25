@@ -70,6 +70,7 @@ spec:
     spec:
       serviceAccountName: kube-memlens-node-context
       automountServiceAccountToken: false
+{{- with (include "kube-memlens.imagePullSecrets" .) }}{{ . | nindent 6 }}{{- end }}
       terminationGracePeriodSeconds: 30
       nodeSelector:
 {{ toYaml .Values.agent.nodeSelector | nindent 8 }}

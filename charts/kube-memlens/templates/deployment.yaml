@@ -33,6 +33,7 @@ spec:
     spec:
       serviceAccountName: kube-memlens-collector
       automountServiceAccountToken: false
+{{- with (include "kube-memlens.imagePullSecrets" .) }}{{ . | nindent 6 }}{{- end }}
       terminationGracePeriodSeconds: 30
       nodeSelector:
 {{- toYaml (merge (dict "kubernetes.io/os" "linux") $collectorSelector) | nindent 8 }}

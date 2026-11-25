@@ -58,7 +58,7 @@ func (w Walker) WalkContext(ctx context.Context) ([]Entry, error) {
 	var entries []Entry
 	var errs []error
 	containerDirs := map[string]string{}
-	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+	visit := func(path string, d fs.DirEntry, walkErr error) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -107,12 +107,19 @@ func (w Walker) WalkContext(ctx context.Context) ([]Entry, error) {
 			Memory:       breakdown,
 		})
 		return nil
-	})
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return entries, err
 	}
-	if err != nil {
-		errs = append(errs, err)
+	subtrees := kubeletSubtrees(root)
+	if len(subtrees) == 0 {
+		subtrees = []string{root}
+	}
+	for _, subtree := range subtrees {
+		err = filepath.WalkDir(subtree, visit)
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return entries, err
+		}
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
 
 	return entries, errors.Join(errs...)

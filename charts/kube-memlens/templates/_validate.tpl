@@ -30,6 +30,11 @@ once installed. Rendered from validate.yaml so every render runs them.
 {{- end -}}
 {{- end -}}
 {{- end -}}
+{{- $probes := .Values.agent.probes | default dict -}}
+{{- $window := $probes.livenessWindow | default "2m" -}}
+{{- if and .Values.agent.enabled $probes.enabled (lt (int64 (include "kube-memlens.durationMillis" $window)) (mul 3 (int64 (include "kube-memlens.durationMillis" .Values.agent.interval)))) -}}
+{{- fail (printf "agent.probes.livenessWindow (%s) must be at least three times agent.interval (%s), or the kubelet would restart an agent that is scanning normally" $window .Values.agent.interval) -}}
+{{- end -}}
 {{- if and .Values.collector.enabled (eq (include "kube-memlens.tlsSource" .) "bootstrap") .Values.namespace.create -}}
 {{- fail "extensionTLS.source=bootstrap cannot be combined with namespace.create=true: the certificate Job runs before the chart creates the namespace. Create the namespace first, for example with --create-namespace" -}}
 {{- end -}}

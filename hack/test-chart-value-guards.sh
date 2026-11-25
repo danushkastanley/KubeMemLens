@@ -100,6 +100,22 @@ renders_with 'the certificate expiry alert with alert rules enabled' 'KubeMemLen
   --set metrics.prometheusRule.enabled=true
 rejects 'a rotation schedule that is not five cron fields' 'extensionTLS.rotation.schedule' \
   --set-string extensionTLS.rotation.schedule=monthly
+renders_without 'the agent health listener by default' 'health-listen'
+renders_with 'the agent liveness probe when asked' 'health-listen=:8083' --set agent.probes.enabled=true
+renders_with 'the agent priority class' 'priorityClassName: "system-node-critical"' \
+  --set agent.priorityClassName=system-node-critical
+renders_with 'the agent update strategy' 'maxUnavailable: 10%' \
+  --set agent.updateStrategy.type=RollingUpdate --set agent.updateStrategy.rollingUpdate.maxUnavailable=10%
+renders_with 'image pull secrets' 'name: registry-credentials' --set 'image.pullSecrets[0].name=registry-credentials'
+renders_with 'the agent Go memory limit as 90% of the default limit' 'value: "115MiB"'
+renders_with 'the agent Go memory limit following a raised limit' 'value: "460MiB"' \
+  --set agent.resources.limits.memory=512Mi
+renders_with 'the agent Go memory limit for a limit in Gi' 'value: "1843MiB"' \
+  --set agent.resources.limits.memory=2Gi
+renders_without 'a Go memory limit for a limit it cannot convert' 'name: GOMEMLIMIT' \
+  --set agent.resources.limits.memory=200M
+rejects 'a liveness window shorter than three scan intervals' 'agent.probes.livenessWindow' \
+  --set agent.probes.enabled=true --set agent.probes.livenessWindow=10s --set agent.interval=5s
 
 accepts 'the default values'
 accepts 'a rotation window just inside the validity' \

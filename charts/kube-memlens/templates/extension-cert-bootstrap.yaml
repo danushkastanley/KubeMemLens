@@ -16,6 +16,7 @@ template:
     restartPolicy: Never
     serviceAccountName: {{ .serviceAccount }}
     automountServiceAccountToken: false
+{{- with (include "kube-memlens.imagePullSecrets" $root) }}{{ . | nindent 4 }}{{- end }}
     nodeSelector:
       kubernetes.io/os: linux
     securityContext:

@@ -23,15 +23,21 @@ type MemoryEvents struct {
 	Unknown map[string]uint64
 }
 
-// ParseDirectory parses the cgroup v2 memory files in dir.
+// ParseDirectory parses the cgroup v2 memory files in dir. The directory is
+// opened as a root, so no name it reads can resolve outside it.
 func ParseDirectory(name, dir string) (model.MemoryBreakdown, error) {
-	return ParseFS(name, os.DirFS(dir))
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		return model.MemoryBreakdown{}, fmt.Errorf("open cgroup directory: %w", err)
+	}
+	defer root.Close()
+	return ParseFS(name, root.FS())
 }
 
 // ParseFS parses cgroup v2 memory files at the root of fsys. It lets bundled
 // samples share the agent's parser without a copy on disk.
 func ParseFS(name string, fsys fs.FS) (model.MemoryBreakdown, error) {
-	currentBytes, err := fs.ReadFile(fsys, "memory.current")
+	currentBytes, err := readBounded(fsys, "memory.current")
 	if err != nil {
 		return model.MemoryBreakdown{}, fmt.Errorf("read memory.current: %w", err)
 	}
@@ -41,7 +47,7 @@ func ParseFS(name string, fsys fs.FS) (model.MemoryBreakdown, error) {
 		return model.MemoryBreakdown{}, fmt.Errorf("parse memory.current: %w", err)
 	}
 
-	statBytes, err := fs.ReadFile(fsys, "memory.stat")
+	statBytes, err := readBounded(fsys, "memory.stat")
 	if err != nil {
 		return model.MemoryBreakdown{}, fmt.Errorf("read memory.stat: %w", err)
 	}
@@ -52,7 +58,7 @@ func ParseFS(name string, fsys fs.FS) (model.MemoryBreakdown, error) {
 	}
 
 	events := MemoryEvents{Values: map[string]uint64{}, Unknown: map[string]uint64{}}
-	eventBytes, err := fs.ReadFile(fsys, "memory.events")
+	eventBytes, err := readBounded(fsys, "memory.events")
 	if err == nil {
 		events, err = ParseMemoryEvents(eventBytes)
 		if err != nil {

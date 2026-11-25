@@ -46,6 +46,7 @@ type appModel struct {
 	detailSection       detailSection
 
 	data             snapshotData
+	podList          *podListCache
 	podTrends        map[string]int8
 	lastRefresh      time.Time
 	statusErr        error
@@ -94,6 +95,7 @@ func newModel(ctx context.Context, opts Options, reader client.SnapshotReader, d
 		loading:               true,
 		fetchGeneration:       1,
 		podTrends:             make(map[string]int8),
+		podList:               &podListCache{},
 		actionExecutor:        localActionExecutor{},
 	}
 	m.resizeViewports()
