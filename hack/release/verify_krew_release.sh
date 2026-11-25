@@ -33,6 +33,7 @@ trap 'rm -rf "${work}"' EXIT
 fetch() {
   local url=$1
   curl --fail --silent --show-error --location --retry 3 \
+    --connect-timeout 20 --max-time 300 \
     --output "${work}/${url##*/}" "${url}" ||
     fail "published release asset is not publicly downloadable: ${url}"
 }

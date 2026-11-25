@@ -89,6 +89,11 @@ grep -Fq -- "--certificate-identity https://github.com/danushkastanley/KubeMemLe
   echo 'promotion record was not verified against the promotion workflow of this tag' >&2
   exit 1
 }
+grep -Eq -- '^verify-blob --bundle [^ ]+/promotion-checksums\.sigstore\.json .* --certificate-oidc-issuer https://token\.actions\.githubusercontent\.com [^ ]+/promotion-checksums\.txt$' \
+  "${work}/cosign.log" || {
+  echo 'promotion record was not verified as promotion-checksums.txt from the GitHub Actions issuer' >&2
+  exit 1
+}
 if grep -Fv "https://github.com/danushkastanley/KubeMemLens/releases/download/${tag}/" "${work}/curl.log"; then
   echo 'verification downloaded from outside the published release' >&2
   exit 1
