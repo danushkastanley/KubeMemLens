@@ -36,6 +36,8 @@ Pod watch data supplies requests, limits, QoS, restart/termination state, phase,
 
 The CLI and TUI use the user's kubeconfig to access virtual `memory.kubememlens.io` resources through the Kubernetes API server. Namespace RoleBindings grant only that namespace. All-namespace, node and cluster-status reads require the separate cluster-viewer role. Metrics require another explicit role. Direct HTTP and Service-proxy client code remains only for controlled pre-v1 rollback and is not enabled by the production chart.
 
+Text in a response is untrusted, whichever transport returned it. Before anything is displayed or exported, the CLI and TUI replace terminal control, format and line-separator characters in every decoded string with U+FFFD, so a name cannot send escape sequences to the operator's terminal or into CSV output, and a capture of it can still be written. The content of the metrics resource is Prometheus exposition text and is passed through unchanged.
+
 The collector remains cluster-internal. KubeMemLens does not expose it through an external load balancer or create a port-forward automatically.
 
 Authenticated reads, workload metrics and agent writes enter through the Kubernetes API server and TLS Service port `443`. The collector Pod retains a data-free health listener on port `8080`, but the secure Service exposes neither that port nor plaintext ingestion port `8081`. NetworkPolicy permits control-plane traffic to the extension port because managed control-plane source ranges are not portable; authentication and exact delegated authorisation remain the boundary if NetworkPolicy is absent.

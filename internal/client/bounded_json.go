@@ -13,7 +13,8 @@ const legacyMaxResponseBytes = 16 << 20
 
 var errResponseTooLarge = errors.New("response exceeds byte limit")
 
-// decodeBoundedJSON decodes exactly one JSON value from at most limit bytes.
+// decodeBoundedJSON decodes exactly one JSON value from at most limit bytes
+// and neutralises the text in it.
 func decodeBoundedJSON(body io.Reader, limit int64, out any) error {
 	limited := &io.LimitedReader{R: body, N: limit + 1}
 	decoder := json.NewDecoder(limited)
@@ -27,5 +28,9 @@ func decodeBoundedJSON(body io.Reader, limit int64, out any) error {
 	if limited.N == 0 {
 		return errResponseTooLarge
 	}
-	return err
+	if err != nil {
+		return err
+	}
+	neutraliseText(out)
+	return nil
 }
