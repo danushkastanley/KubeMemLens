@@ -80,7 +80,7 @@ func readMemorySignals(fsys fs.FS, breakdown *model.MemoryBreakdown) error {
 // unknown and must not discard an otherwise valid memory sample. A kernel with
 // PSI compiled in but disabled at boot has the file and fails every read of it.
 func readMemoryPressure(fsys fs.FS, breakdown *model.MemoryBreakdown) {
-	data, err := fs.ReadFile(fsys, "memory.pressure")
+	data, err := readBounded(fsys, "memory.pressure")
 	if err != nil {
 		return
 	}
@@ -100,7 +100,7 @@ func readMemoryPressure(fsys fs.FS, breakdown *model.MemoryBreakdown) {
 }
 
 func readOptionalScalar(fsys fs.FS, name string, allowMax bool) (value uint64, known bool, unlimited bool, err error) {
-	data, err := fs.ReadFile(fsys, name)
+	data, err := readBounded(fsys, name)
 	if errors.Is(err, fs.ErrNotExist) {
 		return 0, false, false, nil
 	}
@@ -119,7 +119,7 @@ func readOptionalScalar(fsys fs.FS, name string, allowMax bool) (value uint64, k
 }
 
 func readOptionalEvents(fsys fs.FS, name string, keys map[string]struct{}) (map[string]uint64, bool, error) {
-	data, err := fs.ReadFile(fsys, name)
+	data, err := readBounded(fsys, name)
 	if errors.Is(err, fs.ErrNotExist) {
 		return map[string]uint64{}, false, nil
 	}
