@@ -19,6 +19,18 @@ Kubernetes aggregated API for agent writes and operator reads.
 
 The agent is not required for local sample commands.
 
+## Install the CLI
+
+With [Krew](https://krew.sigs.k8s.io/docs/user-guide/setup/install/):
+
+```sh
+kubectl krew install memlens
+kubectl memlens version
+```
+
+Without Krew, install a release archive as described in the
+[README quick start](../README.md#quick-start), or build from source.
+
 ## Build the CLI from source
 
 ```sh
