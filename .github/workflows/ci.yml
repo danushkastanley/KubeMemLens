@@ -140,13 +140,10 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # The same check a contributor runs locally: every Go file Git tracks or
+      # would track, and the formatter script's own test.
       - name: Check formatting
-        run: |
-          unformatted="$(gofmt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "$unformatted"
-            exit 1
-          fi
+        run: make fmt-check
 
       - name: Check shell script syntax
         run: bash -n hack/*.sh hack/community/*.sh hack/lib/*.sh hack/release/*.sh hack/terminal-qualification/*.sh

@@ -11,7 +11,7 @@ The rule: read the diff, run the checks whose trigger matches, then run the chan
 3. **Run the change** (under a second for samples, several minutes for kind): see [Run the change](#run-the-change).
 4. **Before opening a PR**: `make test-race` if the change touches goroutines, locks or shared state.
 
-`make check` is the full local gate, including the trace prototype, release, provider and terminal contracts. Run it when a change spans several areas or touches the Makefile; otherwise the rows below are enough and CI covers the rest.
+`make check` is the full local gate: everything CI runs on a pull request apart from the kind lanes, including the trace prototype, release, provider and terminal contracts. It runs the Go tests once, with the race detector and coverage together. Run it when a change spans several areas or touches the Makefile; otherwise the rows below are enough and CI covers the rest.
 
 ## Trigger table
 

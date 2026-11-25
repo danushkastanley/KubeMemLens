@@ -1,4 +1,4 @@
-.PHONY: check-incident-session-contract check-trace-release check-recommendation-evaluation check-replica-contract check-memory-history-contract check-trace-preflight check-trace-worker test coverage test-race build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract check-community-settings vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
+.PHONY: check-incident-session-contract check-trace-release check-recommendation-evaluation check-replica-contract check-memory-history-contract check-trace-preflight check-trace-worker test coverage test-race test-race-coverage build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract check-community-settings vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -13,6 +13,12 @@ test:
 
 coverage:
 	go test -covermode=atomic -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out
+
+# One race-enabled pass that also writes the coverage profile. CI's "Go tests"
+# job runs these two commands itself; keep the two in step.
+test-race-coverage:
+	go test -race -covermode=atomic -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out
 
 test-race:
@@ -121,7 +127,9 @@ check-trace-worker:
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C prototype/trace/worker build ./...
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace/worker build ./...
 
-check: check-incident-session-contract check-trace-release check-trace-chart-contract check-recommendation-evaluation check-trace-preflight check-trace-worker fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test coverage test-race vet vuln build
+# The full local gate: what CI runs on a pull request, apart from the kind
+# lanes. The Go tests run once, with the race detector and coverage together.
+check: check-incident-session-contract check-memory-history-contract check-replica-contract check-trace-release check-trace-chart-contract check-recommendation-evaluation check-trace-preflight check-trace-worker fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test-race-coverage vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh
