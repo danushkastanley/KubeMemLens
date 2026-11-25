@@ -39,6 +39,8 @@ func main() {
 	publishTimeout := flag.Duration("publish-timeout", 10*time.Second, "maximum time for one authenticated snapshot publish including bounded retries")
 	cacheSyncTimeout := flag.Duration("cache-sync-timeout", 15*time.Second, "maximum initial Kubernetes metadata cache sync wait")
 	metricsListenAddr := flag.String("metrics-listen", "127.0.0.1:8082", "HTTP listen address for agent metrics and health; empty disables it; use an explicit non-loopback address only in a reviewed local environment")
+	healthListenAddr := flag.String("health-listen", "", "HTTP listen address for /livez and /healthz only, for kubelet probes; empty disables it")
+	livenessWindow := flag.Duration("liveness-window", 2*time.Minute, "/livez fails when no scan has been attempted for this long")
 	versionOnly := flag.Bool("version", false, "show build information and exit")
 	flag.Parse()
 	if *versionOnly {
@@ -145,6 +147,17 @@ func main() {
 			}
 		}()
 		defer shutdownMetricsServer(metricsServer)
+	}
+	if strings.TrimSpace(*healthListenAddr) != "" {
+		healthServer := newMetricsServer(*healthListenAddr, telemetry.LivenessHandler(time.Now(), *livenessWindow, time.Now))
+		go func() {
+			fmt.Printf("memlens-agent health endpoint listening on %s\n", healthServer.Addr)
+			if err := healthServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				fmt.Fprintf(os.Stderr, "memlens-agent health server failed: %v\n", err)
+				stop()
+			}
+		}()
+		defer shutdownMetricsServer(healthServer)
 	}
 	var podCache *kube.PodCache
 	var nodeContextCache *kube.NodeContextCache

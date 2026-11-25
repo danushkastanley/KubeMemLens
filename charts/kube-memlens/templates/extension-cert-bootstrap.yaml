@@ -23,6 +23,7 @@ spec:
       restartPolicy: Never
       serviceAccountName: kube-memlens-cert-bootstrap
       automountServiceAccountToken: false
+{{- with (include "kube-memlens.imagePullSecrets" $root) }}{{ . | nindent 6 }}{{- end }}
       nodeSelector:
         kubernetes.io/os: linux
       securityContext:
