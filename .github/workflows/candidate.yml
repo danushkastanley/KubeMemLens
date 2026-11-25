@@ -39,7 +39,14 @@ jobs:
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+      # The archives are signed and attested, so they are built from modules
+      # downloaded in this job and checked against go.sum, never from a cache
+      # that another workflow could have written.
+      - name: Download and verify Go modules
+        run: |
+          go mod download
+          go mod verify
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
         with:
@@ -125,6 +132,14 @@ jobs:
             -exec cp '{}' "${RUNNER_TEMP}/first-archives/" \;
           (cd "${RUNNER_TEMP}/first-archives" && \
             sha256sum -- ./*.tar.gz ./*.zip | sed 's#  \./#  #' | sort > checksums.txt)
+
+      # A second build that reuses the first build's caches would repeat
+      # whatever they hold, so the comparison starts from empty ones.
+      - name: Discard Go caches before the rebuild
+        run: |
+          go clean -cache -modcache
+          go mod download
+          go mod verify
 
       - name: Rebuild prospective GA archives
         uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
