@@ -5,6 +5,7 @@ type: application
 version: 1.0.4
 appVersion: "1.0.4"
 home: https://github.com/danushkastanley/KubeMemLens
+icon: https://raw.githubusercontent.com/danushkastanley/KubeMemLens/main/docs/assets/kube-memlens-icon.svg
 sources:
   - https://github.com/danushkastanley/KubeMemLens
 maintainers:

@@ -129,7 +129,8 @@
       "required": ["create", "name"],
       "properties": {
         "create": {"type": "boolean"},
-        "name": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 63}
+        "name": {"type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", "maxLength": 63},
+        "podSecurityEnforce": {"enum": ["", "privileged", "baseline", "restricted"]}
       }
     },
     "agent": {

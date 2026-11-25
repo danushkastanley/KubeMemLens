@@ -91,6 +91,13 @@ rejects 'a bootstrap-owned Secret in a namespace the chart creates' 'extensionTL
   --set extensionTLS.source=bootstrap --set namespace.create=true
 bootstrap_render
 
+renders_with 'the chosen Pod Security level on a namespace the chart creates' 'pod-security.kubernetes.io/enforce: "privileged"' \
+  --set namespace.create=true --set namespace.podSecurityEnforce=privileged
+renders_without 'a Pod Security level nobody chose' 'pod-security.kubernetes.io/enforce' \
+  --set namespace.create=true
+rejects 'a Pod Security level that does not exist' 'podSecurityEnforce' \
+  --set namespace.create=true --set namespace.podSecurityEnforce=open
+
 accepts 'the default values'
 accepts 'a rotation window just inside the validity' \
   --set extensionTLS.validityDays=30 --set extensionTLS.rotateBefore=719h

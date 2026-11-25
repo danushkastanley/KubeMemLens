@@ -10,6 +10,11 @@ image:
 namespace:
   create: false
   name: kube-memlens
+  # Pod Security level to enforce on a namespace the chart creates. Empty
+  # sets no label. The agent needs "privileged": it reads the node's cgroup
+  # tree through a read-only hostPath volume, which baseline and restricted
+  # forbid. The chart never changes this label unless you set it.
+  podSecurityEnforce: ""
 
 # Optional deep-mode producer; trust, audience and network ranges must be qualified.
 # See profiles/node-context.yaml for explicit collector capacity and sizing.
