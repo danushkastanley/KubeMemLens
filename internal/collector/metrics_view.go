@@ -23,6 +23,7 @@ type MetricsView struct {
 	namespaces     []api.NamespaceSnapshot
 	debug          api.DebugStore
 	latest         map[string]time.Time
+	captureSkew    map[string]time.Duration
 	ingestion      api.CollectorIngestionStats
 	containerCount int
 	podCount       int
@@ -127,7 +128,7 @@ func (s *Store) BuildMetricsView(now time.Time, ttl time.Duration, opts metrics.
 	view := &MetricsView{
 		containers: containers, pods: sortedMetricPods(podItems), namespaces: sortedMetricNamespaces(namespaceItems),
 		debug:  s.debugWithCounts(now, ttl, totalContainers, staleContainers, len(podSeen), len(namespaceSeen)),
-		latest: s.LatestByNode(now), ingestion: s.IngestionStats(),
+		latest: s.LatestByNode(now), captureSkew: s.CaptureSkewByNode(), ingestion: s.IngestionStats(),
 		containerCount: totalContainers, podCount: len(podSeen), namespaceCount: len(namespaceSeen),
 		mappedCount: viewMapped, unmappedCount: viewUnmapped,
 	}
@@ -190,6 +191,10 @@ func (v *MetricsView) Debug(time.Time, time.Duration) api.DebugStore {
 
 func (v *MetricsView) LatestByNode(time.Time) map[string]time.Time {
 	return v.latest
+}
+
+func (v *MetricsView) CaptureSkewByNode() map[string]time.Duration {
+	return v.captureSkew
 }
 
 func (v *MetricsView) IngestionStats() api.CollectorIngestionStats {

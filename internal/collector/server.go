@@ -362,6 +362,9 @@ func ValidateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOpt
 			return fmt.Errorf("containers[%d].nodeName does not match snapshot nodeName", i)
 		}
 	}
+	if err := validateSnapshotText(snapshot); err != nil {
+		return err
+	}
 	return validatePodResourceAgreement(snapshot.Containers)
 }
 

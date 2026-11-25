@@ -313,7 +313,7 @@ resources are:
 - `GET /apis/memory.kubememlens.io/v1alpha1/nodecontexts/NAME/history?limit=1`
 - `GET /apis/memory.kubememlens.io/v1alpha1/nodecontexts/NAME/analysis?rank=total&limit=20`
 
-Use the returned opaque continuation token to request another page. Node pages
+Use the returned opaque continuation token to request another page. A token is bound to the view it was issued for and to one collector generation. Used after the collector restarts, or issued by an earlier version, it returns `410` with reason `Expired`: start the list again. Used against a different view it returns `400`. Node pages
 have at most 100 records; history has at most 61 points per Node UID and a
 bounded response budget. Each history point retains collector receive time and
 the observation's independent memory, swap, system and Node-object timestamps.

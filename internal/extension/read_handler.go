@@ -375,7 +375,7 @@ func readScopeKey(resource string, scope collector.ReadScope) string {
 }
 
 func (h *ReadHandler) generationScope(scope string) string {
-	return scope + ":" + h.store.Generation()
+	return collector.GenerationScope(scope, h.store.Generation())
 }
 
 func (h *ReadHandler) nestedReadBudget() int {
@@ -388,6 +388,11 @@ func writeReadPageError(w http.ResponseWriter, err error) bool {
 	}
 	if errors.Is(err, collector.ErrReadPageTooLarge) {
 		writeReadError(w, http.StatusInsufficientStorage, metav1.StatusReason("ResponseTooLarge"), "response exceeds the configured maximum")
+		return true
+	}
+	if errors.Is(err, collector.ErrContinueExpired) {
+		// The Kubernetes convention for a list that can no longer be continued.
+		writeReadError(w, http.StatusGone, metav1.StatusReasonExpired, err.Error())
 		return true
 	}
 	writeReadError(w, http.StatusBadRequest, metav1.StatusReasonBadRequest, err.Error())

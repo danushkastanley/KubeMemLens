@@ -62,6 +62,12 @@ Because those identifiers are not labels, two instances that share every label a
 - Labels: `node`.
 - Age of the newest agent snapshot seen for the node.
 
+`kubememlens_collector_agent_capture_skew_seconds`
+
+- Type: gauge.
+- Labels: `node`.
+- The collector's receive time minus the agent's capture time for the newest snapshot of a node. It combines clock difference and delivery delay. The collector accepts snapshots up to two minutes old but treats evidence older than the snapshot lifetime (30 seconds by default) as stale, so a node whose clock is between those two values behind is accepted on every post and still reported stale. A steady value above the snapshot lifetime points at the node's clock.
+
 `kubememlens_collector_agent_last_seen_timestamp_seconds`
 
 - Type: gauge.
