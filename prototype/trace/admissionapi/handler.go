@@ -21,12 +21,13 @@ const prefix = "/apis/" + groupVersion
 type Handler struct {
 	manager     *admission.Manager
 	rate        *rate.Limiter
+	principals  *principalLimits
 	stream      *StreamProxy
 	streamSlots chan struct{}
 }
 
 func NewHandler(manager *admission.Manager) *Handler {
-	return &Handler{manager: manager, rate: rate.NewLimiter(20, 20), streamSlots: make(chan struct{}, 32)}
+	return &Handler{manager: manager, rate: rate.NewLimiter(20, 20), principals: newPrincipalLimits(), streamSlots: make(chan struct{}, 32)}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +41,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, admission.ErrUnauthenticated)
 		return
 	}
-	if !h.rate.Allow() {
+	if !h.principals.allow(principal.GetName()) || !h.rate.Allow() {
 		writeError(w, admission.ErrCapacity)
 		return
 	}
