@@ -36,7 +36,7 @@ func main() {
 	incidentFlags := registerIncidentSessionFlags(flag.CommandLine)
 	listenAddr := flag.String("listen", ":8080", "HTTP listen address for collector reads, metrics, and health checks")
 	ingestListenAddr := flag.String("ingest-listen", ":8081", "HTTP listen address for agent snapshot ingestion")
-	ingestionMode := flag.String("ingestion-mode", ingestionLegacy, "snapshot ingestion mode: legacy or authenticated")
+	ingestionMode := registerIngestionMode(flag.CommandLine)
 	extensionPort := flag.Int("extension-port", 8443, "HTTPS port for the aggregated ingestion API")
 	extensionCertFile := flag.String("extension-tls-cert-file", "", "aggregated API serving certificate")
 	extensionKeyFile := flag.String("extension-tls-key-file", "", "aggregated API serving private key")
@@ -85,8 +85,8 @@ func main() {
 		fmt.Println(buildinfo.Current(runtime.Version(), runtime.GOOS, runtime.GOARCH).String())
 		return
 	}
-	if *ingestionMode != ingestionLegacy && *ingestionMode != ingestionAuthenticated {
-		fmt.Fprintln(os.Stderr, "ingestion mode must be legacy or authenticated")
+	if err := checkIngestionMode(*ingestionMode, *extensionCertFile, *extensionKeyFile); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
 	if historyOpts.Duration <= 0 || historyOpts.MaxSeries <= 0 || historyOpts.MaxPoints <= 0 || historyOpts.MaxResponseSeries <= 0 || storeLimits.MaxNodes <= 0 || storeLimits.MaxContainers <= 0 || handlerOpts.MaxResponseBytes <= 0 || *readMaxConcurrent <= 0 {

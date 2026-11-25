@@ -10,6 +10,8 @@ KubeMemLens v1 uses the Kubernetes API server as the only production entry point
 
 The collector rejects direct identity headers, unauthenticated HTTP and any request whose namespace, resource, node or agent instance does not match the authenticated identity.
 
+The collector binary uses this authenticated mode unless told otherwise, and refuses to start without `--extension-tls-cert-file` and `--extension-tls-key-file`. Its `legacy` mode serves reads and writes over plain HTTP to anyone who can reach the listeners; it must be selected with `--ingestion-mode=legacy` and is not used by the chart.
+
 ## Principals
 
 | Principal | Credential and transport | Identity used by KubeMemLens | Allowed scope |
