@@ -32,6 +32,7 @@ Paths are prefixes. Run a row only when the diff touches its trigger.
 | `internal/incidentsession*/`, `internal/incident/` | `make check-incident-session-contract` | Bundles must stay bounded and redacted |
 | `internal/replica*/` or chart replica values | `make check-replica-contract` | Chart guards and replica logic must agree |
 | `charts/kube-memlens/` | `helm template` with the changed values, `hack/test-chart-value-guards.sh`, then a base kind run | The kind run covers install, upgrade, rollback and uninstall |
+| A new resource kind, Pod or projected token in `charts/kube-memlens/templates/` | The `Helm checks` steps in `.github/workflows/ci.yml`, run in order, and `NODE_CONTEXT_EXECUTION_MODE=api-reads hack/verify-node-context-execution-kind.sh` | Both list exactly what the chart may contain: the Helm checks count projected tokens, and `hack/node-qualification/owned_resources.py` lists the allowed kinds. Neither is part of the base kind run |
 | `charts/kube-memlens-trace/`, `prototype/trace/` | `make check-trace-chart-contract`, `make check-trace-preflight` | Separate module with its own gate |
 | `prototype/trace/worker/` | `make check-trace-worker` | Separate module and SDK preparation |
 | RBAC, NetworkPolicy, Service ports, security context | Tenant isolation smoke, and re-read [security-model.md](security-model.md) | A privilege change needs a stated reason |
