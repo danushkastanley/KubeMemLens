@@ -12,7 +12,7 @@ spec:
       type: RuntimeDefault
   containers:
     - name: worker
-      image: docker.io/library/busybox@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
+      image: docker.io/library/busybox@sha256:a46257e06c82ad85242d0d38077d0a52d9896389ca60a1a59d3463db586e5fa4
       command: [sh, -c, 'exec sleep 86400']
       resources:
         requests: {cpu: 10m, memory: 16Mi}
