@@ -85,8 +85,7 @@ func forwardRecord(data []byte, kind trace.Kind, decoder *filecache.Decoder, out
 		if err != nil {
 			return ErrWorker
 		}
-		counts.forwarded++
-		return output.OOMDecision(event)
+		return delivered(counts, output.OOMDecision(event))
 	}
 	if kind == trace.Files {
 		event, err := decoder.File(data)
@@ -97,15 +96,22 @@ func forwardRecord(data []byte, kind trace.Kind, decoder *filecache.Decoder, out
 		if err != nil {
 			return ErrWorker
 		}
-		counts.forwarded++
-		return output.FileActivity(event)
+		return delivered(counts, output.FileActivity(event))
 	}
 	event, err := decoder.Cache(data)
 	if err != nil {
 		return ErrWorker
 	}
-	counts.forwarded++
-	return output.CacheActivity(event)
+	return delivered(counts, output.CacheActivity(event))
+}
+
+// delivered counts a record only once the output has accepted it. A refused
+// record was seen but not forwarded, so reconcileCounts reports it as rejected.
+func delivered(counts *readCounts, err error) error {
+	if err == nil {
+		counts.forwarded++
+	}
+	return err
 }
 
 func finalCounts(owned *resources, reads readCounts) (trace.Counts, error) {

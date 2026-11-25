@@ -155,5 +155,20 @@ func ValidateIntent(kind Kind, paths PathPolicy, bounds Bounds) error {
 	if paths == ConfirmedPaths && kind != Files {
 		return errors.New("raw paths require a file trace")
 	}
-	return bounds.Validate()
+	if err := bounds.Validate(); err != nil {
+		return err
+	}
+	if bounds.MapBytes < MinimumMapBytes(kind) {
+		return errors.New("trace map limit is below what the trace kind requires")
+	}
+	return nil
+}
+
+// MinimumMapBytes is the map reservation each kind's worker profile needs
+// before attachment. A smaller budget can be admitted but never run.
+func MinimumMapBytes(kind Kind) uint64 {
+	if kind == Cache {
+		return 4 << 20
+	}
+	return 8 << 20
 }
