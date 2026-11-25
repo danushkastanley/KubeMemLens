@@ -37,11 +37,16 @@ func openTraceClient(options client.Options) (*traceclient.Client, error) {
 	return traceclient.New(config)
 }
 
+const traceLong = "Request bounded development traces through the optional Kubernetes trace extension.\n\n" +
+	"The extension is separately built and installed. It is not part of the released chart or image, " +
+	"so on a standard install these commands report that the optional trace service is unavailable.\n\n" +
+	"Trace permission is separate from memory read access. Resource qualification remains incomplete."
+
 func newTraceCommand(options collectorOptionsProvider) *cobra.Command {
 	return newTraceCommandWithFactory(options, openTraceClient)
 }
 func newTraceCommandWithFactory(options collectorOptionsProvider, factory traceFactory) *cobra.Command {
-	cmd := &cobra.Command{Use: "trace", Short: "Use the optional bounded trace extension", Long: "Request bounded development traces through the optional Kubernetes extension. Trace permission is separate from memory read access. Resource qualification remains incomplete."}
+	cmd := &cobra.Command{Use: "trace", Short: "Use the separately built trace extension", Long: traceLong}
 	for _, action := range []string{"preflight", "create", "run"} {
 		cmd.AddCommand(newTraceTargetCommand(action, options, factory))
 	}
