@@ -51,4 +51,9 @@ func TestTelemetryHandler(t *testing.T) {
 	if got := rec.Header().Get("Content-Type"); got != MetricsContentType {
 		t.Fatalf("Content-Type = %q", got)
 	}
+	// Documented as always present, so an alert on it has a series on a node
+	// where no Pod is reduced.
+	if body := rec.Body.String(); !strings.Contains(body, "kubememlens_agent_metadata_reduced_pods 0\n") {
+		t.Fatalf("reduced-Pods gauge is not present at zero on a new agent:\n%s", body)
+	}
 }
