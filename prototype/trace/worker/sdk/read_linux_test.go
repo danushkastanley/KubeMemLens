@@ -2,13 +2,16 @@ package sdk
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"github.com/cilium/ebpf/ringbuf"
 	"math"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/danushkastanley/kube-memlens/internal/trace"
+	"github.com/danushkastanley/kube-memlens/prototype/trace/filecache"
 )
 
 func counters(produced, sampled, lost, rejected uint64) trace.Counts {
@@ -45,6 +48,54 @@ func TestInconsistentCountsRemainUnknown(t *testing.T) {
 		if err == nil || result.Produced != nil || result.Rejected != nil {
 			t.Fatal("inconsistent accounting became a known count")
 		}
+	}
+}
+
+type forwardedFiles struct{ files uint64 }
+
+func (f *forwardedFiles) FileActivity(trace.FileActivity) error {
+	f.files++
+	return nil
+}
+func (*forwardedFiles) CacheActivity(trace.CacheActivity) error {
+	return errors.New("unexpected cache")
+}
+func (*forwardedFiles) OOMDecision(trace.OOMDecision) error { return errors.New("unexpected OOM") }
+
+func confirmedFileRecord(path []byte) []byte {
+	data := make([]byte, 552)
+	binary.LittleEndian.PutUint64(data[:8], 200)
+	binary.LittleEndian.PutUint64(data[8:16], 100)
+	binary.LittleEndian.PutUint64(data[16:24], 80)
+	binary.LittleEndian.PutUint32(data[24:28], 1)
+	binary.LittleEndian.PutUint32(data[28:32], uint32(len(path)))
+	copy(data[32:], path)
+	return data
+}
+
+// Linux paths are bytes, not text. One path the stream cannot carry must not
+// end the trace; the record is booked as rejected and reading continues.
+func TestNonUTF8PathIsRejectedWithoutEndingTrace(t *testing.T) {
+	spec, err := trace.NewSpecification(trace.Files, sampleIdentity(), trace.ConfirmedPaths, trace.DefaultBounds())
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoder, err := filecache.NewDecoder(spec, filecache.Alignment{MonotonicNS: 100, WallTime: time.Unix(20, 0), Duration: time.Second, Uncertainty: time.Microsecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := &forwardedFiles{}
+	var reads readCounts
+	forwardUntil := time.Now().Add(time.Hour)
+	for _, path := range [][]byte{{0xff, 0xfe}, []byte("/fixture")} {
+		reads.seen++
+		if err := forwardRecord(confirmedFileRecord(path), trace.Files, decoder, output, &reads, forwardUntil); err != nil {
+			t.Fatalf("record with path length %d ended the trace: %v", len(path), err)
+		}
+	}
+	counts, err := reconcileCounts(counters(2, 0, 0, 0), reads)
+	if err != nil || output.files != 1 || *counts.Rejected != 1 {
+		t.Fatalf("unrepresentable path not booked as rejected: err=%v forwarded=%d", err, output.files)
 	}
 }
 
