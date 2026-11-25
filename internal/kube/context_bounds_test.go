@@ -173,6 +173,23 @@ func TestProfilingDeclarationSurvivesExcessLabels(t *testing.T) {
 	}
 }
 
+// Only a declaration for one of the Pod's containers is read. Other labels
+// under the profiling prefix must not push ordinary labels out.
+func TestUnreadProfilingLabelsDoNotDisplaceOrdinaryLabels(t *testing.T) {
+	pod := podWithStatuses("tenant-pod", "uid-a", []corev1.ContainerStatus{{Name: "app", ContainerID: "containerd://abcdef1234567890"}})
+	pod.Labels = map[string]string{"app.kubernetes.io/name": "api"}
+	for i := range 70 {
+		pod.Labels[fmt.Sprintf("%snot-a-container-%02d", profiler.LabelPrefix, i)] = "value"
+	}
+	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890", "")
+	if !ok {
+		t.Fatal("Lookup returned false")
+	}
+	if ref.Context.Labels["app.kubernetes.io/name"] != "api" {
+		t.Fatal("70 profiling labels that name no container displaced app.kubernetes.io/name")
+	}
+}
+
 // The snapshot cannot say that metadata was left out, so the agent has to
 // count the Pods it reduced or an omitted owner reads as no owner.
 func TestReducedPodsAreCounted(t *testing.T) {

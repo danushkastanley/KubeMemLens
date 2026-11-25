@@ -6,6 +6,7 @@ import (
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/profiler"
+	corev1 "k8s.io/api/core/v1"
 )
 
 // Limits the collector enforces on one container's context. It rejects the
@@ -23,10 +24,11 @@ const (
 // snapshotContext returns the context the agent may put in a node snapshot,
 // and whether anything had to be left out of it. The snapshot has no field
 // that says so, so the caller counts reduced Pods where an operator can see
-// them. Other readers of containerContext apply their own limits.
-func snapshotContext(full api.ContainerContext) (api.ContainerContext, bool) {
+// them. containers are the Pod's container statuses, which decide the labels
+// KubeMemLens reads. Other readers of containerContext apply their own limits.
+func snapshotContext(full api.ContainerContext, containers []corev1.ContainerStatus) (api.ContainerContext, bool) {
 	bounded := full
-	bounded.Labels = boundedLabels(full.Labels)
+	bounded.Labels = boundedLabels(full.Labels, containers)
 	bounded.RuntimeClassName = boundedText(full.RuntimeClassName, maxContextKindBytes)
 	bounded.LastTerminationReason = boundedText(full.LastTerminationReason, maxContextKindBytes)
 	bounded.OwnerKind, bounded.OwnerName = reportableOwner(full.OwnerKind, full.OwnerName)
@@ -42,10 +44,11 @@ func snapshotContext(full api.ContainerContext) (api.ContainerContext, bool) {
 }
 
 // boundedLabels drops labels the collector would refuse, then keeps
-// maxContextLabels of the rest. Labels KubeMemLens itself reads are kept
-// first, so a Pod with many labels does not lose its profiling declaration;
-// the others follow in key order so the same Pod always reports the same set.
-func boundedLabels(labels map[string]string) map[string]string {
+// maxContextLabels of the rest. The profiling declarations of the Pod's own
+// containers are the labels KubeMemLens itself reads, so they are kept first
+// and a Pod with many labels does not lose them. The others follow in key
+// order, so every container of a Pod reports the same set on every scan.
+func boundedLabels(labels map[string]string, containers []corev1.ContainerStatus) map[string]string {
 	keys := make([]string, 0, len(labels))
 	for key, value := range labels {
 		if len(key) <= maxContextLabelBytes && len(value) <= maxContextLabelBytes {
@@ -58,8 +61,12 @@ func boundedLabels(labels map[string]string) map[string]string {
 	if len(keys) == 0 {
 		return nil
 	}
+	read := make(map[string]bool, len(containers))
+	for _, container := range containers {
+		read[profiler.LabelPrefix+container.Name] = true
+	}
 	slices.SortFunc(keys, func(a, b string) int {
-		aRead, bRead := strings.HasPrefix(a, profiler.LabelPrefix), strings.HasPrefix(b, profiler.LabelPrefix)
+		aRead, bRead := read[a], read[b]
 		if aRead != bRead {
 			if aRead {
 				return -1
@@ -79,7 +86,8 @@ func boundedLabels(labels map[string]string) map[string]string {
 // boundedVolumeCounts keeps the memory-backed emptyDir count inside the limit
 // without hiding a volume that has no size limit. Unbounded volumes are the
 // ones an operator is told to review, so they stay in the count and the
-// limited ones give way.
+// limited ones give way. MemoryEmptyDirLimitBytes is not reduced with them:
+// it stays the total of every size limit the Pod declares.
 func boundedVolumeCounts(count, limited int) (int, int) {
 	unbounded := count - limited
 	count = min(count, maxContextMemoryVolumes)
@@ -106,7 +114,8 @@ func boundedText(value string, limit int) string {
 }
 
 // ReducedContextPods counts the Pods in the index whose metadata was reduced
-// to fit the collector's limits.
+// to fit the collector's limits. The index holds every Pod with a container
+// ID, so this can include a Pod whose containers have exited.
 func (idx PodIndex) ReducedContextPods() int {
 	reduced := map[string]struct{}{}
 	for _, ref := range idx.ByContainerID {

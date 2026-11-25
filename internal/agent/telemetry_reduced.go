@@ -5,8 +5,8 @@ import (
 	"strings"
 )
 
-// RecordReducedMetadata records how many Pods in the latest scan had metadata
-// left out of the snapshot to fit the collector's limits. The snapshot cannot
+// RecordReducedMetadata records how many Pods in the metadata cache have
+// metadata left out of snapshots to fit the collector's limits. The snapshot cannot
 // say that a label, owner or runtime class was omitted, so without this gauge
 // an omitted value looks the same as one the Pod never had.
 func (t *Telemetry) RecordReducedMetadata(pods int) {
@@ -16,6 +16,6 @@ func (t *Telemetry) RecordReducedMetadata(pods int) {
 }
 
 func (t *Telemetry) writeReducedMetadataLocked(b *strings.Builder) {
-	writeMetricHeader(b, "kubememlens_agent_metadata_reduced_pods", "Pods in the latest KubeMemLens agent scan whose metadata was reduced to fit collector limits.", "gauge")
+	writeMetricHeader(b, "kubememlens_agent_metadata_reduced_pods", "Pods in the KubeMemLens agent metadata cache whose snapshot metadata is reduced to fit collector limits.", "gauge")
 	fmt.Fprintf(b, "kubememlens_agent_metadata_reduced_pods %d\n", t.reducedPods)
 }

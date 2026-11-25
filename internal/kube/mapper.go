@@ -65,7 +65,7 @@ func BuildPodIndexFromPods(pods []corev1.Pod) PodIndex {
 				continue
 			}
 
-			context, reduced := snapshotContext(containerContext(pod, status))
+			context, reduced := snapshotContext(containerContext(pod, status), statuses)
 			ref := PodRef{
 				Namespace:      pod.Namespace,
 				PodName:        pod.Name,
