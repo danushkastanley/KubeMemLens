@@ -11,6 +11,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/capability"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
 	"github.com/danushkastanley/kube-memlens/internal/model"
+	"github.com/danushkastanley/kube-memlens/internal/nextcommand"
 )
 
 func newExplainCommand(collectorOptions collectorOptionsProvider) *cobra.Command {
@@ -136,10 +137,10 @@ func printWorkloadExplanation(w interface{ Write([]byte) (int, error) }, workloa
 		)
 	}
 	_ = tw.Flush()
-	if workload.LargestPodName != "" {
+	if commands := workloadNextCommands(workload); len(commands) > 0 {
 		fmt.Fprintln(w)
 		fmt.Fprintln(w, "Next commands:")
-		for _, command := range workloadNextCommands(workload) {
+		for _, command := range commands {
 			fmt.Fprintln(w, "- "+command)
 		}
 	}
@@ -168,31 +169,43 @@ func printPodExplanation(w interface{ Write([]byte) (int, error) }, pod api.PodS
 	}
 	_ = tw.Flush()
 	fmt.Fprintln(w)
+	commands := podNextCommands(pod)
+	if len(commands) == 0 {
+		return
+	}
 	fmt.Fprintln(w, "Next commands:")
-	for _, command := range podNextCommands(pod) {
+	for _, command := range commands {
 		fmt.Fprintln(w, "- "+command)
 	}
 }
 
+// podNextCommands offers commands only for names that are plain Kubernetes
+// names: the operator is invited to copy and run these lines.
 func podNextCommands(pod api.PodSnapshot) []string {
+	if !nextcommand.SafeNames(pod.Namespace, pod.PodName) {
+		return nil
+	}
 	commands := []string{
 		fmt.Sprintf("kubectl memlens history pod %s -n %s", pod.PodName, pod.Namespace),
 		fmt.Sprintf("kubectl describe pod/%s -n %s", pod.PodName, pod.Namespace),
 		fmt.Sprintf("kubectl get events -n %s --field-selector involvedObject.name=%s --sort-by=.lastTimestamp", pod.Namespace, pod.PodName),
 	}
-	if pod.Context.WorkloadKind != "" && pod.Context.WorkloadName != "" {
+	if nextcommand.SafeKind(pod.Context.WorkloadKind) && nextcommand.SafeNames(pod.Context.WorkloadName) {
 		commands = append(commands, fmt.Sprintf("kubectl memlens explain workload %s/%s -n %s", strings.ToLower(pod.Context.WorkloadKind), pod.Context.WorkloadName, pod.Namespace))
 	}
 	return commands
 }
 
 func workloadNextCommands(workload api.WorkloadSnapshot) []string {
-	if workload.LargestPodName == "" {
+	if !nextcommand.SafeNames(workload.LargestPodName, workload.Namespace) {
 		return nil
 	}
-	return []string{
+	commands := []string{
 		fmt.Sprintf("kubectl memlens explain pod %s -n %s", workload.LargestPodName, workload.Namespace),
 		fmt.Sprintf("kubectl memlens history pod %s -n %s", workload.LargestPodName, workload.Namespace),
-		fmt.Sprintf("kubectl describe %s/%s -n %s", strings.ToLower(workload.Kind), workload.Name, workload.Namespace),
 	}
+	if nextcommand.SafeKind(workload.Kind) && nextcommand.SafeNames(workload.Name) {
+		commands = append(commands, fmt.Sprintf("kubectl describe %s/%s -n %s", strings.ToLower(workload.Kind), workload.Name, workload.Namespace))
+	}
+	return commands
 }

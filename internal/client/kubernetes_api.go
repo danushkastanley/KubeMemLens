@@ -270,6 +270,7 @@ func (c *KubernetesAPIClient) getBounded(ctx context.Context, operation, path st
 	if limited.N == 0 {
 		return readDecodeError(operation, fmt.Errorf("response exceeds byte limit"))
 	}
+	neutraliseText(out)
 	return nil
 }
 

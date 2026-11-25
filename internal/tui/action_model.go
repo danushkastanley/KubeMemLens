@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/explain"
+	"github.com/danushkastanley/kube-memlens/internal/nextcommand"
 	"github.com/danushkastanley/kube-memlens/internal/observationview"
 )
 
@@ -317,11 +318,12 @@ func (m appModel) currentCommand() (string, bool) {
 	}
 	switch ref.kind {
 	case entityNode:
-		return "kubectl memlens explain node " + ref.nodeName, true
+		return "kubectl memlens explain node " + ref.nodeName, nextcommand.SafeNames(ref.nodeName)
 	case entityPod, entityContainer:
-		return "kubectl memlens explain pod " + ref.podName + " -n " + ref.namespace, true
+		return "kubectl memlens explain pod " + ref.podName + " -n " + ref.namespace, nextcommand.SafeNames(ref.podName, ref.namespace)
 	case entityWorkload:
-		return "kubectl memlens explain workload " + ref.workloadKind + "/" + ref.name + " -n " + ref.namespace, true
+		return "kubectl memlens explain workload " + ref.workloadKind + "/" + ref.name + " -n " + ref.namespace,
+			nextcommand.SafeKind(ref.workloadKind) && nextcommand.SafeNames(ref.name, ref.namespace)
 	default:
 		return "", false
 	}

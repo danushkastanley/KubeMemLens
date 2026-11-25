@@ -37,6 +37,18 @@ func TestOversizedPodMetadataStillYieldsAnAcceptedSnapshot(t *testing.T) {
 		"long owner name": func(pod *corev1.Pod) {
 			pod.OwnerReferences = []metav1.OwnerReference{{Kind: "Custom", Name: strings.Repeat("n", 254), Controller: &controller}}
 		},
+		"escape sequence in the owner kind": func(pod *corev1.Pod) {
+			pod.OwnerReferences = []metav1.OwnerReference{{Kind: "Foo\x1b[31m", Name: "owner", Controller: &controller}}
+		},
+		"bidirectional override in the owner name": func(pod *corev1.Pod) {
+			pod.OwnerReferences = []metav1.OwnerReference{{Kind: "Custom", Name: "owner\u202egnp", Controller: &controller}}
+		},
+		"invalid UTF-8 in the owner name": func(pod *corev1.Pod) {
+			pod.OwnerReferences = []metav1.OwnerReference{{Kind: "Custom", Name: "owner\xff", Controller: &controller}}
+		},
+		"newline in the termination reason": func(pod *corev1.Pod) {
+			pod.Status.ContainerStatuses[0].LastTerminationState.Terminated = &corev1.ContainerStateTerminated{Reason: "Error\nforged"}
+		},
 		"long runtime class name": func(pod *corev1.Pod) {
 			runtimeClass := strings.Repeat("r", 65)
 			pod.Spec.RuntimeClassName = &runtimeClass
@@ -70,8 +82,10 @@ func TestOversizedPodMetadataStillYieldsAnAcceptedSnapshot(t *testing.T) {
 func TestOversizedResolvedWorkloadStillYieldsAnAcceptedSnapshot(t *testing.T) {
 	controller := true
 	for name, owner := range map[string]metav1.OwnerReference{
-		"long workload kind": {Kind: strings.Repeat("K", 65), Name: "owner", Controller: &controller},
-		"long workload name": {Kind: "Custom", Name: strings.Repeat("n", 254), Controller: &controller},
+		"long workload kind":                   {Kind: strings.Repeat("K", 65), Name: "owner", Controller: &controller},
+		"long workload name":                   {Kind: "Custom", Name: strings.Repeat("n", 254), Controller: &controller},
+		"escape sequence in the workload kind": {Kind: "Foo\x1b[31m", Name: "owner", Controller: &controller},
+		"line separator in the workload name":  {Kind: "Custom", Name: "owner\u2028x", Controller: &controller},
 	} {
 		t.Run(name, func(t *testing.T) {
 			replicaSet := &appsv1.ReplicaSet{ObjectMeta: metav1.ObjectMeta{
