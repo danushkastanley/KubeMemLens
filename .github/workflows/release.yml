@@ -38,7 +38,15 @@ jobs:
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
-          cache: true
+          cache: false
+
+      # The archives are signed and attested, so they are built from modules
+      # downloaded in this job and checked against go.sum, never from a cache
+      # that another workflow could have written.
+      - name: Download and verify Go modules
+        run: |
+          go mod download
+          go mod verify
 
       - name: Install Syft
         uses: anchore/sbom-action/download-syft@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
