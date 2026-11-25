@@ -1,0 +1,33 @@
+name: Embedded image digests
+
+# Dependabot does not read image references inside workflow run steps, shell
+# scripts or chart templates. This reports the ones whose tag has moved. It is
+# a scheduled report, not a pull request check.
+on:
+  schedule:
+    - cron: '20 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: embedded-digests
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Embedded image digests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Test the check
+        run: python3 hack/test_check_embedded_digests.py
+
+      - name: Compare pinned digests with their registries
+        run: python3 hack/check_embedded_digests.py

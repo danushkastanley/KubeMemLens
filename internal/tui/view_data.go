@@ -27,6 +27,10 @@ func (m appModel) visibleNodes() []nodeView {
 }
 
 func (m appModel) visiblePods() []api.PodSnapshot {
+	return m.podList.get(m.podListKey(), m.buildVisiblePods)
+}
+
+func (m appModel) buildVisiblePods() []api.PodSnapshot {
 	namespace, all := m.activeNamespace()
 	items := FilterPodsAt(m.data.Pods, namespace, all, m.query, m.riskNow(), m.staleAfter())
 	if m.currentNode != "" {

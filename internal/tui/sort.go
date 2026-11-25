@@ -42,23 +42,14 @@ func SortPods(items []api.PodSnapshot, mode sortMode) {
 }
 
 func SortPodsAt(items []api.PodSnapshot, mode sortMode, now time.Time, staleAfter time.Duration) {
+	if mode == sortRisk {
+		sortPodsByRisk(items, func(pod api.PodSnapshot) int { return podRisk(pod, now, staleAfter).score })
+		return
+	}
 	sort.SliceStable(items, func(i, j int) bool {
 		left := items[i]
 		right := items[j]
 		switch mode {
-		case sortRisk:
-			leftRisk := podRisk(left, now, staleAfter)
-			rightRisk := podRisk(right, now, staleAfter)
-			if leftRisk.score != rightRisk.score {
-				return leftRisk.score > rightRisk.score
-			}
-			if left.Memory.TotalBytes != right.Memory.TotalBytes {
-				return left.Memory.TotalBytes > right.Memory.TotalBytes
-			}
-			if left.Namespace != right.Namespace {
-				return left.Namespace < right.Namespace
-			}
-			return left.PodName < right.PodName
 		case sortRSS:
 			return left.Memory.RSSBytes() > right.Memory.RSSBytes()
 		case sortCache:
@@ -74,6 +65,35 @@ func SortPodsAt(items []api.PodSnapshot, mode sortMode, now time.Time, staleAfte
 			return left.Memory.TotalBytes > right.Memory.TotalBytes
 		}
 	})
+}
+
+// sortPodsByRisk scores each Pod once. Scoring analyses the Pod, which is far
+// too slow to repeat for every comparison.
+func sortPodsByRisk(items []api.PodSnapshot, score func(api.PodSnapshot) int) {
+	type scored struct {
+		pod   api.PodSnapshot
+		score int
+	}
+	ranked := make([]scored, len(items))
+	for index, pod := range items {
+		ranked[index] = scored{pod, score(pod)}
+	}
+	sort.SliceStable(ranked, func(i, j int) bool {
+		left, right := ranked[i], ranked[j]
+		if left.score != right.score {
+			return left.score > right.score
+		}
+		if left.pod.Memory.TotalBytes != right.pod.Memory.TotalBytes {
+			return left.pod.Memory.TotalBytes > right.pod.Memory.TotalBytes
+		}
+		if left.pod.Namespace != right.pod.Namespace {
+			return left.pod.Namespace < right.pod.Namespace
+		}
+		return left.pod.PodName < right.pod.PodName
+	})
+	for index := range ranked {
+		items[index] = ranked[index].pod
+	}
 }
 
 func SortWorkloads(items []api.WorkloadSnapshot, mode sortMode) {

@@ -62,6 +62,7 @@ The compromised workload probes these exact paths:
 | Collector Pod `:8081` | No listener |
 | Collector Service `:443` and Pod `:8443` with forged identity | `401` or a transport failure, never diagnostic data |
 | Agent Pod metrics | Bound to loopback and unreachable from another Pod |
+| Agent Pod `:8083` with `agent.probes.enabled=true` (off by default) | `/livez` and `/healthz` only; `/metrics` is `404`. Not part of the validated default profile |
 
 Kind's default networking does not prove NetworkPolicy enforcement. The removal phase proves the stronger property needed here: authentication and authorisation do not change when the policy object is absent. Enforcing-CNI behaviour remains part of provider qualification.
 

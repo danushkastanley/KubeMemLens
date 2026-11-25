@@ -6,6 +6,9 @@ image:
   # and other environments that require immutable workload artefacts.
   digest: ""
   pullPolicy: IfNotPresent
+  # Secrets in the install namespace for a private registry, for example
+  # [{name: registry-credentials}]. Applied to every Pod that runs this image.
+  pullSecrets: []
 
 namespace:
   create: false
@@ -88,6 +91,26 @@ agent:
       memory: 96Mi
     limits:
       memory: 128Mi
+  # The agent's Go soft heap limit (GOMEMLIMIT) is set to 90% of
+  # limits.memory when that is a whole number of Mi or Gi, so the agent
+  # collects garbage before the kernel kills it. Other forms leave it unset.
+  # Without a priority class the agent is an early eviction candidate under
+  # the node memory pressure it exists to explain. system-node-critical is
+  # usual for node agents; it needs a quota that allows it outside kube-system.
+  priorityClassName: ""
+  # Empty keeps the Kubernetes default of one node at a time. On large
+  # clusters, for example: {type: RollingUpdate, rollingUpdate: {maxUnavailable: "10%"}}.
+  updateStrategy: {}
+  podAnnotations: {}
+  affinity: {}
+  probes:
+    # Off by default: the probes need a listener on the Pod address, and the
+    # agent otherwise listens only on loopback. It serves /livez and /healthz
+    # and nothing else. /livez fails, and the kubelet restarts the agent, when
+    # no scan has been attempted within livenessWindow.
+    enabled: false
+    port: 8083
+    livenessWindow: 2m
 
 collector:
   enabled: true

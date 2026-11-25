@@ -44,6 +44,7 @@ Paths are prefixes. Run a row only when the diff touches its trigger.
 | `hack/release/`, `.goreleaser.yml`, release workflows | `make check-release-contract` | |
 | `hack/scale-profiles/`, density code paths | `make check-scale-contract` | Live soak stays opt-in; see [scale-qualification.md](scale-qualification.md) |
 | `README.md`, `SUPPORT.md`, community files | `make check-support-contract`, `make check-community-contract` | These files are checked for required content |
+| An image pinned as `name:tag@sha256:…` in a workflow `run:` step, a `hack/` script or a chart template | `python3 hack/check_embedded_digests.py` (needs Docker and network) | Dependabot does not read these. The `Embedded image digests` workflow runs the same check weekly and fails when a tag has moved |
 | Other `docs/` only | Check local links resolve | No Go or kind run needed |
 
 Never run without an explicit request: `make soak-live-density`, `make qualify-cluster`, anything under `hack/ebpf-*qualification/`, or any script against a cluster that is not a disposable kind cluster created for the run.

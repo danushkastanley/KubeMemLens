@@ -35,3 +35,40 @@ updates:
       timezone: Etc/UTC
     open-pull-requests-limit: 5
     labels: [dependencies]
+
+  # The trace prototype is its own Go module. Its worker module
+  # (prototype/trace/worker) is not listed: it replaces a dependency with a
+  # directory that prepare_sdk.py generates and Git ignores, so an update job
+  # could not resolve it. worker_dependencies.py governs that module.
+  - package-ecosystem: gomod
+    directory: /prototype/trace
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:45"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    groups:
+      kubernetes:
+        patterns: ["k8s.io/*"]
+
+  # Every other tracked Dockerfile. The root Dockerfile has its own entry above.
+  - package-ecosystem: docker
+    directories:
+      - /hack/fixtures/csi-health
+      - /hack/fixtures/metrics-api
+      - /hack/fixtures/volume-stats
+      - /hack/terminal-qualification
+      - /hack/trace-release
+      - /prototype/trace
+      - /prototype/trace/qualification/filecache
+      - /prototype/trace/qualification/oom
+      - /prototype/trace/worker
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels: [dependencies]

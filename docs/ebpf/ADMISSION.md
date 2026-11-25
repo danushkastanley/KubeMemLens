@@ -168,7 +168,10 @@ single-consumer `GET traces/ID/stream` route additionally requires exact
 `get traces/stream` permission and reports the `active` state and deadline after
 claim. Production has no approved incident runtime; see the
 [stream contract](STREAM.md) for the test-only qualification path. API errors
-use bounded Kubernetes Status responses. A lost create response must not be
+use bounded Kubernetes Status responses. Each authenticated principal may send
+five requests a second with a burst of ten, and all principals together twenty
+a second; beyond either the API returns 429. The per-principal limit is checked
+first, so one caller in a loop cannot stop another from cancelling a trace. A lost create response must not be
 replayed: the node rejects reused request IDs and independently expires handles.
 Controller restart loses admissions. In-flight reservations count against quota:
 one per principal, two per namespace, one per node by default and 32 globally.
