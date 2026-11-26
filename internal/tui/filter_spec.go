@@ -16,6 +16,10 @@ type filterSpec struct {
 	pressure  string
 	owner     string
 	state     string
+	// unknown lists, in query order, severity, diagnosis and pressure tokens
+	// whose value is not accepted. They are not applied, so they neither empty
+	// nor invert a table.
+	unknown []unknownFilter
 }
 
 func parseFilter(query string) filterSpec {
@@ -29,14 +33,16 @@ func parseFilter(query string) filterSpec {
 		}
 		switch key {
 		case "severity", "sev":
-			spec.severity = value
+			spec.severity = spec.accept(filterSeverity, token, value, spec.severity)
 		case "diagnosis", "diag":
-			spec.diagnosis = value
+			spec.diagnosis = spec.accept(filterDiagnosis, token, value, spec.diagnosis)
 		case "pressure":
-			spec.pressure = value
+			spec.pressure = spec.accept(filterPressure, token, value, spec.pressure)
 		case "owner", "workload":
 			spec.owner = value
 		case "state":
+			// Kept as typed: restricted views match it against any state label
+			// a row shows, and the Pod table ignores a value it does not know.
 			spec.state = value
 		default:
 			text = append(text, token)
@@ -46,9 +52,25 @@ func parseFilter(query string) filterSpec {
 	return spec
 }
 
+// accept returns value when key accepts it. Otherwise it records token as
+// unknown and keeps the value already in force.
+func (spec *filterSpec) accept(key filterKey, token, value, current string) string {
+	if key.accepts(value) {
+		return value
+	}
+	spec.unknown = append(spec.unknown, unknownFilter{key: key, token: token})
+	return current
+}
+
+// requestsDeepEvidence reports a severity, diagnosis or pressure token, known
+// or not. Restricted views cannot evaluate any of them.
+func (spec filterSpec) requestsDeepEvidence() bool {
+	return spec.severity != "" || spec.diagnosis != "" || spec.pressure != "" || len(spec.unknown) > 0
+}
+
 func (spec filterSpec) matchesPod(pod api.PodSnapshot, now time.Time, staleAfter time.Duration) bool {
-	result := explain.AnalyzePod(pod)
-	if spec.text != "" && !podMatches(pod, spec.text) {
+	result := explain.AnalyzePodAt(pod, now)
+	if spec.text != "" && !podMatches(pod, result.Diagnosis, spec.text) {
 		return false
 	}
 	if !matchesMemoryFilters(spec, pod.Memory, string(result.Severity), string(result.Diagnosis)) {

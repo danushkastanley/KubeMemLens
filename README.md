@@ -511,7 +511,7 @@ Key controls:
 | `N`, `n`, `w`, `p`, `c` | Open node, namespace, workload, Pod or container views |
 | `Enter` or `e` | Drill into the selected entity or open its explanation |
 | `h`, Backspace or Escape | Return or clear the active filter |
-| `/` | Filter the current view; Pod filters also accept `severity:`, `diagnosis:`, `pressure:`, `owner:` and `state:` tokens |
+| `/` | Filter the current view. Pod, workload and container filters also accept `severity:` (`info`, `medium`, `high` or `critical`), `diagnosis:` (part of a diagnosis name), `pressure:` (`true` or `false`) and `owner:` tokens; Pod filters also accept `state:` (`stale`, `fresh`, `incomplete` or `complete`). In these deep views a token with any other value is not applied, and the footer names it with the accepted values |
 | `s` | Cycle risk, total, anon, cache, shmem and name sorting |
 | Space / `r` | Pause automatic refresh / refresh manually; manual refresh remains available while paused |
 | Tab | At wide sizes, move focus between the table and selected detail; it no longer changes entity view |

@@ -10,8 +10,7 @@ import (
 // One table projection serves all restricted entities inside the existing
 // layout, selection, viewport and split-detail frame.
 func (m appModel) renderObservationTable(width int) string {
-	spec := parseFilter(m.query)
-	if spec.severity != "" || spec.diagnosis != "" || spec.pressure != "" {
+	if parseFilter(m.query).requestsDeepEvidence() {
 		return truncateLines([]string{"Severity, diagnosis and pressure filters require deep evidence.", "Use text, owner or state filters."}, width)
 	}
 	rows := m.visibleObservationRows()

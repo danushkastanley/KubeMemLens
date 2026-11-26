@@ -73,6 +73,20 @@ func finaliseResult(result Result, memory model.MemoryBreakdown) Result {
 	return result
 }
 
+// Severities returns every Severity, least urgent first.
+func Severities() []Severity {
+	return []Severity{SeverityInfo, SeverityMedium, SeverityHigh, SeverityCritical}
+}
+
+// Diagnoses returns every Diagnosis an analysis can produce. explain.go is at
+// its size limit, so the list lives here; keep it in step with the constants.
+func Diagnoses() []Diagnosis {
+	return []Diagnosis{
+		DiagnosisCacheHeavy, DiagnosisRSSHeavy, DiagnosisTmpfsHeavy, DiagnosisDirtyWritebackHeavy, DiagnosisSlabHeavy,
+		DiagnosisOOMRisk, DiagnosisPressure, DiagnosisLimitRisk, DiagnosisMixed, DiagnosisNormal,
+	}
+}
+
 func severityFor(diagnosis Diagnosis) Severity {
 	switch diagnosis {
 	case DiagnosisOOMRisk:

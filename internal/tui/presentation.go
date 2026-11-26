@@ -14,7 +14,6 @@ type memoryPresentation struct {
 	limit       string
 	signal      string
 	severity    string
-	diagnosis   string
 }
 
 func presentMemory(memory model.MemoryBreakdown, barWidth int, ascii bool) memoryPresentation {
@@ -24,7 +23,6 @@ func presentMemory(memory model.MemoryBreakdown, barWidth int, ascii bool) memor
 		limit:       limitLabel(memory, 8, ascii),
 		signal:      incidentLabel(memory),
 		severity:    severityLabel(result.Severity),
-		diagnosis:   string(result.Diagnosis),
 	}
 }
 
