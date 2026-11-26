@@ -80,7 +80,7 @@ func newReplayCommand() *cobra.Command {
 			if podRef != "" {
 				pod, ok := incidentPod(bundle, podRef)
 				if !ok {
-					return fmt.Errorf("Pod %s was not found in the incident bundle", podRef)
+					return incidentPodSelectorError(fmt.Sprintf("Pod %s was not found in the incident bundle", podRef), bundle)
 				}
 				printIncidentHeader(cmd.OutOrStdout(), bundle)
 				printPodExplanation(cmd.OutOrStdout(), pod, captureClock(bundle.CapturedAt, pod))
@@ -99,7 +99,7 @@ func newReplayCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&podRef, "pod", "", "replay one Pod as <namespace>/<name>")
+	cmd.Flags().StringVar(&podRef, "pod", "", "replay one Pod as <namespace>/<name>; a redacted capture uses aliases such as namespace-1/pod-1")
 	cmd.Flags().StringVar(&nodeRef, "node", "", "replay the selected Node from a schema-4 incident")
 	cmd.Flags().IntVar(&exportSchema, "export-schema", 0, "explicitly export a volume incident as legacy schema 1 or 2, omitting volume and I/O enrichment")
 	cmd.Flags().StringVarP(&exportOutput, "output", "o", "", "legacy export file, or - for stdout")

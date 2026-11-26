@@ -371,7 +371,21 @@ if grep -q '/kubepods' "${work_dir}/incident.json"; then
   echo "redacted incident contains a cgroup path" >&2
   exit 1
 fi
-"${cli}" replay "${work_dir}/incident.json" --pod "${namespace}/${collector_pod}" > "${work_dir}/replay.txt"
+# A redacted capture names nothing in the cluster: names are capture-local
+# aliases, and a single-Pod capture always holds namespace-1/pod-1.
+collector_node=$(KUBECONFIG="${kubeconfig}" kubectl get pod "${collector_pod}" -n "${namespace}" -o jsonpath='{.spec.nodeName}')
+for real_name in "${collector_pod}" "${collector_node}"; do
+  if grep -Fq "${real_name}" "${work_dir}/incident.json"; then
+    echo "redacted incident contains the real name ${real_name}" >&2
+    exit 1
+  fi
+done
+grep -Fq -- '--pod namespace-1/pod-1' "${work_dir}/capture.txt" || {
+  echo "capture did not print the alias to replay with; it printed:" >&2
+  cat "${work_dir}/capture.txt" >&2
+  exit 1
+}
+"${cli}" replay "${work_dir}/incident.json" --pod namespace-1/pod-1 > "${work_dir}/replay.txt"
 grep -q '^Diagnosis:' "${work_dir}/replay.txt"
 grep -q '^Severity:' "${work_dir}/replay.txt"
 grep -q '^Confidence:' "${work_dir}/replay.txt"
@@ -379,9 +393,9 @@ grep -q '^Observation window:' "${work_dir}/replay.txt"
 grep -q '^Counter window:' "${work_dir}/replay.txt"
 grep -q '^Caveats:' "${work_dir}/replay.txt"
 "${cli}" "${cli_args[@]}" capture --namespace "${namespace}" --pod "${collector_pod}" --output "${work_dir}/incident-after.json" > "${work_dir}/capture-after.txt"
-"${cli}" compare --before "${work_dir}/incident.json" --after "${work_dir}/incident-after.json" --pod "${namespace}/${collector_pod}" > "${work_dir}/compare-incidents.txt"
+"${cli}" compare --before "${work_dir}/incident.json" --after "${work_dir}/incident-after.json" --pod namespace-1/pod-1 > "${work_dir}/compare-incidents.txt"
 grep -q '^Incident comparison:' "${work_dir}/compare-incidents.txt"
-"${cli}" compare --before "${work_dir}/incident.json" --after "${work_dir}/incident-after.json" --workload "${namespace}/deployment/kube-memlens-collector" > "${work_dir}/compare-workload-incidents.txt"
+"${cli}" compare --before "${work_dir}/incident.json" --after "${work_dir}/incident-after.json" --workload namespace-1/deployment/deployment-1 > "${work_dir}/compare-workload-incidents.txt"
 grep -q '^Workload incident comparison:' "${work_dir}/compare-workload-incidents.txt"
 
 KUBECONFIG="${kubeconfig}" kubectl get --raw \

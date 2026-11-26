@@ -171,9 +171,9 @@ kctl patch pod "${pod}" -n "${namespace}" --subresource=resize --type=strategic 
   -p '{"spec":{"containers":[{"name":"app","resources":{"requests":{"memory":"48Mi"},"limits":{"memory":"96Mi"}}}]}}' >/dev/null
 wait_for_explanation '.kubernetes.memoryRequestBytes == 83886080 and any(.containers[]; .name == "app" and .resources.applied.request.known == true and .resources.applied.request.bytes == 50331648)'
 "${cli}" "${cli_args[@]}" capture -n "${namespace}" --pod "${pod}" -o "${work_dir}/after.json" >/dev/null
-"${cli}" compare --before "${work_dir}/before.json" --after "${work_dir}/after.json" --pod "${namespace}/${pod}" > "${work_dir}/comparison.txt"
+"${cli}" compare --before "${work_dir}/before.json" --after "${work_dir}/after.json" --pod namespace-1/pod-1 > "${work_dir}/comparison.txt"
 grep -Fq 'Pod configured limit: 256Mi -> 384Mi' "${work_dir}/comparison.txt"
-"${cli}" replay "${work_dir}/after.json" --pod "${namespace}/${pod}" > "${work_dir}/replay.txt"
+"${cli}" replay "${work_dir}/after.json" --pod namespace-1/pod-1 > "${work_dir}/replay.txt"
 grep -Fq '384Mi (Pod configuration)' "${work_dir}/replay.txt"
 
 # Kubernetes 1.37's PodResize admission plugin rejects requests larger than
@@ -204,10 +204,10 @@ fi
 "${work_dir}/legacy-cli" "${cli_args[@]}" explain pod "${pod}" -n "${namespace}" -o json > "${work_dir}/legacy-read.json"
 jq -e '.schemaVersion == 1 and (.kubernetes | has("resources") | not)' "${work_dir}/legacy-read.json" >/dev/null
 "${cli}" "${cli_args[@]}" capture -n "${namespace}" --pod "${pod}" --schema-version=1 -o "${work_dir}/legacy.json" >/dev/null
-"${work_dir}/legacy-cli" replay "${work_dir}/legacy.json" --pod "${namespace}/${pod}" > "${work_dir}/legacy-replay.txt"
+"${work_dir}/legacy-cli" replay "${work_dir}/legacy.json" --pod namespace-1/pod-1 > "${work_dir}/legacy-replay.txt"
 jq -e '.partial == true and any(.caveats[]; contains("omitted for incident schema 1"))' "${work_dir}/legacy.json" >/dev/null
-grep -Fq "Pod: ${namespace}/${pod}" "${work_dir}/legacy-replay.txt"
-"${cli}" replay "${work_dir}/legacy.json" --pod "${namespace}/${pod}" > "${work_dir}/current-legacy-replay.txt"
+grep -Fq "Pod: namespace-1/pod-1" "${work_dir}/legacy-replay.txt"
+"${cli}" replay "${work_dir}/legacy.json" --pod namespace-1/pod-1 > "${work_dir}/current-legacy-replay.txt"
 grep -Fq 'omitted for incident schema 1' "${work_dir}/current-legacy-replay.txt"
 # Exercise both mixed-version deployment orders and a collector rollback while
 # the new agent retains its previously negotiated epoch and schema.

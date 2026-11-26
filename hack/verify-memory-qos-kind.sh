@@ -100,7 +100,7 @@ if [ "${profile}" = throttling ]; then
   load_pid=$!
   wait_for_qos 'any(.containers[]; .name == "worker" and .memoryQoS.activity == "crossed-with-stalls" and .memoryQoS.confidence == "high" and .memoryQoS.highDelta > 0)'
   "${cli}" "${cli_args[@]}" capture -n "${namespace}" --pod qos-budget -o "${work_dir}/after.json" >/dev/null
-  "${cli}" compare --before "${work_dir}/before.json" --after "${work_dir}/after.json" --pod "${namespace}/qos-budget" > "${work_dir}/comparison.txt"
+  "${cli}" compare --before "${work_dir}/before.json" --after "${work_dir}/after.json" --pod namespace-1/pod-1 > "${work_dir}/comparison.txt"
   grep -Fq 'throttle activity:' "${work_dir}/comparison.txt"
   jq -e 'any(.pods[0].containers[]; .containerName == "worker" and .memory.OOMKillEvents == 0 and .memory.LocalOOMKillEvents == 0)' "${work_dir}/after.json" >/dev/null
   kctl get pod qos-budget -n "${namespace}" -o json | jq -e 'all(.status.containerStatuses[]; .restartCount == 0)' >/dev/null
@@ -111,7 +111,7 @@ if [ "${profile}" = throttling ]; then
 else
   wait_for_qos 'all(.containers[]; .memoryQoS.throttleHigh.state == "unlimited" and .memoryQoS.reclaimProtectionMin.state == "zero" and .memoryQoS.reclaimProtectionLow.state == "zero")'
 fi
-"${cli}" replay "${work_dir}/before.json" --pod "${namespace}/qos-budget" > "${work_dir}/replay.txt"
+"${cli}" replay "${work_dir}/before.json" --pod namespace-1/pod-1 > "${work_dir}/replay.txt"
 grep -Fq 'Reclaim protection memory.min:' "${work_dir}/replay.txt"
 grep -Fq 'parent cgroup controls are not observed' "${work_dir}/replay.txt"
 mkdir -p "${artifact_dir}"

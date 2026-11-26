@@ -78,11 +78,14 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				if incidentPodRef != "" {
 					beforePod, ok := incidentPod(before, incidentPodRef)
 					if !ok {
-						return fmt.Errorf("Pod %s was not found in the before bundle", incidentPodRef)
+						return incidentPodSelectorError(fmt.Sprintf("Pod %s was not found in the before bundle", incidentPodRef), before)
 					}
 					afterPod, ok := incidentPod(after, incidentPodRef)
 					if !ok {
-						return fmt.Errorf("Pod %s was not found in the after bundle", incidentPodRef)
+						return incidentPodSelectorError(fmt.Sprintf("Pod %s was not found in the after bundle", incidentPodRef), after)
+					}
+					if before.Redacted || after.Redacted {
+						fmt.Fprintln(cmd.OutOrStdout(), redactedAliasComparison)
 					}
 					elapsed := podComparisonInterval(beforePod, afterPod)
 					if elapsed <= 0 {
@@ -93,11 +96,14 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 				}
 				beforeWorkload, ok := incidentWorkload(before, incidentWorkloadRef)
 				if !ok {
-					return fmt.Errorf("workload %s was not found in the before bundle", incidentWorkloadRef)
+					return incidentWorkloadSelectorError(fmt.Sprintf("workload %s was not found in the before bundle", incidentWorkloadRef), before)
 				}
 				afterWorkload, ok := incidentWorkload(after, incidentWorkloadRef)
 				if !ok {
-					return fmt.Errorf("workload %s was not found in the after bundle", incidentWorkloadRef)
+					return incidentWorkloadSelectorError(fmt.Sprintf("workload %s was not found in the after bundle", incidentWorkloadRef), after)
+				}
+				if before.Redacted || after.Redacted {
+					fmt.Fprintln(cmd.OutOrStdout(), redactedAliasComparison)
 				}
 				fmt.Fprintln(cmd.OutOrStdout(), "Workload totals may span different Pod instances and sample times; no change rate is inferred.")
 				printPodComparison(cmd.OutOrStdout(), "Workload incident comparison: "+incidentWorkloadRef, beforeWorkload, afterWorkload, 0)
@@ -144,8 +150,8 @@ func newCompareCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	cmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "namespace for live Pod comparison")
 	cmd.Flags().StringVar(&beforePath, "before", "", "before incident bundle")
 	cmd.Flags().StringVar(&afterPath, "after", "", "after incident bundle")
-	cmd.Flags().StringVar(&incidentPodRef, "pod", "", "Pod to compare across bundles as <namespace>/<name>")
-	cmd.Flags().StringVar(&incidentWorkloadRef, "workload", "", "workload to compare across bundles as <namespace>/<kind>/<name>")
+	cmd.Flags().StringVar(&incidentPodRef, "pod", "", "Pod to compare across bundles as <namespace>/<name>; redacted captures use aliases such as namespace-1/pod-1")
+	cmd.Flags().StringVar(&incidentWorkloadRef, "workload", "", "workload to compare across bundles as <namespace>/<kind>/<name>; redacted captures alias the namespace and name")
 	cmd.Flags().StringVar(&nodeRef, "node", "", "Node to compare across schema-4 bundles")
 	cmd.Flags().BoolVar(&includeTrends, "trends", false, "compare source-labelled memory trends and markers in two schema-6 captures")
 	cmd.Flags().BoolVar(&includeVolumes, "volumes", false, "compare authorised live volume evidence or two schema-5 captures")
