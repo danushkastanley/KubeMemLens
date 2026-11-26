@@ -12,7 +12,7 @@ def validate(p):
     require(p['nodeImage'] == 'kindest/node:v1.37.0@sha256:a1ed56cfb0e7b93589bdf97c8cd566405a265939e3620fc4f5de89adff580ae5', 'unpinned Node image')
     require(p['driverSource'] == 'eccd681b18a2c96332f33c2cac5db38656edd500', 'unexpected driver source')
     require(p['driverArchive'] == 'sha256:3b9e40a1f49435d1b264a28bc821580647d51fdec69d514e61bb70ec83f72bd8', 'unexpected driver archive')
-    require(p['registrarImage'] == 'registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.17.0@sha256:f9de845b170155199f2a2a3f9531cf13d78e31235e9db6b6582a8b0db0a50dad', 'unpinned registrar')
+    require(p['registrarImage'] == 'registry.k8s.io/sig-storage/csi-node-driver-registrar:v2.18.1@sha256:f847fb218cdf1d0f0fa79772ca6f46e11d25635eb49c06efb5dccd00b5245ef5', 'unpinned registrar')
     m = p['measurement']
     exact(m, 'baselineSeconds enabledSeconds intervalSeconds settleSeconds', 'measurement')
     require(integer(m['baselineSeconds'], 120, 600) and integer(m['enabledSeconds'], 300, 1200), 'insufficient measurement window')
