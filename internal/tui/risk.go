@@ -10,6 +10,9 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/model"
 )
 
+// severityOnlyReason stands in when nothing but the diagnosis severity orders a row.
+const severityOnlyReason = "ordering follows the existing diagnosis severity"
+
 type riskPresentation struct {
 	score   int
 	label   string
@@ -19,13 +22,14 @@ type riskPresentation struct {
 
 func podRisk(pod api.PodSnapshot, now time.Time, staleAfter time.Duration) riskPresentation {
 	result := explain.AnalyzePod(pod)
-	risk := memoryRisk(pod.Memory, result.Severity)
-	if result.Diagnosis == explain.DiagnosisLimitRisk && !pod.Memory.HasLimitRisk() {
+	risk := memoryRisk(podLimitView(pod), result.Severity)
+	if result.Diagnosis == explain.DiagnosisLimitRisk && !pod.EffectiveLimit().AtRisk() {
 		// No Pod-level signal produced this diagnosis, so the only reason so
 		// far is the placeholder for ordering by severity alone.
 		risk.score += 5
 		risk.reasons = []string{"a container is close to its own memory limit"}
 	}
+	risk = withPodCgroupEventRisk(risk, explain.RecentPodCgroupEvents(pod.PodCgroup))
 	if pod.Context.NodeMemoryPressure == "True" {
 		risk.score += 25
 		risk.reasons = append(risk.reasons, "node MemoryPressure is true")
@@ -89,7 +93,7 @@ func memoryRisk(memory model.MemoryBreakdown, severity explain.Severity) riskPre
 		risk.reasons = append(risk.reasons, "cgroup limit headroom is low")
 	}
 	if len(risk.reasons) == 0 {
-		risk.reasons = []string{"ordering follows the existing diagnosis severity"}
+		risk.reasons = []string{severityOnlyReason}
 	}
 	return risk
 }

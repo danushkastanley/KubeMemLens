@@ -53,6 +53,10 @@ type topRow struct {
 	LimitClosestContainer        string `json:"limitClosestContainer,omitempty"`
 	LimitClosestContainerPercent *int   `json:"limitClosestContainerPercent,omitempty"`
 
+	// LimitSource is set on Pod rows when the Pod cgroup's memory.max was
+	// read; without it the Pod limit is the container sum, as before.
+	LimitSource api.PodLimitSource `json:"limitSource,omitempty"`
+
 	CapturedAt   time.Time                `json:"capturedAt"`
 	Freshness    api.EvidenceFreshness    `json:"freshness"`
 	Completeness api.EvidenceCompleteness `json:"completeness"`

@@ -18,7 +18,7 @@ const minClosestNameWidth = 6
 // "████░░░░ 18% (app 99%)". To fit width it shortens the container name first
 // and then drops the bar, so the container's percentage is the last to go.
 func podLimitCell(pod api.PodSnapshot, width int, ascii bool) string {
-	label := limitLabel(pod.Memory, 8, ascii)
+	label := limitLabel(podLimitView(pod), 8, ascii)
 	usage, ok := explain.ClosestContainerToLimit(pod)
 	if !ok {
 		return label
@@ -26,7 +26,7 @@ func podLimitCell(pod api.PodSnapshot, width int, ascii bool) string {
 	if cell, fits := closestContainerCell(label, usage, width, minClosestNameWidth); fits {
 		return cell
 	}
-	cell, _ := closestContainerCell(limitLabel(pod.Memory, 0, ascii), usage, width, 1)
+	cell, _ := closestContainerCell(limitLabel(podLimitView(pod), 0, ascii), usage, width, 1)
 	return cell
 }
 

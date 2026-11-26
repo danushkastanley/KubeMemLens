@@ -29,14 +29,23 @@ func memoryLimit(memory model.MemoryBreakdown) (uint64, limitState) {
 	return memory.MaxBytes, limitFinite
 }
 
+// podLimitMemory gives the Pod's effective limit (api.PodSnapshot.EffectiveLimit)
+// the shape memoryLimit and limitUsage read, so Pod and container cells are
+// formatted by the same code. Only its limit fields and TotalBytes are set.
+func podLimitMemory(pod api.PodSnapshot) model.MemoryBreakdown {
+	limit := pod.EffectiveLimit()
+	return model.MemoryBreakdown{TotalBytes: limit.UsedBytes, MaxKnown: limit.Known, MaxUnlimited: limit.Unlimited, MaxBytes: limit.LimitBytes}
+}
+
 // podLimitUsage is the Pod's limit percentage, followed by the container
 // closest to its own limit when the Pod figure hides it.
 func podLimitUsage(pod api.PodSnapshot) string {
+	limit := limitUsage(podLimitMemory(pod))
 	usage, ok := explain.ClosestContainerToLimit(pod)
 	if !ok {
-		return limitUsage(pod.Memory)
+		return limit
 	}
-	return withClosestContainer(limitUsage(pod.Memory), usage.ContainerName, usage.Percent)
+	return withClosestContainer(limit, usage.ContainerName, usage.Percent)
 }
 
 // withClosestContainer keeps the Pod figure first so that the column still

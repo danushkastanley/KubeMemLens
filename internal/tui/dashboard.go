@@ -144,7 +144,7 @@ func (m appModel) dashboardPods(width, rows int) string {
 	start, end := viewport.visibleRange()
 	for index := start; index < end; index++ {
 		pod := items[index]
-		presentation := presentMemory(pod.Memory, widths[4], false)
+		presentation := presentPod(pod, widths[4], false)
 		risk := podRisk(pod, m.riskNow(), m.staleAfter())
 		row := tableRow([]string{
 			pod.PodName, pod.NodeName, memmodel.FormatCompactBytes(pod.Memory.TotalBytes),
@@ -209,7 +209,7 @@ func (m appModel) dashboardSignals(width, rows int) string {
 	}
 	items := make([]signal, 0, len(m.data.Pods))
 	for _, pod := range m.data.Pods {
-		label := incidentLabel(pod.Memory)
+		label := podIncidentLabel(pod)
 		if label == "clear" || label == "baseline" {
 			continue
 		}

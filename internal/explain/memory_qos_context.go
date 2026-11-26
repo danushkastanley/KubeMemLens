@@ -1,6 +1,9 @@
 package explain
 
-import "github.com/danushkastanley/kube-memlens/internal/api"
+import (
+	"github.com/danushkastanley/kube-memlens/internal/api"
+	"github.com/danushkastanley/kube-memlens/internal/model"
+)
 
 func correlateQoS(result *MemoryQoS, container api.ContainerSnapshot) {
 	for _, protection := range []struct {
@@ -12,7 +15,7 @@ func correlateQoS(result *MemoryQoS, container api.ContainerSnapshot) {
 		}
 	}
 	if result.PodConfiguredLimit.Known && !container.Context.MemoryLimitKnown {
-		result.Correlations = append(result.Correlations, "The container may inherit Pod limits; an unlimited leaf memory.high does not rule out parent throttling")
+		result.Correlations = append(result.Correlations, inheritedLimitCorrelation(container.PodCgroup))
 	}
 	if finiteQoSBoundary(result.High) && finiteQoSBoundary(result.Max) && result.High.Bytes > result.Max.Bytes {
 		inconsistentQoS(result, "memory.high is above memory.max")
@@ -47,4 +50,13 @@ func inconsistentQoS(result *MemoryQoS, evidence string) {
 
 func finiteQoSBoundary(boundary QoSBoundary) bool {
 	return boundary.State == BoundaryFinite || boundary.State == BoundaryZero
+}
+
+// inheritedLimitCorrelation states what is known about the parent: the Pod
+// cgroup's memory.max when it was read. Parent memory.high is never collected.
+func inheritedLimitCorrelation(cgroup model.PodCgroupMemory) string {
+	if !cgroup.MaxKnown || cgroup.MaxUnlimited {
+		return "The container may inherit Pod limits; an unlimited leaf memory.high does not rule out parent throttling"
+	}
+	return "The Pod cgroup's memory.max of " + model.FormatCompactBytes(cgroup.MaxBytes) + " also applies to this container; parent memory.high is not collected, so an unlimited leaf memory.high does not rule out parent throttling"
 }

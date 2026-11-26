@@ -72,9 +72,9 @@ func (m appModel) podSummary(pod api.PodSnapshot) string {
 	finding := explain.AnalyzePod(pod)
 	values := []string{
 		memmodel.FormatBytes(pod.Memory.TotalBytes) + "\nObserved cgroup charge",
-		podLimit(pod) + "\n" + limitLabel(pod.Memory, 12, false),
+		podLimit(pod) + "\n" + limitLabel(podLimitView(pod), 12, false),
 		podHeadroom(pod) + "\nUntil configured limit",
-		incidentLabel(pod.Memory) + "\n" + m.podEvidenceLabel(pod),
+		podIncidentLabel(pod) + "\n" + m.podEvidenceLabel(pod),
 		string(finding.Diagnosis) + " · " + string(finding.Severity) + "\nConfidence: " + string(finding.Confidence),
 	}
 	titles := []string{"POD CHARGE", "MEMORY LIMIT", "HEADROOM", "CURRENT SIGNALS", "FINDING"}
@@ -95,17 +95,18 @@ func (m appModel) podSummary(pod api.PodSnapshot) string {
 }
 
 func podLimit(pod api.PodSnapshot) string {
-	if !pod.Memory.MaxKnown {
+	memory := podLimitView(pod)
+	if !memory.MaxKnown {
 		return "unknown"
 	}
-	if pod.Memory.MaxUnlimited || pod.Memory.MaxBytes == 0 {
+	if memory.MaxUnlimited || memory.MaxBytes == 0 {
 		return "unlimited"
 	}
-	return memmodel.FormatCompactBytes(pod.Memory.MaxBytes)
+	return memmodel.FormatCompactBytes(memory.MaxBytes)
 }
 
 func podHeadroom(pod api.PodSnapshot) string {
-	memory := pod.Memory
+	memory := podLimitView(pod)
 	if !memory.MaxKnown || memory.MaxUnlimited || memory.MaxBytes == 0 {
 		return "not available"
 	}

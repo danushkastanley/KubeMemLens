@@ -213,6 +213,10 @@ Memory `type` values:
 - `min`, `low`, `high`, and `max` when the corresponding boundary is finite
 - `swap_current` and `swap_peak` when available
 - `swap_max` when the boundary is finite
+- `zswap` (compressed pool size) and `zswapped` (swapped-out memory held in it) when the kernel reports both `memory.stat` keys
+- Pod family only: `pod_cgroup_current` when the Pod cgroup's `memory.current` was read, and `pod_cgroup_max` when the Pod cgroup's `memory.max` was read and is finite (snapshot schema 8 agents)
+
+On the Pod family, `max` keeps its meaning: the sum of the container limits, emitted only when every container limit is finite. The Pod cgroup's own limit, which the CLI and TUI use as the Pod limit when it is finite, is the separate `pod_cgroup_max`. `pod_cgroup_current` includes the Pod sandbox, so it is not the sum of the containers' `total`.
 
 The mutually exclusive primary composition is `anon`, `file_cache`, `shmem`, and `residual`; those four values partition `total`, subject to zero-flooring when independently sampled cgroup files briefly disagree. `residual` includes kernel memory and every other charge outside the first three buckets.
 
@@ -252,8 +256,10 @@ Event values:
 - local-event `_delta` variants
 - `swap_high`, `swap_max`, and `swap_fail`
 - swap-event `_delta` variants
+- `oom_group_kill` and `local_oom_group_kill`, and their `_delta` variants, each only when the kernel reports the key in `memory.events` or `memory.events.local`
+- Pod family only: `pod_cgroup_oom`, `pod_cgroup_oom_kill` and `pod_cgroup_max` from the Pod cgroup's own `memory.events.local`, when it was read, and their `_delta` variants when the collector computed them
 
-Raw values are the cumulative cgroup counters from the latest snapshot. Delta values compare the latest two snapshots for the same container ID. The first observation establishes a baseline and reports zero deltas, so historical events do not keep an `oom-risk` diagnosis active forever. Diagnoses prefer `memory.events.local` when the kernel exposes it, while retaining hierarchical counters for inspection.
+Raw values are the cumulative cgroup counters from the latest snapshot. Delta values compare the latest two snapshots for the same container ID; Pod cgroup deltas compare the latest two snapshots of the same Pod on its node. A series that is absent was not read; it is never written as zero. If two Pod instances share a namespace, name and node, their Pod cgroup series are left out because one cannot stand for both. The first observation establishes a baseline and reports zero deltas, so historical events do not keep an `oom-risk` diagnosis active forever. Diagnoses prefer `memory.events.local` when the kernel exposes it, while retaining hierarchical counters for inspection.
 
 ## Diagnosis Metrics
 
@@ -268,6 +274,7 @@ Raw values are the cumulative cgroup counters from the latest snapshot. Delta va
 - Type: gauge.
 - Labels: `namespace`, `pod`, `node`, `diagnosis`.
 - Value is `1` for the current diagnosis.
+- Uses the Pod cgroup's finite `memory.max` as the Pod limit and its recent local events as OOM evidence when they were read; otherwise unchanged.
 
 `kubememlens_container_diagnosis`
 

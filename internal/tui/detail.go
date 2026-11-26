@@ -45,7 +45,7 @@ func (m appModel) detailLines(width int) []string {
 func (m appModel) podDetailLines(pod api.PodSnapshot, width int, historyTitle string) []string {
 	result := explain.AnalyzePod(pod)
 	risk := podRisk(pod, m.riskNow(), m.staleAfter())
-	presentation := presentMemory(pod.Memory, minInt(32, maxInt(8, width-20)), false)
+	presentation := presentPod(pod, minInt(32, maxInt(8, width-20)), false)
 	lines := []string{
 		"Pod: " + pod.PodName,
 		"Namespace: " + pod.Namespace,
@@ -63,7 +63,7 @@ func (m appModel) podDetailLines(pod api.PodSnapshot, width int, historyTitle st
 		"",
 		"Memory composition (A/F/S/O): " + presentation.composition,
 		"Total charged memory: " + memmodel.FormatBytes(pod.Memory.TotalBytes),
-		"Limit:                " + presentation.limit,
+		"Limit:                " + presentation.limit + podLimitSource(pod),
 	}
 	if closest, ok := closestContainerLine(pod); ok {
 		lines = append(lines, "Closest container:    "+closest)
@@ -109,14 +109,16 @@ func (m appModel) podDetailLines(pod api.PodSnapshot, width int, historyTitle st
 		"Other kernel:         "+memmodel.FormatKernelOther(pod.Memory),
 		"Dirty/writeback:      "+memmodel.FormatDirtyWriteback(pod.Memory),
 	)
-	lines = append(lines, memorySignalLines(pod.Memory)...)
+	lines = append(lines, memorySignalLines(podLimitView(pod))...)
 	lines = append(lines,
 		fmt.Sprintf("OOM events:           %d", pod.Memory.OOMEvents),
 		fmt.Sprintf("OOM kill events:      %d", pod.Memory.OOMKillEvents),
 		fmt.Sprintf("High events:          %d", pod.Memory.HighEvents),
 		fmt.Sprintf("Max events:           %d", pod.Memory.MaxEvents),
-		"", "Signals:",
 	)
+	lines = append(lines, oomGroupKillLine(pod.Memory)...)
+	lines = append(lines, podCgroupDetailLines(pod)...)
+	lines = append(lines, "", "Signals:")
 	for _, signal := range result.Signals {
 		lines = append(lines, "- "+signal)
 	}

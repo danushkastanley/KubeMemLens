@@ -20,6 +20,7 @@ type explanationDocument struct {
 	Memory        memoryEvidence      `json:"memory"`
 	Finding       findingEvidence     `json:"finding"`
 	Kubernetes    *kubernetesEvidence `json:"kubernetes,omitempty"`
+	PodCgroup     *podCgroupEvidence  `json:"podCgroup,omitempty"`
 	Containers    []containerEvidence `json:"containers,omitempty"`
 	Replicas      []replicaEvidence   `json:"replicas,omitempty"`
 	NextCommands  []string            `json:"nextCommands"`
@@ -75,6 +76,7 @@ type memoryEvidence struct {
 	DirtyBytes             uint64           `json:"dirtyBytes"`
 	WritebackBytes         uint64           `json:"writebackBytes"`
 	SwapBytes              uint64           `json:"swapBytes"`
+	Zswap                  *zswapEvidence   `json:"zswap,omitempty"`
 	Peak                   boundaryEvidence `json:"peak"`
 	Limit                  boundaryEvidence `json:"limit"`
 	Pressure               pressureEvidence `json:"pressure"`
@@ -99,6 +101,8 @@ type eventEvidence struct {
 	OOMKill uint64 `json:"oomKill"`
 	High    uint64 `json:"high"`
 	Max     uint64 `json:"max"`
+	// OOMGroupKill is absent when the kernel did not report the key.
+	OOMGroupKill *uint64 `json:"oomGroupKill,omitempty"`
 }
 
 type reclaimEvidence struct {
@@ -150,6 +154,7 @@ type namedMemoryQoS struct {
 type replicaEvidence struct {
 	MemoryQoS []namedMemoryQoS         `json:"memoryQoS"`
 	Resources model.PodMemoryResources `json:"resources,omitzero"`
+	PodCgroup *podCgroupEvidence       `json:"podCgroup,omitempty"`
 
 	PodName string          `json:"podName"`
 	Node    string          `json:"node"`
@@ -164,6 +169,7 @@ func podExplanationDocument(pod api.PodSnapshot) explanationDocument {
 		GeneratedAt:   time.Now().UTC(),
 		Target:        explanationTarget{Kind: "Pod", Namespace: pod.Namespace, Name: pod.PodName},
 		Memory:        memoryOutput(pod.Memory),
+		PodCgroup:     podCgroupOutput(pod),
 		Finding:       findingOutput(result),
 		Kubernetes: &kubernetesEvidence{
 			Resources: pod.Context.Resources,
@@ -193,6 +199,7 @@ func podExplanationDocument(pod api.PodSnapshot) explanationDocument {
 		effective := resourceview.Effective(pod)
 		document.Kubernetes.EffectiveResources = &effective
 	}
+	document.SchemaVersion = explanationSchemaVersion(document)
 	return document
 }
 
@@ -213,12 +220,13 @@ func workloadExplanationDocument(workload api.WorkloadSnapshot) explanationDocum
 		NextCommands:  workloadNextCommands(workload),
 	}
 	for _, pod := range workload.Pods {
-		document.Replicas = append(document.Replicas, replicaEvidence{PodName: pod.PodName, Node: pod.NodeName, Resources: pod.Context.Resources, Memory: memoryOutput(pod.Memory), Finding: findingOutput(explain.AnalyzePod(pod))})
+		document.Replicas = append(document.Replicas, replicaEvidence{PodName: pod.PodName, Node: pod.NodeName, Resources: pod.Context.Resources, PodCgroup: podCgroupOutput(pod), Memory: memoryOutput(pod.Memory), Finding: findingOutput(explain.AnalyzePod(pod))})
 		for _, container := range pod.Containers {
 			index := len(document.Replicas) - 1
 			document.Replicas[index].MemoryQoS = append(document.Replicas[index].MemoryQoS, namedMemoryQoS{ContainerName: container.ContainerName, Observation: explain.InterpretMemoryQoS(container)})
 		}
 	}
+	document.SchemaVersion = explanationSchemaVersion(document)
 	return document
 }
 
@@ -235,10 +243,11 @@ func memoryOutput(memory model.MemoryBreakdown) memoryEvidence {
 		AnonTHPBytes: memory.AnonTHPBytes, FileTHPBytes: memory.FileTHPBytes, ShmemTHPBytes: memory.ShmemTHPBytes,
 		ResidualBytes: memory.ResidualBytes(),
 		DirtyBytes:    memory.DirtyBytes, WritebackBytes: memory.WritebackBytes, SwapBytes: memory.SwapCurrentBytes,
+		Zswap:        zswapOutput(memory),
 		Peak:         boundaryEvidence{Known: memory.PeakKnown, Bytes: memory.PeakBytes},
 		Limit:        boundaryEvidence{Known: memory.MaxKnown, Unlimited: memory.MaxUnlimited, Bytes: memory.MaxBytes},
 		Pressure:     pressureEvidence{Known: memory.PressureKnown, SomeAvg10: memory.PSISomeAvg10, FullAvg10: memory.PSIFullAvg10},
-		RecentEvents: eventEvidence{OOM: oom, OOMKill: oomKill, High: high, Max: maxEvents},
+		RecentEvents: eventEvidence{OOM: oom, OOMKill: oomKill, High: high, Max: maxEvents, OOMGroupKill: oomGroupKillOutput(memory)},
 		RecentReclaim: reclaimEvidence{
 			Known: memory.ReclaimDeltasKnown, RefaultAnon: memory.RefaultAnonDelta,
 			RefaultFile: memory.RefaultFileDelta, PageScan: memory.PageScanDelta,

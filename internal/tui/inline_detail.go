@@ -79,7 +79,7 @@ func (m appModel) selectedVisiblePod() (api.PodSnapshot, bool) {
 
 func compactPodLines(pod api.PodSnapshot) []string {
 	result := explain.AnalyzePod(pod)
-	presentation := presentMemory(pod.Memory, 24, false)
+	presentation := presentPod(pod, 24, false)
 	lines := []string{
 		"Pod", pod.PodName,
 		"Namespace", pod.Namespace,
@@ -90,7 +90,7 @@ func compactPodLines(pod api.PodSnapshot) []string {
 		"Confidence  " + string(result.Confidence),
 		"",
 		"Total       " + memmodel.FormatCompactBytes(pod.Memory.TotalBytes),
-		"Limit       " + presentation.limit,
+		"Limit       " + presentation.limit + podLimitSource(pod),
 	}
 	if closest, ok := closestContainerLine(pod); ok {
 		lines = append(lines, "Closest container: "+closest)

@@ -1,6 +1,6 @@
 # Machine-readable Explanation Schema
 
-`kubectl memlens explain pod ... -o json|yaml` and `explain workload ... -o json|yaml` emit explanation schema version `3`. Version 2 introduced Pod resources; version 3 adds per-container MemoryQoS interpretation.
+`kubectl memlens explain pod ... -o json|yaml` and `explain workload ... -o json|yaml` emit explanation schema version `3`, or version `6` when the document carries Pod cgroup, zswap or `oom_group_kill` evidence. Version 2 introduced Pod resources; version 3 adds per-container MemoryQoS interpretation; version 6 adds the Pod cgroup (see [below](#pod-cgroup-in-version-6)).
 
 The contract contains:
 
@@ -75,12 +75,41 @@ about this interpretation and is independent from the main composition finding.
 A crossing with stalls is stronger evidence than a configured boundary alone.
 
 An unlimited leaf `memory.high` does not prove that an ancestor is unlimited.
-Parent controls, kubelet policy and kernel/runtime versions are not collected.
+Parent protection and throttle controls, kubelet policy and kernel/runtime
+versions are not collected; only the Pod cgroup's `memory.max` is, under
+version 6.
 The contract carries those caveats instead of guessing feature-gate state or a
 throttling factor. Recommendations retain schema 1 and remain read-only.
 Existing incident schemas preserve the raw controls and replay recomputes the
 interpretation; no capture migration is required.
 
+
+## Pod cgroup in version 6
+
+Agents of snapshot schema 8 read the Pod's own cgroup and the `zswap` and
+`oom_group_kill` kernel keys. A document that carries any of them is written as
+version `6`: version 3 plus three optional fields. A document without them is
+written as version 3, byte for byte as before, which is what readers get for
+replayed incident files and for older agents and collectors.
+
+- `podCgroup`, on a Pod document and on each workload replica, present only when
+  the Pod cgroup was read. `current` and `limit` use the existing boundary shape:
+  `known=false` means not read, and `limit.unlimited=true` means `max`.
+  `recentEvents` holds the Pod cgroup's own `memory.events.local` `oom`,
+  `oomKill` and `max` deltas for the sample window; `recentEvents.known=false`
+  means no delta was computed, and then no count is recent.
+  `effectiveLimitSource` is `pod-cgroup` when the diagnosis used the Pod
+  cgroup's finite `memory.max` as the Pod limit, otherwise `container-sum`.
+- `memory.zswap` (`poolBytes`, `swappedBytes`), present only when the kernel
+  reports both keys.
+- `memory.recentEvents.oomGroupKill`, present only when the kernel reports the
+  key, read like `oomKill`.
+
+`memory.limit` keeps its meaning: for a Pod, the sum of the container limits.
+The Pod cgroup is a kernel measurement and stays separate from the Kubernetes
+API budget under `kubernetes.resources` and `kubernetes.effectiveResources`.
+MemoryQoS keeps `scope: container-cgroup`; the Pod cgroup's `memory.min`,
+`memory.low` and `memory.high` are not collected.
 
 ## Restricted evidence
 
