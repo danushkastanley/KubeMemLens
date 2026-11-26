@@ -16,6 +16,7 @@ import (
 	"github.com/danushkastanley/kube-memlens/internal/agent"
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/buildinfo"
+	"github.com/danushkastanley/kube-memlens/internal/cgroup"
 	"github.com/danushkastanley/kube-memlens/internal/kube"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 	"k8s.io/client-go/kubernetes"
@@ -113,6 +114,7 @@ func main() {
 		fmt.Printf("Unmapped containers: %d\n", result.Unmapped)
 		fmt.Printf("Infrastructure cgroups: %d\n", result.InfrastructureCgroups)
 		fmt.Printf("Total charged memory: %s\n", model.FormatBytes(result.TotalMemory.TotalBytes))
+		fmt.Print(cgroupVersionNotice(*nodeName, cgroup.VersionV2, result.Snapshot.Environment.CgroupVersion))
 		if result.RootFallback {
 			fmt.Println("Used direct root cgroup scan because no container cgroups were found.")
 		}
@@ -188,6 +190,7 @@ func main() {
 
 	nodeContextErrorReported := false
 	workloadContextErrorReported := false
+	loggedCgroupVersion := cgroup.VersionV2
 	for {
 		start := time.Now()
 		index := kube.EmptyPodIndex()
@@ -217,6 +220,10 @@ func main() {
 		cancel()
 		telemetry.RecordScan(time.Now().UTC(), time.Since(start), result, scanErr, metadataCachePods)
 		telemetry.RecordReducedMetadata(index.ReducedContextPods())
+		if scanErr == nil {
+			fmt.Print(cgroupVersionNotice(*nodeName, loggedCgroupVersion, result.Snapshot.Environment.CgroupVersion))
+			loggedCgroupVersion = result.Snapshot.Environment.CgroupVersion
+		}
 		failureReason := agentFailureReason("")
 		if scanErr != nil {
 			failureReason = boundedScanFailureReason(scanErr)

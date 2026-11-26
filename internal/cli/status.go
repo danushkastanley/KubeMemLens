@@ -21,6 +21,10 @@ type statusReport struct {
 	Metrics    *statusMetrics        `json:"metrics,omitempty"`
 	Data       statusData            `json:"data"`
 	Error      string                `json:"error,omitempty"`
+
+	// cgroup is shown in the text report only; the JSON report has no node
+	// section for it.
+	cgroup statusCgroup
 }
 
 type statusConnection struct {
@@ -116,6 +120,7 @@ func buildStatusReport(ctx context.Context, opts client.Options) (statusReport, 
 		return report, err
 	}
 	report.Store = &store
+	report.cgroup = readStatusCgroup(ctx, reader)
 	report.Metrics = &statusMetrics{
 		Endpoint: "/metrics",
 		Enabled:  "unknown",
@@ -163,6 +168,7 @@ func renderStatusReport(report statusReport) string {
 			reliability.History.ResetAt.Format(time.RFC3339),
 			reliability.History.Completeness,
 		)
+		text += report.cgroup.line()
 		if report.Metrics != nil {
 			text += fmt.Sprintf("\nMetrics:\n  endpoint: %s\n  enabled: %s\n  hint: %s\n",
 				report.Metrics.Endpoint,

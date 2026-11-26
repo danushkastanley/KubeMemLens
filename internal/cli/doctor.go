@@ -185,8 +185,7 @@ func (r *doctorReport) addEnvironmentChecks(nodes []api.NodeSnapshotStatus) {
 	if len(nodes) == 0 {
 		return
 	}
-	missingCgroup := 0
-	unsupportedCgroup := 0
+	cgroupVersions := countNodeCgroupVersions(nodes)
 	readErrors := 0
 	runtimes := map[string]struct{}{}
 	unknownRuntime := false
@@ -196,13 +195,6 @@ func (r *doctorReport) addEnvironmentChecks(nodes []api.NodeSnapshotStatus) {
 	missingWorkloadContext := 0
 	workloadContextErrors := 0
 	for _, node := range nodes {
-		switch node.Environment.CgroupVersion {
-		case "v2":
-		case "":
-			missingCgroup++
-		default:
-			unsupportedCgroup++
-		}
 		readErrors += node.Environment.CgroupReadErrors
 		if len(node.Environment.ContainerRuntimes) == 0 {
 			unknownRuntime = true
@@ -225,17 +217,11 @@ func (r *doctorReport) addEnvironmentChecks(nodes []api.NodeSnapshotStatus) {
 		}
 		workloadContextErrors += node.Environment.WorkloadContextErrors
 	}
-	switch {
-	case unsupportedCgroup > 0:
-		r.addCheck("cgroup mode", "fail", fmt.Sprintf("%d reporting nodes are not using supported cgroup v2", unsupportedCgroup))
-	case missingCgroup > 0:
-		r.addCheck("cgroup mode", "warn", fmt.Sprintf("%d reporting nodes did not report their cgroup version", missingCgroup))
-	default:
-		r.addCheck("cgroup mode", "pass", "all reporting nodes use cgroup v2")
-	}
+	cgroupStatus, cgroupSummary := cgroupVersions.check()
+	r.addCheck("cgroup mode", cgroupStatus, cgroupSummary)
 	if readErrors > 0 {
 		r.addCheck("cgroup access", "fail", fmt.Sprintf("agents reported %d cgroup read or walk errors", readErrors))
-	} else if missingCgroup > 0 {
+	} else if cgroupVersions.unreported > 0 {
 		r.addCheck("cgroup access", "warn", "cgroup read access was not reported by every node")
 	} else {
 		r.addCheck("cgroup access", "pass", "agents reported no cgroup read or walk errors")
