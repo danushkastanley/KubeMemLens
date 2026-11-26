@@ -31,9 +31,9 @@ it does not attach programmes or pin BPF objects.
 
 Before deployment:
 
-1. Build `prototype/trace/Dockerfile`, load the image into the owned kind nodes
+1. Build `extensions/trace/Dockerfile`, load the image into the owned kind nodes
    and record its immutable digest. The renderer uses `imagePullPolicy: Never`.
-2. Install [binding-node.json](../../prototype/trace/seccomp/binding-node.json)
+2. Install [binding-node.json](../../extensions/trace/seccomp/binding-node.json)
    beneath the node's kubelet seccomp root as
    `kube-memlens-trace/binding-node.json`. This extends the fixed preflight policy
    with exact directory-handle operations and TCP listener syscalls. It permits
@@ -65,9 +65,9 @@ The APIService validates the API serving CA and never skips TLS verification.
 
 ```sh
 kubectl --context kind-kml-r6-admission apply \
-  -f prototype/trace/kubernetes/admission-namespace.yaml
+  -f extensions/trace/kubernetes/admission-namespace.yaml
 umask 077
-python3 prototype/trace/kubernetes/render_admission.py \
+python3 extensions/trace/kubernetes/render_admission.py \
   --image YOUR_LOADED_IMAGE@sha256:YOUR_VERIFIED_DIGEST \
   --node YOUR_NODE --node-uid YOUR_NODE_UID \
   --namespace kube-memlens-trace-admission --kubelet-cgroup-root /kubelet \
@@ -222,7 +222,7 @@ and exact `get pods/target` permission as above. Both fixtures use a running
 container named `worker` on the registered node. Then run:
 
 ```sh
-python3 prototype/trace/qualification/admission_api.py \
+python3 extensions/trace/qualification/admission_api.py \
   --kubeconfig /YOUR/PROTECTED/LOCAL_KUBECONFIG --output /YOUR/PROTECTED/result.json
 ```
 

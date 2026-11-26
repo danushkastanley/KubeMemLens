@@ -105,7 +105,7 @@ runtime policy acceptance, provider support or resource qualification.
 
 ## Archive reader boundary
 
-`prototype/trace/releasebundle.ReadArchive` uses the Go standard tar/gzip readers
+`extensions/trace/releasebundle.ReadArchive` uses the Go standard tar/gzip readers
 without extraction. Callers choose raw tar or single-member gzip explicitly and
 supply bounded input size, expanded size, member size and entry count. Only regular
 files and directories are accepted. Paths must be canonical and bounded; duplicate
@@ -226,7 +226,7 @@ production and lifecycle checks now pass. Hosted workflow execution remains outs
 
 ## Consumer command and SBOM file agreement
 
-Build `prototype/trace/cmd/inspect-trace-release` and
+Build `extensions/trace/cmd/inspect-trace-release` and
 `hack/trace-chart-contract` from independently trusted source. The consumer entry
 point is `python3 hack/trace-release/verify.py --help`. It requires the bundle,
 a new snapshot destination, expected version/source commit, explicit local-key or
@@ -276,14 +276,14 @@ that a package scanner can discover every possible ecosystem dependency.
 ## Local producer steps
 
 The build-only worker command remains
-`prototype/trace/worker/build_worker.py`. `hack/trace-release/build_launchers.py`
+`extensions/trace/worker/build_worker.py`. `hack/trace-release/build_launchers.py`
 uses the same pinned compiler image, read-only source/module cache and disabled
 networking. Each Linux architecture is built twice and compared. Licence discovery
 uses a native helper with the target architecture passed to its package graph;
 notices for both architectures are retained. Disposable compiler caches are cleared
 between stages to stay within the fixed temporary filesystem budget.
 
-`prototype/trace/programmes/build_filecache.py --set all` reproduces all six BPF
+`extensions/trace/programmes/build_filecache.py --set all` reproduces all six BPF
 objects without loading them. Existing programme signatures may be retained only
 when the fresh build record and both object copies match the signed bundle exactly.
 The `sign-trace-engine` command separately checks both worker executable formats

@@ -2,7 +2,7 @@
 
 Date: 25 November 2026
 
-Status: accepted by the maintainer on 25 November 2026; step 1 is implemented in the same pull request and step 2 in a later one; step 3 is re-counted below and awaits a decision; step 4 is not implemented
+Status: accepted by the maintainer on 25 November 2026; step 1 is implemented in the same pull request and step 2 in a later one; step 3 is re-counted below and awaits a decision; step 4 is implemented in a later one
 
 ## Context
 
@@ -47,7 +47,13 @@ or image by this decision. Four changes follow from that, in this order.
    [Confirmed-paths tests](#confirmed-paths-tests) found far fewer
    pipeline-only tests than the audit's figure.
 4. **Rename `prototype/trace`.** The directory and its two Go module paths
-   are renamed to say what they are. The proposed name is `extensions/trace`.
+   are renamed to say what they are. Done: the maintainer chose
+   `extensions/trace`. The directory is now `extensions/trace`, and the module
+   paths are `github.com/danushkastanley/kube-memlens/extensions/trace` and
+   `github.com/danushkastanley/kube-memlens/extensions/trace/worker`. Paths
+   under `prototype/trace` elsewhere in this ADR record the tree as it was
+   before the rename; each now lives at the same place under
+   `extensions/trace`.
 
 ## Why this order
 
@@ -159,7 +165,6 @@ guard that refuses confirmed paths without an accepted installation.
 
 ## Not yet decided or verified
 
-- The name in step 4. `extensions/trace` is a proposal.
 - What step 3 moves, given the re-count. Moving the 70 pipeline-only lines in
   the two trace modules saves no measurable time. The 128 test lines in
   `internal/` run in the main module's "Go tests", which would need its own
@@ -174,4 +179,5 @@ guard that refuses confirmed paths without an accepted installation.
 Step 1 is covered by a test that reads the real `--help` output. Steps 2 to 4
 each bring their own verification in their own pull request. Nothing here
 changes stored data or a wire format. Reverting step 1 restores the old help
-text. Reverting step 2 puts the harness tests back in the trace gate.
+text. Reverting step 2 puts the harness tests back in the trace gate. Reverting step
+4 restores the old directory and module paths; it changes no behaviour.

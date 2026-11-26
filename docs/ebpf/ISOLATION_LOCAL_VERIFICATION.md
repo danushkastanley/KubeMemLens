@@ -20,7 +20,7 @@ The standard agent, chart and release images were unchanged.
 | Gated fixture image | `4e0103468ac45242cfd3f74e0f46aeb20bd9d3c5b03e8e09a2c2108ff6ea177e` |
 | Fixture executable | `602eef04abf622d22f653776ea1ae1a61791536d432e1ced18af6ed3ab5b5f90` |
 
-The [isolation helpers](../../prototype/trace/qualification/isolation/README.md)
+The [isolation helpers](../../extensions/trace/qualification/isolation/README.md)
 use authenticated Kubernetes aggregation with real ServiceAccount tokens. Two
 restricted tenant namespaces have separate accounts; a same-namespace colleague,
 an administrator granted both tenant roles, and an unbound account are additional

@@ -267,5 +267,5 @@ fixture-event markers. The production binary has no memory engine or approved
 programme allowlist; only the separately built test executable can enable the
 explicit `KML_STREAM_QUALIFICATION=owned-local-kind-contract-fixture` mode.
 
-See [the local qualification procedure](../../prototype/trace/qualification/STREAM.md)
+See [the local qualification procedure](../../extensions/trace/qualification/STREAM.md)
 for building that test executable and reproducing the aggregation checks.

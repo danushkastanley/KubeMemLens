@@ -5,7 +5,7 @@ has separate acceptance for bounded local testing; see
 [local qualification](FILE_CACHE_LOCAL_QUALIFICATION.md). Building or signing
 another bundle does not grant execution authority.
 
-`prototype/trace/cmd/build-filecache-bundle` packages the four reproduced file/cache
+`extensions/trace/cmd/build-filecache-bundle` packages the four reproduced file/cache
 objects, their source snapshot, build record and SDK policy patch. It signs each
 canonical review manifest with Ed25519 and creates a local OCI layout. It cannot
 load, publish or install a programme, or create an execution acceptance policy.
@@ -26,11 +26,11 @@ Its output directory must be new. Private keys must be separate, regular files
 without group or other permissions. Existing keys and bundles are never replaced.
 
 ```sh
-go -C prototype/trace run ./cmd/build-filecache-bundle keygen \
+go -C extensions/trace run ./cmd/build-filecache-bundle keygen \
   --key /private/review/signing-key.pem
-go -C prototype/trace run ./cmd/build-filecache-bundle build \
+go -C extensions/trace run ./cmd/build-filecache-bundle build \
   --build /private/review/reproduced-objects \
-  --sdk-patch /checkout/prototype/trace/worker/sdk-policy.patch \
+  --sdk-patch /checkout/extensions/trace/worker/sdk-policy.patch \
   --key /private/review/signing-key.pem \
   --output /private/review/new-bundle
 ```

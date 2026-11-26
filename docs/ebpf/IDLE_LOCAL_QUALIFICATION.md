@@ -54,9 +54,9 @@ process lifetime and cgroup identity checks bound every window to the candidate.
 
 ## Why memory fails
 
-The [installation code](../../prototype/trace/workerinstall/executable_linux.go)
+The [installation code](../../extensions/trace/workerinstall/executable_linux.go)
 copies the verified worker into a sealed executable memfd. The
-[node runtime](../../prototype/trace/workerruntime/runtime_linux.go) retains that
+[node runtime](../../extensions/trace/workerruntime/runtime_linux.go) retains that
 copy while idle to prevent path replacement and in-place mutation.
 
 The accepted worker is 72,338,686 bytes (68.99 MiB). Its page-rounded copy is

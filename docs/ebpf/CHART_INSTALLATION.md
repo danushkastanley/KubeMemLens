@@ -165,7 +165,7 @@ account intentionally remain; remove them separately only after verifying scope.
 
 Pod disappearance is not proof of kernel cleanup. For local lifecycle evidence,
 use the independently privileged
-[ownership census](../../prototype/trace/qualification/lifecycle/main_linux.go):
+[ownership census](../../extensions/trace/qualification/lifecycle/main_linux.go):
 identify the exact container, parent PID/start time and executable hash; snapshot
 only its accepted workers and selected fixture cgroups while active; then check
 only those recorded map/programme/link IDs after teardown. It never globally

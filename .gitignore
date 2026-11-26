@@ -8,4 +8,4 @@ __pycache__/
 coverage.out
 /dist/
 /qualification-evidence/
-/prototype/trace/worker/.sdk*/
+/extensions/trace/worker/.sdk*/

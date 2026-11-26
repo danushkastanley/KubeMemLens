@@ -11,7 +11,7 @@ The rule: read the diff, run the checks whose trigger matches, then run the chan
 3. **Run the change** (under a second for samples, several minutes for kind): see [Run the change](#run-the-change).
 4. **Before opening a PR**: `make test-race` if the change touches goroutines, locks or shared state.
 
-`make check` is the full local gate: everything CI runs on a pull request apart from the kind lanes, including the trace prototype, release, provider and terminal contracts. It also runs the trace qualification harnesses, which CI runs only when their paths change and once a week. It runs the Go tests once, with the race detector and coverage together. Run it when a change spans several areas or touches the Makefile; otherwise the rows below are enough and CI covers the rest.
+`make check` is the full local gate: everything CI runs on a pull request apart from the kind lanes, including the trace extension, release, provider and terminal contracts. It also runs the trace qualification harnesses, which CI runs only when their paths change and once a week. It runs the Go tests once, with the race detector and coverage together. Run it when a change spans several areas or touches the Makefile; otherwise the rows below are enough and CI covers the rest.
 
 ## Trigger table
 
@@ -33,9 +33,9 @@ Paths are prefixes. Run a row only when the diff touches its trigger.
 | `internal/replica*/` or chart replica values | `make check-replica-contract` | Chart guards and replica logic must agree |
 | `charts/kube-memlens/` | `helm template` with the changed values, `hack/test-chart-value-guards.sh`, then a base kind run | The kind run covers install, upgrade, rollback and uninstall |
 | A new resource kind, Pod or projected token in `charts/kube-memlens/templates/` | The `Helm checks` steps in `.github/workflows/ci.yml`, run in order, and `NODE_CONTEXT_EXECUTION_MODE=api-reads hack/verify-node-context-execution-kind.sh` | Both list exactly what the chart may contain: the Helm checks count projected tokens, and `hack/node-qualification/owned_resources.py` lists the allowed kinds. Neither is part of the base kind run |
-| `charts/kube-memlens-trace/`, `prototype/trace/` | `make check-trace-chart-contract`, `make check-trace-preflight` | Separate module with its own gate |
-| `prototype/trace/qualification/`, `hack/ebpf-qualification/`, `hack/ebpf-active-qualification/`, `hack/trace_packages.py` | `make check-trace-qualification` | Non-loading harness tests that left the per-PR gate ([ADR 0031](adr/0031-keep-the-trace-extension-as-a-separately-built-extension.md)). Their workflow is not a required check |
-| `prototype/trace/worker/` | `make check-trace-worker` | Separate module and SDK preparation |
+| `charts/kube-memlens-trace/`, `extensions/trace/` | `make check-trace-chart-contract`, `make check-trace-preflight` | Separate module with its own gate |
+| `extensions/trace/qualification/`, `hack/ebpf-qualification/`, `hack/ebpf-active-qualification/`, `hack/trace_packages.py` | `make check-trace-qualification` | Non-loading harness tests that left the per-PR gate ([ADR 0031](adr/0031-keep-the-trace-extension-as-a-separately-built-extension.md)). Their workflow is not a required check |
+| `extensions/trace/worker/` | `make check-trace-worker` | Separate module and SDK preparation |
 | RBAC, NetworkPolicy, Service ports, security context | Tenant isolation smoke, and re-read [security-model.md](security-model.md) | A privilege change needs a stated reason |
 | Metric names or labels | Scrape `metrics/current` on a kind run; update [metrics.md](metrics.md) | Dashboards and alerts depend on the names |
 | Go files with an OS build tag (`_linux.go`, `//go:build`) | `go build ./...` and `GOOS=linux go build ./...` | A `main` package declared for one OS breaks the build on the others |

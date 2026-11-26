@@ -190,7 +190,7 @@ helm --kubeconfig "$trace_kubeconfig" --kube-context "$trace_context" \
 
 Check every inventoried chart resource, APIService, hook and cluster-scoped grant,
 then the recorded worker and BPF lifetimes. Follow the bounded
-[ownership census procedure](../../prototype/trace/qualification/lifecycle/README.md)
+[ownership census procedure](../../extensions/trace/qualification/lifecycle/README.md)
 on an authorised qualification host; absence of Pods alone is insufficient.
 An unavailable observer leaves kernel cleanup unproven, never confirmed by guesswork.
 Repeat the standard memory read and confirm fresh evidence for the same fixture.

@@ -21,7 +21,7 @@ one-second deadline, including the terminal result after observation expiry.
 The parent enforces its separate lifetime and reap deadlines.
 
 The optional node component supervises one installation-selected executable per
-trace. `prototype/trace/workeripc` and `prototype/trace/workerprocess` contain no
+trace. `extensions/trace/workeripc` and `extensions/trace/workerprocess` contain no
 BPF loader. The isolated worker module owns the SDK. Ordinary collector binaries,
 snapshots, captures, charts and release artefacts do not use this protocol.
 
@@ -138,7 +138,7 @@ cancellation. They verify that their exact kernel object IDs disappear after
 closing. Run only on an owned Linux environment with BPF access:
 
 ```sh
-go -C prototype/trace/worker test -tags=kml_kernel_integration ./sdk -run '^TestKernel'
+go -C extensions/trace/worker test -tags=kml_kernel_integration ./sdk -run '^TestKernel'
 ```
 
 Startup is bounded at five seconds, even for a five-minute request. The supervisor

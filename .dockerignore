@@ -15,4 +15,4 @@ dist
 kubectl-memlens
 memlens-agent
 memlens-collector
-prototype/trace/worker/.sdk*
+extensions/trace/worker/.sdk*

@@ -84,7 +84,7 @@ class ChartInventoryTests(unittest.TestCase):
         from profile import load_profile
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            for name in ('go.mod', 'go.sum', 'prototype/trace/go.mod', 'prototype/trace/go.sum',
+            for name in ('go.mod', 'go.sum', 'extensions/trace/go.mod', 'extensions/trace/go.sum',
                          'charts/kube-memlens/values.yaml'):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)

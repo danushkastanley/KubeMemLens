@@ -38,7 +38,7 @@ def assemble(source, workers, launchers, programmes, reproduced_programmes, veri
         require(type(name) is str and not Path(name).is_absolute() and '..' not in Path(name).parts and
                 (source/name).resolve().is_relative_to(source) and match(SHA256, digest), 'invalid source identity')
         require(sha(source/name) == digest, 'source differs from reproduced build')
-    require(sha(source/'prototype/trace/worker/.sdk/.kml-source-receipt.json') == worker['sdkReceiptSHA256'],
+    require(sha(source/'extensions/trace/worker/.sdk/.kml-source-receipt.json') == worker['sdkReceiptSHA256'],
             'SDK receipt differs from build')
     for architecture in ('amd64', 'arm64'):
         directory = engine/('linux-'+architecture); directory.mkdir(mode=0o755)
@@ -72,11 +72,11 @@ def assemble(source, workers, launchers, programmes, reproduced_programmes, veri
                 (upstream/name).resolve().is_relative_to(upstream) and match(SHA256, digest), 'invalid header identity')
         require(sha(upstream/name) == digest, 'compiler headers differ from build')
     copy_public_tree(programmes, context/'programmes')
-    copy_public_tree(source/'prototype/trace/testdata/reference', engine/'reference')
+    copy_public_tree(source/'extensions/trace/testdata/reference', engine/'reference')
     public = engine/'verification'; public.mkdir(mode=0o755)
     for name in ('engine-release.json', 'engine-release.sig', 'engine-public-key.bin'):
         copy_file(verification/name, public/name)
-    copy_file(source/'prototype/trace/seccomp/filecache-node.json', public/'filecache-node.json')
+    copy_file(source/'extensions/trace/seccomp/filecache-node.json', public/'filecache-node.json')
     licences = engine/'licences'; licences.mkdir(mode=0o755)
     for component in ('launcher', 'worker'):
         for architecture in ('amd64', 'arm64'):
@@ -91,12 +91,12 @@ def assemble(source, workers, launchers, programmes, reproduced_programmes, veri
                            stdout=output_file, check=True, timeout=30)
         (licences/'go'/name).chmod(0o444)
     sources = engine/'sources'; sources.mkdir(mode=0o755)
-    pack_tree(source/'prototype/trace/worker/.sdk', sources/'inspektor-gadget-v0.56.0-modified.tar', epoch,
+    pack_tree(source/'extensions/trace/worker/.sdk', sources/'inspektor-gadget-v0.56.0-modified.tar', epoch,
               maximum=64 << 20, members=4000)
     (sources/'inspektor-gadget-v0.56.0-modified.tar').chmod(0o444)
     for name in ('build_worker.py', 'prepare_sdk.py', 'sdk_download.py', 'worker_dependencies.py', 'sdk-policy.patch'):
-        copy_file(source/'prototype/trace/worker'/name, sources/name)
-    copy_file(source/'prototype/trace/programmes/build_filecache.py', sources/'build_filecache.py')
+        copy_file(source/'extensions/trace/worker'/name, sources/name)
+    copy_file(source/'extensions/trace/programmes/build_filecache.py', sources/'build_filecache.py')
     copy_public_tree(upstream/'include', sources/'upstream-headers')
     pack_tree(engine, output/'trace-engine.tar', epoch)
     pack_tree(context/'programmes', output/'trace-programmes.tar', epoch, maximum=128 << 20, members=256)

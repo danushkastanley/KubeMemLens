@@ -71,6 +71,8 @@ def snapshot(directory, destination, expected_source_sha256, expected_freeze_sha
         relative = Path(name)
         require(not relative.is_absolute() and ".." not in relative.parts and
                 (name.startswith("hack/ebpf-qualification/") or
+                 name.startswith("extensions/trace/qualification/measure/") or
+                 # Campaigns frozen before ADR 0031 step 4 name the old directory.
                  name.startswith("prototype/trace/qualification/measure/")), "unapproved source path")
         path = directory / "source" / relative
         require(path.resolve().is_relative_to((directory / "source").resolve()), "source path escapes evidence")

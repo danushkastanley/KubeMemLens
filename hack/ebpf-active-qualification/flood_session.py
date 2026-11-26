@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 import time
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'prototype/trace/qualification/filecache'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'extensions/trace/qualification/filecache'))
 
 from ceiling_result import evaluate_ceiling_session
 from paused_reader_result import evaluate_paused_reader_session

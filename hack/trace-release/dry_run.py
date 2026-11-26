@@ -67,25 +67,25 @@ def run(source, output, modules, version, inspector, syft, cosign):
         command(['git', '-C', upstream, 'fetch', '--depth=1', 'https://github.com/inspektor-gadget/inspektor-gadget', UPSTREAM], source)
         command(['git', '-C', upstream, 'checkout', '--detach', UPSTREAM], source)
         require(capture(['git', 'rev-parse', 'HEAD'], upstream) == UPSTREAM, 'upstream commit differs')
-        command([sys.executable, 'prototype/trace/worker/prepare_sdk.py'], source)
-        for module in (source, source/'prototype/trace', source/'prototype/trace/worker'):
+        command([sys.executable, 'extensions/trace/worker/prepare_sdk.py'], source)
+        for module in (source, source/'extensions/trace', source/'extensions/trace/worker'):
             command(['go', 'mod', 'download'], module, timeout=300)
             command(['go', 'mod', 'verify'], module, timeout=120)
         clean_source(source)
         workers, launchers = output/'workers', output/'launchers'
-        command([sys.executable, source/'prototype/trace/worker/build_worker.py', '--output', workers,
+        command([sys.executable, source/'extensions/trace/worker/build_worker.py', '--output', workers,
                  '--module-cache', modules], source, timeout=900)
         build_launchers(source, launchers, modules)
         reproduced = output/'reproduced-programmes'
-        command([sys.executable, source/'prototype/trace/programmes/build_filecache.py', '--upstream', upstream,
+        command([sys.executable, source/'extensions/trace/programmes/build_filecache.py', '--upstream', upstream,
                  '--output', reproduced, '--set', 'all'], source, timeout=600)
         for key in (programme_key, engine_key):
-            command(['go', '-C', 'prototype/trace', 'run', './cmd/build-filecache-bundle', 'keygen', '--key', key], source)
+            command(['go', '-C', 'extensions/trace', 'run', './cmd/build-filecache-bundle', 'keygen', '--key', key], source)
         programmes = output/'programmes'
-        command(['go', '-C', 'prototype/trace', 'run', './cmd/build-filecache-bundle', 'build', '--key', programme_key,
-                 '--build', reproduced, '--sdk-patch', source/'prototype/trace/worker/sdk-policy.patch', '--output', programmes], source)
+        command(['go', '-C', 'extensions/trace', 'run', './cmd/build-filecache-bundle', 'build', '--key', programme_key,
+                 '--build', reproduced, '--sdk-patch', source/'extensions/trace/worker/sdk-policy.patch', '--output', programmes], source)
         worker = json.loads((workers/'build.json').read_bytes())
-        sign_engine = ['go', '-C', 'prototype/trace', 'run', './cmd/sign-trace-engine', '--key', engine_key,
+        sign_engine = ['go', '-C', 'extensions/trace', 'run', './cmd/sign-trace-engine', '--key', engine_key,
                        '--output', output/'verification']
         for architecture in ('amd64', 'arm64'):
             record = worker['workers'][architecture]
