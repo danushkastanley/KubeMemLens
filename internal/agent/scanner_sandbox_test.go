@@ -29,7 +29,7 @@ func TestScannerClassifiesSandboxOfKnownPodWithNothingRunning(t *testing.T) {
 	}
 	for name, prepare := range tests {
 		t.Run(name, func(t *testing.T) {
-			root := t.TempDir()
+			root := cgroupV2Root(t)
 			writeScannerCgroup(t, filepath.Join(root, "kubepods", "pod"+waitingPodUID, sandboxCgroupID), 128)
 			index := kube.EmptyPodIndex()
 			index.PodUIDs[waitingPodUID] = waitingPodUID
@@ -61,7 +61,7 @@ func TestScannerKeepsUnexplainedCgroupsOfIdlePodsVisible(t *testing.T) {
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			root := t.TempDir()
+			root := cgroupV2Root(t)
 			for _, id := range test.cgroups {
 				writeScannerCgroup(t, filepath.Join(root, "kubepods", "pod"+waitingPodUID, id), 128)
 			}

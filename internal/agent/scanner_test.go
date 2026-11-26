@@ -13,7 +13,7 @@ import (
 )
 
 func TestScannerClassifiesUnmappedSiblingAsInfrastructure(t *testing.T) {
-	root := t.TempDir()
+	root := cgroupV2Root(t)
 	podUID := "12345678-1234-1234-1234-123456789abc"
 	appID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	sandboxID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -67,7 +67,7 @@ func TestScannerClassifiesUnmappedSiblingAsInfrastructure(t *testing.T) {
 }
 
 func TestScannerClassifiesSandboxAfterCompletedInitCgroupIsRemoved(t *testing.T) {
-	root := t.TempDir()
+	root := cgroupV2Root(t)
 	podUID := "12345678-1234-1234-1234-123456789abc"
 	appID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	initID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -98,7 +98,7 @@ func TestScannerClassifiesSandboxAfterCompletedInitCgroupIsRemoved(t *testing.T)
 }
 
 func TestScannerDoesNotHideUnknownCgroupWhenRunningSiblingIsMissing(t *testing.T) {
-	root := t.TempDir()
+	root := cgroupV2Root(t)
 	podUID := "12345678-1234-1234-1234-123456789abc"
 	appID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	missingID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -123,7 +123,7 @@ func TestScannerDoesNotHideUnknownCgroupWhenRunningSiblingIsMissing(t *testing.T
 }
 
 func TestScannerClassifiesCompactUIDStaticPodSandbox(t *testing.T) {
-	root := t.TempDir()
+	root := cgroupV2Root(t)
 	cgroupPodUID := "c2df6c2eedc06b1195677a320a366f5e"
 	mirrorPodUID := "12345678-1234-1234-1234-123456789abc"
 	containerID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -148,7 +148,7 @@ func TestScannerClassifiesCompactUIDStaticPodSandbox(t *testing.T) {
 }
 
 func TestScannerRetainsSandboxClassificationDuringPodTeardown(t *testing.T) {
-	root := t.TempDir()
+	root := cgroupV2Root(t)
 	podUID := "12345678-1234-1234-1234-123456789abc"
 	appID := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	sandboxID := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"

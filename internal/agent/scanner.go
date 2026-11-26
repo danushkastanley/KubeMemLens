@@ -55,7 +55,25 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 		return ScanResult{}, fmt.Errorf("cgroup root is required")
 	}
 
+	// A cancelled scan must not touch the cgroup tree, as the walk already
+	// guarantees, now that detection reads the root before it.
+	if err := ctx.Err(); err != nil {
+		return ScanResult{}, err
+	}
+
 	capturedAt := time.Now().UTC()
+	// Detected on every scan: the tree is the host's, and a failed check must
+	// not stick.
+	version, err := cgroup.DetectVersion(s.CgroupRoot)
+	if err != nil {
+		return ScanResult{}, fmt.Errorf("detect cgroup version: %w", err)
+	}
+	switch version {
+	case cgroup.VersionV1:
+		return cgroupV1Scan(s.NodeName, capturedAt, idx), nil
+	case cgroup.VersionUnknown:
+		return ScanResult{}, fmt.Errorf("%s is neither a cgroup v2 nor a cgroup v1 hierarchy", s.CgroupRoot)
+	}
 	entries, walkErr := (cgroup.Walker{Root: s.CgroupRoot}).WalkContext(ctx)
 	if errors.Is(walkErr, context.Canceled) || errors.Is(walkErr, context.DeadlineExceeded) {
 		return ScanResult{}, walkErr
@@ -78,7 +96,7 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 				NodeName:      s.NodeName,
 				CapturedAt:    capturedAt,
 				Environment: api.NodeEnvironment{
-					CgroupVersion:          "v2",
+					CgroupVersion:          cgroup.VersionV2,
 					CgroupDriver:           detectCgroupDriver(nil),
 					ContainerRuntimes:      []string{"unknown"},
 					CgroupReadErrors:       boolCount(walkErr != nil),
@@ -229,7 +247,7 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 			NodeName:      s.NodeName,
 			CapturedAt:    capturedAt,
 			Environment: api.NodeEnvironment{
-				CgroupVersion:            "v2",
+				CgroupVersion:            cgroup.VersionV2,
 				CgroupDriver:             detectCgroupDriver(entries),
 				ContainerRuntimes:        sortedStrings(runtimes),
 				CgroupReadErrors:         boolCount(walkErr != nil),
