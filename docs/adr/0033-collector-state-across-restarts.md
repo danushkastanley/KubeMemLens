@@ -2,7 +2,9 @@
 
 Date: 26 November 2026
 
-Status: direction decided on 26 November 2026; nothing is implemented. The
+Status: direction decided on 26 November 2026; stage 1 is implemented, in the
+first form listed under [What blocks stage 1](#what-blocks-stage-1), and
+nothing else is. The
 owner answered the deciding question: evidence must survive both a collector
 container restart and a collector Pod replacement. That selects option D, after
 stage 1 (option A). See [Decision](#decision). The choices still open are
@@ -352,8 +354,8 @@ ever lost":
    cluster, restart the collector and see `doctor` warn with the new reset time,
    then pass once the window has elapsed.
 
-   This stage cannot be built as written; see
-   [What blocks stage 1](#what-blocks-stage-1).
+   This stage could not be built as written. It was built as a passing
+   `doctor` line instead; see [What blocks stage 1](#what-blocks-stage-1).
 2. **Issue 310's retention rule**, in its own design: what terminated-container
    evidence is kept in memory, for how long, and under what count and byte
    limits.
@@ -395,7 +397,10 @@ code was written.
   carries it. Clients decode responses strictly, so adding a field is a wire
   change for older CLIs, which stage 1 promised not to make.
 
-The forms stage 1 could take instead, none chosen:
+The forms stage 1 could take instead. The owner chose the first on
+26 November 2026, and it is implemented: `doctor` prints a `collector history`
+line that always passes (`internal/cli/doctor_collector_history.go`), and the
+restart test in the staged path was run with that line in place of a warning.
 
 1. A passing `doctor` check whose summary names the generation start and says
    that no history or baseline from before it is held. No gate or wire change;
@@ -448,8 +453,6 @@ real restart in a disposable kind cluster, not a unit test on mocks.
   chart should order the two.
 - Whether incident sessions should ever be included. This ADR proposes not.
 - Names of any new chart values.
-- The form of stage 1, from the three under
-  [What blocks stage 1](#what-blocks-stage-1).
 - Whether `resetAt` keeps its meaning and a new field reports restoration, or
   the other way round.
 
