@@ -110,7 +110,7 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 	mappings := make([]mapping, len(entries))
 	parents := map[string]*parentMapping{}
 	for i, entry := range entries {
-		ref, ok := idx.Lookup(entry.ContainerID, entry.PodUID)
+		ref, ok := idx.Lookup(entry.ContainerID)
 		mappings[i] = mapping{ref: ref, ok: ok}
 		parent := filepath.Dir(entry.RelativePath)
 		state := parents[parent]

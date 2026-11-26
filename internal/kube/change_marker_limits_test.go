@@ -12,6 +12,17 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+// markerPhaseBudget is the deadline changeMarkerProvider.Query and Revalidate
+// each set, as documented in docs/memory-change-markers.md.
+const markerPhaseBudget = 2 * time.Second
+
+func assertWithinMarkerPhaseBudget(t *testing.T, phase string, elapsed time.Duration) {
+	t.Helper()
+	if elapsed > markerPhaseBudget {
+		t.Fatalf("%s took %s, over the %s marker phase budget", phase, elapsed, markerPhaseBudget)
+	}
+}
+
 func TestMaximumMarkerCohortFitsAcquisitionAndDisclosureBudgets(t *testing.T) {
 	for _, distinctParents := range []bool{false, true} {
 		t.Run(fmt.Sprintf("distinct-parents-%t", distinctParents), func(t *testing.T) {
@@ -49,9 +60,12 @@ func TestMaximumMarkerCohortFitsAcquisitionAndDisclosureBudgets(t *testing.T) {
 			if err := f.provider.Revalidate(t.Context(), report); err != nil {
 				t.Fatal("maximum cohort disclosure", err)
 			}
+			revalidation := time.Since(queried)
 			f.mu.Lock()
 			defer f.mu.Unlock()
-			t.Logf("acquisition=%s revalidation=%s HTTP reads=%d authorisations=%d markers=%d", queried.Sub(start), time.Since(queried), len(f.reads), len(f.access), len(report.Markers))
+			t.Logf("acquisition=%s revalidation=%s HTTP reads=%d authorisations=%d markers=%d", queried.Sub(start), revalidation, len(f.reads), len(f.access), len(report.Markers))
+			assertWithinMarkerPhaseBudget(t, "maximum cohort acquisition", queried.Sub(start))
+			assertWithinMarkerPhaseBudget(t, "maximum cohort disclosure", revalidation)
 		})
 	}
 }
@@ -92,18 +106,4 @@ func maximumCronJobMarkerFixture(t *testing.T) *markerFixture {
 	}
 	f.extra["/apis/batch/v1/namespaces/tenant-a/jobs"] = jobs
 	return f
-}
-
-func TestMaximumCronJobMarkerCohortFitsBothPhaseBudgets(t *testing.T) {
-	f := maximumCronJobMarkerFixture(t)
-	start := time.Now()
-	report, err := f.provider.Query(t.Context(), f.selection, f.query)
-	if err != nil {
-		t.Fatal("CronJob acquisition", err)
-	}
-	queried := time.Now()
-	if err := f.provider.Revalidate(t.Context(), report); err != nil {
-		t.Fatal("CronJob revalidation", err)
-	}
-	t.Logf("acquisition=%s revalidation=%s", queried.Sub(start), time.Since(queried))
 }

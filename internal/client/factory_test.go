@@ -2,78 +2,52 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 )
 
-func TestNewSnapshotReaderAutoPreservesExplicitCollectorURL(t *testing.T) {
-	reader, description, err := NewSnapshotReader(context.Background(), Options{
-		Mode:         ConnectionModeAuto,
-		CollectorURL: "http://127.0.0.1:18080",
-	})
-	if err != nil {
-		t.Fatalf("NewSnapshotReader returned error: %v", err)
-	}
-	if _, ok := reader.(*CollectorClient); !ok {
-		t.Fatalf("reader = %T, want *CollectorClient", reader)
-	}
-	if description != "http://127.0.0.1:18080" {
-		t.Fatalf("description = %q", description)
-	}
-}
-
-func TestNewSnapshotReaderAutoUsesAggregatedAPIWithoutCollectorURL(t *testing.T) {
+func TestNewSnapshotReaderSelectsReaderForMode(t *testing.T) {
 	kubeconfig := writeTestKubeconfig(t)
-	reader, description, err := NewSnapshotReader(context.Background(), Options{
-		Mode:       ConnectionModeAuto,
-		Kubeconfig: kubeconfig,
-	})
-	if err != nil {
-		t.Fatalf("NewSnapshotReader returned error: %v", err)
+	tests := map[string]struct {
+		options         Options
+		wantReader      string
+		wantDescription string
+	}{
+		"auto keeps an explicit collector URL": {
+			options:    Options{Mode: ConnectionModeAuto, CollectorURL: "http://127.0.0.1:18080"},
+			wantReader: "*client.CollectorClient", wantDescription: "http://127.0.0.1:18080",
+		},
+		"auto uses the aggregated API without a collector URL": {
+			options:    Options{Mode: ConnectionModeAuto, Kubeconfig: kubeconfig},
+			wantReader: "*client.KubernetesAPIClient", wantDescription: "Kubernetes API memory.kubememlens.io/v1alpha1",
+		},
+		"explicit HTTP mode": {
+			options:    Options{Mode: ConnectionModeHTTP, CollectorURL: "http://127.0.0.1:18080"},
+			wantReader: "*client.CollectorClient", wantDescription: "http://127.0.0.1:18080",
+		},
+		"explicit kube-proxy mode": {
+			options: Options{
+				Mode: ConnectionModeKubeProxy, CollectorNamespace: "kube-memlens", CollectorService: "kube-memlens-collector",
+				CollectorPort: 8080, Kubeconfig: kubeconfig,
+			},
+			wantReader: "*client.KubeProxyCollectorClient", wantDescription: "kube-proxy kube-memlens/kube-memlens-collector:8080",
+		},
 	}
-	if _, ok := reader.(*KubernetesAPIClient); !ok {
-		t.Fatalf("reader = %T, want *KubernetesAPIClient", reader)
-	}
-	if description != "Kubernetes API memory.kubememlens.io/v1alpha1" {
-		t.Fatalf("description = %q", description)
-	}
-}
-
-func TestNewSnapshotReaderPreservesExplicitHTTPMode(t *testing.T) {
-	reader, description, err := NewSnapshotReader(context.Background(), Options{
-		Mode:         ConnectionModeHTTP,
-		CollectorURL: "http://127.0.0.1:18080",
-	})
-	if err != nil {
-		t.Fatalf("NewSnapshotReader returned error: %v", err)
-	}
-	if _, ok := reader.(*CollectorClient); !ok {
-		t.Fatalf("reader = %T, want *CollectorClient", reader)
-	}
-	if description != "http://127.0.0.1:18080" {
-		t.Fatalf("description = %q", description)
-	}
-}
-
-func TestNewSnapshotReaderPreservesExplicitKubeProxyMode(t *testing.T) {
-	kubeconfig := writeTestKubeconfig(t)
-
-	reader, description, err := NewSnapshotReader(context.Background(), Options{
-		Mode:               ConnectionModeKubeProxy,
-		CollectorNamespace: "kube-memlens",
-		CollectorService:   "kube-memlens-collector",
-		CollectorPort:      8080,
-		Kubeconfig:         kubeconfig,
-	})
-	if err != nil {
-		t.Fatalf("NewSnapshotReader returned error: %v", err)
-	}
-	if _, ok := reader.(*KubeProxyCollectorClient); !ok {
-		t.Fatalf("reader = %T, want *KubeProxyCollectorClient", reader)
-	}
-	if description != "kube-proxy kube-memlens/kube-memlens-collector:8080" {
-		t.Fatalf("description = %q", description)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			reader, description, err := NewSnapshotReader(context.Background(), test.options)
+			if err != nil {
+				t.Fatalf("NewSnapshotReader returned error: %v", err)
+			}
+			if got := fmt.Sprintf("%T", reader); got != test.wantReader {
+				t.Fatalf("reader = %s, want %s", got, test.wantReader)
+			}
+			if description != test.wantDescription {
+				t.Fatalf("description = %q, want %q", description, test.wantDescription)
+			}
+		})
 	}
 }
 

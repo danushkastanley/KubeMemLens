@@ -73,33 +73,32 @@ func TestCollectorClientFetchesWorkloads(t *testing.T) {
 	}
 }
 
-func TestCollectorClientNon200IncludesStatus(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "not ready", http.StatusServiceUnavailable)
-	}))
-	defer server.Close()
-
-	_, err := NewCollectorClient(server.URL).Namespaces(context.Background())
-	if err == nil {
-		t.Fatal("Namespaces returned nil error")
+func TestCollectorClientReportsUnusableResponse(t *testing.T) {
+	tests := map[string]struct {
+		respond func(http.ResponseWriter)
+		fetch   func(*CollectorClient) error
+		want    string
+	}{
+		"non-200 status includes the status": {
+			respond: func(w http.ResponseWriter) { http.Error(w, "not ready", http.StatusServiceUnavailable) },
+			fetch:   func(c *CollectorClient) error { _, err := c.Namespaces(context.Background()); return err },
+			want:    "status 503",
+		},
+		"malformed JSON includes decode context": {
+			respond: func(w http.ResponseWriter) { _, _ = w.Write([]byte(`not-json`)) },
+			fetch:   func(c *CollectorClient) error { _, err := c.Containers(context.Background()); return err },
+			want:    "decode",
+		},
 	}
-	if !contains(err.Error(), "status 503") {
-		t.Fatalf("error = %q, want status", err.Error())
-	}
-}
-
-func TestCollectorClientMalformedJSON(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`not-json`))
-	}))
-	defer server.Close()
-
-	_, err := NewCollectorClient(server.URL).Containers(context.Background())
-	if err == nil {
-		t.Fatal("Containers returned nil error")
-	}
-	if !contains(err.Error(), "decode") {
-		t.Fatalf("error = %q, want decode context", err.Error())
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { test.respond(w) }))
+			defer server.Close()
+			err := test.fetch(NewCollectorClient(server.URL))
+			if err == nil || !contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want %q", err, test.want)
+			}
+		})
 	}
 }
 

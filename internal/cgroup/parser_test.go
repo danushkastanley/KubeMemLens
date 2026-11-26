@@ -23,56 +23,55 @@ func TestParseMemoryCurrentInvalid(t *testing.T) {
 	}
 }
 
-func TestParseMemoryStat(t *testing.T) {
-	stat, err := ParseMemoryStat([]byte(strings.Join([]string{
-		"anon 100",
-		"file 200",
-		"active_file 150",
-		"slab 20",
-		"future_kernel_key 42",
-	}, "\n")))
-	if err != nil {
-		t.Fatalf("ParseMemoryStat returned error: %v", err)
+func TestParseKeyedFileKeepsKnownAndUnknownKeys(t *testing.T) {
+	tests := map[string]struct {
+		parse       func([]byte) (values, unknown map[string]uint64, err error)
+		lines       []string
+		wantValues  map[string]uint64
+		wantUnknown map[string]uint64
+	}{
+		"memory.stat": {
+			parse: func(data []byte) (map[string]uint64, map[string]uint64, error) {
+				stat, err := ParseMemoryStat(data)
+				return stat.Values, stat.Unknown, err
+			},
+			lines:       []string{"anon 100", "file 200", "active_file 150", "slab 20", "future_kernel_key 42"},
+			wantValues:  map[string]uint64{"anon": 100, "file": 200},
+			wantUnknown: map[string]uint64{"future_kernel_key": 42},
+		},
+		"memory.events": {
+			parse: func(data []byte) (map[string]uint64, map[string]uint64, error) {
+				events, err := ParseMemoryEvents(data)
+				return events.Values, events.Unknown, err
+			},
+			lines:       []string{"low 0", "high 3", "max 4", "oom 1", "oom_kill 1", "future_event 9"},
+			wantValues:  map[string]uint64{"oom": 1, "high": 3},
+			wantUnknown: map[string]uint64{"future_event": 9},
+		},
 	}
-
-	if stat.Values["anon"] != 100 {
-		t.Fatalf("anon = %d, want 100", stat.Values["anon"])
-	}
-	if stat.Values["file"] != 200 {
-		t.Fatalf("file = %d, want 200", stat.Values["file"])
-	}
-	if stat.Unknown["future_kernel_key"] != 42 {
-		t.Fatalf("unknown key not preserved: %#v", stat.Unknown)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			values, unknown, err := test.parse([]byte(strings.Join(test.lines, "\n")))
+			if err != nil {
+				t.Fatalf("parse returned error: %v", err)
+			}
+			for key, want := range test.wantValues {
+				if values[key] != want {
+					t.Fatalf("%s = %d, want %d", key, values[key], want)
+				}
+			}
+			for key, want := range test.wantUnknown {
+				if unknown[key] != want {
+					t.Fatalf("unknown key %s not preserved: %#v", key, unknown)
+				}
+			}
+		})
 	}
 }
 
 func TestParseMemoryStatInvalidValue(t *testing.T) {
 	if _, err := ParseMemoryStat([]byte("anon nope\n")); err == nil {
 		t.Fatal("ParseMemoryStat returned nil error for invalid value")
-	}
-}
-
-func TestParseMemoryEvents(t *testing.T) {
-	events, err := ParseMemoryEvents([]byte(strings.Join([]string{
-		"low 0",
-		"high 3",
-		"max 4",
-		"oom 1",
-		"oom_kill 1",
-		"future_event 9",
-	}, "\n")))
-	if err != nil {
-		t.Fatalf("ParseMemoryEvents returned error: %v", err)
-	}
-
-	if events.Values["oom"] != 1 {
-		t.Fatalf("oom = %d, want 1", events.Values["oom"])
-	}
-	if events.Values["high"] != 3 {
-		t.Fatalf("high = %d, want 3", events.Values["high"])
-	}
-	if events.Unknown["future_event"] != 9 {
-		t.Fatalf("unknown event key not preserved: %#v", events.Unknown)
 	}
 }
 

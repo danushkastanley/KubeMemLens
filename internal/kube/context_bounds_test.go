@@ -68,7 +68,7 @@ func TestOversizedPodMetadataStillYieldsAnAcceptedSnapshot(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			pod := podWithStatuses("tenant-pod", "uid-a", []corev1.ContainerStatus{{Name: "app", ContainerID: "containerd://abcdef1234567890"}})
 			change(&pod)
-			ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890", "")
+			ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890")
 			if !ok {
 				t.Fatal("Lookup returned false")
 			}
@@ -98,7 +98,7 @@ func TestOversizedResolvedWorkloadStillYieldsAnAcceptedSnapshot(t *testing.T) {
 			if failed != 0 {
 				t.Fatalf("owner lookup failed %d times", failed)
 			}
-			ref, ok := idx.Lookup("abcdef1234567890", "")
+			ref, ok := idx.Lookup("abcdef1234567890")
 			if !ok {
 				t.Fatal("Lookup returned false")
 			}
@@ -129,7 +129,7 @@ func TestExcessLabelsAreDroppedInKeyOrder(t *testing.T) {
 		pod.Labels[fmt.Sprintf("label-%02d", i)] = "value"
 	}
 	for range 5 {
-		ref, _ := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890", "")
+		ref, _ := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890")
 		if len(ref.Context.Labels) != 64 {
 			t.Fatalf("got %d labels, want 64", len(ref.Context.Labels))
 		}
@@ -158,7 +158,7 @@ func TestUnboundedMemoryVolumesStayVisibleOverTheVolumeLimit(t *testing.T) {
 			Name: fmt.Sprintf("memory-%03d", i), VolumeSource: corev1.VolumeSource{EmptyDir: source},
 		})
 	}
-	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890", "")
+	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890")
 	if !ok {
 		t.Fatal("Lookup returned false")
 	}
@@ -177,7 +177,7 @@ func TestProfilingDeclarationSurvivesExcessLabels(t *testing.T) {
 	for i := range 70 {
 		pod.Labels[fmt.Sprintf("label-%02d", i)] = "value"
 	}
-	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890", "")
+	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890")
 	if !ok {
 		t.Fatal("Lookup returned false")
 	}
@@ -195,7 +195,7 @@ func TestUnreadProfilingLabelsDoNotDisplaceOrdinaryLabels(t *testing.T) {
 	for i := range 70 {
 		pod.Labels[fmt.Sprintf("%snot-a-container-%02d", profiler.LabelPrefix, i)] = "value"
 	}
-	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890", "")
+	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890")
 	if !ok {
 		t.Fatal("Lookup returned false")
 	}
