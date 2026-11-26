@@ -216,11 +216,17 @@ oras push \
 
 The file has no `owners` list. Artifact Hub uses that list only to claim a repository from another account, and it would publish a contact email. The chart package includes a chart-local README and version-aligned `artifacthub.io/images` metadata so the indexed package can resolve its installation documentation and release image.
 
+### Homebrew tap
+
+macOS and Linux users can install the plugin from the tap [danushkastanley/homebrew-tap](https://github.com/danushkastanley/homebrew-tap). A release needs no step here. The tap's `Update formula` workflow checks for a new stable release every four hours and rewrites `Formula/kubectl-memlens.rb`. It trusts a hash only through the release's signatures: cosign must verify `promotion-checksums.txt` against the promotion workflow of that tag, that record must cover `checksums.txt`, and the four archive hashes come from there. It uses only the tap repository's own workflow token; this repository holds no credential for it.
+
+The tap's `Tests` workflow installs the formula on macOS and Linux runners, runs its test, and fails if the committed formula is not what the signed release renders to. An update is committed before those tests run for it, so a red `Tests` badge on the tap after a release means the new formula should be reverted there.
+
 ### Scoop bucket
 
 Windows users can install the plugin from the Scoop bucket [danushkastanley/scoop-bucket](https://github.com/danushkastanley/scoop-bucket). A release needs no step here either: the bucket's `Excavator` workflow checks for a new stable release every four hours and rewrites its manifest with the new version, the two Windows archive addresses and their hashes from that release's `checksums.txt`. It uses only the bucket repository's own workflow token; this repository holds no credential for it.
 
-The bucket's `Install test` workflow installs the plugin on a Windows runner and fails if a forced update does not rebuild the committed manifest. A change to the Windows archive names or to the format of `checksums.txt` therefore breaks that test, not users. After publishing, confirm that the bucket's manifest moved to the new version within a few hours.
+The bucket's `Install test` workflow installs the plugin on a Windows runner and fails if a forced update does not rebuild the committed manifest. A change to the Windows archive names or to the format of `checksums.txt` therefore breaks that test, not users. After publishing, confirm that the tap's formula and the bucket's manifest moved to the new version within a few hours. GitHub pauses scheduled workflows in a repository with no activity for 60 days, and both repositories change only when a release does; if either has not moved, check that its scheduled workflow is still enabled on its Actions tab, or run it by hand.
 
 ### Published artefacts are never replaced
 

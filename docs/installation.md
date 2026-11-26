@@ -28,6 +28,13 @@ kubectl krew install memlens
 kubectl memlens version
 ```
 
+On macOS or Linux, with [Homebrew](https://brew.sh):
+
+```sh
+brew install danushkastanley/tap/kubectl-memlens
+kubectl memlens version
+```
+
 On Windows, with [Scoop](https://scoop.sh):
 
 ```pwsh
@@ -36,7 +43,7 @@ scoop install kubememlens/kubectl-memlens
 kubectl memlens version
 ```
 
-Without Krew or Scoop, install a release archive as described in the
+Without Krew, Homebrew or Scoop, install a release archive as described in the
 [README quick start](../README.md#quick-start), or build from source.
 
 ## Build the CLI from source
