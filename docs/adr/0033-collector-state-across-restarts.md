@@ -2,8 +2,11 @@
 
 Date: 26 November 2026
 
-Status: proposed. Nothing here is decided or implemented. The owner's choices
-are listed under "Not yet decided".
+Status: direction decided on 26 November 2026; nothing is implemented. The
+owner answered the deciding question: evidence must survive both a collector
+container restart and a collector Pod replacement. That selects option D, after
+stage 1 (option A). See [Decision](#decision). The choices still open are
+listed under "Not yet decided".
 
 ## Context
 
@@ -320,6 +323,26 @@ serve deleted Pods.
 There is no data on how often collectors restart in each way, so the choice
 cannot be made from evidence today.
 
+### Decision
+
+On 26 November 2026 the owner answered the deciding question: evidence must be
+kept across both kinds of restart, because either one can lose every post-mortem
+with no fault on the operator's side. By the rule above that selects **D**:
+agents keep a bounded window of their own node's evidence and replay it to a new
+collector generation. C1 is not built, because it loses everything on a Pod
+replacement. C2 stays rejected unless D proves too costly.
+
+What D does not cover, stated so that nobody reads the decision as "nothing is
+ever lost":
+
+- An agent that restarts loses its own buffered window, and a node that goes
+  away takes its window with it.
+- A chart upgrade that changes the image replaces the collector and rolls the
+  agent DaemonSet in the same release. An agent that restarts before the new
+  collector has taken its replay loses that node's window. The table above says an upgrade is survived
+  "from running agents"; how much that is during a combined roll is not
+  measured, and the stage 3 restart test must measure it.
+
 ### Staged path
 
 1. **First pull request (A).** A `doctor` check that warns when the collector
@@ -331,8 +354,18 @@ cannot be made from evidence today.
 2. **Issue 310's retention rule**, in its own design: what terminated-container
    evidence is kept in memory, for how long, and under what count and byte
    limits.
-3. **Only if the owner chooses persistence**, C1 or D in its own pull request.
-   For C1 the documented bound would be: "After a collector container restart,
+3. **D**, in its own pull requests, after stage 2 has said what
+   terminated-container evidence exists to replay. Its restart test, in a
+   disposable kind cluster: record history for a fixture Pod for at least two
+   minutes; replace the collector Pod; assert a new generation, the points from
+   before the replacement present and marked as replayed, no point older than
+   the window, and the gap reported. Then repeat with a collector container
+   restart, with an agent restart (that node's window is gone, and says so),
+   and with a chart upgrade that rolls both, recording how many nodes kept
+   their window.
+
+   C1 was the alternative, and is not built. Its documented bound would have
+   been: "After a collector container restart,
    restored history covers at most the configured window (default 15 minutes,
    181 points per Pod, 1,000 series), less at most one checkpoint interval.
    Nothing survives a Pod replacement." Its restart test records history for a
@@ -374,12 +407,16 @@ real restart in a disposable kind cluster, not a unit test on mocks.
 
 ## Not yet decided
 
-- The deciding question above: container restart only, or Pod replacement too.
-- Whether persistence, if chosen, is on by default. This ADR proposes off for
-  the first release because it writes identities to node disk.
+- Whether the agent buffer is on by default. It writes nothing to disk, but it
+  costs memory on every node (an estimated 4.7 MiB at 110 Pods).
+- The buffer's bounds per agent: Pods, points and bytes, and what happens when
+  a node runs more Pods than the bound.
+- What D replays first: Pod history only, or also the terminated-container
+  evidence that stage 2 defines.
+- How much evidence a combined collector and agent roll keeps, and whether the
+  chart should order the two.
 - Whether incident sessions should ever be included. This ADR proposes not.
-- The checkpoint interval for C1, which is also its crash-loss bound.
-- Names of any new chart values and the on-disk path.
+- Names of any new chart values.
 - Whether `resetAt` keeps its meaning and a new field reports restoration, or
   the other way round.
 
