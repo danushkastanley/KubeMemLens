@@ -118,6 +118,7 @@ func (s *Store) BuildMetricsView(now time.Time, ttl time.Duration, opts metrics.
 		if !podsExceeded {
 			pod := podItems[key]
 			pod.Memory = model.AddMemory(pod.Memory, container.Memory)
+			pod.PodCgroup = model.KeepFirstPodCgroup(pod.PodCgroup, container.PodCgroup)
 			pod.Memory.Name = pod.Namespace + "/" + pod.PodName
 			if container.CapturedAt.After(pod.CapturedAt) {
 				pod.CapturedAt = container.CapturedAt

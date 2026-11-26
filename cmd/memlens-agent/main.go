@@ -240,7 +240,7 @@ func main() {
 		if failureReason != "" {
 			fmt.Print(formatAgentFailure(*nodeName, failureReason, time.Since(start)))
 		} else {
-			if result.WalkError != nil {
+			if result.Snapshot.Environment.CgroupReadErrors > 0 {
 				fmt.Print(formatCgroupReadWarning(*nodeName, result.Snapshot.Environment.CgroupReadErrors))
 			}
 			fmt.Printf(

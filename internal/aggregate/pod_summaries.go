@@ -43,6 +43,7 @@ func (a *PodSummaryAccumulator) Add(container api.ContainerSnapshot) {
 		a.order = append(a.order, key)
 	}
 	state.pod.Memory = model.AddMemory(state.pod.Memory, container.Memory)
+	state.pod.PodCgroup = model.KeepFirstPodCgroup(state.pod.PodCgroup, container.PodCgroup)
 	addContainerContext(&state.pod.Context, container.Context)
 	state.fresh = state.fresh || container.Freshness != api.EvidenceFreshnessStale
 	state.stale = state.stale || container.Freshness == api.EvidenceFreshnessStale

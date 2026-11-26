@@ -41,6 +41,7 @@ func Pods(containers []api.ContainerSnapshot) []api.PodSnapshot {
 		for _, container := range pod.Containers {
 			memories = append(memories, container.Memory)
 			addContainerContext(&pod.Context, container.Context)
+			pod.PodCgroup = model.KeepFirstPodCgroup(pod.PodCgroup, container.PodCgroup)
 		}
 		pod.Memory = model.SumMemory(pod.Namespace+"/"+pod.PodName, memories)
 		pod.Freshness, pod.Completeness = containerEvidence(pod.Containers)

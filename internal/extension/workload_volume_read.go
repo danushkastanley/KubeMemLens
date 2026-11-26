@@ -49,7 +49,7 @@ func (h *ReadHandler) serveWorkloadVolumes(w http.ResponseWriter, r *http.Reques
 		writeVolumeReadError(w, err)
 		return
 	}
-	writeBoundedReadJSON(w, response, min(h.opts.MaxResponseBytes, volumecontext.MaxPageBytes))
+	writeSnapshotReadJSON(w, schema, response, min(h.opts.MaxResponseBytes, volumecontext.MaxPageBytes))
 }
 
 func (h *ReadHandler) workloadVolumeResponse(ctx context.Context, resolved kube.ResolvedWorkloadVolumes) (api.WorkloadVolumeContext, error) {

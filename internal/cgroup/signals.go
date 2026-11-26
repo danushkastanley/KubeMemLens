@@ -62,6 +62,7 @@ func readMemorySignals(fsys fs.FS, breakdown *model.MemoryBreakdown) error {
 	breakdown.LocalOOMKillEvents = local["oom_kill"]
 	breakdown.LocalHighEvents = local["high"]
 	breakdown.LocalMaxEvents = local["max"]
+	breakdown.OOMGroupKill.LocalEvents, breakdown.OOMGroupKill.LocalKnown = groupKillEvents(local)
 
 	swap, known, err := readOptionalEvents(fsys, "memory.swap.events", knownSwapEventKeys)
 	if err != nil {

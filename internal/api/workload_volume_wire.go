@@ -134,13 +134,13 @@ func ValidateWorkloadVolumeContext(v WorkloadVolumeContext, now time.Time) error
 	}
 	containers := 0
 	for _, pod := range w.Pods {
-		if pod.Namespace != v.Namespace || pod.PodUID == "" || instances[pod.PodUID] != pod.PodName || seen[pod.PodUID] {
+		if pod.Namespace != v.Namespace || pod.PodUID == "" || instances[pod.PodUID] != pod.PodName || seen[pod.PodUID] || pod.PodCgroup.Validate() != nil {
 			return invalid
 		}
 		seen[pod.PodUID] = true
 		for _, container := range pod.Containers {
 			containers++
-			if containers > 1024 || container.PodUID != pod.PodUID || container.Namespace != pod.Namespace || container.PodName != pod.PodName || container.Memory.IOPressure.Validate() != nil {
+			if containers > 1024 || container.PodUID != pod.PodUID || container.Namespace != pod.Namespace || container.PodName != pod.PodName || container.Memory.IOPressure.Validate() != nil || ValidateContainerSchema8Evidence(container) != nil {
 				return invalid
 			}
 		}

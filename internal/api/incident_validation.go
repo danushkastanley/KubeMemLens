@@ -14,6 +14,9 @@ func ValidateIncidentSchema(bundle IncidentBundle) error {
 		return fmt.Errorf("Pod resource and resize context requires incident schema 2")
 	}
 	for _, pod := range bundle.Pods {
+		if PodHasSchema8Evidence(pod) {
+			return fmt.Errorf("Pod cgroup, zswap and oom_group_kill evidence is not kept in incident files")
+		}
 		if pod.Memory.IOPressure.State != "" {
 			return fmt.Errorf("cgroup I/O pressure requires a volume incident")
 		}

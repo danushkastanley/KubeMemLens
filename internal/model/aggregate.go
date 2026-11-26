@@ -10,6 +10,8 @@ func AddMemory(a, b MemoryBreakdown) MemoryBreakdown {
 	localA, localB := a.ownEvents(localKnown), b.ownEvents(localKnown)
 	return MemoryBreakdown{
 		Name:                    a.Name,
+		Zswap:                   addZswap(a.Zswap, b.Zswap),
+		OOMGroupKill:            addOOMGroupKill(a.OOMGroupKill, b.OOMGroupKill),
 		TotalBytes:              a.TotalBytes + b.TotalBytes,
 		AnonBytes:               a.AnonBytes + b.AnonBytes,
 		FileBytes:               a.FileBytes + b.FileBytes,

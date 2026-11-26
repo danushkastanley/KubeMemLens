@@ -36,7 +36,7 @@ func TestTopologyCLIExplicitCaptureReplayAndRevocation(t *testing.T) {
 	var denied atomic.Bool
 	var topologyCalls atomic.Int32
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get(api.SnapshotSchemaHeader) != "7" || r.Header.Get("Authorization") != "Bearer fixture-reader" {
+		if r.Header.Get(api.SnapshotSchemaHeader) != "8" || r.Header.Get("Authorization") != "Bearer fixture-reader" {
 			t.Error("capture lost schema or credentials")
 		}
 		var value any

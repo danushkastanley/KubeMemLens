@@ -15,6 +15,9 @@ func FuzzExtractIdentityFromPath(f *testing.F) {
 		"/kubepods/burstable/pod" + testPodUID + "/" + testContainerID,
 		"/system.slice/docker-" + testContainerID + ".scope", "pod", "podpodpod", "\x00/\xff/pod" + testPodUID,
 		"/kubepods/pod" + testPodUID + "/" + testContainerID + "/system.slice/docker-" + strings.Repeat("f", 64) + ".scope",
+		"system.slice/docker-" + testNodeScopeID + ".scope/kubelet.slice/kubelet-kubepods.slice/kubelet-kubepods-pod" + testPodUIDSystemd + ".slice/cri-containerd-" + testContainerID + ".scope",
+		"kubepods.slice/kubepods-burstable.slice/kubepods-burstable-pod" + testPodUIDSystemd + ".slice/crio-" + testContainerID + ".scope",
+		"kubepods/pod" + testPodUID + "/" + testContainerID + "/kubelet.slice/kubelet-kubepods-pod" + testInnerPodUID + ".slice/x",
 	} {
 		f.Add(seed)
 	}
@@ -25,6 +28,15 @@ func FuzzExtractIdentityFromPath(f *testing.F) {
 		uid := ExtractPodUIDFromPath(path)
 		if uid != "" && (strings.ToLower(uid) != uid || strings.ContainsAny(uid, "_/") || (len(uid) != 32 && len(uid) != 36)) {
 			t.Fatalf("Pod UID %q from path %q is not a lower-case UID", uid, path)
+		}
+		// The Pod cgroup is a whole-component prefix of the path that names
+		// the same Pod, and exists exactly when the path names one.
+		dir, found := PodCgroupDir(path)
+		if found != (uid != "") {
+			t.Fatalf("PodCgroupDir(%q) found=%t, but the path names Pod %q", path, found, uid)
+		}
+		if found && (!strings.HasPrefix(path, dir) || (len(dir) < len(path) && path[len(dir)] != '/') || ExtractPodUIDFromPath(dir) != uid) {
+			t.Fatalf("PodCgroupDir(%q) = %q, not the cgroup of Pod %q", path, dir, uid)
 		}
 		id := ExtractContainerIDFromPath(path)
 		if id == "" {
