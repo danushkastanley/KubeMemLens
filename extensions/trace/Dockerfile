@@ -13,6 +13,7 @@ COPY internal/traceframe ./internal/traceframe
 COPY internal/tracesession ./internal/tracesession
 COPY internal/traceadmission ./internal/traceadmission
 COPY internal/kubeauth ./internal/kubeauth
+COPY internal/kubeprincipal ./internal/kubeprincipal
 COPY extensions/trace ./extensions/trace
 WORKDIR /src/extensions/trace
 RUN CGO_ENABLED=0 go build -mod=readonly -trimpath -buildvcs=false -o /memlens-trace ./cmd/memlens-trace
