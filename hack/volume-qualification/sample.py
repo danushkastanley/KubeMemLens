@@ -2,7 +2,7 @@
 """Sample complete fixed windows; cancellation or missing observations fail."""
 import argparse
 import time
-from common import load, now, require, write_new
+from common import Invalid, load, now, require, write_new
 from evidence import validate_window
 from profile import validate
 from runtime import VolumeRuntime
@@ -15,7 +15,9 @@ def measure(runtime,p,phase,clock=time.monotonic,sleep=time.sleep):
     started=clock();started_at=now();rows=[]
     for index in range(m[phase+'Seconds']//m['intervalSeconds']+1):
         sleep(max(0,started+index*m['intervalSeconds']-clock()))
-        rows.append(runtime.observe(started))
+        # A sample's label is printed only after it passes, so name the one that failed.
+        try:rows.append(runtime.observe(started))
+        except Invalid as error:raise Invalid(f'{phase} volume observation {index+1} failed: {error}') from error
         print(phase+' volume observation '+str(index+1),flush=True)
     result={'startedAt':started_at,'completedAt':now(),'stable':True,'samples':rows}
     validate_window(p,result,phase)
