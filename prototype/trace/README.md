@@ -45,6 +45,13 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace build \
 docker build -f prototype/trace/Dockerfile -t kube-memlens-preflight:local .
 ```
 
+`make check-trace-preflight` vets and cross-builds every package. The tests of
+the qualification harnesses, the packages and Python tests below
+[`qualification/`](qualification) and under `hack/ebpf-*qualification/`, run
+in `make check-trace-qualification` instead, which CI runs when their paths
+change and once a week
+([ADR 0031](../../docs/adr/0031-keep-the-trace-extension-as-a-separately-built-extension.md)).
+
 Use `amd64` when that is the native Linux node architecture. A cross-build is
 not runtime qualification. The separate module uses cilium/ebpf v0.22.0 and
 x/sys v0.47.0; the launcher module does not import the Inspektor Gadget SDK.

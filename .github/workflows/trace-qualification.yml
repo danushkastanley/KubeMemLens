@@ -1,0 +1,74 @@
+name: Trace qualification harnesses
+
+# ADR 0031 takes the trace qualification harnesses off the per-pull-request
+# trace gate. This workflow runs "make check-trace-qualification" when the
+# harnesses, the package split or this workflow change, and once a week. The
+# weekly run catches drift from trace and internal code the harnesses import
+# or read, which a path filter does not see; vet and both cross-builds in the
+# required "Go checks" still compile the harness packages on every pull
+# request.
+#
+# This is not a required status: a path-filtered required check would stay
+# pending on every pull request that does not touch these paths. A failure on
+# a pull request shows as a failed check there; a failure on the weekly run
+# shows as a failed scheduled run in the Actions tab and blocks nothing.
+on:
+  pull_request:
+    paths:
+      - 'prototype/trace/qualification/**'
+      - 'hack/ebpf-qualification/**'
+      - 'hack/ebpf-active-qualification/**'
+      - 'hack/trace_packages.py'
+      - 'prototype/trace/go.mod'
+      - 'prototype/trace/go.sum'
+      - 'Makefile'
+      - '.github/workflows/trace-qualification.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'prototype/trace/qualification/**'
+      - 'hack/ebpf-qualification/**'
+      - 'hack/ebpf-active-qualification/**'
+      - 'hack/trace_packages.py'
+      - 'prototype/trace/go.mod'
+      - 'prototype/trace/go.sum'
+      - 'Makefile'
+      - '.github/workflows/trace-qualification.yml'
+  schedule:
+    - cron: '20 3 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trace-qualification-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qualification:
+    name: Trace qualification harnesses
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: prototype/trace/go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            prototype/trace/go.sum
+
+      - name: Download modules with bounded retry
+        run: |
+          source hack/lib/retry.sh
+          retry_capture 3 5 go -C prototype/trace mod download >/dev/null
+
+      - name: Test the trace qualification harnesses
+        run: make check-trace-qualification
