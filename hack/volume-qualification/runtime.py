@@ -1,5 +1,6 @@
 """Observe only the parent-owned kind fixture; raw responses stay private."""
 import json
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -11,6 +12,23 @@ from common import Invalid, require, number
 sys.path.append(str(Path(__file__).resolve().parents[1]/'node-qualification'))
 from kind_runtime import KindRuntime, metrics
 from prometheus import api_counters
+
+def printable(value):
+    # Diagnostics reach CI logs: keep printable ASCII only, so no terminal escapes.
+    return ' '.join(''.join(c if 32<=ord(c)<=126 else ' ' for c in value).split())
+
+def operator(argv,name,timeout=12):
+    try:
+        return subprocess.run(argv,capture_output=True,timeout=timeout,check=True).stdout.decode()
+    except subprocess.CalledProcessError as error:
+        # The operator's own stderr tail says why; the response body is never echoed.
+        excerpt=printable((error.stderr or b'')[-8192:].decode(errors='replace'))[-2048:]
+        raise Invalid(f'operator {name} failed: exit-{error.returncode}; stderr: {excerpt or "none"}') from error
+    except (OSError,subprocess.SubprocessError) as error:
+        raise Invalid('local qualification command failed') from error
+
+def enum(value):
+    return printable(repr(value)[:64])[:32]
 
 class VolumeRuntime(KindRuntime):
     def __init__(self,cluster,node,kubeconfig,phase):
@@ -44,7 +62,7 @@ class VolumeRuntime(KindRuntime):
 
     def query(self,args):
         started=time.monotonic()
-        body=self.run([str(self.cli),'--kubeconfig',str(self.reader),*args,'-n','kube-memlens-csi-e2e','-o','json'])
+        body=operator([str(self.cli),'--kubeconfig',str(self.reader),*args,'-n','kube-memlens-csi-e2e','-o','json'],' '.join(args[:2]))
         require(len(body.encode())<=512<<10,'operator result exceeds bound')
         return json.loads(body),time.monotonic()-started
 
@@ -78,7 +96,8 @@ class VolumeRuntime(KindRuntime):
             pod,pod_seconds=self.query(['volumes','pod','persistent'])
             workload,workload_seconds=self.query(['volumes','workload','Deployment/volume-workload'])
             usage=next(r['usage'] for r in pod['context']['volumes'] if r['volumeName']=='data')
-            require(usage['availability']=='reported' and usage['freshness']=='fresh','current filesystem usage unavailable')
+            availability,freshness=usage.get('availability'),usage.get('freshness')
+            require(availability=='reported' and freshness=='fresh',f'current filesystem usage unavailable: availability={enum(availability)} freshness={enum(freshness)}')
             require(len(workload['evidence']['workload']['pods'])==2,'workload memory coverage incomplete')
             row.update(volumeReads=get(producer,v+'stats_reads_total'),volumeErrors=get(producer,v+'stats_errors_total'),podSeconds=pod_seconds,workloadSeconds=workload_seconds,filesystemAt=usage['filesystem']['capturedAt'])
         return row
