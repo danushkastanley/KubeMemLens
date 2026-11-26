@@ -351,6 +351,9 @@ ever lost":
    chart, wire or storage change. Its restart test: in a disposable kind
    cluster, restart the collector and see `doctor` warn with the new reset time,
    then pass once the window has elapsed.
+
+   This stage cannot be built as written; see
+   [What blocks stage 1](#what-blocks-stage-1).
 2. **Issue 310's retention rule**, in its own design: what terminated-container
    evidence is kept in memory, for how long, and under what count and byte
    limits.
@@ -375,6 +378,34 @@ ever lost":
    is reported and completeness stays partial until a continuous window exists
    (`history.go:115-117`). A second step replaces the Pod and asserts an empty,
    `rebuilding` history, proving the stated limit.
+
+### What blocks stage 1
+
+Found on 26 November 2026, when the work was started and stopped before any
+code was written.
+
+- **A warning would fail the readiness gates.** `doctor --strict` treats a
+  warning as a failure (`internal/cli/doctor.go:259-266`). `hack/e2e-kind.sh`
+  and `hack/release/verify_consumer.sh` wait at most two minutes for it to pass
+  after install and again after rollback, and `hack/qualify-cluster.sh` requires
+  every check to be `pass`. A warning that lasts one history window after every
+  collector start would fail all three.
+- **The CLI cannot see the history window.** It is set by the collector flag
+  `-history-duration` (`cmd/memlens-collector/main.go:69`) and no response
+  carries it. Clients decode responses strictly, so adding a field is a wire
+  change for older CLIs, which stage 1 promised not to make.
+
+The forms stage 1 could take instead, none chosen:
+
+1. A passing `doctor` check whose summary names the generation start and says
+   that no history or baseline from before it is held. No gate or wire change;
+   it informs and does not warn. It would use the 15-minute default as "recent",
+   as `internal/explain/explain.go:140` and `internal/cli/node_commands.go:58`
+   already do.
+2. No `doctor` change. `status` already prints the generation, the history reset
+   time and history completeness; add the runbook sentence only.
+3. A warning, with the window reported by the collector. That needs a
+   negotiated response field and a reviewed change to the three gates above.
 
 ## Consequences
 
@@ -417,6 +448,8 @@ real restart in a disposable kind cluster, not a unit test on mocks.
   chart should order the two.
 - Whether incident sessions should ever be included. This ADR proposes not.
 - Names of any new chart values.
+- The form of stage 1, from the three under
+  [What blocks stage 1](#what-blocks-stage-1).
 - Whether `resetAt` keeps its meaning and a new field reports restoration, or
   the other way round.
 
