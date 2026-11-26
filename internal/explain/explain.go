@@ -12,6 +12,7 @@ import (
 type Diagnosis string
 type Confidence string
 
+// Add every new Diagnosis to Diagnoses in metadata.go; TUI filters reject values missing there.
 const (
 	DiagnosisCacheHeavy          Diagnosis = "cache-heavy"
 	DiagnosisRSSHeavy            Diagnosis = "rss-heavy"

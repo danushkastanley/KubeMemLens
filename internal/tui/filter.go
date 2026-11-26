@@ -75,7 +75,7 @@ func FilterContainers(items []api.ContainerSnapshot, namespace string, allNamesp
 			continue
 		}
 		result := explain.AnalyzeContainer(item)
-		if spec.text != "" && !containerMatches(item, spec.text) {
+		if spec.text != "" && !containerMatches(item, result.Diagnosis, spec.text) {
 			continue
 		}
 		if spec.owner != "" && !containsAny([]string{item.Context.OwnerKind, item.Context.OwnerName, item.Context.WorkloadKind, item.Context.WorkloadName}, spec.owner) {
@@ -89,23 +89,25 @@ func FilterContainers(items []api.ContainerSnapshot, namespace string, allNamesp
 	return filtered
 }
 
-func podMatches(item api.PodSnapshot, query string) bool {
+// podMatches and containerMatches take the diagnosis the row shows, so the
+// text filter finds what the reader sees.
+func podMatches(item api.PodSnapshot, diagnosis explain.Diagnosis, query string) bool {
 	values := []string{
 		item.Namespace,
 		item.PodName,
 		item.NodeName,
-		string(explain.Analyze(item.Memory).Diagnosis),
+		string(diagnosis),
 	}
 	return containsAny(values, query)
 }
 
-func containerMatches(item api.ContainerSnapshot, query string) bool {
+func containerMatches(item api.ContainerSnapshot, diagnosis explain.Diagnosis, query string) bool {
 	values := []string{
 		item.Namespace,
 		item.PodName,
 		item.ContainerName,
 		item.NodeName,
-		string(explain.Analyze(item.Memory).Diagnosis),
+		string(diagnosis),
 	}
 	return containsAny(values, query)
 }

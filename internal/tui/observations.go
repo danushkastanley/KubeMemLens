@@ -55,7 +55,7 @@ func (m appModel) visibleObservationRows() []observationview.Row {
 	namespace, all := m.activeNamespace()
 	spec := parseFilter(m.query)
 	result := []observationview.Row{}
-	if spec.severity != "" || spec.diagnosis != "" || spec.pressure != "" {
+	if spec.requestsDeepEvidence() {
 		return result
 	}
 	for _, row := range m.data.ObservationRows {

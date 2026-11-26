@@ -208,6 +208,7 @@ func (m appModel) renderFooter(width int) string {
 	} else if m.layout().splitDetail {
 		footer = "tab focus · j/k move or scroll · PgUp/PgDown page · enter drill · N/n/w/p/c views · ? help"
 	}
+	footer = m.withFilterNotice(footer)
 	if m.action.mode != actionClosed {
 		footer = "Esc close · action keys shown above"
 	}
@@ -415,7 +416,7 @@ func (m appModel) renderPods(width int) string {
 			presentation.limit,
 			presentation.composition,
 			presentation.signal,
-			presentation.diagnosis,
+			string(explain.AnalyzePodAt(item, m.riskNow()).Diagnosis),
 			trend,
 			formatPodAge(item),
 		}, widths, numericIndexes(3)))
