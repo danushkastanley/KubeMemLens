@@ -49,7 +49,7 @@ Keeping last-known evidence avoids a false empty cluster during an outage. It al
 
 ## History and restart semantics
 
-Current snapshots, event-delta baselines and Pod history live only in the collector process. A collector restart, upgrade or Pod eviction starts a new `generation` and loses all three. An opaque page token from an old generation is invalid.
+Current snapshots, event-delta baselines and Pod history live only in the collector process. A collector restart, upgrade or Pod eviction starts a new `generation` and loses all three. An opaque page token from an old generation is invalid. [ADR 0033](adr/0033-collector-state-across-restarts.md) proposes options for keeping bounded state across a restart; none is decided.
 
 Collector rollouts use the Deployment `Recreate` strategy. The old generation drains and exits before the new one starts, so the Service never routes across two independent stores or ingestion epochs. This creates a deliberate availability gap during upgrades; it is not zero-downtime or highly available.
 
