@@ -48,6 +48,11 @@ type topRow struct {
 	LargestName   string             `json:"largestPodName,omitempty"`
 	LargestBytes  uint64             `json:"largestPodBytes,omitempty"`
 
+	// The container closest to its own limit, set only when the Pod figure
+	// hides it. The percentage is a pointer so that 0% stays distinct from none.
+	LimitClosestContainer        string `json:"limitClosestContainer,omitempty"`
+	LimitClosestContainerPercent *int   `json:"limitClosestContainerPercent,omitempty"`
+
 	CapturedAt   time.Time                `json:"capturedAt"`
 	Freshness    api.EvidenceFreshness    `json:"freshness"`
 	Completeness api.EvidenceCompleteness `json:"completeness"`

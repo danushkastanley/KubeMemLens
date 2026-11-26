@@ -91,6 +91,11 @@ func compactPodLines(pod api.PodSnapshot) []string {
 		"",
 		"Total       " + memmodel.FormatCompactBytes(pod.Memory.TotalBytes),
 		"Limit       " + presentation.limit,
+	}
+	if closest, ok := closestContainerLine(pod); ok {
+		lines = append(lines, "Closest container: "+closest)
+	}
+	lines = append(lines, []string{
 		"Composition " + presentation.composition,
 		"A/F/S/O     anon/file-cache/shmem/other",
 		"Signal      " + presentation.signal,
@@ -98,7 +103,7 @@ func compactPodLines(pod api.PodSnapshot) []string {
 		"File cache  " + memmodel.FormatCompactBytes(pod.Memory.CacheBytes()),
 		"Shmem       " + memmodel.FormatCompactBytes(pod.Memory.ShmemBytes),
 		"Other       " + memmodel.FormatCompactBytes(pod.Memory.ResidualBytes()),
-	}
+	}...)
 	lines = append(lines, "", "Likely explanation", result.LikelyExplanation)
 	return lines
 }

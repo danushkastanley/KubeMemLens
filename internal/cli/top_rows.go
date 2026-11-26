@@ -23,6 +23,9 @@ func podRows(pods []api.PodSnapshot, labelSelector labels.Selector, fieldSelecto
 		row.Diagnosis, row.Confidence = result.Diagnosis, result.Confidence
 		row.CapturedAt, row.Freshness, row.Completeness = pod.CapturedAt, pod.Freshness, pod.Completeness
 		row.LimitBytes, row.LimitState = memoryLimit(pod.Memory)
+		if usage, ok := explain.ClosestContainerToLimit(pod); ok {
+			row.LimitClosestContainer, row.LimitClosestContainerPercent = usage.ContainerName, &usage.Percent
+		}
 		rows = append(rows, row)
 	}
 	return rows
@@ -125,8 +128,12 @@ func printNamespaceRows(w io.Writer, rows []topRow, noHeaders bool) {
 func compact(bytes uint64) string { return model.FormatCompactBytes(bytes) }
 
 func compactLimit(row topRow) string {
+	limit := string(row.LimitState)
 	if row.LimitState == limitFinite {
-		return compact(row.LimitBytes)
+		limit = compact(row.LimitBytes)
 	}
-	return string(row.LimitState)
+	if row.LimitClosestContainerPercent == nil {
+		return limit
+	}
+	return withClosestContainer(limit, row.LimitClosestContainer, *row.LimitClosestContainerPercent)
 }

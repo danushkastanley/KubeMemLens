@@ -251,7 +251,7 @@ func printPodsTable(w interface{ Write([]byte) (int, error) }, pods []api.PodSna
 			formatAgeAt(pod.Context.CreatedAt, capturedAt),
 			formatAgeAt(pod.CapturedAt, capturedAt),
 			string(pod.Freshness),
-		}, pod.Memory)
+		}, pod.Memory, podLimitUsage(pod))
 	}
 	_ = tw.Flush()
 }
@@ -339,7 +339,7 @@ func printWorkloadsTable(w interface{ Write([]byte) (int, error) }, workloads []
 	_ = tw.Flush()
 }
 
-func printMemoryRow(tw *tabwriter.Writer, prefix []string, memory model.MemoryBreakdown) {
+func printMemoryRow(tw *tabwriter.Writer, prefix []string, memory model.MemoryBreakdown, limit string) {
 	fmt.Fprintf(
 		tw,
 		"%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
@@ -347,7 +347,7 @@ func printMemoryRow(tw *tabwriter.Writer, prefix []string, memory model.MemoryBr
 		prefix[1],
 		prefix[2],
 		model.FormatCompactBytes(memory.TotalBytes),
-		limitUsage(memory),
+		limit,
 		model.FormatCompactBytes(memory.RSSBytes()),
 		model.FormatCompactBytes(memory.CacheBytes()),
 		model.FormatCompactBytes(memory.ShmemBytes),

@@ -64,13 +64,18 @@ func (m appModel) podDetailLines(pod api.PodSnapshot, width int, historyTitle st
 		"Memory composition (A/F/S/O): " + presentation.composition,
 		"Total charged memory: " + memmodel.FormatBytes(pod.Memory.TotalBytes),
 		"Limit:                " + presentation.limit,
+	}
+	if closest, ok := closestContainerLine(pod); ok {
+		lines = append(lines, "Closest container:    "+closest)
+	}
+	lines = append(lines, []string{
 		"Current signal:       " + presentation.signal,
 		"Anonymous (anon):     " + memmodel.FormatBytes(pod.Memory.RSSBytes()),
 		"File cache:           " + memmodel.FormatBytes(pod.Memory.CacheBytes()),
 		"Shmem / tmpfs:        " + memmodel.FormatBytes(pod.Memory.ShmemBytes),
 		"Residual / other:     " + memmodel.FormatBytes(pod.Memory.ResidualBytes()),
 		"",
-	}
+	}...)
 	lines = append(lines, historyTitle+":")
 	switch {
 	case m.selectedHistory.loading:

@@ -376,10 +376,10 @@ func (m appModel) renderPods(width int) string {
 	var widths []int
 	var lines []string
 	if compact {
-		widths = withDynamic(width, []int{8, 12, 12, 11, 5}, 16)
+		widths = withDynamic(width, []int{8, 19, 12, 7, 5}, 16)
 		lines = []string{tableRow([]string{"POD", "TOTAL", "LIMIT", "A/F/S/O", "RISK", "AGE"}, widths, nil)}
 	} else {
-		widths = withTwoDynamic(width, []int{12, 8, 14, 16, 14, 14, 3, 6}, 12, 18)
+		widths = withTwoDynamic(width, []int{12, 8, 18, 12, 14, 14, 3, 6}, 12, 18)
 		lines = []string{tableRow([]string{"NAMESPACE", "POD", "NODE", "TOTAL", "LIMIT", "A/F/S/O", "SIGNAL", "DIAGNOSIS", "TR", "AGE"}, widths, nil)}
 	}
 	viewport := m.viewports[viewPods]
@@ -401,7 +401,7 @@ func (m appModel) renderPods(width int) string {
 			lines = append(lines, prefix+tableRow([]string{
 				identity,
 				memmodel.FormatCompactBytes(item.Memory.TotalBytes),
-				presentation.limit,
+				podLimitCell(item, widths[2], false),
 				presentation.composition,
 				presentation.severity + " " + trend,
 				formatPodAge(item),
@@ -413,7 +413,7 @@ func (m appModel) renderPods(width int) string {
 			item.PodName,
 			item.NodeName,
 			memmodel.FormatCompactBytes(item.Memory.TotalBytes),
-			presentation.limit,
+			podLimitCell(item, widths[4], false),
 			presentation.composition,
 			presentation.signal,
 			string(explain.AnalyzePodAt(item, m.riskNow()).Diagnosis),
