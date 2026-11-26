@@ -90,14 +90,14 @@ misses prevent a claim of complete filesystem/cache coverage.
 
 ## Reproduction and remaining acceptance work
 
-`prototype/trace/programmes/build_filecache.py` compiles each architecture twice
+`extensions/trace/programmes/build_filecache.py` compiles each architecture twice
 using the accepted builder platform, clean pinned upstream headers, BPF little
 endian ISA v3 and fixed Clang/strip flags. Its containers have no network or
 capabilities, read-only source/root filesystems and bounded CPU, memory and PIDs.
 The command requires a new output directory and records source/header/object
 hashes. It performs no kernel load, signing, approval or publication.
 
-`prototype/trace/cmd/inspect-filecache` parses ELF/BTF in userspace and reports
+`extensions/trace/cmd/inspect-filecache` parses ELF/BTF in userspace and reports
 maps, hooks, helpers, constants and event layout. It likewise grants no execution
 authority. The candidate sources use dual BSD-2-Clause/GPL-2.0-only terms in their
 directory licence. Upstream metadata macros, generated vmlinux types and libbpf
@@ -124,7 +124,7 @@ verifier log can grow to approximately 1 GiB through cilium/ebpf. These behaviou
 cannot silently become the KubeMemLens boundary. The candidate omits generic
 tracer metadata so the worker owns strict raw-ring reads and cumulative counters.
 
-`prototype/trace/worker/sdk-policy.patch` is a separate modification to the
+`extensions/trace/worker/sdk-policy.patch` is a separate modification to the
 checksum-pinned SDK, accepted only as part of the reviewed local candidate. It disables verifier-log allocation, requires a typed
 validation callback before attachment, checks cancellation between attachments,
 attaches in stable order, and returns link/perf-descriptor cleanup failures.

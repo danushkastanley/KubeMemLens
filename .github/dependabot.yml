@@ -36,12 +36,12 @@ updates:
     open-pull-requests-limit: 5
     labels: [dependencies]
 
-  # The trace prototype is its own Go module. Its worker module
-  # (prototype/trace/worker) is not listed: it replaces a dependency with a
+  # The trace extension is its own Go module. Its worker module
+  # (extensions/trace/worker) is not listed: it replaces a dependency with a
   # directory that prepare_sdk.py generates and Git ignores, so an update job
   # could not resolve it. worker_dependencies.py governs that module.
   - package-ecosystem: gomod
-    directory: /prototype/trace
+    directory: /extensions/trace
     schedule:
       interval: weekly
       day: monday
@@ -61,10 +61,10 @@ updates:
       - /hack/fixtures/volume-stats
       - /hack/terminal-qualification
       - /hack/trace-release
-      - /prototype/trace
-      - /prototype/trace/qualification/filecache
-      - /prototype/trace/qualification/oom
-      - /prototype/trace/worker
+      - /extensions/trace
+      - /extensions/trace/qualification/filecache
+      - /extensions/trace/qualification/oom
+      - /extensions/trace/worker
     schedule:
       interval: weekly
       day: monday

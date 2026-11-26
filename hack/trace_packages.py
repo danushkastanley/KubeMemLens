@@ -2,13 +2,13 @@
 """Split the trace module's Go packages between its two checks (ADR 0031).
 
 "make check-trace-preflight" gates every pull request and tests every package
-of the prototype/trace module except the qualification harnesses below
-prototype/trace/qualification/. "make check-trace-qualification" tests those
+of the extensions/trace module except the qualification harnesses below
+extensions/trace/qualification/. "make check-trace-qualification" tests those
 harnesses when their paths change and on a schedule.
 
 Both lists come from one "go list ./..." in the module, so a new package lands
 on the per-pull-request side unless it is under the harness prefix. The package
-at prototype/trace/qualification itself stays on the per-pull-request side: its
+at extensions/trace/qualification itself stays on the per-pull-request side: its
 test checks the seccomp profile the trace chart installs.
 
 Usage: trace_packages.py preflight | qualification | check
@@ -16,7 +16,7 @@ Usage: trace_packages.py preflight | qualification | check
 import subprocess
 import sys
 
-MODULE_DIR = "prototype/trace"
+MODULE_DIR = "extensions/trace"
 HARNESS_DIR = "qualification"
 
 

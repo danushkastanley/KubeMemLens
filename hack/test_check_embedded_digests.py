@@ -24,7 +24,7 @@ class EmbeddedDigestTest(unittest.TestCase):
         for path in (".github/workflows/ci.yml", "charts/kube-memlens/templates/tests/test-connection.yaml",
                      "hack/e2e-kind.sh", "Makefile"):
             self.assertTrue(scanned(path), path)
-        for path in ("Dockerfile", "prototype/trace/Dockerfile", "hack/terminal-qualification/Dockerfile.linux",
+        for path in ("Dockerfile", "extensions/trace/Dockerfile", "hack/terminal-qualification/Dockerfile.linux",
                      "docs/installation.md", "hack/test_check_embedded_digests.py", "internal/x/testdata/a.yaml"):
             self.assertFalse(scanned(path), path)
 

@@ -6,7 +6,7 @@ and the local file/cache workload cases; see
 [local qualification](FILE_CACHE_LOCAL_QUALIFICATION.md). This profile is installed
 only in the isolated test cluster, outside the standard chart and preflight.
 
-`prototype/trace/seccomp/filecache-node.json` is separate from the accepted
+`extensions/trace/seccomp/filecache-node.json` is separate from the accepted
 non-attaching `binding-node.json`. It preserves the latter's default-deny policy,
 TCP listener rules and process supervision calls. The incident worker adds its
 own synchronised seccomp restriction before accepting input; that layer prevents

@@ -15,7 +15,7 @@ candidate. The worker used the existing BPF/PERFMON profile.
 
 ## Observed results
 
-The [fixed-seed workload](../../prototype/trace/qualification/filecache/README.md)
+The [fixed-seed workload](../../extensions/trace/qualification/filecache/README.md)
 verified every byte of each 8 MiB read and measured page residency independently.
 Default output contained metadata and aggregates only.
 

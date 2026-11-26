@@ -15,9 +15,9 @@ path of one trace:
 
 | Where | Comparison | Result when the node clock is behind |
 | --- | --- | --- |
-| `prototype/trace/nodebinding/service.go`, `bind` | time to `expires` must be at most `maxLease` (15 s) | 409 `target changed` |
-| `prototype/trace/nodebinding/stream.go`, before activation | frame metadata requires `deadline` at most session start plus the admitted duration | 503 `unavailable` |
-| `prototype/trace/nodebinding/activation.go`, `activate` | `deadline` at most now plus the admitted duration | 409 `target changed` |
+| `extensions/trace/nodebinding/service.go`, `bind` | time to `expires` must be at most `maxLease` (15 s) | 409 `target changed` |
+| `extensions/trace/nodebinding/stream.go`, before activation | frame metadata requires `deadline` at most session start plus the admitted duration | 503 `unavailable` |
+| `extensions/trace/nodebinding/activation.go`, `activate` | `deadline` at most now plus the admitted duration | 409 `target changed` |
 | `internal/tracesession/session.go` | the session deadline is the earlier of start plus duration and the stream deadline | the frame carries the node's shorter deadline |
 | `internal/traceframe/match.go`, on the controller | the frame deadline must equal the controller's lease deadline | `target changed` |
 

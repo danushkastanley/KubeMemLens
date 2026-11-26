@@ -23,7 +23,7 @@ def instant():
 
 def source_files():
     files = []
-    for directory in (ROOT / "hack/ebpf-qualification", ROOT / "prototype/trace/qualification/measure"):
+    for directory in (ROOT / "hack/ebpf-qualification", ROOT / "extensions/trace/qualification/measure"):
         files += [p for p in directory.iterdir() if p.is_file() and p.suffix in {".go", ".py", ".json", ".md"}]
     return sorted(files)
 

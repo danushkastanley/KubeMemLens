@@ -1,6 +1,6 @@
 # Bounded node preflight contract
 
-The separate [prototype module](../../prototype/trace/README.md) implements the
+The separate [trace extension module](../../extensions/trace/README.md) implements the
 non-attaching stage accepted in the [engine contract](ENGINE_CONTRACT.md).
 `internal/tracepreflight` owns typed checks, stable reason codes and report
 validation; the optional Linux adapter owns OS access. CLI formatting consumes

@@ -64,7 +64,7 @@ both. This establishes a denied-load path, not rejection of altered incident byt
 
 ## Ownership, recovery and output
 
-The [administrative helper](../../prototype/trace/qualification/lifecycle/README.md)
+The [administrative helper](../../extensions/trace/qualification/lifecycle/README.md)
 binds the node process to its image hash, full CRI container ID, process lifetime
 and pidfd. Workers must match the accepted executable, parent and selected cgroup
 descriptor. Captured map/programme/link IDs come only from those workers' descriptors;

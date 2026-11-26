@@ -96,7 +96,7 @@ jobs:
             echo 'Coverage is reported for visibility; behaviour and risk determine required tests.'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # The trace prototype is a separate Go module with its own race-enabled
+  # The trace extension is a separate Go module with its own race-enabled
   # tests, vet, vulnerability scan and cross-builds. It was the longest step of
   # the lint job, about eight of its sixteen minutes, and shares nothing with
   # the steps around it.
@@ -111,16 +111,16 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version-file: prototype/trace/go.mod
+          go-version-file: extensions/trace/go.mod
           cache: true
           cache-dependency-path: |
             go.sum
-            prototype/trace/go.sum
+            extensions/trace/go.sum
 
       - name: Download modules with bounded retry
         run: |
           source hack/lib/retry.sh
-          retry_capture 3 5 go -C prototype/trace mod download >/dev/null
+          retry_capture 3 5 go -C extensions/trace mod download >/dev/null
           # The gate runs this scanner with "go run"; fetch it here, with
           # retries, so a registry blip does not fail the required check.
           retry_capture 3 5 go install golang.org/x/vuln/cmd/govulncheck@v1.7.0 >/dev/null

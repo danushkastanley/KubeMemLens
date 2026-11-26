@@ -15,23 +15,23 @@ name: Trace qualification harnesses
 on:
   pull_request:
     paths:
-      - 'prototype/trace/qualification/**'
+      - 'extensions/trace/qualification/**'
       - 'hack/ebpf-qualification/**'
       - 'hack/ebpf-active-qualification/**'
       - 'hack/trace_packages.py'
-      - 'prototype/trace/go.mod'
-      - 'prototype/trace/go.sum'
+      - 'extensions/trace/go.mod'
+      - 'extensions/trace/go.sum'
       - 'Makefile'
       - '.github/workflows/trace-qualification.yml'
   push:
     branches: [main]
     paths:
-      - 'prototype/trace/qualification/**'
+      - 'extensions/trace/qualification/**'
       - 'hack/ebpf-qualification/**'
       - 'hack/ebpf-active-qualification/**'
       - 'hack/trace_packages.py'
-      - 'prototype/trace/go.mod'
-      - 'prototype/trace/go.sum'
+      - 'extensions/trace/go.mod'
+      - 'extensions/trace/go.sum'
       - 'Makefile'
       - '.github/workflows/trace-qualification.yml'
   schedule:
@@ -59,16 +59,16 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
-          go-version-file: prototype/trace/go.mod
+          go-version-file: extensions/trace/go.mod
           cache: true
           cache-dependency-path: |
             go.sum
-            prototype/trace/go.sum
+            extensions/trace/go.sum
 
       - name: Download modules with bounded retry
         run: |
           source hack/lib/retry.sh
-          retry_capture 3 5 go -C prototype/trace mod download >/dev/null
+          retry_capture 3 5 go -C extensions/trace mod download >/dev/null
 
       - name: Test the trace qualification harnesses
         run: make check-trace-qualification

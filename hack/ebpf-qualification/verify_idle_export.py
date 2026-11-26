@@ -60,6 +60,8 @@ def verify(directory, expected_source_sha256, expected_freeze_sha256):
             relative = Path(name)
             require(not relative.is_absolute() and ".." not in relative.parts and
                     (name.startswith("hack/ebpf-qualification/") or
+                     name.startswith("extensions/trace/qualification/measure/") or
+                     # The archived r6-idle-2026-09-16 evidence names the old directory.
                      name.startswith("prototype/trace/qualification/measure/")), "unapproved source path")
             require(type(content) is str, "source content is not text")
             raw = content.encode("utf-8")

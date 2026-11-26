@@ -6,7 +6,7 @@ testing and installed with its matched immutable public policy. See
 The OOM candidate has separate [local qualification](OOM_LOCAL_QUALIFICATION.md).
 Full failure/lifecycle, independent review and provider gates remain incomplete.
 
-`prototype/trace/workerinstall` parses bounded canonical installation policy,
+`extensions/trace/workerinstall` parses bounded canonical installation policy,
 supplied independently of operator requests and candidate bundles. Parsing
 validates declarations; it does not grant maintainer approval to install them.
 

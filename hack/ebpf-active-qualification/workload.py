@@ -3,7 +3,7 @@ from pathlib import Path
 import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] /
-                       "prototype/trace/qualification/filecache"))
+                       "extensions/trace/qualification/filecache"))
 from verify_series import validate_series
 from activity import operation_activity
 from samples import integer, require

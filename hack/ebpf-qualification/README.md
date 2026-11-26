@@ -67,7 +67,7 @@ Counter semantics: [Linux cgroup v2](https://www.kernel.org/doc/html/latest/admi
 ## Commands
 
 Run non-loading tests with `python3 -m unittest discover -s hack/ebpf-qualification`.
-Build `prototype/trace/qualification/measure` for the real Linux architecture, then
+Build `extensions/trace/qualification/measure` for the real Linux architecture, then
 install it and the accepted lifecycle census helper on the explicitly owned node.
 Keep the runtime configuration private: it binds a loopback kubeconfig/context,
 Node UID, both deployment UIDs/spec hashes, candidate identities and observer hashes.

@@ -31,11 +31,11 @@ from pressure_evaluate import evaluate_pressure_pair
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE_DIRS = ['internal/qualificationendpoint', 'hack/ebpf-active-qualification', 'hack/ebpf-qualification',
-               'prototype/trace/qualification/active-measure', 'prototype/trace/qualification/lifecycle',
-               'prototype/trace/qualification/filecache', 'prototype/trace/qualification/delivery',
-               'prototype/trace/qualification/delivery-client', 'prototype/trace/qualification/scheduler',
-               'prototype/trace/qualification/scheduler-observer', 'prototype/trace/qualification/verifier',
-               'prototype/trace/qualification/verifier-observer', 'hack/node-qualification/chart-inventory']
+               'extensions/trace/qualification/active-measure', 'extensions/trace/qualification/lifecycle',
+               'extensions/trace/qualification/filecache', 'extensions/trace/qualification/delivery',
+               'extensions/trace/qualification/delivery-client', 'extensions/trace/qualification/scheduler',
+               'extensions/trace/qualification/scheduler-observer', 'extensions/trace/qualification/verifier',
+               'extensions/trace/qualification/verifier-observer', 'hack/node-qualification/chart-inventory']
 PROFILES = {'normal': load_profile, 'high-rate': load_high_rate_profile,
             'noisy': load_noisy_profile, 'concurrent': load_concurrent_profile,
             'flood': load_flood_profile, 'pressure': load_pressure_profile}
@@ -46,7 +46,7 @@ def sources():
     for name in SOURCE_DIRS:
         paths += [p for p in (ROOT / name).rglob('*') if p.is_file() and '__pycache__' not in p.parts
                   and (p.suffix in {'.go', '.py', '.json', '.md', '.c'} or p.name == 'Dockerfile')]
-    paths += [ROOT / p for p in ('go.mod', 'go.sum', 'prototype/trace/go.mod', 'prototype/trace/go.sum')]
+    paths += [ROOT / p for p in ('go.mod', 'go.sum', 'extensions/trace/go.mod', 'extensions/trace/go.sum')]
     paths += [p for p in (ROOT / 'charts/kube-memlens').rglob('*') if p.is_file()]
     return {str(p.relative_to(ROOT)): digest(p.read_bytes()) for p in sorted(paths)}
 

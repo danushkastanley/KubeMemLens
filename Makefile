@@ -107,37 +107,37 @@ vuln:
 # the packages whose tests run here. test_pending_path.py stays here because it
 # compiles the shipped programmes/filecache/files.bpf.c.
 check-trace-preflight:
-	go -C prototype/trace mod verify
+	go -C extensions/trace mod verify
 	python3 hack/trace_packages.py check
-	go -C prototype/trace test -race $$(python3 hack/trace_packages.py preflight)
-	go -C prototype/trace vet ./...
-	go -C prototype/trace run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C prototype/trace build ./...
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace build ./...
-	python3 -m unittest discover -s prototype/trace/kubernetes -p 'test_*.py'
-	python3 prototype/trace/qualification/filecache/test_pending_path.py
+	go -C extensions/trace test -race $$(python3 hack/trace_packages.py preflight)
+	go -C extensions/trace vet ./...
+	go -C extensions/trace run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C extensions/trace build ./...
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C extensions/trace build ./...
+	python3 -m unittest discover -s extensions/trace/kubernetes -p 'test_*.py'
+	python3 extensions/trace/qualification/filecache/test_pending_path.py
 
 # The qualification harnesses (ADR 0031): run by
 # .github/workflows/trace-qualification.yml when their paths change and weekly,
 # not on every pull request.
 check-trace-qualification:
 	python3 hack/trace_packages.py check
-	go -C prototype/trace test -race $$(python3 hack/trace_packages.py qualification)
-	python3 -m unittest discover -s prototype/trace/qualification/isolation -p 'test_*.py'
+	go -C extensions/trace test -race $$(python3 hack/trace_packages.py qualification)
+	python3 -m unittest discover -s extensions/trace/qualification/isolation -p 'test_*.py'
 	python3 -m unittest discover -s hack/ebpf-qualification -p 'test_*.py'
 	python3 -m unittest discover -s hack/ebpf-active-qualification -p 'test_*.py'
-	python3 -m unittest discover -s prototype/trace/qualification/filecache -p 'test_*observation.py'
-	python3 -m unittest discover -s prototype/trace/qualification/filecache -p 'test_*series.py'
+	python3 -m unittest discover -s extensions/trace/qualification/filecache -p 'test_*observation.py'
+	python3 -m unittest discover -s extensions/trace/qualification/filecache -p 'test_*series.py'
 
 check-trace-worker:
-	python3 -m unittest discover -s prototype/trace/worker -p 'test_*.py'
-	python3 prototype/trace/worker/prepare_sdk.py
-	go -C prototype/trace/worker mod verify
-	python3 prototype/trace/worker/worker_dependencies.py
-	go -C prototype/trace/worker test -race ./...
-	go -C prototype/trace/worker vet ./...
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C prototype/trace/worker build ./...
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace/worker build ./...
+	python3 -m unittest discover -s extensions/trace/worker -p 'test_*.py'
+	python3 extensions/trace/worker/prepare_sdk.py
+	go -C extensions/trace/worker mod verify
+	python3 extensions/trace/worker/worker_dependencies.py
+	go -C extensions/trace/worker test -race ./...
+	go -C extensions/trace/worker vet ./...
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C extensions/trace/worker build ./...
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C extensions/trace/worker build ./...
 
 # The full local gate: what CI runs on a pull request, apart from the kind
 # lanes. The Go tests run once, with the race detector and coverage together.

@@ -205,7 +205,7 @@ and source hash for new runs; historical frozen campaigns remain unchanged.
 containers, a persistent 1 Hz cached-file series and 36 separate 30-second trace
 admissions. The files programme has seven maps (`.bss`, `.rodata`, `control`,
 `counts`, `events`, `paths`, `target_ref`), five programmes and five links, as defined
-by `prototype/trace/filecache/object_policy.go`; the OOM programme's different map
+by `extensions/trace/filecache/object_policy.go`; the OOM programme's different map
 inventory must not be used for this case. Freeze the inspected candidate ELF and
 its index alongside the programme inventory before measurement.
 
@@ -498,7 +498,7 @@ cannot be treated as measured zeros or silently supplied during replay.
 ### Verifier capture in every active case
 
 All six active profiles require a sixth immutable `verifier` helper built from
-`prototype/trace/qualification/verifier-observer`. Its package and verifier library
+`extensions/trace/qualification/verifier-observer`. Its package and verifier library
 are included in the source inventory. Each window freezes private input and an
 exact probe ownership journal before launch; both files and `verifier.jsonl` are
 mandatory in its evidence envelope. Historical runs retain their original frozen

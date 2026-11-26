@@ -19,7 +19,7 @@ def sha(path):
 
 def build(source, output, modules):
     source, output, modules = source.resolve(strict=True), output.resolve(), modules.resolve(strict=True)
-    worker = source/'prototype/trace/worker'
+    worker = source/'extensions/trace/worker'
     sys.path.insert(0, str(worker))
     spec = importlib.util.spec_from_file_location('worker_builder', worker/'build_worker.py')
     builder = importlib.util.module_from_spec(spec)
@@ -29,7 +29,7 @@ def build(source, output, modules):
     output.mkdir(mode=0o700)
     mounts = {source/'go.mod': '/workspace/go.mod', source/'go.sum': '/workspace/go.sum',
               source/'LICENSE': '/workspace/LICENSE', source/'NOTICE': '/workspace/NOTICE',
-              source/'internal': '/workspace/internal', source/'prototype/trace': '/workspace/prototype/trace',
+              source/'internal': '/workspace/internal', source/'extensions/trace': '/workspace/extensions/trace',
               modules: '/gomod'}
     cidfile = output/'container.id'
     command = ['docker', 'run', '--rm', '--cidfile', str(cidfile), '--network=none', '--cap-drop=ALL',
@@ -42,7 +42,7 @@ def build(source, output, modules):
     command += ['--mount', f'type=bind,source={output},target=/output',
                 '-e', 'GOMODCACHE=/gomod', '-e', 'GOCACHE=/tmp/gocache', '-e', 'GOTMPDIR=/build',
                 '-e', 'GOPROXY=off', '-e', 'GOTOOLCHAIN=local', '-e', 'CGO_ENABLED=0', '-e', 'GOOS=linux',
-                '--workdir=/workspace/prototype/trace', builder.BUILDER, 'sh', '-ec', '''
+                '--workdir=/workspace/extensions/trace', builder.BUILDER, 'sh', '-ec', '''
 go mod verify
 go -C worker mod verify
 go build -mod=readonly -trimpath -o /build/licencebundle ./licencebundle
