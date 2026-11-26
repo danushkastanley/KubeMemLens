@@ -3,7 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from ci_scope import needs_kind
+from ci_scope import OPT_IN_VERIFIERS, needs_kind
 
 
 class ScopeTest(unittest.TestCase):
@@ -26,6 +26,26 @@ class ScopeTest(unittest.TestCase):
     def test_chart_readme_with_chart_change_still_triggers(self):
         self.assertTrue(needs_kind(["charts/kube-memlens/README.md",
                                     "charts/kube-memlens/values.yaml"]))
+
+    def test_opt_in_verifiers_alone_do_not_trigger(self):
+        for path in OPT_IN_VERIFIERS:
+            with self.subTest(path=path):
+                self.assertFalse(needs_kind([path]))
+
+    def test_opt_in_verifier_with_source_change_still_triggers(self):
+        self.assertTrue(needs_kind(["hack/verify-evidence-discovery-kind.sh",
+                                    "internal/tui/filter.go"]))
+
+    def test_no_workflow_runs_an_opt_in_verifier(self):
+        workflows = Path(__file__).resolve().parents[1] / ".github/workflows"
+        for workflow in sorted(workflows.glob("*.yml")):
+            text = workflow.read_text()
+            for script, names in OPT_IN_VERIFIERS.items():
+                for name in names:
+                    with self.subTest(workflow=workflow.name, name=name):
+                        self.assertFalse(name in text, f"{workflow.name} mentions {name}: remove {script} "
+                                         "from OPT_IN_VERIFIERS in hack/ci_scope.py so that a change "
+                                         "to it runs the kind lanes")
 
     def test_nul_input_preserves_unusual_source_names(self):
         with tempfile.TemporaryDirectory() as directory:
