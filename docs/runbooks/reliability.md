@@ -61,6 +61,8 @@ Confirm that agents log a successful post after the current collector `startedAt
 
 History remains partial after current evidence returns. Record the new generation and `history.resetAt`. Do not describe pre-restart history as recovered.
 
+`kubectl memlens doctor` names the collector start time in its `collector history` line until the collector has received 15 minutes of snapshots. The line is a pass, not a warning: a collector that has just started is healthy. Nothing from before that time is kept, so only an incident capture taken before the restart has the earlier evidence.
+
 ## One stale or missing agent
 
 List the DaemonSet placement:
