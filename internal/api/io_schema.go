@@ -15,6 +15,10 @@ func containerForSchema(container ContainerSnapshot, version int) ContainerSnaps
 	if version < IOPressureSnapshotSchemaVersion {
 		container.Memory.IOPressure = model.IOPressure{}
 	}
+	if version < PodCgroupSnapshotSchemaVersion {
+		container.PodCgroup = model.PodCgroupMemory{}
+		container.Memory = memoryWithoutSchema8Evidence(container.Memory)
+	}
 	return container
 }
 
@@ -24,6 +28,10 @@ func podForSchema(pod PodSnapshot, version int) PodSnapshot {
 	}
 	if version < IOPressureSnapshotSchemaVersion {
 		pod.Memory.IOPressure = model.IOPressure{}
+	}
+	if version < PodCgroupSnapshotSchemaVersion {
+		pod.PodCgroup = model.PodCgroupMemory{}
+		pod.Memory = memoryWithoutSchema8Evidence(pod.Memory)
 		pod.Containers = containersForSchema(pod.Containers, version)
 	}
 	return pod
@@ -31,7 +39,10 @@ func podForSchema(pod PodSnapshot, version int) PodSnapshot {
 
 // WithoutIOIncident keeps existing incident schemas 1/2 readable by their
 // original strict readers. Volume schema 5 owns the new enrichment domain.
+// Schema 8 evidence is dropped first, with its own caveat, because no
+// incident schema keeps it.
 func WithoutIOIncident(bundle IncidentBundle) IncidentBundle {
+	bundle = withoutPodCgroupIncident(bundle)
 	omitted := false
 	for _, pod := range bundle.Pods {
 		omitted = omitted || pod.Memory.IOPressure.State != ""

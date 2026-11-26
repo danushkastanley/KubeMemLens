@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/model"
 	"github.com/danushkastanley/kube-memlens/internal/volumecontext"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -28,7 +29,7 @@ func ValidateVolume(b VolumeBundle) error {
 			return invalid
 		}
 	}
-	if volumecontext.ValidateView(b.Volumes, b.CapturedAt) != nil || !validVolumeMemory(p.Memory) || (model.ContainerMemoryResources{Pod: p.Context.Resources}).Validate() != nil {
+	if volumecontext.ValidateView(b.Volumes, b.CapturedAt) != nil || !validVolumeMemory(p.Memory) || (model.ContainerMemoryResources{Pod: p.Context.Resources}).Validate() != nil || api.PodHasSchema8Evidence(p) {
 		return invalid
 	}
 	if !b.Redacted && (p.PodUID == "" || len(p.PodUID) > 128) {

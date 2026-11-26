@@ -24,7 +24,9 @@ Kernel, slab, sockets, page tables, mapped-file, THP, active/inactive file, and 
 
 `memory.peak` preserves transient high-water usage that may no longer be visible in `memory.current`. `memory.min`, `memory.low`, `memory.high`, and `memory.max` describe protection and limit boundaries; `max` is represented explicitly as unlimited rather than converted to a byte value.
 
-Limits are enforced per container. A Pod's figure sums its containers' usage and limits, so a Pod can show ample headroom while one container is about to be OOM-killed. The Pod diagnosis therefore reports `limit-risk` when any container is at 90% or more of its own `memory.max`, and names that container. A summed limit is shown only when every container's limit was read: one unread limit makes the Pod limit `unknown`, and one unlimited container makes it `unlimited`.
+Limits are enforced per cgroup: each container's own `memory.max`, and the Pod cgroup's `memory.max` over all of the Pod's containers and its sandbox together. A Pod's figure can therefore show ample headroom while one container is about to be OOM-killed. The Pod diagnosis reports `limit-risk` when any container is at 90% or more of its own `memory.max`, and names that container.
+
+The Pod limit in `top pods`, `explain pod`, the TUI and the Pod diagnosis is the Pod cgroup's own `memory.max` when an agent of snapshot schema 8 has read it and it is finite. Usage against it is then the Pod cgroup's `memory.current`, which includes the sandbox, so it can be a little higher than the sum of the containers. Otherwise the Pod limit is the sum of the container limits, as before: it is shown only when every container's limit was read, one unread limit makes it `unknown`, and one unlimited container makes it `unlimited`. A Pod that uses pod-level resources, with a container that has no limit of its own, is therefore measured against its Pod limit. The container sum is wrong for such a Pod: depending on the runtime, that container's own `memory.max` holds the Pod limit, which the sum then counts again, or `max`, which makes the sum `unlimited`. Where the source can differ from what older releases showed, the output names it: `limitSource` in `top pods` JSON and YAML, `Limit source` in `explain pod`, and the Limit line of the TUI detail panes. Older agents, replayed incident files and samples never carry the Pod cgroup, so their output is unchanged.
 
 ## Anonymous memory (anon)
 
@@ -64,7 +66,11 @@ Mapped-file and transparent huge page counters (`file_mapped`, `anon_thp`, `file
 
 PSI is optional evidence. When `memory.pressure` is missing, cannot be read (for example on a kernel with PSI disabled at boot) or does not parse, pressure is reported as unknown and the rest of the memory sample is kept. Unknown pressure is not zero pressure.
 
-`memory.swap.current`, `memory.swap.peak`, `memory.swap.max`, and swap-event deltas show whether anonymous memory is being swapped or swap allocation is being throttled or rejected. Reclaim/refault counters from `memory.stat` are collected as evidence; they are not presented as root cause without a time-window comparison.
+`memory.swap.current`, `memory.swap.peak`, `memory.swap.max`, and swap-event deltas show whether anonymous memory is being swapped or swap allocation is being throttled or rejected. When the kernel reports both `zswap` and `zswapped` in `memory.stat`, the compressed pool size and the swapped-out memory it holds are shown beside swap; when either key is missing, zswap is left out rather than shown as zero.
+
+`oom_group_kill` in `memory.events` and `memory.events.local` counts OOM kills of a whole cgroup with `memory.oom.group` set. It is listed beside `oom_kill`, as a recent delta when one was computed, and only when the kernel reports the key. Each process it kills also counts in `oom_kill`, so it is not scored a second time.
+
+The Pod cgroup's own `memory.events.local` counts `oom`, `oom_kill` and `max` events at the Pod-level limit, which no container reports. A recent increment of any of them (a collector-computed delta above zero) is OOM evidence for the Pod, as a container's recent `memory.max` events are. The raw counters may predate the first sample and are never reported as recent. Reclaim/refault counters from `memory.stat` are collected as evidence; they are not presented as root cause without a time-window comparison.
 
 The collector records the previous node-snapshot timestamp only when the same container ID is observed again. Explanations therefore keep the instantaneous gauge timestamp separate from the exact counter-delta start/end. First observations and replaced containers explicitly report an unavailable or incomplete delta window; multi-node workload roll-ups expose outer bounds and report whether their per-container windows are uniform. This prevents a cumulative counter or mixed sampling interval from being presented as a single recent event window.
 
@@ -86,7 +92,9 @@ The effective configured request and limit use the Pod's `spec.resources`
 value when present, independently for request and limit. Otherwise they use
 reported container values, with complete or partial coverage shown. Pod budgets
 are never added to container contributions. The existing container totals remain
-available as separate evidence.
+available as separate evidence. These are Kubernetes API configuration; the Pod
+cgroup's `memory.max` and `memory.current` are kernel measurements and are shown
+separately, never added to or replaced by a configured budget.
 
 Configured values describe intent. `status.allocatedResources` describes the
 kubelet's allocated request; `status.resources` describes its applied request
@@ -133,7 +141,11 @@ The interpreter prefers kubelet-applied container resources when available and
 otherwise uses container configuration. Pod budgets remain separate. In the
 released kubelet, a container without an explicit limit inside a limited Pod can
 leave its own high boundary unlimited while the Pod cgroup throttles
-hierarchically. KubeMemLens does not collect the parent control values.
+hierarchically. Agents of snapshot schema 8 read the Pod cgroup's `memory.max`,
+`memory.current` and `memory.events.local`; the MemoryQoS lines then state the
+Pod cgroup's `memory.max`. The Pod cgroup's `memory.min`, `memory.low` and
+`memory.high` are not collected, so parent protection and throttling are still
+not observed.
 
 Kubernetes 1.37 defaults to an enabled gate, an unset throttling factor and
 `memoryReservationPolicy: None`. Gate state therefore does not establish whether

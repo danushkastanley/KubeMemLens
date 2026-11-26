@@ -186,14 +186,14 @@ func (r *renderer) renderNamespaces(items []api.NamespaceSnapshot, opts Options)
 func (r *renderer) renderPods(items []api.PodSnapshot, opts Options) {
 	r.helpType("kubememlens_pod_memory_bytes", "Kubernetes pod memory breakdown from KubeMemLens.", "gauge")
 	for _, item := range items {
-		for _, metric := range memoryMetrics(item.Memory) {
+		for _, metric := range podMemoryMetrics(item) {
 			r.sample("kubememlens_pod_memory_bytes", labels{"namespace": item.Namespace, "pod": item.PodName, "node": item.NodeName, "type": metric.kind}, float64(metric.value))
 		}
 	}
 	if opts.IncludeEventMetrics {
 		r.helpType("kubememlens_pod_memory_events", "Latest-snapshot Kubernetes pod memory pressure events from KubeMemLens. These are gauges because snapshots can reset.", "gauge")
 		for _, item := range items {
-			for _, metric := range eventMetrics(item.Memory) {
+			for _, metric := range podEventMetrics(item) {
 				r.sample("kubememlens_pod_memory_events", labels{"namespace": item.Namespace, "pod": item.PodName, "node": item.NodeName, "event": metric.kind}, float64(metric.value))
 			}
 		}
@@ -201,7 +201,7 @@ func (r *renderer) renderPods(items []api.PodSnapshot, opts Options) {
 	if opts.IncludeDiagnosisMetrics {
 		r.helpType("kubememlens_pod_diagnosis", "Current KubeMemLens pod memory diagnosis.", "gauge")
 		for _, item := range items {
-			r.sample("kubememlens_pod_diagnosis", labels{"namespace": item.Namespace, "pod": item.PodName, "node": item.NodeName, "diagnosis": diagnosis(item.Memory)}, 1)
+			r.sample("kubememlens_pod_diagnosis", labels{"namespace": item.Namespace, "pod": item.PodName, "node": item.NodeName, "diagnosis": podDiagnosis(item)}, 1)
 		}
 	}
 }
@@ -307,7 +307,7 @@ func memoryMetrics(memory model.MemoryBreakdown) []memoryMetric {
 	if memory.SwapMaxKnown && !memory.SwapMaxUnlimited {
 		items = append(items, memoryMetric{"swap_max", memory.SwapMaxBytes})
 	}
-	return items
+	return append(items, zswapMetrics(memory.Zswap)...)
 }
 
 func eventMetrics(memory model.MemoryBreakdown) []eventMetric {
@@ -317,6 +317,7 @@ func eventMetrics(memory model.MemoryBreakdown) []eventMetric {
 		{"high", memory.HighEvents},
 		{"max", memory.MaxEvents},
 	}
+	items = append(items, oomGroupKillMetrics(memory.OOMGroupKill)...)
 	if memory.EventDeltasKnown {
 		items = append(items,
 			eventMetric{"oom_delta", memory.OOMEventsDelta},

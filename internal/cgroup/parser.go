@@ -103,7 +103,9 @@ func ParseFS(name string, fsys fs.FS) (model.MemoryBreakdown, error) {
 		PageSteal:              stat.value("pgsteal"),
 		MajorPageFaults:        stat.value("pgmajfault"),
 		ReclaimCountersKnown:   stat.has("pgscan") && stat.has("pgsteal") && (stat.has("workingset_refault_anon") || stat.has("workingset_refault_file")),
+		Zswap:                  zswapFromStat(stat),
 	}
+	breakdown.OOMGroupKill.Events, breakdown.OOMGroupKill.Known = groupKillEvents(events.Values)
 	if err := readMemorySignals(fsys, &breakdown); err != nil {
 		return model.MemoryBreakdown{}, err
 	}

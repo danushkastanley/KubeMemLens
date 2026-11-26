@@ -148,7 +148,7 @@ func printWorkloadExplanation(w interface{ Write([]byte) (int, error) }, workloa
 
 func printPodExplanation(w interface{ Write([]byte) (int, error) }, pod api.PodSnapshot, clock evidenceClock) {
 	result := explain.AnalyzePodAt(pod, clock.at)
-	printMemoryExplanation(w, fmt.Sprintf("Pod: %s/%s", pod.Namespace, pod.PodName), pod.Memory, result)
+	printMemoryExplanationWith(w, fmt.Sprintf("Pod: %s/%s", pod.Namespace, pod.PodName), pod.Memory, hardLimitText(podLimitMemory(pod)), podCgroupTextLines(pod), result)
 	printPodContext(w, pod, clock)
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Containers:")

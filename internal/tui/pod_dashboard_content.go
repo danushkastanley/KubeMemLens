@@ -95,7 +95,7 @@ func podDashboardContext(pod api.PodSnapshot) []string {
 		fmt.Sprintf("Containers: %d · restarts: %d", len(pod.Containers), pod.Context.RestartCount),
 		"Owner: " + owner, "Node: " + pod.NodeName,
 		"Request: " + tuiResourceCoverage(pod.Context.MemoryRequestBytes, pod.Context.MemoryRequestContainers, len(pod.Containers)),
-		"Limit: " + podLimit(pod), "Node MemoryPressure: " + tuiValue(pod.Context.NodeMemoryPressure),
+		"Limit: " + podLimit(pod) + podLimitSource(pod), "Node MemoryPressure: " + tuiValue(pod.Context.NodeMemoryPressure),
 	}
 }
 
@@ -127,6 +127,9 @@ func podDashboardSignals(pod api.PodSnapshot) []string {
 	} else {
 		oom, kill, high, maxEvents := memory.RecentEventCounts()
 		lines = append(lines, fmt.Sprintf("OOM %d · kills %d · high %d · max %d", oom, kill, high, maxEvents))
+	}
+	if events := explain.RecentPodCgroupEvents(pod.PodCgroup); events.Known {
+		lines = append(lines, fmt.Sprintf("Pod cgroup OOM %d · kills %d · max %d", events.OOM, events.OOMKill, events.Max))
 	}
 	if memory.PressureKnown {
 		lines = append(lines, fmt.Sprintf("PSI some/full: %.2f%% / %.2f%%", memory.PSISomeAvg10, memory.PSIFullAvg10))

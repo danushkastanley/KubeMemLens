@@ -26,6 +26,11 @@ func mergePodSeries(items []api.PodSnapshot) []api.PodSnapshot {
 		},
 		func(into *api.PodSnapshot, item api.PodSnapshot) {
 			into.Memory = model.AddMemory(into.Memory, item.Memory)
+			// Two Pod cgroups under one series cannot be told apart, so
+			// their values are left out rather than one standing for both.
+			if into.PodCgroup != item.PodCgroup {
+				into.PodCgroup = model.PodCgroupMemory{}
+			}
 		})
 }
 

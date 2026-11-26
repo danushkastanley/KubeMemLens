@@ -387,7 +387,7 @@ func (m appModel) renderPods(width int) string {
 	start, end := viewport.visibleRange()
 	for i := start; i < end; i++ {
 		item := items[i]
-		presentation := presentMemory(item.Memory, 12, false)
+		presentation := presentPod(item, 12, false)
 		trend := trendLabel(m.podTrends[podKey(item.Namespace, item.PodName)])
 		prefix := " "
 		if i == viewport.selected {

@@ -34,10 +34,10 @@ type ContainerLimitUsage struct {
 
 // ClosestContainerToLimit returns the container using the largest share of its
 // own finite memory limit, when that tells the reader more than the Pod-level
-// figure: the Pod has no finite limit, or the container's rounded percentage
-// is higher than the Pod's. Containers whose limit is unknown or unlimited are
-// never candidates. Equal shares are settled by container name so the output
-// is deterministic.
+// figure: the Pod has no finite effective limit (api.PodSnapshot.EffectiveLimit),
+// or the container's rounded percentage is higher than the Pod's. Containers
+// whose limit is unknown or unlimited are never candidates. Equal shares are
+// settled by container name so the output is deterministic.
 func ClosestContainerToLimit(pod api.PodSnapshot) (ContainerLimitUsage, bool) {
 	var closest api.ContainerSnapshot
 	found := false
@@ -54,7 +54,8 @@ func ClosestContainerToLimit(pod api.PodSnapshot) (ContainerLimitUsage, bool) {
 		return ContainerLimitUsage{}, false
 	}
 	usage := ContainerLimitUsage{ContainerName: closest.ContainerName, Percent: wholePercent(closest.Memory)}
-	if finiteLimit(pod.Memory) && usage.Percent <= wholePercent(pod.Memory) {
+	limit := pod.EffectiveLimit()
+	if limit.Known && !limit.Unlimited && limit.LimitBytes > 0 && usage.Percent <= roundedPercent(limit.UsageRatio()) {
 		return ContainerLimitUsage{}, false
 	}
 	return usage, true
@@ -75,18 +76,22 @@ func finiteLimit(memory model.MemoryBreakdown) bool {
 // wholePercent rounds half to even, which is what "%.0f" prints, so the
 // comparison matches the percentages a reader sees.
 func wholePercent(memory model.MemoryBreakdown) int {
-	return int(math.RoundToEven(memory.LimitUsageRatio() * 100))
+	return roundedPercent(memory.LimitUsageRatio())
 }
 
-func containerLimitRisk(container api.ContainerSnapshot, pod model.MemoryBreakdown) Result {
+func roundedPercent(ratio float64) int {
+	return int(math.RoundToEven(ratio * 100))
+}
+
+func containerLimitRisk(container api.ContainerSnapshot, pod api.PodSnapshot) Result {
 	memory := container.Memory
 	headroom := memory.MaxBytes - minUint64(memory.TotalBytes, memory.MaxBytes)
 	signals := []string{
 		fmt.Sprintf("container %s is at %.0f%% of its memory.max", container.ContainerName, memory.LimitUsageRatio()*100),
 		fmt.Sprintf("remaining container headroom is %s", model.FormatCompactBytes(headroom)),
 	}
-	if pod.MaxKnown && !pod.MaxUnlimited {
-		signals = append(signals, fmt.Sprintf("Pod usage is %.0f%% of the summed container limits", pod.LimitUsageRatio()*100))
+	if signal, ok := podLimitSignal(pod); ok {
+		signals = append(signals, signal)
 	}
 	if memory.PeakKnown {
 		signals = append(signals, fmt.Sprintf("container memory.peak=%s", model.FormatCompactBytes(memory.PeakBytes)))

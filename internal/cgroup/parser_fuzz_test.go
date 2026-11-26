@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math"
 	"testing"
+
+	"github.com/danushkastanley/kube-memlens/internal/model"
 )
 
 const maxFuzzCgroupBytes = 16 << 10
@@ -15,6 +17,8 @@ func FuzzParseCgroupKeyValues(f *testing.F) {
 		[]byte("  anon\t1\n\nfuture_key 2  \n"),
 		[]byte("anon nope\n"),
 		[]byte("missing-value\n"),
+		[]byte("zswap 4\nzswapped 12\noom_group_kill 1\n"),
+		[]byte("zswap 4\noom_kill 1\n"),
 		{},
 	} {
 		f.Add(seed)
@@ -48,7 +52,30 @@ func FuzzParseCgroupKeyValues(f *testing.F) {
 				t.Fatalf("unknown values contain known key %q", key)
 			}
 		}
+		assertSchema8ValuesKnownOnlyWhenReported(t, data)
 	})
+}
+
+// The same bytes read as memory.stat and as memory.events: zswap is known only
+// when both of its keys are present, oom_group_kill only when its key is, and
+// an unknown value is zero.
+func assertSchema8ValuesKnownOnlyWhenReported(t *testing.T, data []byte) {
+	t.Helper()
+	if stat, err := ParseMemoryStat(data); err == nil {
+		zswap := zswapFromStat(stat)
+		_, pool := stat.Values["zswap"]
+		_, swapped := stat.Values["zswapped"]
+		if zswap.Known != (pool && swapped) || (!zswap.Known && zswap != (model.Zswap{})) {
+			t.Fatalf("zswap %#v from keys present=%t/%t", zswap, pool, swapped)
+		}
+	}
+	if events, err := ParseMemoryEvents(data); err == nil {
+		value, known := groupKillEvents(events.Values)
+		_, present := events.Values["oom_group_kill"]
+		if known != present || (!known && value != 0) {
+			t.Fatalf("oom_group_kill %d known=%t from key present=%t", value, known, present)
+		}
+	}
 }
 
 func FuzzParseMemoryPressure(f *testing.F) {

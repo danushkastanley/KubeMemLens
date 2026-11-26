@@ -154,7 +154,11 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 		}
 	}
 	infrastructureCandidates := map[int]struct{}{}
-	for _, state := range parents {
+	unambiguousGroups := map[string]struct{}{}
+	for parent, state := range parents {
+		if !state.ambiguous {
+			unambiguousGroups[parent] = struct{}{}
+		}
 		// A Pod with no mapped container is identified by its cgroup path
 		// alone: one that cannot pull its image, or whose containers have all
 		// exited, still has a sandbox.
@@ -174,6 +178,7 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 		}
 	}
 
+	podCgroups := newPodCgroupReader(s.CgroupRoot, unambiguousGroups, idx)
 	snapshots := make([]api.ContainerSnapshot, 0, len(entries))
 	memories := make([]model.MemoryBreakdown, 0, len(entries))
 	mapped := 0
@@ -184,6 +189,7 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 	for i, entry := range entries {
 		select {
 		case <-ctx.Done():
+			_ = podCgroups.close()
 			return ScanResult{}, ctx.Err()
 		default:
 		}
@@ -208,6 +214,7 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 				CapturedAt:    capturedAt,
 				Context:       ref.Context,
 				Memory:        memory,
+				PodCgroup:     podCgroups.forContainer(entry, ref.PodUID),
 			})
 		} else if _, sandboxCandidate := infrastructureCandidates[i]; sandboxCandidate {
 			// CRI Pod sandboxes are charged in a sibling cgroup but are not
@@ -240,6 +247,10 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 	if walkErr == nil {
 		s.infrastructurePaths = currentInfrastructure
 	}
+	// A Pod cgroup that cannot be read leaves that Pod's cgroup unknown and is
+	// counted as a read error, but it hides no container, so it neither changes
+	// the infrastructure classification above nor withholds the snapshot.
+	podCgroupErr := podCgroups.close()
 
 	return ScanResult{
 		Snapshot: api.AgentSnapshot{
@@ -250,7 +261,7 @@ func (s *Scanner) Scan(ctx context.Context, idx kube.PodIndex) (ScanResult, erro
 				CgroupVersion:            cgroup.VersionV2,
 				CgroupDriver:             detectCgroupDriver(entries),
 				ContainerRuntimes:        sortedStrings(runtimes),
-				CgroupReadErrors:         boolCount(walkErr != nil),
+				CgroupReadErrors:         boolCount(walkErr != nil || podCgroupErr != nil),
 				NodeContextAvailable:     idx.NodeContext.Available,
 				MemoryPressureStatus:     idx.NodeContext.MemoryPressureStatus,
 				MemoryPressureSince:      idx.NodeContext.MemoryPressureSince,

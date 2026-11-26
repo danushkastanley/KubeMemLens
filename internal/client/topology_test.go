@@ -23,7 +23,7 @@ func TestTopologyTransportBoundsAndScope(t *testing.T) {
 	calls := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
-		if r.URL.Path != "/apis/memory.kubememlens.io/v1alpha1/nodecontexts/node-a/topology" || r.Header.Get(api.SnapshotSchemaHeader) != "7" || r.URL.RawQuery != "" {
+		if r.URL.Path != "/apis/memory.kubememlens.io/v1alpha1/nodecontexts/node-a/topology" || r.Header.Get(api.SnapshotSchemaHeader) != "8" || r.URL.RawQuery != "" {
 			t.Error("scope changed")
 		}
 		if status != 200 {

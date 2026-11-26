@@ -40,7 +40,7 @@ func AgentSnapshotForSchema(snapshot AgentSnapshot, version int) AgentSnapshot {
 	if version < 3 {
 		snapshot.NodeContext = nil
 	}
-	if version < IOPressureSnapshotSchemaVersion {
+	if version < PodCgroupSnapshotSchemaVersion {
 		snapshot.Containers = containersForSchema(snapshot.Containers, version)
 	}
 	return snapshot
@@ -73,6 +73,9 @@ func podsForSchema(pods []PodSnapshot, version int) []PodSnapshot {
 func workloadForSchema(workload WorkloadSnapshot, version int) WorkloadSnapshot {
 	workload.Pods = podsForSchema(workload.Pods, version)
 	workload.Memory.IOPressure = model.IOPressure{}
+	if version < PodCgroupSnapshotSchemaVersion {
+		workload.Memory = memoryWithoutSchema8Evidence(workload.Memory)
+	}
 	return workload
 }
 
@@ -90,7 +93,7 @@ func SnapshotView(value any, version int) any {
 			value = data
 		}
 	}
-	if version >= IOPressureSnapshotSchemaVersion {
+	if version >= PodCgroupSnapshotSchemaVersion {
 		return value
 	}
 	switch data := value.(type) {
@@ -135,6 +138,15 @@ func SnapshotView(value any, version int) any {
 		for index := range data.Items {
 			data.Items[index].Snapshot = workloadForSchema(data.Items[index].Snapshot, version)
 		}
+		return data
+	case []NamespaceSnapshot:
+		items := slices.Clone(data)
+		for index := range items {
+			items[index] = namespaceForSchema(items[index], version)
+		}
+		return items
+	case WorkloadVolumeContext:
+		data.Workload = workloadForSchema(data.Workload, version)
 		return data
 	default:
 		return value

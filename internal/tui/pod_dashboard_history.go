@@ -21,7 +21,7 @@ func (m appModel) podDashboardHistory(pod api.PodSnapshot, width int) []string {
 	if len(series.Points) == 0 {
 		return append(lines, "No recent points retained for this Pod instance.")
 	}
-	lines = append(lines, podHistoryPlot(series.Points, pod.Memory, width)...)
+	lines = append(lines, podHistoryPlot(series.Points, podLimitView(pod), width)...)
 	first, last := series.Points[0], series.Points[len(series.Points)-1]
 	lines = append(lines,
 		first.CapturedAt.UTC().Format("15:04:05")+" → "+last.CapturedAt.UTC().Format("15:04:05 UTC"),

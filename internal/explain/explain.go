@@ -70,7 +70,7 @@ func AnalyzePodAt(pod api.PodSnapshot, now time.Time) Result {
 			ConfidenceReason: "Kubernetes recorded a recent OOMKilled termination for this Pod.",
 		}, pod.Memory), pod)
 	}
-	result := Analyze(pod.Memory)
+	result := AnalyzePodMemory(pod)
 	if strings.EqualFold(pod.Context.NodeMemoryPressure, "True") {
 		result.Signals = append(result.Signals, "Kubernetes Node condition MemoryPressure=True")
 		if pod.Context.NodeMemoryAllocatableKnown {
@@ -90,7 +90,7 @@ func AnalyzePodAt(pod api.PodSnapshot, now time.Time) Result {
 		}
 	}
 	if container, found := containerNearestLimit(pod.Containers); found && severityFor(result.Diagnosis) == SeverityInfo {
-		result = withConfidence(containerLimitRisk(container, pod.Memory), container.Memory)
+		result = withConfidence(containerLimitRisk(container, pod), container.Memory)
 	}
 	if pod.Context.MemoryLimitContainers == len(pod.Containers) && pod.Context.MemoryLimitBytes > 0 {
 		result.Signals = append(result.Signals, fmt.Sprintf("configured container limits total %s", model.FormatCompactBytes(pod.Context.MemoryLimitBytes)))
@@ -150,7 +150,12 @@ func Analyze(m model.MemoryBreakdown) Result {
 	if m.HasLimitRisk() {
 		return withConfidence(limitRisk(m), m)
 	}
+	return analyzeComposition(m)
+}
 
+// analyzeComposition is the part of Analyze that reads composition only, for
+// callers that have already ranked event, pressure and limit evidence.
+func analyzeComposition(m model.MemoryBreakdown) Result {
 	dirtyHigh := m.TotalBytes > 0 && (m.DirtyWritebackRatio() >= 0.10 || m.DirtyWritebackBytes() >= 256*mib)
 	tmpfsHigh := m.TotalBytes > 0 && m.ShmemRatio() >= 0.30
 	slabHigh := m.TotalBytes > 0 && (m.SlabRatio() >= 0.20 || componentRatio(m.SlabUnreclaimableBytes, m.TotalBytes) >= 0.10 || componentRatio(m.SocketBytes, m.TotalBytes) >= 0.10 || componentRatio(m.PageTableBytes, m.TotalBytes) >= 0.10)
@@ -221,6 +226,9 @@ func oomRisk(m model.MemoryBreakdown) Result {
 	}
 	if oomKill > 0 {
 		signals = append(signals, fmt.Sprintf("%s oom_kill=%d", source, oomKill))
+	}
+	if groupKill, groupSource, known := recentOOMGroupKill(m); known && groupKill > 0 {
+		signals = append(signals, fmt.Sprintf("%s oom_group_kill=%d", groupSource, groupKill))
 	}
 	if maxEvents > 0 {
 		signals = append(signals, fmt.Sprintf("%s max=%d", source, maxEvents))
@@ -466,30 +474,6 @@ func normalSignal(m model.MemoryBreakdown) string {
 		return fmt.Sprintf("anonymous memory is %.0f%% of total charged memory but below the rss-heavy size threshold (half of a finite limit, or 512 MiB without one)", m.AnonRatio()*100)
 	}
 	return "no dominant cgroup memory bucket detected"
-}
-
-func countTrue(values ...bool) int {
-	count := 0
-	for _, value := range values {
-		if value {
-			count++
-		}
-	}
-	return count
-}
-
-func componentRatio(part, total uint64) float64 {
-	if total == 0 {
-		return 0
-	}
-	return float64(part) / float64(total)
-}
-
-func minUint64(a, b uint64) uint64 {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 const mib uint64 = 1024 * 1024

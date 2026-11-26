@@ -157,8 +157,8 @@ func registerReads(mux *http.ServeMux, store *Store, opts HandlerOptions) {
 	mux.HandleFunc("/api/v1/pods", method(http.MethodGet, func(w http.ResponseWriter, r *http.Request) {
 		writeSnapshotJSON(w, r, store.ListPods(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
 	}))
-	mux.HandleFunc("/api/v1/namespaces", method(http.MethodGet, func(w http.ResponseWriter, _ *http.Request) {
-		writeBoundedJSON(w, store.ListNamespaces(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
+	mux.HandleFunc("/api/v1/namespaces", method(http.MethodGet, func(w http.ResponseWriter, r *http.Request) {
+		writeSnapshotJSON(w, r, store.ListNamespaces(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
 	}))
 	mux.HandleFunc("/api/v1/nodes", method(http.MethodGet, func(w http.ResponseWriter, _ *http.Request) {
 		writeBoundedJSON(w, store.ListNodes(time.Now().UTC(), opts.SnapshotTTL), opts.MaxResponseBytes)
@@ -363,6 +363,9 @@ func ValidateSnapshot(snapshot api.AgentSnapshot, now time.Time, opts HandlerOpt
 		}
 	}
 	if err := validateSnapshotText(snapshot); err != nil {
+		return err
+	}
+	if err := validatePodCgroupEvidence(snapshot); err != nil {
 		return err
 	}
 	return validatePodResourceAgreement(snapshot.Containers)

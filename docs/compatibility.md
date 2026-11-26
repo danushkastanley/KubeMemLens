@@ -204,3 +204,13 @@ explicit Node incident schema 7. Ordinary memory quantities and schema-4 Node
 captures are unchanged. The profile adds read-only host source mounts and a
 separate, unbound Node topology reader role. Local source evidence is not a
 managed-provider compatibility claim.
+
+### Pod cgroup evidence
+
+Snapshot schema 8 adds the Pod's own cgroup (`memory.current`, `memory.max`
+and `memory.events.local`) and the `zswap` and `oom_group_kill` values that
+the kernel already reports. Older snapshot schemas project all of it out, so
+schema 7 and earlier readers, agents and collectors see what they saw before.
+Incident schemas 1, 2 and 5 never contain it. Per-Pod HugeTLB is not
+collected. No permission, host mount or chart value changes. See
+[ADR 0032](adr/0032-observe-the-pod-cgroup-under-snapshot-schema-8.md).

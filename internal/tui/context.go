@@ -66,6 +66,9 @@ func memorySignalLines(memory memmodel.MemoryBreakdown) []string {
 	if memory.SwapCurrentKnown {
 		lines = append(lines, "Swap:                 "+memmodel.FormatBytes(memory.SwapCurrentBytes))
 	}
+	if memory.Zswap.Known {
+		lines = append(lines, "Zswap:                "+memmodel.FormatBytes(memory.Zswap.PoolBytes)+" pool holding "+memmodel.FormatBytes(memory.Zswap.SwappedBytes)+" swapped out")
+	}
 	if memory.PressureKnown {
 		lines = append(lines, fmt.Sprintf("Memory PSI avg10:     some %.2f%% / full %.2f%%", memory.PSISomeAvg10, memory.PSIFullAvg10))
 	}

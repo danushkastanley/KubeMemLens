@@ -183,6 +183,12 @@ func printExplanation(w interface{ Write([]byte) (int, error) }, breakdown model
 }
 
 func printMemoryExplanation(w interface{ Write([]byte) (int, error) }, title string, breakdown model.MemoryBreakdown, result explain.Result) {
+	printMemoryExplanationWith(w, title, breakdown, hardLimitText(breakdown), nil, result)
+}
+
+// printMemoryExplanationWith takes the Hard limit value, empty when none was
+// read, and lines that follow it, so a Pod can show its effective limit.
+func printMemoryExplanationWith(w interface{ Write([]byte) (int, error) }, title string, breakdown model.MemoryBreakdown, hardLimit string, limitDetail []string, result explain.Result) {
 	fmt.Fprintf(w, "%s\n\n", title)
 	fmt.Fprintf(w, "Total charged memory: %s\n", model.FormatBytes(breakdown.TotalBytes))
 	fmt.Fprintf(w, "Anonymous (anon):     %s\n", model.FormatBytes(breakdown.RSSBytes()))
@@ -205,15 +211,17 @@ func printMemoryExplanation(w interface{ Write([]byte) (int, error) }, title str
 	if breakdown.PeakKnown {
 		fmt.Fprintf(w, "Peak:                 %s\n", model.FormatBytes(breakdown.PeakBytes))
 	}
-	if breakdown.MaxKnown {
-		if breakdown.MaxUnlimited {
-			fmt.Fprintln(w, "Hard limit:           unlimited")
-		} else {
-			fmt.Fprintf(w, "Hard limit:           %s (%.0f%% used)\n", model.FormatBytes(breakdown.MaxBytes), breakdown.LimitUsageRatio()*100)
-		}
+	if hardLimit != "" {
+		fmt.Fprintln(w, "Hard limit:           "+hardLimit)
+	}
+	for _, line := range limitDetail {
+		fmt.Fprintln(w, line)
 	}
 	if breakdown.SwapCurrentKnown {
 		fmt.Fprintf(w, "Swap:                 %s\n", model.FormatBytes(breakdown.SwapCurrentBytes))
+	}
+	if breakdown.Zswap.Known {
+		fmt.Fprintln(w, "Zswap:                "+zswapText(breakdown.Zswap))
 	}
 	if breakdown.PressureKnown {
 		fmt.Fprintf(w, "Memory PSI avg10:     some %.2f%% / full %.2f%%\n", breakdown.PSISomeAvg10, breakdown.PSIFullAvg10)

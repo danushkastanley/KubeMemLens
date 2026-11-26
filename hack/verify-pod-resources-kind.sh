@@ -132,11 +132,35 @@ wait_for_explanation() {
     sleep 2
   done
   echo "resource explanation did not meet: ${predicate}" >&2
-  jq '{schemaVersion,kubernetes:{resources:.kubernetes.resources,effectiveResources:.kubernetes.effectiveResources,memoryRequestBytes:.kubernetes.memoryRequestBytes},containers:[.containers[]? | {resources}]}' "${work_dir}/explanation.json" >&2 || true
+  jq '{schemaVersion,podCgroup,kubernetes:{resources:.kubernetes.resources,effectiveResources:.kubernetes.effectiveResources,memoryRequestBytes:.kubernetes.memoryRequestBytes},containers:[.containers[]? | {resources}]}' "${work_dir}/explanation.json" >&2 || true
   return 1
 }
 
-wait_for_explanation '.schemaVersion == 3 and .kubernetes.effectiveResources.request.bytes == 134217728 and .kubernetes.effectiveResources.limit.bytes == 268435456 and .kubernetes.memoryRequestBytes == 67108864'
+# Explanation schema 6 carries the Pod cgroup that snapshot schema 8 reports;
+# readers of older collectors and agents below still receive schema 3.
+wait_for_explanation '.schemaVersion == 6 and .kubernetes.effectiveResources.request.bytes == 134217728 and .kubernetes.effectiveResources.limit.bytes == 268435456 and .kubernetes.memoryRequestBytes == 67108864'
+
+# Snapshot schema 8: the Pod limit is the Pod cgroup's own memory.max (256Mi),
+# not a figure built from the containers. What the shared container's own
+# memory.max holds is the runtime's choice, so only its row's shape is checked:
+# a container row never names a Pod limit source. A failure prints what was
+# read beside what was expected.
+wait_for_top_row() {
+  local resource=$1 select=$2 expected=$3 row=
+  for _ in $(seq 1 30); do
+    if "${cli}" "${cli_args[@]}" top "${resource}" -n "${namespace}" -o json > "${work_dir}/top-${resource}.json" 2> "${work_dir}/read-error.txt"; then
+      row=$(jq -c "[.[] | select(${select})][0] // {}" "${work_dir}/top-${resource}.json")
+      jq -e "${expected}" <<<"${row}" >/dev/null && return
+    fi
+    sleep 2
+  done
+  echo "top ${resource} row (${select}) did not meet: ${expected}" >&2
+  echo "read: ${row:-no row; $(cat "${work_dir}/read-error.txt")}" >&2
+  return 1
+}
+wait_for_top_row pods ".name == \"${pod}\"" '.limitState == "finite" and .limitBytes == 268435456 and .limitSource == "pod-cgroup"'
+wait_for_top_row containers ".pod == \"${pod}\" and .name == \"shared\"" '(.limitState | length > 0) and (has("limitSource") | not)'
+wait_for_explanation '.podCgroup.effectiveLimitSource == "pod-cgroup" and .podCgroup.limit.known == true and .podCgroup.limit.bytes == 268435456'
 "${cli}" "${cli_args[@]}" capture -n "${namespace}" --pod "${pod}" -o "${work_dir}/before.json" >/dev/null
 
 kctl patch pod "${pod}" -n "${namespace}" --subresource=resize --type=strategic \
@@ -201,13 +225,13 @@ kctl rollout status deployment/kube-memlens-collector -n "${collector_namespace}
 wait_for_explanation '.schemaVersion == 3 and (.kubernetes | has("resources") | not) and .kubernetes.memoryRequestBytes == 83886080'
 kctl set image deployment/kube-memlens-collector -n "${collector_namespace}" "collector=${collector_image}" >/dev/null
 kctl rollout status deployment/kube-memlens-collector -n "${collector_namespace}" --timeout=120s >/dev/null
-wait_for_explanation '.schemaVersion == 3 and .kubernetes.resources.configured.limit.bytes == 402653184'
+wait_for_explanation '.schemaVersion == 6 and .kubernetes.resources.configured.limit.bytes == 402653184'
 kctl set image daemonset/kube-memlens-agent -n "${collector_namespace}" "agent=${legacy_image}" >/dev/null
 kctl rollout status daemonset/kube-memlens-agent -n "${collector_namespace}" --timeout=120s >/dev/null
 wait_for_explanation '.schemaVersion == 3 and (.kubernetes | has("resources") | not) and .kubernetes.memoryRequestBytes == 83886080'
 kctl set image daemonset/kube-memlens-agent -n "${collector_namespace}" "agent=${agent_image}" >/dev/null
 kctl rollout status daemonset/kube-memlens-agent -n "${collector_namespace}" --timeout=120s >/dev/null
-wait_for_explanation '.schemaVersion == 3 and .kubernetes.resources.configured.limit.bytes == 402653184'
+wait_for_explanation '.schemaVersion == 6 and .kubernetes.resources.configured.limit.bytes == 402653184'
 restore_images=false
 
 test "$(kctl get pod "${pod}" -n "${namespace}" -o jsonpath='{.metadata.uid}')" = "${original_uid}"
@@ -217,7 +241,7 @@ source_dirty=false
 [ -z "$(git status --porcelain)" ] || source_dirty=true
 jq -n --arg commit "$(git rev-parse HEAD)" --arg version "$(kctl version -o json | jq -r '.serverVersion.gitVersion')" \
   --argjson volumeResize "${volume_resize}" --argjson sourceDirty "${source_dirty}" '{schemaVersion:1,outcome:"passed",sourceCommit:$commit,sourceDirty:$sourceDirty,kubernetesVersion:$version,
-  checks:{podBudgetPrecedence:true,podResize:true,containerResize:true,oversizedRequestRejected:true,appliedBudgetPreserved:true,
+  checks:{podBudgetPrecedence:true,podCgroupLimit:true,podResize:true,containerResize:true,oversizedRequestRejected:true,appliedBudgetPreserved:true,
   captureReplay:true,resourceComparison:true,legacyLiveReader:true,legacyCaptureReader:true,mixedAgentCollectorVersions:true,collectorRollback:true,
   samePodInstance:true,noContainerRestarts:true,memoryBackedVolumeResize:$volumeResize},
   privacy:{runtimeIdentifiersIncluded:false,credentialsRetained:false}}' > "${artifact_dir}/pod-resource-summary.json"

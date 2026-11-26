@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const CurrentSnapshotSchemaVersion = TopologySnapshotSchemaVersion
+const CurrentSnapshotSchemaVersion = PodCgroupSnapshotSchemaVersion
 const CurrentIncidentSchemaVersion = 2
 const CurrentExplanationSchemaVersion = 3
 const CurrentRecommendationSchemaVersion = 1
@@ -60,6 +60,9 @@ type ContainerSnapshot struct {
 	DeltaWindowKnown bool                  `json:"deltaWindowKnown"`
 	Context          ContainerContext      `json:"context"`
 	Memory           model.MemoryBreakdown `json:"memory"`
+	// PodCgroup duplicates the owning Pod's own cgroup on each of its mapped
+	// containers, as Context.Resources.Pod does; schema 8 only.
+	PodCgroup model.PodCgroupMemory `json:"podCgroup,omitzero"`
 }
 
 // ContainerPage is the bounded read contract used by current clients. Continue
@@ -109,6 +112,9 @@ type PodSnapshot struct {
 	Containers   []ContainerSnapshot   `json:"containers"`
 	Context      PodContext            `json:"context"`
 	Memory       model.MemoryBreakdown `json:"memory"`
+	// PodCgroup is the Pod's own cgroup, taken from its containers; schema 8
+	// only. Use EffectiveLimit for the Pod-level limit.
+	PodCgroup model.PodCgroupMemory `json:"podCgroup,omitzero"`
 }
 
 type PodContext struct {

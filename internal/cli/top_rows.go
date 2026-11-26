@@ -22,7 +22,8 @@ func podRows(pods []api.PodSnapshot, labelSelector labels.Selector, fieldSelecto
 		result := explain.AnalyzePod(pod)
 		row.Diagnosis, row.Confidence = result.Diagnosis, result.Confidence
 		row.CapturedAt, row.Freshness, row.Completeness = pod.CapturedAt, pod.Freshness, pod.Completeness
-		row.LimitBytes, row.LimitState = memoryLimit(pod.Memory)
+		row.LimitBytes, row.LimitState = memoryLimit(podLimitMemory(pod))
+		row.LimitSource, _ = explain.NamedPodLimitSource(pod)
 		if usage, ok := explain.ClosestContainerToLimit(pod); ok {
 			row.LimitClosestContainer, row.LimitClosestContainerPercent = usage.ContainerName, &usage.Percent
 		}

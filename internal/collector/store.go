@@ -151,6 +151,7 @@ func (s *Store) ReplaceAuthenticatedNodeSnapshot(snapshot api.AgentSnapshot, uid
 		}
 		containers = append(containers, container)
 	}
+	withPodCgroupDeltas(containers, previousNode.containers)
 	s.nodes[snapshot.NodeName] = nodeSnapshot{
 		uid:         uid,
 		capturedAt:  snapshot.CapturedAt,

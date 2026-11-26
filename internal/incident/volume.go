@@ -79,6 +79,10 @@ func NewVolume(pod api.PodSnapshot, volumes api.PodVolumeContext, history *api.P
 	if pod.PodUID == "" || string(volumes.UID) != pod.PodUID || volumes.Namespace != pod.Namespace || volumes.Name != pod.PodName {
 		return VolumeBundle{}, fmt.Errorf("volume capture requires matching authorised Pod instances")
 	}
+	// Volume schema 5 predates snapshot schema 8, and its released readers
+	// accept only a fixed list of caveats, so this evidence is left out
+	// without one. ValidateVolume refuses a file that carries it.
+	pod = api.PodWithoutSchema8Evidence(pod)
 	b := VolumeBundle{SchemaVersion: VolumeSchemaVersion, CapturedAt: at.UTC(), ToolVersion: version, Pod: pod, Volumes: volumes.Context, History: history, Caveats: []string{"Filesystem values are separate from memory charge; correlation does not prove causality.", "Captured history covers only the selected Pod and Node instance."}}
 	if err := ValidateVolume(b); err != nil {
 		return VolumeBundle{}, err

@@ -45,7 +45,7 @@ func ContainerLines(container api.ContainerSnapshot) []string {
 		lines = append(lines, fmt.Sprintf("Memory PSI avg10: some %.2f%% / full %.2f%%", qos.PSISomeAvg10, qos.PSIFullAvg10))
 	}
 	if qos.PodConfiguredLimit.Known {
-		lines = append(lines, "Pod configured limit: "+model.FormatCompactBytes(qos.PodConfiguredLimit.Bytes)+"; parent cgroup controls are not observed")
+		lines = append(lines, "Pod configured limit: "+model.FormatCompactBytes(qos.PodConfiguredLimit.Bytes)+"; "+parentControls(container.PodCgroup))
 	}
 	for _, line := range qos.Correlations {
 		lines = append(lines, "Resource correlation: "+line)
@@ -57,6 +57,20 @@ func ContainerLines(container api.ContainerSnapshot) []string {
 		lines = append(lines, "Check: "+line)
 	}
 	return lines
+}
+
+// parentControls says which parent controls were read. The Pod cgroup's
+// memory.max is read under snapshot schema 8; its memory.min, memory.low and
+// memory.high are not collected.
+func parentControls(cgroup model.PodCgroupMemory) string {
+	if !cgroup.MaxKnown {
+		return "parent cgroup controls are not observed"
+	}
+	limit := "unlimited"
+	if !cgroup.MaxUnlimited {
+		limit = model.FormatCompactBytes(cgroup.MaxBytes)
+	}
+	return "Pod cgroup memory.max: " + limit + "; parent memory.min, memory.low and memory.high are not observed"
 }
 
 func PodLines(pod api.PodSnapshot) []string {
