@@ -2,7 +2,7 @@
 
 Date: 25 November 2026
 
-Status: accepted by the maintainer on 25 November 2026; step 1 is implemented in the same pull request and step 2 in a later one; step 3 is re-counted below and awaits a decision; step 4 is implemented in a later one
+Status: accepted by the maintainer on 25 November 2026; step 1 is implemented in the same pull request and step 2 in a later one; step 3 was re-counted and, on 26 November 2026, the maintainer decided not to move its tests; step 4 is implemented in a later one
 
 ## Context
 
@@ -41,11 +41,12 @@ or image by this decision. Four changes follow from that, in this order.
    check that runs when those paths change and on a schedule. Done: see
    [Step 2 as implemented](#step-2-as-implemented).
 3. **Park the confirmed-paths pipeline.** Until a shipped client can request
-   confirmed paths, the pipeline is not extended and its tests leave the
-   per-pull-request path with the harnesses in step 2. The code stays. Not
-   moved yet: the re-count in
-   [Confirmed-paths tests](#confirmed-paths-tests) found far fewer
-   pipeline-only tests than the audit's figure.
+   confirmed paths, the pipeline is not extended. The code stays. The
+   original decision also moved its tests off the per-pull-request path with
+   the harnesses in step 2. That part is dropped: the re-count in
+   [Confirmed-paths tests](#confirmed-paths-tests) found 266 pipeline-only
+   test lines, not about 1,370, and the maintainer decided on
+   26 November 2026 to leave them where they are.
 4. **Rename `prototype/trace`.** The directory and its two Go module paths
    are renamed to say what they are. Done: the maintainer chose
    `extensions/trace`. The directory is now `extensions/trace`, and the module
@@ -89,9 +90,9 @@ or image by this decision. Four changes follow from that, in this order.
 - After step 2 a change that breaks a qualification harness is found when
   that harness's paths change or on the scheduled run, not on every pull
   request.
-- After step 3 the confirmed-paths code can drift from the rest of the
-  extension without a per-pull-request test noticing. That is the cost of
-  parking it, accepted until a client exists.
+- The confirmed-paths tests stay on the per-pull-request path, so the parked
+  code cannot drift from the rest of the extension without a test noticing.
+  The cost is the run time of ten unit tests.
 - After step 4 every external reference to `prototype/trace` breaks: saved
   commands, documents outside the repository, and the Go import paths.
 
@@ -163,21 +164,24 @@ including those of a default trace that only reports aggregates. Those tests
 stay on the per-pull-request path, as do tests that check both policies or the
 guard that refuses confirmed paths without an accepted installation.
 
+Decision, 26 November 2026: none of the 266 lines move. Moving the 70
+pipeline-only lines in the two trace modules would save no measurable time.
+The 128 test lines in `internal/` run in the main module's "Go tests", and
+moving them would need a second test split for no gain. The 68 benchmark
+lines are compiled and not run. Revisit this if the pipeline grows or a
+shipped client starts to request confirmed paths.
+
 ## Not yet decided or verified
 
-- What step 3 moves, given the re-count. Moving the 70 pipeline-only lines in
-  the two trace modules saves no measurable time. The 128 test lines in
-  `internal/` run in the main module's "Go tests", which would need its own
-  change to move them.
-- How much time steps 2 and 3 take off the trace gate in CI. On `main` at
+- How much time step 2 takes off the trace gate in CI. On `main` at
   `fc11fb2` the whole gate took 493 seconds; only local times were measured
   for step 2.
 - Whether to publish the extension later. This ADR does not decide it.
 
 ## Verification, migration and rollback
 
-Step 1 is covered by a test that reads the real `--help` output. Steps 2 to 4
-each bring their own verification in their own pull request. Nothing here
-changes stored data or a wire format. Reverting step 1 restores the old help
+Step 1 is covered by a test that reads the real `--help` output. Steps 2 and 4
+each bring their own verification in their own pull request; step 3 changes
+no code or check. Nothing here changes stored data or a wire format. Reverting step 1 restores the old help
 text. Reverting step 2 puts the harness tests back in the trace gate. Reverting step
 4 restores the old directory and module paths; it changes no behaviour.
