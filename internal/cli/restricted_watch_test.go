@@ -25,8 +25,10 @@ func watchBatch() observation.Batch {
 	return observation.Batch{Mode: capability.Restricted, Pods: []observation.Pod{{Namespace: "team-a", Name: "retained", WorkingSet: observation.WorkingSet{Bytes: &value, Availability: capability.Available, Evidence: capability.Envelope{Source: capability.KubernetesMetrics, CapturedAt: time.Now(), Freshness: capability.Fresh, Completeness: capability.Complete}}}}}
 }
 
+// watchOptions calls runRestrictedTop directly, which does not apply the
+// --watch-interval minimum, so the loop can tick without real waiting.
 func watchOptions() topOptions {
-	return topOptions{Output: "table", SortBy: "total", Watch: true, WatchInterval: 500 * time.Millisecond}
+	return topOptions{Output: "table", SortBy: "total", Watch: true, WatchInterval: 5 * time.Millisecond}
 }
 
 func TestRestrictedWatchKeepsTheLastFrameOnQueryFailure(t *testing.T) {
