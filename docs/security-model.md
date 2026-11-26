@@ -62,7 +62,7 @@ There is no telemetry by default and the CLI does not make external network call
 
 The collector stores latest snapshots and bounded recent Pod history in memory only. It has no database or persistent long-term retention.
 
-The [data and metadata exposure contract](compatibility.md#data-and-metadata-exposure) lists the identifiers present in ingestion, reads, metrics, logs and captures. A default redacted capture still contains Kubernetes display names and is not anonymous.
+The [data and metadata exposure contract](compatibility.md#data-and-metadata-exposure) lists the identifiers present in ingestion, reads, metrics, logs and captures. A default deep, volume or history capture replaces Kubernetes names with capture-local aliases; a default restricted capture still contains them. No redacted capture is anonymous: memory values, timings and kinds remain.
 
 ## Build and supply chain
 
@@ -83,7 +83,7 @@ authorisation text. Every later query still enforces current access. See
 [ADR 0006](adr/0006-select-evidence-sources-before-rendering.md) for this client-side
 trust boundary and failure behaviour.
 
-`capture` writes schema-versioned JSON with mode `0600` and refuses to replace an existing file unless `--force` is explicit. Bundles redact Pod UIDs, container IDs, cgroup paths, and bounded selector label maps by default; KubeMemLens does not collect images or file names. `--include-sensitive` is an explicit opt-in for local debugging. Recent history is opt-in and limited to 100 selected Pods per capture. `replay` makes no cluster connection, rejects unknown/trailing JSON, enforces a 64 MiB input/output limit and entity caps, and recomputes the explanation from the captured evidence. A capture is treated as untrusted text: `replay`, `compare` and `capture` refuse a bundle whose names, labels, reasons or tool version contain control or format characters, so a crafted file cannot send escape sequences to the terminal. Capture caveats are free text and are printed quoted.
+`capture` writes schema-versioned JSON with mode `0600` and refuses to replace an existing file unless `--force` is explicit. Deep Pod bundles (schemas 1 and 2) remove Pod UIDs, container IDs, cgroup paths, bounded selector label maps and the runtime class name by default, and replace every namespace, Pod, node, container, owner and workload name with a capture-local alias. The file holds no mapping back to real names; a single-Pod capture prints its Pod's alias, and `replay` lists the aliases in a file. Address a Pod in a redacted file by alias, for example `--pod namespace-1/pod-1`. Aliases are numbered per file, so the same alias names the same Pod in two captures only when both held the same Pods. KubeMemLens does not collect images or file names. `--include-sensitive` is an explicit opt-in for local debugging. Recent history is opt-in and limited to 100 selected Pods per capture. `replay` makes no cluster connection, rejects unknown/trailing JSON, enforces a 64 MiB input/output limit and entity caps, and recomputes the explanation from the captured evidence. A capture is treated as untrusted text: `replay`, `compare` and `capture` refuse a bundle whose names, labels, reasons or tool version contain control or format characters, so a crafted file cannot send escape sequences to the terminal. Capture caveats are free text and are printed quoted.
 
 ## Future eBPF Mode
 

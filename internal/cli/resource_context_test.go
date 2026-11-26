@@ -92,7 +92,7 @@ func TestCaptureCommandWritesCurrentAndExplicitLegacyResources(t *testing.T) {
 			var replayOutput bytes.Buffer
 			replay := newReplayCommand()
 			replay.SetOut(&replayOutput)
-			replay.SetArgs([]string{path, "--pod", "tenant-a/app"})
+			replay.SetArgs([]string{path, "--pod", "namespace-1/pod-1"})
 			if err := replay.Execute(); err != nil {
 				t.Fatal(err)
 			}

@@ -32,7 +32,7 @@ Do not place these values in an issue, chat transcript or retained test bundle:
 - label maps or denied object names; or
 - unredacted collector, agent or API server logs.
 
-Quarantine existing incident captures until their scope is known. The default capture is redacted but still contains authorised workload display names and memory evidence. Delete a capture through the organisation's approved secure deletion and retention process when it is no longer needed.
+Quarantine existing incident captures until their scope is known. A default deep capture replaces names with capture-local aliases, but a restricted capture, or a deep capture written by an earlier version, still contains authorised workload display names, and every capture holds memory evidence. Delete a capture through the organisation's approved secure deletion and retention process when it is no longer needed.
 
 Use Kubernetes audit records to correlate a request. KubeMemLens security logs deliberately omit the raw principal, namespace and object name. Do not widen log verbosity during containment.
 

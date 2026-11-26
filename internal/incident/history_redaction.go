@@ -2,38 +2,19 @@ package incident
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/danushkastanley/kube-memlens/internal/changemarkers"
 	"github.com/danushkastanley/kube-memlens/internal/memoryhistory"
 )
 
-type historyAliases struct {
-	values map[string]string
-	counts map[string]int
-}
-
-func (a *historyAliases) name(kind, key string) string {
-	if key == "" {
-		return ""
-	}
-	combined := kind + "\x00" + key
-	if prior, ok := a.values[combined]; ok {
-		return prior
-	}
-	a.counts[kind]++
-	value := kind + "-" + strconv.Itoa(a.counts[kind])
-	a.values[combined] = value
-	return value
-}
-func (a *historyAliases) object(o changemarkers.Object) changemarkers.Object {
+func (a *captureAliases) object(o changemarkers.Object) changemarkers.Object {
 	o.Name = a.name(strings.ToLower(o.Kind), o.Namespace+"/"+o.Name)
 	o.Namespace = a.name("namespace", o.Namespace)
 	o.UID = a.name("uid", o.UID)
 	return o
 }
-func (a *historyAliases) target(t memoryhistory.Target) memoryhistory.Target {
+func (a *captureAliases) target(t memoryhistory.Target) memoryhistory.Target {
 	if t.Container != "" {
 		t.Container = a.name("container", t.PodUID+"/"+t.Container)
 	}
@@ -46,7 +27,7 @@ func (a *historyAliases) target(t memoryhistory.Target) memoryhistory.Target {
 	return t
 }
 func redactHistory(b *HistoryBundle) error {
-	a := &historyAliases{values: map[string]string{}, counts: map[string]int{}}
+	a := newCaptureAliases()
 	c := &b.Context
 	s := &c.History.Selection
 	request := s.Request
@@ -91,14 +72,6 @@ func redactHistory(b *HistoryBundle) error {
 	return nil
 }
 
-func alias(value, prefix string) bool {
-	suffix, ok := strings.CutPrefix(value, prefix+"-")
-	if !ok || suffix == "" || suffix[0] == '0' {
-		return false
-	}
-	n, err := strconv.Atoi(suffix)
-	return err == nil && n > 0 && n <= 4096 && strconv.Itoa(n) == suffix
-}
 func validateHistoryAliases(c changemarkers.Context) error {
 	invalid := fmt.Errorf("redacted history incident contains raw identity")
 	r := c.History.Selection.Request

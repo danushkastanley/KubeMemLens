@@ -391,11 +391,13 @@ go run ./cmd/kubectl-memlens explain pod <pod-name> -n <namespace>
 go run ./cmd/kubectl-memlens explain workload deployment/<name> -n <namespace>
 go run ./cmd/kubectl-memlens history pod <pod-name> -n <namespace>
 go run ./cmd/kubectl-memlens --mode=deep capture -n <namespace> --pod <pod-name> --include-history -o incident.json
-go run ./cmd/kubectl-memlens replay incident.json --pod <namespace>/<pod-name>
+go run ./cmd/kubectl-memlens replay incident.json --pod namespace-1/pod-1
 go run ./cmd/kubectl-memlens compare pod/<first> pod/<second> -n <namespace>
-go run ./cmd/kubectl-memlens compare --before before.json --after after.json --pod <namespace>/<pod-name>
-go run ./cmd/kubectl-memlens compare --before before.json --after after.json --workload <namespace>/<kind>/<name>
+go run ./cmd/kubectl-memlens compare --before before.json --after after.json --pod namespace-1/pod-1
+go run ./cmd/kubectl-memlens compare --before before.json --after after.json --workload namespace-1/Deployment/deployment-1
 ```
+
+A default capture is redacted: it replaces every namespace, Pod, node, container, owner and workload name with a capture-local alias such as `namespace-1/pod-1`, and removes UIDs, container IDs, cgroup paths, labels and the runtime class name. The file holds no mapping back to real names. A single-Pod capture prints its Pod's alias; `replay incident.json` lists the aliases in a wider capture. Aliases are numbered per file, so compare two captures of the same `--pod` selection. `--include-sensitive` keeps real names and identifiers.
 
 `top pods`, `top containers`, and `top workloads` accept Kubernetes Pod label selectors with `-l`, safe field selectors, `--sort-by`, `--no-headers`, and `-o table|json|yaml|csv`. Add `--watch` for a two-second terminal refresh, or set a bounded interval with `--watch-interval`.
 

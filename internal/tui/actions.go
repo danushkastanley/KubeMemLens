@@ -219,6 +219,7 @@ func captureResult(request actionRequest) (actionResult, error) {
 			"Pods: 1",
 			fmt.Sprintf("History series: %d", len(bundle.Histories)),
 			"Redacted: true",
+			fmt.Sprintf("Names are aliases; replay as --pod %s/%s", bundle.Pods[0].Namespace, bundle.Pods[0].PodName),
 			fmt.Sprintf("Partial: %t", bundle.Partial),
 		},
 	}, nil

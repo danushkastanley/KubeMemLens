@@ -101,8 +101,8 @@ func TestCaptureActionFiltersInjectedHistoryAndNodeDataToSelectedPod(t *testing.
 		ref:  entityRef{kind: entityPod, namespace: pod.Namespace, podName: pod.PodName},
 		pods: []api.PodSnapshot{pod},
 		nodes: []api.NodeSnapshotStatus{
-			{NodeName: "node-a"},
-			{NodeName: "node-b"},
+			{NodeName: "node-a", ContainerCount: 7},
+			{NodeName: "node-b", ContainerCount: 9},
 		},
 		histories: []api.PodHistory{
 			{Namespace: pod.Namespace, PodName: pod.PodName, PodUID: pod.PodUID},
@@ -122,7 +122,9 @@ func TestCaptureActionFiltersInjectedHistoryAndNodeDataToSelectedPod(t *testing.
 	if err := json.Unmarshal(body, &bundle); err != nil {
 		t.Fatalf("decode capture: %v", err)
 	}
-	if len(bundle.Nodes) != 1 || bundle.Nodes[0].NodeName != "node-a" || len(bundle.Histories) != 1 {
+	// The Node's name is aliased in a redacted capture, so its container count
+	// shows which Node was kept.
+	if len(bundle.Nodes) != 1 || bundle.Nodes[0].ContainerCount != 7 || bundle.Nodes[0].NodeName != "node-1" || len(bundle.Histories) != 1 {
 		t.Fatalf("capture widened scope: nodes=%#v histories=%#v", bundle.Nodes, bundle.Histories)
 	}
 

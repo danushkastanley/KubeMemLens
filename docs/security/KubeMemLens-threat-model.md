@@ -44,7 +44,7 @@ Confirmed product decisions:
 - Shared multi-tenancy is mandatory for v1. The candidate has local application-boundary evidence; provider and enforcing-CNI claims remain exact and version-bound.
 - The v1 secure path uses Kubernetes-native authentication and posts node data into the collector.
 - Deep mode reaches v1 before a restricted mode is shipped.
-- Identifiable workload names appear in authorised interactive output, aggregated workload metrics and default redacted captures. They stay within the principal's authorised scope. Security-decision telemetry, agent operational metrics and denied responses omit them.
+- Identifiable workload names appear in authorised interactive output, aggregated workload metrics and default restricted (schema 3) captures. Default deep, volume and history captures replace them with capture-local aliases. They stay within the principal's authorised scope. Security-decision telemetry, agent operational metrics and denied responses omit them.
 - Raw process and file paths require an explicit trace action and must not enter default captures, metrics, logs or persistent storage.
 
 Assumptions requiring provider validation:

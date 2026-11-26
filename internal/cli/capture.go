@@ -114,8 +114,12 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 			if err := writeIncidentBundle(cmd.OutOrStdout(), output, force, bundle); err != nil {
 				return err
 			}
-			if output != "-" {
-				fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s (%d Pods, %d history series; redacted=%t; partial=%t)\n", output, len(bundle.Pods), len(bundle.Histories), bundle.Redacted, bundle.Partial)
+			if output == "-" {
+				return nil
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Wrote %s (%d Pods, %d history series; redacted=%t; partial=%t)\n", output, len(bundle.Pods), len(bundle.Histories), bundle.Redacted, bundle.Partial)
+			if bundle.Redacted {
+				printCaptureAliasNote(cmd.OutOrStdout(), bundle, podName)
 			}
 			return nil
 		},
@@ -127,7 +131,7 @@ func newCaptureCommand(collectorOptions collectorOptionsProvider) *cobra.Command
 	cmd.Flags().BoolVar(&includeHistory, "include-history", false, "include bounded recent history for the captured Pods or Node")
 	cmd.Flags().BoolVar(&includeTopology, "include-topology", false, "capture optional NUMA and HugeTLB evidence with schema 7; requires --node")
 	cmd.Flags().BoolVar(&includeVolumes, "volumes", false, "capture one Pod with volume evidence using schema 5; requires --pod and --namespace")
-	cmd.Flags().BoolVar(&includeSensitive, "include-sensitive", false, "include raw Node/Pod identities; deep Pod captures also include container IDs and cgroup paths")
+	cmd.Flags().BoolVar(&includeSensitive, "include-sensitive", false, "keep raw identities instead of redacting them: real names, UIDs and labels, and for deep Pod captures container IDs and cgroup paths")
 	cmd.Flags().BoolVar(&force, "force", false, "replace an existing output file")
 	cmd.Flags().IntVar(&schemaVersion, "schema-version", 0, "incident schema: 0 automatic; 1/2 deep Pod; 3 restricted; 4 Node; 5 volume Pod; 7 Node topology")
 	cmd.PreRunE = func(_ *cobra.Command, _ []string) error {
