@@ -1,0 +1,9 @@
+# Artifact Hub repository metadata for
+# oci://ghcr.io/danushkastanley/charts/kube-memlens.
+#
+# The repository ID alone earns the Verified publisher label. The optional
+# owners list is left out on purpose: Artifact Hub uses it only to claim a
+# repository from another account, and it would publish a contact email.
+#
+# docs/release-process.md says how and when this file is pushed.
+repositoryID: 8ae7f0de-9848-4bb0-8fd4-e7816baed061

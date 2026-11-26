@@ -36,6 +36,19 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
    kubectl memlens version
    ```
 
+   On macOS or Linux, [Homebrew](https://brew.sh) works too:
+
+   ```sh
+   brew install danushkastanley/tap/kubectl-memlens
+   ```
+
+   On Windows, use [Scoop](https://scoop.sh):
+
+   ```pwsh
+   scoop bucket add kubememlens https://github.com/danushkastanley/scoop-bucket
+   scoop install kubememlens/kubectl-memlens
+   ```
+
    Or install a release archive on macOS or Linux (Windows archives are on the
    [release page](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.5)):
 
@@ -50,7 +63,7 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
    ```
 
    Krew fetches the same release archive and checks its SHA-256 against the
-   Krew index. To check the signature and provenance as well,
+   Krew index; Homebrew and Scoop check it against their own manifests. To check the signature and provenance as well,
    [verify the download](#verify-a-download) of a release archive before
    installing it on a shared machine. `go install` is not supported because the
    Go module path differs from the repository name; use Krew, a release archive
