@@ -148,7 +148,7 @@ func (m appModel) dashboardPods(width, rows int) string {
 		risk := podRisk(pod, m.riskNow(), m.staleAfter())
 		row := tableRow([]string{
 			pod.PodName, pod.NodeName, memmodel.FormatCompactBytes(pod.Memory.TotalBytes),
-			presentation.limit, presentation.composition, presentation.signal,
+			podLimitCell(pod, widths[3], false), presentation.composition, presentation.signal,
 			risk.label + trendLabel(m.podTrends[podKey(pod.Namespace, pod.PodName)]), formatPodAge(pod),
 		}, widths, numericIndexes(2))
 		selected := index == viewport.selected
@@ -162,7 +162,7 @@ func (m appModel) dashboardPods(width, rows int) string {
 }
 
 func dashboardPodWidths(width int) []int {
-	fixed := []int{12, 8, 13, 10, 12, 6, 4}
+	fixed := []int{10, 8, 18, 7, 12, 6, 4}
 	used := 1 + 2*len(fixed)
 	for _, cellWidth := range fixed {
 		used += cellWidth

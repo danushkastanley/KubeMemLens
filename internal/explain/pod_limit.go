@@ -2,6 +2,7 @@ package explain
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/danushkastanley/kube-memlens/internal/api"
 	"github.com/danushkastanley/kube-memlens/internal/model"
@@ -22,6 +23,59 @@ func containerNearestLimit(containers []api.ContainerSnapshot) (api.ContainerSna
 		}
 	}
 	return nearest, found
+}
+
+// ContainerLimitUsage names a container and the share of its own memory limit
+// it uses, as a whole percent rounded the way the tables round it.
+type ContainerLimitUsage struct {
+	ContainerName string
+	Percent       int
+}
+
+// ClosestContainerToLimit returns the container using the largest share of its
+// own finite memory limit, when that tells the reader more than the Pod-level
+// figure: the Pod has no finite limit, or the container's rounded percentage
+// is higher than the Pod's. Containers whose limit is unknown or unlimited are
+// never candidates. Equal shares are settled by container name so the output
+// is deterministic.
+func ClosestContainerToLimit(pod api.PodSnapshot) (ContainerLimitUsage, bool) {
+	var closest api.ContainerSnapshot
+	found := false
+	for _, container := range pod.Containers {
+		// A figure without a name cannot be attributed in any table.
+		if container.ContainerName == "" || !finiteLimit(container.Memory) {
+			continue
+		}
+		if !found || closerToLimit(container, closest) {
+			closest, found = container, true
+		}
+	}
+	if !found {
+		return ContainerLimitUsage{}, false
+	}
+	usage := ContainerLimitUsage{ContainerName: closest.ContainerName, Percent: wholePercent(closest.Memory)}
+	if finiteLimit(pod.Memory) && usage.Percent <= wholePercent(pod.Memory) {
+		return ContainerLimitUsage{}, false
+	}
+	return usage, true
+}
+
+func closerToLimit(candidate, current api.ContainerSnapshot) bool {
+	candidateRatio, currentRatio := candidate.Memory.LimitUsageRatio(), current.Memory.LimitUsageRatio()
+	if candidateRatio != currentRatio {
+		return candidateRatio > currentRatio
+	}
+	return candidate.ContainerName < current.ContainerName
+}
+
+func finiteLimit(memory model.MemoryBreakdown) bool {
+	return memory.MaxKnown && !memory.MaxUnlimited && memory.MaxBytes > 0
+}
+
+// wholePercent rounds half to even, which is what "%.0f" prints, so the
+// comparison matches the percentages a reader sees.
+func wholePercent(memory model.MemoryBreakdown) int {
+	return int(math.RoundToEven(memory.LimitUsageRatio() * 100))
 }
 
 func containerLimitRisk(container api.ContainerSnapshot, pod model.MemoryBreakdown) Result {

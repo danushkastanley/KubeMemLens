@@ -130,7 +130,7 @@ func printWorkloadExplanation(w interface{ Write([]byte) (int, error) }, workloa
 	fmt.Fprintln(tw, "POD\tNODE\tTOTAL\tLIMIT\tANON\tCACHE\tSHMEM\tOTHER\tDIAGNOSIS")
 	for _, pod := range workload.Pods {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
-			pod.PodName, pod.NodeName, model.FormatCompactBytes(pod.Memory.TotalBytes), limitUsage(pod.Memory),
+			pod.PodName, pod.NodeName, model.FormatCompactBytes(pod.Memory.TotalBytes), podLimitUsage(pod),
 			model.FormatCompactBytes(pod.Memory.RSSBytes()), model.FormatCompactBytes(pod.Memory.CacheBytes()),
 			model.FormatCompactBytes(pod.Memory.ShmemBytes), model.FormatCompactBytes(pod.Memory.ResidualBytes()),
 			explain.AnalyzePod(pod).Diagnosis,
