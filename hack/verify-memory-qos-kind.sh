@@ -91,7 +91,7 @@ wait_for_qos() {
   jq '[.containers[]? | {name,memoryQoS}]' "${work_dir}/explanation.json" >&2 || true
   return 1
 }
-wait_for_qos '.schemaVersion == 3 and (.containers | length) == 2 and all(.containers[]; .memoryQoS.state == "observed") and any(.containers[]; .name == "shared" and .memoryQoS.throttleHigh.state == "unlimited" and .memoryQoS.podConfiguredLimit.bytes == 268435456)'
+wait_for_qos '.schemaVersion == 6 and (.containers | length) == 2 and all(.containers[]; .memoryQoS.state == "observed") and any(.containers[]; .name == "shared" and .memoryQoS.throttleHigh.state == "unlimited" and .memoryQoS.podConfiguredLimit.bytes == 268435456)'
 "${cli}" "${cli_args[@]}" capture -n "${namespace}" --pod qos-budget -o "${work_dir}/before.json" >/dev/null
 crossed=false
 if [ "${profile}" = throttling ]; then

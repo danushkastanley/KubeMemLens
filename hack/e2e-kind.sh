@@ -332,7 +332,7 @@ grep -q '^Live comparison:' "${work_dir}/compare-live.txt"
 evidence_window_ok=false
 for _ in $(seq 1 12); do
   "${cli}" "${cli_args[@]}" explain pod "${collector_pod}" -n "${namespace}" --output json > "${work_dir}/explain.json"
-  if jq -e '.schemaVersion == 3 and (.finding.severity | length > 0) and
+  if jq -e '.schemaVersion == 6 and (.finding.severity | length > 0) and
     (.finding.confidence | length > 0) and (.finding.caveats | length > 0) and
     (.finding.evidenceWindow.observationStart != null) and
     .finding.evidenceWindow.counterDeltaKnown == true' "${work_dir}/explain.json" >/dev/null; then
@@ -342,7 +342,7 @@ for _ in $(seq 1 12); do
   sleep 2
 done
 [ "${evidence_window_ok}" = true ] || {
-  echo "Pod explanation did not match schema 3 with a counter-delta evidence window" >&2
+  echo "Pod explanation did not match schema 6 with a counter-delta evidence window" >&2
   exit 1
 }
 "${cli}" "${cli_args[@]}" explain pod "${collector_pod}" -n "${namespace}" > "${work_dir}/explain.txt"
