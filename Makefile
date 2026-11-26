@@ -1,4 +1,4 @@
-.PHONY: check-incident-session-contract check-trace-release check-recommendation-evaluation check-replica-contract check-memory-history-contract check-trace-preflight check-trace-worker test coverage test-race test-race-coverage build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract check-community-settings vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
+.PHONY: check-incident-session-contract check-trace-release check-recommendation-evaluation check-replica-contract check-memory-history-contract check-trace-preflight check-trace-qualification check-trace-worker test coverage test-race test-race-coverage build run-sample-top run-sample-explain fmt fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract check-community-settings vet vuln check e2e-kind verify-auth-architecture-kind verify-authenticated-ingestion-kind verify-tenant-scoped-reads-kind verify-tenant-isolation-kind verify-scale-capacity qualify-cluster soak-live-density
 
 VERSION ?= dev
 COMMIT ?= unknown
@@ -102,20 +102,32 @@ check-community-settings:
 vuln:
 	go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 
+# Gates every pull request. Vet, the vulnerability scan and both cross-builds
+# still cover every package, harnesses included; hack/trace_packages.py names
+# the packages whose tests run here. test_pending_path.py stays here because it
+# compiles the shipped programmes/filecache/files.bpf.c.
 check-trace-preflight:
 	go -C prototype/trace mod verify
-	go -C prototype/trace test -race ./...
+	python3 hack/trace_packages.py check
+	go -C prototype/trace test -race $$(python3 hack/trace_packages.py preflight)
 	go -C prototype/trace vet ./...
 	go -C prototype/trace run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go -C prototype/trace build ./...
 	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C prototype/trace build ./...
 	python3 -m unittest discover -s prototype/trace/kubernetes -p 'test_*.py'
+	python3 prototype/trace/qualification/filecache/test_pending_path.py
+
+# The qualification harnesses (ADR 0031): run by
+# .github/workflows/trace-qualification.yml when their paths change and weekly,
+# not on every pull request.
+check-trace-qualification:
+	python3 hack/trace_packages.py check
+	go -C prototype/trace test -race $$(python3 hack/trace_packages.py qualification)
 	python3 -m unittest discover -s prototype/trace/qualification/isolation -p 'test_*.py'
 	python3 -m unittest discover -s hack/ebpf-qualification -p 'test_*.py'
 	python3 -m unittest discover -s hack/ebpf-active-qualification -p 'test_*.py'
 	python3 -m unittest discover -s prototype/trace/qualification/filecache -p 'test_*observation.py'
 	python3 -m unittest discover -s prototype/trace/qualification/filecache -p 'test_*series.py'
-	python3 prototype/trace/qualification/filecache/test_pending_path.py
 
 check-trace-worker:
 	python3 -m unittest discover -s prototype/trace/worker -p 'test_*.py'
@@ -129,7 +141,7 @@ check-trace-worker:
 
 # The full local gate: what CI runs on a pull request, apart from the kind
 # lanes. The Go tests run once, with the race detector and coverage together.
-check: check-incident-session-contract check-memory-history-contract check-replica-contract check-trace-release check-trace-chart-contract check-recommendation-evaluation check-trace-preflight check-trace-worker fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test-race-coverage vet vuln build
+check: check-incident-session-contract check-memory-history-contract check-replica-contract check-trace-release check-trace-chart-contract check-recommendation-evaluation check-trace-preflight check-trace-qualification check-trace-worker fmt-check check-support-contract check-scale-contract check-provider-contract check-terminal-contract check-release-contract check-community-contract test-race-coverage vet vuln build
 
 e2e-kind:
 	hack/e2e-kind.sh
