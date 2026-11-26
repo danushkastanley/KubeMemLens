@@ -28,7 +28,15 @@ kubectl krew install memlens
 kubectl memlens version
 ```
 
-Without Krew, install a release archive as described in the
+On Windows, with [Scoop](https://scoop.sh):
+
+```pwsh
+scoop bucket add kubememlens https://github.com/danushkastanley/scoop-bucket
+scoop install kubememlens/kubectl-memlens
+kubectl memlens version
+```
+
+Without Krew or Scoop, install a release archive as described in the
 [README quick start](../README.md#quick-start), or build from source.
 
 ## Build the CLI from source
@@ -86,6 +94,10 @@ helm upgrade --install kube-memlens \
   --namespace kube-memlens \
   --create-namespace
 ```
+
+The chart is listed on
+[Artifact Hub](https://artifacthub.io/packages/helm/kubememlens/kube-memlens),
+which reads the same OCI repository.
 
 By default, use the Helm CLI or a tool that runs `helm upgrade` against the
 cluster. With the default `extensionTLS.source=chart`, rendering the chart

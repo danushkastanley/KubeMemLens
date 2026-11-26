@@ -201,6 +201,27 @@ After publishing, confirm that the workflow run succeeded and that the pull requ
 
 The workflow runs from the released tag, so it first applies to the first stable release tagged after it reached `main`.
 
-For Artifact Hub, register one Helm OCI repository at `oci://ghcr.io/danushkastanley/charts/kube-memlens`. Artifact Hub then supplies the repository ID. Render `deploy/artifacthub/artifacthub-repo.yml.tmpl` with that ID and the maintainer's public Artifact Hub account email, review the public contact, and push it as the registry's special `artifacthub.io` metadata tag using the media types in the official Artifact Hub OCI instructions. The chart package includes a chart-local README and version-aligned `artifacthub.io/images` metadata so the indexed package can resolve its installation documentation and release image.
+### Artifact Hub
+
+The chart is listed at [artifacthub.io/packages/helm/kubememlens/kube-memlens](https://artifacthub.io/packages/helm/kubememlens/kube-memlens). The Artifact Hub repository `kubememlens` was registered on 26 November 2026 against `oci://ghcr.io/danushkastanley/charts/kube-memlens`, under the maintainer's Artifact Hub account. Artifact Hub reads every version tag from that registry path on its own schedule, so a release needs no extra step.
+
+The Verified publisher label comes from [`deploy/artifacthub/artifacthub-repo.yml`](../deploy/artifacthub/artifacthub-repo.yml), which holds only the repository ID. It was pushed once to the registry's special `artifacthub.io` tag and does not need pushing again unless the ID changes. To push it, log in to `ghcr.io` with package write access and run [oras](https://oras.land) from `deploy/artifacthub`, with the media types from the [Artifact Hub OCI instructions](https://artifacthub.io/docs/topics/repositories/helm-charts/):
+
+```sh
+oras push \
+  ghcr.io/danushkastanley/charts/kube-memlens:artifacthub.io \
+  --config /dev/null:application/vnd.cncf.artifacthub.config.v1+yaml \
+  artifacthub-repo.yml:application/vnd.cncf.artifacthub.repository-metadata.layer.v1.yaml
+```
+
+The file has no `owners` list. Artifact Hub uses that list only to claim a repository from another account, and it would publish a contact email. The chart package includes a chart-local README and version-aligned `artifacthub.io/images` metadata so the indexed package can resolve its installation documentation and release image.
+
+### Scoop bucket
+
+Windows users can install the plugin from the Scoop bucket [danushkastanley/scoop-bucket](https://github.com/danushkastanley/scoop-bucket). A release needs no step here either: the bucket's `Excavator` workflow checks for a new stable release every four hours and rewrites its manifest with the new version, the two Windows archive addresses and their hashes from that release's `checksums.txt`. It uses only the bucket repository's own workflow token; this repository holds no credential for it.
+
+The bucket's `Install test` workflow installs the plugin on a Windows runner and fails if a forced update does not rebuild the committed manifest. A change to the Windows archive names or to the format of `checksums.txt` therefore breaks that test, not users. After publishing, confirm that the bucket's manifest moved to the new version within a few hours.
+
+### Published artefacts are never replaced
 
 Do not replace artefacts for an existing version. The workflow has no `--clobber` or post-creation upload path and stops when any release, image tag or chart version already exists. A draft can be created only after signed packages pass clean-consumer verification. GitHub draft creation starts with the title `INCOMPLETE publication`; the workflow changes it to the final version only after every asset upload succeeds. Cancellation or a failed API call therefore cannot leave a normal-looking partial draft. Any package published before an earlier failure reserves that version; inspect the external state and fix forward with a new version. If a release is defective, document the issue, mark it appropriately, and provide an explicit Helm rollback revision or prior exact version. Revoke or remove a compromised artefact only as part of a documented security response.
