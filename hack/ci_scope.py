@@ -18,9 +18,21 @@ EXACT = {"Dockerfile", "go.mod", "go.sum", ".github/workflows/ci.yml",
 # The chart README ships in the chart package but changes no rendered object.
 IGNORED = {"charts/kube-memlens/README.md"}
 
+# Opt-in kind verifiers that no CI lane runs, so the verify-*-kind.sh pattern
+# must not match them: starting every lane would test nothing they changed.
+# Each maps to the names a workflow would have to mention to run it: the
+# script or make target, and the hack/e2e-kind.sh flag that gates it.
+# hack/test_ci_scope.py fails when a workflow mentions one; remove the entry
+# then, so that a change to the script runs the lanes again.
+OPT_IN_VERIFIERS = {
+    "hack/verify-evidence-discovery-kind.sh": ("verify-evidence-discovery-kind",
+                                               "E2E_RUN_EVIDENCE_DISCOVERY_SMOKE"),
+    "hack/verify-auth-architecture-kind.sh": ("verify-auth-architecture-kind",),
+}
+
 
 def needs_kind(paths):
-    return any(path not in IGNORED
+    return any(path not in IGNORED and path not in OPT_IN_VERIFIERS
                and (path in EXACT or path.startswith(PREFIXES)
                     or (Path(path).parent == Path("hack")
                         and fnmatch.fnmatchcase(Path(path).name, "verify-*-kind.sh")))
