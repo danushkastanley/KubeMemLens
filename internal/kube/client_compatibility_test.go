@@ -64,7 +64,7 @@ func TestOlderPodResponsesPreserveResourceAvailability(t *testing.T) {
 			if pod.Spec.Resources != nil || pod.Status.Resources != nil || pod.Status.VolumeHealth != nil {
 				t.Fatal("absent Pod budget, allocated resources or volume health became reported")
 			}
-			ref, ok := BuildPodIndexFromPods(pods).Lookup("abcdef1234567890", "")
+			ref, ok := BuildPodIndexFromPods(pods).Lookup("abcdef1234567890")
 			if !ok || ref.Namespace != "legacy" || !ref.Running {
 				t.Fatalf("legacy Pod did not survive the client/mapping boundary: %+v", ref)
 			}

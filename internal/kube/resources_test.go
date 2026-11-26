@@ -53,7 +53,7 @@ func TestPodResourceContextSeparatesConfiguredAllocatedAndApplied(t *testing.T) 
 	pod.Spec.Resources, pod.Status.Resources = &configured, &applied
 	pod.Status.AllocatedResources = configured.Requests
 	pod.Status.ContainerStatuses[0].Resources = &applied
-	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("id-app", "")
+	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("id-app")
 	if !ok {
 		t.Fatal("Pod mapping failed")
 	}
@@ -175,7 +175,7 @@ func TestPodResourceInformerUpdatesWithoutAgentRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
-		ref, ok := cache.Index().Lookup("id-app", "")
+		ref, ok := cache.Index().Lookup("id-app")
 		return ok && ref.Context.Resources.Pod.Configured.Limit.Bytes == 512<<20 &&
 			ref.Context.Resources.Pod.Generation == 4 && ref.Context.Resources.Pod.Pending.State == model.ResizeDeferred, nil
 	}); err != nil {

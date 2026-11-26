@@ -218,7 +218,9 @@ func ContainerRuntime(raw string) string {
 	return "unknown"
 }
 
-func (idx PodIndex) Lookup(containerID string, podUID string) (PodRef, bool) {
+// Lookup maps a cgroup's container ID to its container. There is no fallback
+// by Pod UID: the cgroup walker only reports cgroups that carry a container ID.
+func (idx PodIndex) Lookup(containerID string) (PodRef, bool) {
 	normalizedID := NormalizeContainerID(containerID)
 	if normalizedID != "" {
 		if ref, ok := idx.ByContainerID[normalizedID]; ok {
@@ -227,14 +229,6 @@ func (idx PodIndex) Lookup(containerID string, podUID string) (PodRef, bool) {
 
 		if ref, ok := idx.lookupByPrefix(normalizedID); ok {
 			return ref, true
-		}
-	}
-
-	normalizedPodUID := normalizePodUID(podUID)
-	if normalizedID == "" && normalizedPodUID != "" {
-		refs := idx.ByPodUID[normalizedPodUID]
-		if len(refs) == 1 {
-			return refs[0], true
 		}
 	}
 

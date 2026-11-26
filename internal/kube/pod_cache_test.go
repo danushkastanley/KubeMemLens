@@ -36,10 +36,10 @@ func TestPodCacheFiltersNodeAndTracksWatchUpdates(t *testing.T) {
 	if podCache.PodCount() != 1 {
 		t.Fatalf("PodCount = %d, want 1", podCache.PodCount())
 	}
-	if ref, ok := podCache.Index().Lookup("id-a", ""); !ok || ref.PodName != "pod-a" {
+	if ref, ok := podCache.Index().Lookup("id-a"); !ok || ref.PodName != "pod-a" {
 		t.Fatalf("node-a lookup failed: %#v ok=%v", ref, ok)
 	}
-	if _, ok := podCache.Index().Lookup("id-b", ""); ok {
+	if _, ok := podCache.Index().Lookup("id-b"); ok {
 		t.Fatal("cache included pod from node-b")
 	}
 
@@ -47,7 +47,7 @@ func TestPodCacheFiltersNodeAndTracksWatchUpdates(t *testing.T) {
 		t.Fatalf("create pod: %v", err)
 	}
 	if err := wait.PollUntilContextTimeout(ctx, 10*time.Millisecond, 5*time.Second, true, func(context.Context) (bool, error) {
-		_, ok := podCache.Index().Lookup("id-c", "")
+		_, ok := podCache.Index().Lookup("id-c")
 		return ok, nil
 	}); err != nil {
 		t.Fatalf("watch update did not reach cache: %v", err)

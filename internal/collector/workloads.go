@@ -8,9 +8,5 @@ import (
 )
 
 func (s *Store) ListWorkloads(now time.Time, ttl time.Duration) []api.WorkloadSnapshot {
-	return aggregateWorkloads(s.ListPods(now, ttl))
-}
-
-func aggregateWorkloads(pods []api.PodSnapshot) []api.WorkloadSnapshot {
-	return aggregate.Workloads(pods)
+	return aggregate.Workloads(s.ListPods(now, ttl))
 }

@@ -28,10 +28,12 @@ func TestMaximumCronJobContextResolutionSequence(t *testing.T) {
 	if err != nil {
 		t.Fatal("initial selection", err)
 	}
+	acquisitionStart := time.Now()
 	changes, err := f.provider.Query(ctx, selected, f.query)
 	if err != nil {
 		t.Fatal("marker acquisition", err)
 	}
+	assertWithinMarkerPhaseBudget(t, "maximum CronJob marker acquisition", time.Since(acquisitionStart))
 	current, err := resolver.Resolve(ctx, f.selection.Request)
 	if err != nil {
 		t.Fatal("selection revalidation", err)
@@ -39,9 +41,11 @@ func TestMaximumCronJobContextResolutionSequence(t *testing.T) {
 	if selected.UID != current.UID || selected.Revision != current.Revision || !slices.Equal(selected.Targets, current.Targets) {
 		t.Fatal("stable cohort changed between phases")
 	}
+	revalidationStart := time.Now()
 	if err := f.provider.Revalidate(ctx, changes); err != nil {
 		t.Fatal("marker revalidation", err)
 	}
+	assertWithinMarkerPhaseBudget(t, "maximum CronJob marker revalidation", time.Since(revalidationStart))
 	if len(current.Targets) != 16 {
 		t.Fatalf("targets=%d, want 16", len(current.Targets))
 	}

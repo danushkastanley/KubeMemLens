@@ -163,19 +163,38 @@ func TestCollectorMetricsIncludeIngestionOutcomes(t *testing.T) {
 	}
 }
 
-func TestSnapshotEndpointRejectsUnsupportedSchema(t *testing.T) {
+func TestSnapshotEndpointRejectsInvalidSnapshotWithReason(t *testing.T) {
 	now := time.Now().UTC()
-	rec := postSnapshot(t, NewHandler(NewStore(), time.Minute, func(string, ...any) {}), api.AgentSnapshot{
-		SchemaVersion: api.CurrentSnapshotSchemaVersion + 1,
-		NodeName:      "node-a",
-		CapturedAt:    now,
-	})
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	tests := map[string]struct {
+		mutate func(*api.AgentSnapshot)
+		reason string
+	}{
+		"unsupported schema": {mutate: func(snapshot *api.AgentSnapshot) {
+			snapshot.SchemaVersion++
+			snapshot.Containers = nil
+		}, reason: "unsupported schemaVersion"},
+		"invalid container context": {mutate: func(snapshot *api.AgentSnapshot) {
+			snapshot.Containers[0].Context.RestartCount = -1
+		}, reason: "restartCount"},
+		"excessive labels": {mutate: func(snapshot *api.AgentSnapshot) {
+			snapshot.Containers[0].Context.Labels = map[string]string{}
+			for i := 0; i < 65; i++ {
+				snapshot.Containers[0].Context.Labels[fmt.Sprintf("label-%d", i)] = "value"
+			}
+		}, reason: "labels exceeds"},
 	}
-	if !strings.Contains(rec.Body.String(), "unsupported schemaVersion") {
-		t.Fatalf("unexpected response: %s", rec.Body.String())
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			snapshot := api.AgentSnapshot{
+				SchemaVersion: api.CurrentSnapshotSchemaVersion, NodeName: "node-a", CapturedAt: now,
+				Containers: []api.ContainerSnapshot{container("default", "api", "app", "id-a", now, 100)},
+			}
+			test.mutate(&snapshot)
+			rec := postSnapshot(t, NewHandler(NewStore(), time.Minute, func(string, ...any) {}), snapshot)
+			if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), test.reason) {
+				t.Fatalf("unexpected response: status=%d body=%s", rec.Code, rec.Body.String())
+			}
+		})
 	}
 }
 
@@ -253,34 +272,34 @@ func TestSnapshotEndpointRefusesASecondSnapshotWithTheStoredCaptureTime(t *testi
 	}
 }
 
-func TestSnapshotEndpointRejectsOversizedPayload(t *testing.T) {
-	handler := NewHandlerWithOptions(NewStore(), HandlerOptions{
-		SnapshotTTL:      time.Minute,
-		MaxSnapshotBytes: 64,
-	}, func(string, ...any) {})
-	body := bytes.NewBufferString(`{"schemaVersion":1,"nodeName":"node-a","capturedAt":"2026-07-18T00:00:00Z","containers":[]}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", body)
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusRequestEntityTooLarge {
-		t.Fatalf("status = %d, want 413: %s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestSnapshotEndpointRejectsTrailingJSON(t *testing.T) {
+func TestSnapshotEndpointRejectsMalformedBody(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	body := bytes.NewBufferString(`{"schemaVersion":1,"nodeName":"node-a","capturedAt":"` + now + `","containers":[]} {}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", body)
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	NewHandler(NewStore(), time.Minute, func(string, ...any) {}).ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
+	tests := map[string]struct {
+		handler http.Handler
+		body    string
+		want    int
+	}{
+		"oversized payload": {
+			handler: NewHandlerWithOptions(NewStore(), HandlerOptions{SnapshotTTL: time.Minute, MaxSnapshotBytes: 64}, func(string, ...any) {}),
+			body:    `{"schemaVersion":1,"nodeName":"node-a","capturedAt":"2026-07-18T00:00:00Z","containers":[]}`,
+			want:    http.StatusRequestEntityTooLarge,
+		},
+		"trailing JSON": {
+			handler: NewHandler(NewStore(), time.Minute, func(string, ...any) {}),
+			body:    `{"schemaVersion":1,"nodeName":"node-a","capturedAt":"` + now + `","containers":[]} {}`,
+			want:    http.StatusBadRequest,
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/snapshots", bytes.NewBufferString(test.body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			test.handler.ServeHTTP(rec, req)
+			if rec.Code != test.want {
+				t.Fatalf("status = %d, want %d: %s", rec.Code, test.want, rec.Body.String())
+			}
+		})
 	}
 }
 
@@ -322,41 +341,6 @@ func TestSnapshotEndpointRejectsInvalidTimestampAndContainerCount(t *testing.T) 
 	}
 }
 
-func TestSnapshotEndpointRejectsInvalidContainerContext(t *testing.T) {
-	now := time.Now().UTC()
-	snapshot := api.AgentSnapshot{
-		SchemaVersion: api.CurrentSnapshotSchemaVersion,
-		NodeName:      "node-a",
-		CapturedAt:    now,
-		Containers: []api.ContainerSnapshot{
-			container("default", "api", "app", "id-a", now, 100),
-		},
-	}
-	snapshot.Containers[0].Context.RestartCount = -1
-	rec := postSnapshot(t, NewHandler(NewStore(), time.Minute, func(string, ...any) {}), snapshot)
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "restartCount") {
-		t.Fatalf("unexpected response: status=%d body=%s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestSnapshotEndpointRejectsExcessiveLabels(t *testing.T) {
-	now := time.Now().UTC()
-	snapshot := api.AgentSnapshot{
-		SchemaVersion: api.CurrentSnapshotSchemaVersion,
-		NodeName:      "node-a",
-		CapturedAt:    now,
-		Containers:    []api.ContainerSnapshot{container("default", "api", "app", "id-a", now, 100)},
-	}
-	snapshot.Containers[0].Context.Labels = map[string]string{}
-	for i := 0; i < 65; i++ {
-		snapshot.Containers[0].Context.Labels[fmt.Sprintf("label-%d", i)] = "value"
-	}
-	rec := postSnapshot(t, NewHandler(NewStore(), time.Minute, func(string, ...any) {}), snapshot)
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "labels exceeds") {
-		t.Fatalf("unexpected response: status=%d body=%s", rec.Code, rec.Body.String())
-	}
-}
-
 func TestMetricsEndpointReturnsMetrics(t *testing.T) {
 	now := time.Now().UTC()
 	store := NewStore()
@@ -379,26 +363,25 @@ func TestMetricsEndpointReturnsMetrics(t *testing.T) {
 	}
 }
 
-func TestMetricsEndpointWrongMethodReturns405(t *testing.T) {
-	req := httptest.NewRequest(http.MethodPost, "/metrics", nil)
-	rec := httptest.NewRecorder()
-	NewHandler(NewStore(), time.Minute, func(string, ...any) {}).ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("status = %d, want 405", rec.Code)
+func TestMetricsEndpointRefusesUnservedRequests(t *testing.T) {
+	disabled := metrics.DefaultOptions()
+	disabled.Enabled = false
+	tests := map[string]struct {
+		handler http.Handler
+		method  string
+		want    int
+	}{
+		"wrong method": {handler: NewHandler(NewStore(), time.Minute, func(string, ...any) {}), method: http.MethodPost, want: http.StatusMethodNotAllowed},
+		"disabled":     {handler: NewHandlerWithOptions(NewStore(), HandlerOptions{SnapshotTTL: time.Minute, Metrics: disabled}, func(string, ...any) {}), method: http.MethodGet, want: http.StatusNotFound},
 	}
-}
-
-func TestMetricsEndpointDisabledReturns404(t *testing.T) {
-	opts := metrics.DefaultOptions()
-	opts.Enabled = false
-
-	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
-	rec := httptest.NewRecorder()
-	NewHandlerWithOptions(NewStore(), HandlerOptions{SnapshotTTL: time.Minute, Metrics: opts}, func(string, ...any) {}).ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("status = %d, want 404", rec.Code)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			test.handler.ServeHTTP(rec, httptest.NewRequest(test.method, "/metrics", nil))
+			if rec.Code != test.want {
+				t.Fatalf("status = %d, want %d", rec.Code, test.want)
+			}
+		})
 	}
 }
 

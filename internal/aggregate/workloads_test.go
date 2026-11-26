@@ -1,4 +1,4 @@
-package collector
+package aggregate
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ func TestAggregateWorkloadsGroupsReplicasAndKeepsOutliers(t *testing.T) {
 		workloadPod("api-b", "Deployment", "api", 300),
 		workloadPod("worker-a", "StatefulSet", "worker", 50),
 	}
-	workloads := aggregateWorkloads(pods)
+	workloads := Workloads(pods)
 	if len(workloads) != 2 {
 		t.Fatalf("workloads = %d, want 2: %#v", len(workloads), workloads)
 	}
@@ -30,7 +30,7 @@ func TestAggregateWorkloadsGroupsReplicasAndKeepsOutliers(t *testing.T) {
 }
 
 func TestAggregateWorkloadsFallsBackToStandalonePod(t *testing.T) {
-	workloads := aggregateWorkloads([]api.PodSnapshot{{Namespace: "default", PodName: "debug", Memory: model.MemoryBreakdown{TotalBytes: 1}}})
+	workloads := Workloads([]api.PodSnapshot{{Namespace: "default", PodName: "debug", Memory: model.MemoryBreakdown{TotalBytes: 1}}})
 	if len(workloads) != 1 || workloads[0].Kind != "Pod" || workloads[0].Name != "debug" {
 		t.Fatalf("unexpected standalone Pod workload: %#v", workloads)
 	}
@@ -41,7 +41,7 @@ func TestAggregateWorkloadsDoesNotClaimPartialLimitOrSyntheticPeak(t *testing.T)
 	first.Memory.MaxKnown, first.Memory.MaxBytes = true, 200
 	first.Memory.PeakKnown, first.Memory.PeakBytes = true, 150
 	second := workloadPod("api-b", "Deployment", "api", 100)
-	workload := aggregateWorkloads([]api.PodSnapshot{first, second})[0]
+	workload := Workloads([]api.PodSnapshot{first, second})[0]
 	if workload.Memory.MaxKnown || workload.Memory.PeakKnown {
 		t.Fatalf("partial limit or synthetic peak reported: %#v", workload.Memory)
 	}

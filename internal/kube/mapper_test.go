@@ -46,7 +46,7 @@ func TestBuildPodIndexAndExactLookup(t *testing.T) {
 			State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
 	})})
 
-	ref, ok := idx.Lookup("abcdef1234567890", "")
+	ref, ok := idx.Lookup("abcdef1234567890")
 	if !ok {
 		t.Fatal("Lookup returned false")
 	}
@@ -110,7 +110,7 @@ func TestBuildPodIndexIncludesWorkloadContext(t *testing.T) {
 		{Name: "disk", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
 
-	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890", "")
+	ref, ok := BuildPodIndexFromPods([]corev1.Pod{pod}).Lookup("abcdef1234567890")
 	if !ok {
 		t.Fatal("Lookup returned false")
 	}
@@ -147,7 +147,7 @@ func TestLookupPrefix(t *testing.T) {
 		{Name: "app", ContainerID: "containerd://abcdef1234567890abcdef"},
 	})})
 
-	ref, ok := idx.Lookup("abcdef123456", "")
+	ref, ok := idx.Lookup("abcdef123456")
 	if !ok {
 		t.Fatal("Lookup returned false")
 	}
@@ -161,7 +161,7 @@ func TestLookupShortPrefixReturnsFalse(t *testing.T) {
 		{Name: "app", ContainerID: "containerd://abcdef1234567890abcdef"},
 	})})
 
-	if _, ok := idx.Lookup("abcdef", ""); ok {
+	if _, ok := idx.Lookup("abcdef"); ok {
 		t.Fatal("Lookup returned true for short prefix")
 	}
 }
@@ -176,30 +176,8 @@ func TestLookupAmbiguousPrefixReturnsFalse(t *testing.T) {
 		}),
 	})
 
-	if _, ok := idx.Lookup("abcdef123456", ""); ok {
+	if _, ok := idx.Lookup("abcdef123456"); ok {
 		t.Fatal("Lookup returned true for ambiguous prefix")
-	}
-}
-
-func TestLookupPodUIDFallbackOnlyWhenSafe(t *testing.T) {
-	idx := BuildPodIndexFromPods([]corev1.Pod{
-		podWithStatuses("pod-a", "uid-a", []corev1.ContainerStatus{
-			{Name: "app", ContainerID: "containerd://abcdef1234567890"},
-		}),
-		podWithStatuses("pod-b", "uid-b", []corev1.ContainerStatus{
-			{Name: "app", ContainerID: "containerd://bbbbbb1234567890"},
-			{Name: "sidecar", ContainerID: "containerd://cccccc1234567890"},
-		}),
-	})
-
-	if ref, ok := idx.Lookup("", "uid-a"); !ok || ref.PodName != "pod-a" {
-		t.Fatalf("safe UID fallback failed: %#v ok=%v", ref, ok)
-	}
-	if _, ok := idx.Lookup("", "uid-b"); ok {
-		t.Fatal("ambiguous UID fallback returned true")
-	}
-	if _, ok := idx.Lookup("unknown123456", "uid-a"); ok {
-		t.Fatal("unmatched container ID should not fall back to pod UID")
 	}
 }
 
@@ -221,7 +199,7 @@ func BenchmarkBuildPodIndexAndLookup(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				index := BuildPodIndexFromPods(pods)
 				for _, containerID := range containerIDs {
-					if _, ok := index.Lookup(containerID, ""); !ok {
+					if _, ok := index.Lookup(containerID); !ok {
 						b.Fatalf("Lookup(%s) returned false", containerID)
 					}
 				}

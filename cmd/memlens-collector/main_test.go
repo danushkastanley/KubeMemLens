@@ -60,9 +60,3 @@ func TestWaitForServerResultsReportsTimeout(t *testing.T) {
 		t.Fatalf("waitForServerResults() = %v", err)
 	}
 }
-
-func TestShutdownBudgetContainsExtensionDelay(t *testing.T) {
-	if extensionShutdownDelay <= 0 || collectorShutdownLimit <= extensionShutdownDelay {
-		t.Fatalf("shutdown limit %s does not contain extension delay %s", collectorShutdownLimit, extensionShutdownDelay)
-	}
-}

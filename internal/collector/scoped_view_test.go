@@ -176,55 +176,37 @@ func BenchmarkListContainersScopedAtConfiguredCapacity(b *testing.B) {
 	}
 }
 
+// BenchmarkContainerPageAtConfiguredCapacity pages a full store where every
+// container, or one in a hundred, is in the requested namespace.
 func BenchmarkContainerPageAtConfiguredCapacity(b *testing.B) {
-	now := time.Unix(1_800_000_000, 0).UTC()
-	containers := make([]api.ContainerSnapshot, DefaultStoreLimits().MaxContainers)
-	for index := range containers {
-		containers[index] = api.ContainerSnapshot{
-			Namespace: "target", PodName: fmt.Sprintf("pod-%06d", index), PodUID: fmt.Sprintf("uid-%06d", index),
-			ContainerName: "app", ContainerID: fmt.Sprintf("container-%06d", index), CapturedAt: now,
-		}
-	}
-	store := NewStore()
-	if _, err := store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: now, Containers: containers}); err != nil {
-		b.Fatalf("ReplaceNodeSnapshot: %v", err)
-	}
-	query := url.Values{"limit": {"500"}}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for range b.N {
-		page, err := store.PageContainersScoped(ReadScope{Namespace: "target"}, now, time.Minute, query, "containers:namespace:target")
-		if err != nil || len(page.Items) != 500 || page.Continue == "" {
-			b.Fatalf("page items=%d continue=%t err=%v", len(page.Items), page.Continue != "", err)
-		}
-	}
-}
-
-func BenchmarkContainerPageScopedAtConfiguredCapacity(b *testing.B) {
-	now := time.Unix(1_800_000_000, 0).UTC()
-	containers := make([]api.ContainerSnapshot, DefaultStoreLimits().MaxContainers)
-	for index := range containers {
-		namespace := "other"
-		if index%100 == 0 {
-			namespace = "target"
-		}
-		containers[index] = api.ContainerSnapshot{
-			Namespace: namespace, PodName: fmt.Sprintf("pod-%06d", index), PodUID: fmt.Sprintf("uid-%06d", index),
-			ContainerName: "app", ContainerID: fmt.Sprintf("container-%06d", index), CapturedAt: now,
-		}
-	}
-	store := NewStore()
-	if _, err := store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: now, Containers: containers}); err != nil {
-		b.Fatalf("ReplaceNodeSnapshot: %v", err)
-	}
-	query := url.Values{"limit": {"500"}}
-	b.ReportAllocs()
-	b.ResetTimer()
-	for range b.N {
-		page, err := store.PageContainersScoped(ReadScope{Namespace: "target"}, now, time.Minute, query, "containers:namespace:target")
-		if err != nil || len(page.Items) != 500 || page.Continue == "" {
-			b.Fatalf("page items=%d continue=%t err=%v", len(page.Items), page.Continue != "", err)
-		}
+	for _, inScopeEvery := range []int{1, 100} {
+		b.Run(fmt.Sprintf("one-in-%d-in-scope", inScopeEvery), func(b *testing.B) {
+			now := time.Unix(1_800_000_000, 0).UTC()
+			containers := make([]api.ContainerSnapshot, DefaultStoreLimits().MaxContainers)
+			for index := range containers {
+				namespace := "other"
+				if index%inScopeEvery == 0 {
+					namespace = "target"
+				}
+				containers[index] = api.ContainerSnapshot{
+					Namespace: namespace, PodName: fmt.Sprintf("pod-%06d", index), PodUID: fmt.Sprintf("uid-%06d", index),
+					ContainerName: "app", ContainerID: fmt.Sprintf("container-%06d", index), CapturedAt: now,
+				}
+			}
+			store := NewStore()
+			if _, err := store.ReplaceNodeSnapshot(api.AgentSnapshot{NodeName: "node-a", CapturedAt: now, Containers: containers}); err != nil {
+				b.Fatalf("ReplaceNodeSnapshot: %v", err)
+			}
+			query := url.Values{"limit": {"500"}}
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				page, err := store.PageContainersScoped(ReadScope{Namespace: "target"}, now, time.Minute, query, "containers:namespace:target")
+				if err != nil || len(page.Items) != 500 || page.Continue == "" {
+					b.Fatalf("page items=%d continue=%t err=%v", len(page.Items), page.Continue != "", err)
+				}
+			}
+		})
 	}
 }
 
