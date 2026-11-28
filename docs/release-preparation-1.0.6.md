@@ -59,8 +59,9 @@ The [changelog](../CHANGELOG.md) lists every user-visible change. In groups:
 
 There is no stored data to migrate and no chart change: the chart differs from
 `v1.0.5` only in its version and image tag, and the default render is still 33
-resources. The Go module files, the runtime Dockerfile, the release workflows
-and `deploy/krew/memlens.yaml.tmpl` are unchanged since `v1.0.5`.
+resources. The standard module's `go.mod` and `go.sum`, the runtime
+Dockerfile, the release workflows and `deploy/krew/memlens.yaml.tmpl` are
+unchanged since `v1.0.5`.
 
 Behaviour that scripts and people can depend on does change:
 
@@ -106,7 +107,9 @@ commit is named, they ran against this preparation branch.
   formatting, `govulncheck`, incident-session, memory-history, replica, trace
   release and chart, trace preflight and qualification, recommendation
   evaluation, support, scale, terminal, release and community targets passed.
-  Total statement coverage was 76.0%, against 75.0% for v1.0.5.
+  Total statement coverage was 76.0%, against 75.0% for v1.0.5. Two targets
+  did not pass in that run, `check-trace-worker` and `check-provider-contract`;
+  both are described below.
 - `check-trace-worker` did not pass locally: the optional worker's SDK imports
   Linux-only packages, so its race tests cannot build on macOS, as for v1.0.2
   to v1.0.5. The Linux `Trace worker checks` workflow passed on `52f48aa`.
@@ -134,11 +137,52 @@ commit is named, they ran against this preparation branch.
   v1.0.5. Vulnerabilities scored 9, listing only `GO-2026-5932`.
   Branch-Protection scored 3, unchanged.
 - `main` at `52f48aa` passed CI, CodeQL, Trace worker checks and Scorecard,
-  and the nightly fuzzing run of 27 November.
+  and the nightly fuzzing run of 27 November. That commit changed one ADR, so
+  CI skipped its kind lanes there. `5f202ab`, the last commit that changed
+  code, passed the Kubernetes 1.35.5, 1.36.1, density and CSI volume health
+  lanes on `main`; its two other 1.37.0 lanes were cancelled by the next merge
+  and had passed on its pull request (#447).
 - No `v1.0.6` tag, candidate tag or release exists.
 - `deploy/krew/memlens.yaml.tmpl` is unchanged since `v1.0.5`, so the Krew
   index pull request should change only the version, address and checksum
   lines.
+- `make check-provider-contract` passed on the first commit of this
+  preparation, `c52af4d`. It compares the chart with the checked-out commit,
+  so it fails on a tree with an uncommitted chart change, as it did in the
+  `make -k check` run above.
+- All 677 local links in 192 Markdown files, including anchors, resolve.
+- The full kind end-to-end run (`hack/e2e-kind.sh`, Kubernetes 1.37.0) passed
+  on `c52af4d`: install, then the agentless, authenticated ingestion,
+  tenant-scoped read, tenant isolation, resource metrics, MemoryQoS, Pod
+  resource, TUI and reliability smokes, then upgrade, rollback and uninstall.
+  The Pod resource smoke reported the Pod cgroup limit, the older live and
+  capture readers, mixed agent and collector versions and a collector rollback
+  as passing. Later commits in this preparation change this record only.
+- An upgrade from the published `v1.0.5` passed on a disposable kind cluster
+  at Kubernetes 1.37.0. The published chart and image were installed from
+  GHCR, upgraded to the chart and an image built from `c52af4d`, tested with
+  `helm test`, rolled back to revision 1 and uninstalled. At each of the three
+  stages `doctor --strict` passed with both the published `v1.0.5` CLI, taken
+  from the release archive after a checksum match, and the CLI built from
+  `c52af4d`. After the upgrade the new CLI read `limitSource: pod-cgroup` and
+  wrote explanation schema 6; the `v1.0.5` CLI read the same Pods with no new
+  field and wrote schema 3. After the rollback the agent logged no error.
+
+Not verified in this preparation:
+
+- The density benchmarks, the live density smoke and the CSI volume health
+  lane locally. CI ran them on `5f202ab`, and no code has changed since.
+- Kubernetes 1.35 and 1.36 locally. CI ran both kind lanes on `5f202ab`.
+- A `v1.0.6` agent that keeps posting to a `v1.0.5` collector for longer than
+  a rollout. The upgrade check used one node, and Helm replaced the agent and
+  the collector together in each direction. The Pod resource smoke covers the
+  mixed pairs with schema limits on one build, not with the published bytes.
+- `zswap` with a non-zero pool and a real `oom_group_kill`. A kind node reports
+  both as zero; tests cover non-zero values.
+- The Homebrew tap and the Scoop bucket updating themselves. Neither has yet
+  seen a new stable release.
+- The candidate, publication and promotion workflows for this version. They
+  run only on a tag.
 
 ## Remaining release gates
 
