@@ -1,7 +1,7 @@
 # Roadmap
 
 KubeMemLens explains Pod memory problems from kernel cgroup v2 evidence. The
-current release is `v1.0.5`. This page lists what is planned next and why; later
+current release is `v1.0.6`. This page lists what is planned next and why; later
 releases extend the same evidence model to CPU throttling and node pressure.
 
 Plans can change with feedback. Order matters more than dates, and a version
@@ -32,11 +32,12 @@ only ships when its evidence and release gates pass. To suggest a change, open a
 | `v1.5.0` | Right-sizing estimates with cost, using prices you supply | Adds a budget reason alongside the incident reason; prices are never fetched |
 
 Each planned release starts with a public design document and stays read-only.
-Patch releases carry fixes and dependency updates between them.
+Patch releases between them carry fixes, dependency updates and smaller
+additions that leave existing commands, schemas and chart values working.
 
 ## Already available
 
-Some requests are already covered by `v1.0.5`:
+Some requests are already covered by `v1.0.6`:
 
 - Machine-readable `explain`, `recommend`, `top`, `node`, `volumes` and
   `history trends` output; see the [explanation schema](explanation-schema.md).

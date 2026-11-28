@@ -74,6 +74,22 @@ vulnerability reporting is not a private support channel.
 
 ## Security update history
 
+### v1.0.6
+
+A redacted incident capture of schema 1 or 2, the default for
+`kubectl memlens capture`, kept the real namespace, Pod, node, container, owner
+and workload names while declaring `redacted: true`. The source replaces each
+name with a capture-local alias, as the newer incident schemas already did.
+Captures written by v1.0.5 and earlier still hold real names: check one before
+sharing it. `--include-sensitive` captures are unchanged. The
+[changelog](CHANGELOG.md) lists each change.
+
+No dependency of the released artefacts changes from v1.0.5. Installed v1.0.5
+binaries and its immutable artefacts are unchanged; deploy the new version
+only after its signed release is published. The
+[v1.0.6 preparation record](docs/release-preparation-1.0.6.md) tracks the fresh
+scans and remaining publication gates.
+
 ### v1.0.5
 
 The source uses Go 1.27.4 across all three modules and pinned builders to
