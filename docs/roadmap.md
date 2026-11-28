@@ -31,6 +31,9 @@ only ships when its evidence and release gates pass. To suggest a change, open a
 | `v1.4.0` | Node pressure from PSI, ranking the Pods that contribute most | Answers "which Pods are hurting this node?" without claiming more than the evidence shows |
 | `v1.5.0` | Right-sizing estimates with cost, using prices you supply | Adds a budget reason alongside the incident reason; prices are never fetched |
 
+A [2.0.0 plan](roadmap-2.0.md) proposes delivering these as one major release
+with an agent-facing workstream; it is not yet accepted.
+
 Each planned release starts with a public design document and stays read-only.
 Patch releases between them carry fixes, dependency updates and smaller
 additions that leave existing commands, schemas and chart values working.
