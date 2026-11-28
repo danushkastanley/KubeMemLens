@@ -2,6 +2,67 @@
 
 All notable changes are documented here. KubeMemLens follows [Semantic Versioning](https://semver.org/).
 
+## 1.0.6 - 2026-11-28
+
+Patch release. Candidate and publication gates are recorded in the
+[release preparation record](docs/release-preparation-1.0.6.md). It reads each
+Pod's own cgroup under snapshot schema 8 and aliases the names in a default
+incident capture. Read "Changed" before upgrading: some output that scripts may
+read is different.
+
+### Security
+
+- Alias the names in a redacted incident capture. A default `kubectl memlens capture` (incident schemas 1 and 2) removed UIDs, container IDs, cgroup paths and labels, but kept the real namespace, Pod, node, container, owner and workload names while declaring `redacted: true`. Someone attaching a default capture to a public issue could publish names they believed were removed. Each name is now a capture-local alias such as `namespace-1/pod-1`, as in incident schemas 5 to 7, and the runtime class name and memory record names are removed. `--include-sensitive` is unchanged. Captures written by earlier versions still hold real names. Restricted incidents (schema 3) keep display names, as before.
+
+### Changed
+
+- A Pod's limit is the Pod cgroup's own `memory.max` when that is finite, measured against the Pod cgroup's `memory.current`. It was the sum of the container limits, which is wrong for a Pod that uses Kubernetes pod-level resources: a Pod limited to 96Mi with one 32Mi container read 128Mi. Without a finite Pod cgroup limit the container sum is used as before. For a Pod whose containers are all limited the limit is the same, and the percentage now includes the sandbox and can be slightly higher. Container, workload and namespace rows are unchanged.
+- `explain -o json` writes explanation schema 6 for a document that carries Pod cgroup, zswap or `oom_group_kill` evidence; a document without them stays schema 3. With 1.0.6 agents nearly every Pod has a Pod cgroup, so a script that checks `schemaVersion == 3` needs to accept 6.
+- A redacted capture is replayed and compared by alias, for example `--pod namespace-1/pod-1`. `capture` prints the alias to use, and `replay` and `compare` list the aliases when a selector does not match. Aliases are numbered separately in each file, so `compare` prints a caveat.
+- The LIMIT cell of a Pod table can name a container and so contain a space, as in `288Mi (app 95%)`. Scripts should read `-o json` or `-o yaml`. In the TUI the LIMIT column is wider, other columns give up the space, and the gauge bar is left out of a cell that names a container.
+- The TUI Pod table's DIAGNOSIS cell shows the Pod analysis, as `top pods` and the detail pane already did. A Pod with a recent OOM kill, node pressure or a container at its own limit now reads `oom-risk`, `memory-pressure` or `limit-risk` there.
+- The agent publishes a cgroup v1 node with no containers and counts the scan as a success; it used to fail every scan, so the node showed only as missing. `doctor` fails its `cgroup mode` check for such a node and names the cause. See "Added".
+- `status` reads the node list as well. A caller who cannot list nodes gets `cgroup version: not checked; node status could not be read` and the rest of the report as before.
+- The collector's `/api/v1/namespaces` read takes the schema header and refuses an invalid one with `400`, like the other reads.
+
+### Added
+
+- Snapshot schema 8. The agent reads each Pod cgroup once per scan (`memory.max`, `memory.current`, and `oom`, `oom_kill` and `max` from `memory.events.local`) and keeps `zswap`, `zswapped` and `oom_group_kill`, which it parsed and dropped before. No chart value, RBAC rule or host mount changes. Agents, collectors and CLIs negotiate the schema, so a 1.0.5 component keeps working beside a 1.0.6 one; with a 1.0.5 agent or collector a Pod keeps the container-sum limit. [ADR 0032](docs/adr/0032-observe-the-pod-cgroup-under-snapshot-schema-8.md) records the decision and the mixed-version behaviour.
+- Diagnosis from the Pod cgroup: `limit-risk` when Pod cgroup usage is near its own `memory.max`, and `oom-risk` when the Pod cgroup records an OOM at its own limit. Neither was visible from the containers alone.
+- `explain pod` prints the limit source and the Pod cgroup's charge, limit and events. Zswap appears beside swap, and `oom_group_kill` beside `oom_kill`, only when the kernel reports them.
+- `top pods -o json`: `limitSource` (`pod-cgroup` or `container-sum`), and `limitClosestContainer` with `limitClosestContainerPercent` when a container is closer to its own limit than the Pod figure shows.
+- The container closest to its own limit, in the LIMIT cell of `top pods`, `explain workload`, incident replay tables and the TUI, and as `Closest container: app at 95% of its limit` in the TUI detail pane. A Pod at 11% of its summed limit can hold a container at 95% of its own.
+- Metric series, each only when the value is known: `type="pod_cgroup_current"`, `"pod_cgroup_max"`, `"zswap"` and `"zswapped"`; `event="pod_cgroup_oom"`, `"pod_cgroup_oom_kill"`, `"pod_cgroup_max"`, `"oom_group_kill"` and `"local_oom_group_kill"`, with their `_delta` forms. The Pod `type="max"` series still means the container sum. See [metrics](docs/metrics.md).
+- A cgroup v1 sentence in `doctor` and `status`: `1 of 2 reporting nodes use cgroup v1; KubeMemLens reads cgroup v2 only, so those nodes have no container memory evidence (see docs/compatibility.md)`. The agent logs the version once per node, not on every scan.
+- A notice for an unknown TUI filter value, for example `Unknown filter severity:warn. Use info, medium, high or critical.` The token is not applied and the rest of the query still is. The README lists the accepted values.
+- A `collector history` line in `doctor`. Until the collector has received 15 minutes of snapshots it names the start time and says that nothing from before then is kept; after that it reads `collector has run since <time>`. The line always passes. It is stage 1 of [ADR 0033](docs/adr/0033-collector-state-across-restarts.md).
+
+### Fixed
+
+- Stop applying a TUI filter value the interface does not know. `severity:warn` emptied the table, `pressure:high` showed the Pods without pressure, and `state:old` did nothing, each without a word.
+- Match the TUI text filter against the diagnosis the row shows. Typing `oom-risk` missed a Pod flagged through a recent OOMKilled termination.
+
+### Trace extension
+
+The trace extension is built and installed separately and is in no release artefact.
+
+- Rename `prototype/trace` to `extensions/trace`. The two module paths become `github.com/danushkastanley/kube-memlens/extensions/trace` and `.../extensions/trace/worker`. This is step 4 of [ADR 0031](docs/adr/0031-keep-the-trace-extension-as-a-separately-built-extension.md); the ADR also records that its test-trimming step was dropped.
+- Build the local trace image again. `docker build -f extensions/trace/Dockerfile .` had failed since 1 October 2026 because the Dockerfile did not copy `internal/kubeprincipal`. A test now fails for any root-module package the build needs and the Dockerfile does not copy. The release image was not affected.
+- Update `golang.org/x/sys` to 0.50.0, `golang.org/x/net` to 0.63.0 and `go.yaml.in/yaml/v2` to 2.4.5 in the trace modules.
+
+### Dependencies
+
+- No Go module, builder image, runtime image or chart dependency of the released artefacts changes.
+- Update the pinned GitHub Action `github/codeql-action` to 4.39.4.
+- Update `csi-node-driver-registrar` to 2.18.1 in the CSI fixture and the frozen volume qualification profile, and the `golang` and `busybox` digests in test fixtures.
+- Refresh five package pins in the Linux terminal qualification image, which no longer built. Its Ubuntu 24.04 base and every terminal version in the compatibility claim are unchanged.
+
+### Documentation
+
+- Record the Artifact Hub listing, the Homebrew tap and the Scoop bucket in the README, the installation guide and the release process, and state that published artefacts are never replaced.
+- [ADR 0033](docs/adr/0033-collector-state-across-restarts.md): how collector evidence should survive a collector restart and a Pod replacement, and what is implemented so far.
+- Say what a default capture holds in the security model, the threat model and the tenant-isolation runbook.
+
 ## 1.0.5 - 2026-11-25
 
 Patch release. Candidate and publication gates are recorded in the

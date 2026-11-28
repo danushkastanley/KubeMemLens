@@ -2,22 +2,24 @@
 
 KubeMemLens releases are tag-driven but created as GitHub drafts for maintainer review.
 
-## v1.0.5 preparation
+## v1.0.6 preparation
 
-The [v1.0.5 preparation record](release-preparation-1.0.5.md) proposes
-`v1.0.5-rc.1` followed by exact-byte promotion to `v1.0.5`. It carries the
-fixes from the November 2026 codebase audit, the Go 1.27.4 update, scheduled
-serving-certificate rotation and the changed defaults listed in the changelog. It would be the first
-stable release published with the Krew index workflow in place. Preparation
-does not declare either tag or release published and does not authorise
-workflow dispatch or package publication. Exact-tag approval, independent
-environment approval and immutable artefact verification remain required. The
-v1.0.3-only adopter exception does not automatically apply to v1.0.5; record
-its promotion decision separately.
+The [v1.0.6 preparation record](release-preparation-1.0.6.md) proposes
+`v1.0.6-rc.1` followed by exact-byte promotion to `v1.0.6`. It carries the Pod
+cgroup evidence under snapshot schema 8, aliased names in default incident
+captures and the other changes listed in the changelog. It would be the first
+stable release after the Homebrew tap and the Scoop bucket were set up, so the
+first on which either updates itself. Preparation does not declare either tag
+or release published and does not authorise workflow dispatch or package
+publication. Exact-tag approval, independent environment approval and
+immutable artefact verification remain required. The v1.0.3-only adopter
+exception does not automatically apply to v1.0.6; record its promotion
+decision separately.
 
-The [v1.0.4](release-preparation-1.0.4.md), [v1.0.3](release-preparation-1.0.3.md),
-[v1.0.2](release-preparation-1.0.2.md) and [v1.0.1](release-preparation-1.0.1.md)
-preparation records remain historical.
+The [v1.0.5](release-preparation-1.0.5.md), [v1.0.4](release-preparation-1.0.4.md),
+[v1.0.3](release-preparation-1.0.3.md), [v1.0.2](release-preparation-1.0.2.md)
+and [v1.0.1](release-preparation-1.0.1.md) preparation records remain
+historical.
 
 ## v1.0.0 maintainer decision — 6 October 2026
 

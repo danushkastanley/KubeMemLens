@@ -50,10 +50,10 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
    ```
 
    Or install a release archive on macOS or Linux (Windows archives are on the
-   [release page](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.5)):
+   [release page](https://github.com/danushkastanley/KubeMemLens/releases/tag/v1.0.6)):
 
    ```sh
-   VERSION=1.0.5
+   VERSION=1.0.6
    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
    ARCH=$(uname -m | sed -e 's/x86_64/amd64/' -e 's/aarch64/arm64/')
    curl -fsSLO "https://github.com/danushkastanley/KubeMemLens/releases/download/v${VERSION}/kube-memlens_${VERSION}_${OS}_${ARCH}.tar.gz"
@@ -75,7 +75,7 @@ cache, tmpfs/shared memory and other, so you can tell a real leak from cache.
    ```sh
    helm upgrade --install kube-memlens \
      oci://ghcr.io/danushkastanley/charts/kube-memlens \
-     --version 1.0.5 \
+     --version 1.0.6 \
      --namespace kube-memlens \
      --create-namespace
    ```
